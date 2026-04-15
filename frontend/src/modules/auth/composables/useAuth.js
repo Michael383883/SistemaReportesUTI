@@ -3,13 +3,18 @@ import { useRouter, useRoute } from 'vue-router'
 
 export function useAuth() {
   const authStore = useAuthStore()
-  const router    = useRouter()
-  const route     = useRoute()
+  const router = useRouter()
+  const route = useRoute()
 
   async function login(credentials) {
     await authStore.login(credentials)
-    const redirect = route.query?.redirect ?? '/dashboard'
-    router.push(String(redirect))
+    const redirect = route.query?.redirect
+    // Validación: solo permitir rutas internas seguras
+    if (typeof redirect === 'string' && redirect.startsWith('/')) {
+      router.push(redirect)
+    } else {
+      router.push('/dashboard')
+    }
   }
 
   async function logout() {
@@ -18,15 +23,15 @@ export function useAuth() {
   }
 
   return {
-    user:            authStore.user,
+    user: authStore.user,
     isAuthenticated: authStore.isAuthenticated,
-    isAdmin:         authStore.isAdmin,
-    isSecretaria:    authStore.isSecretaria,
-    isUTI:           authStore.isUTI,
-    userRole:        authStore.userRole,
-    loading:         authStore.loading,
-    error:           authStore.error,
-    clearError:      authStore.clearError,
+    isAdmin: authStore.isAdmin,
+    isSecretaria: authStore.isSecretaria,
+    isUTI: authStore.isUTI,
+    userRole: authStore.userRole,
+    loading: authStore.loading,
+    error: authStore.error,
+    clearError: authStore.clearError,
     login,
     logout,
   }

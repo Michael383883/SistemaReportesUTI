@@ -6,7 +6,6 @@
       class="flex items-center justify-between shrink-0 z-10"
       style="height:52px; background:#081F33; padding:0 20px;"
     >
-      <!-- Logo + nombre -->
       <div class="flex items-center gap-3">
         <div
           class="flex flex-col items-center justify-center rounded-full shrink-0"
@@ -20,10 +19,8 @@
         </span>
       </div>
 
-      <!-- Usuario + logout -->
       <div class="flex items-center gap-3">
         <div class="flex items-center gap-2">
-          <!-- Avatar iniciales -->
           <div
             class="flex items-center justify-center rounded-full shrink-0"
             style="width:30px; height:30px; background:#D28B45; color:#fff; font-size:11px; font-weight:500;"
@@ -36,7 +33,6 @@
           </div>
         </div>
 
-        <!-- Botón logout icono -->
         <button
           @click="handleLogout"
           title="Cerrar sesión"
@@ -58,23 +54,35 @@
         class="flex flex-col overflow-y-auto shrink-0"
         style="width:160px; background:#081F33; padding:16px 0;"
       >
-        <template v-for="section in filteredMenu" :key="section.label">
-          <p style="padding:0 16px; font-size:9px; color:rgba(255,255,255,0.3); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:4px; margin-top:12px;">
-            {{ section.label }}
-          </p>
-          <router-link
-            v-for="item in section.items"
-            :key="item.to"
-            :to="item.to"
-            class="flex items-center gap-2 transition-all"
-            style="padding:9px 16px; font-size:12px; color:rgba(255,255,255,0.6); border-left:3px solid transparent; text-decoration:none;"
-            active-class="sidebar-active"
-            @mouseover="e => { if (!e.currentTarget.classList.contains('router-link-active')) e.currentTarget.style.color='rgba(255,255,255,1)' }"
-            @mouseleave="e => { if (!e.currentTarget.classList.contains('router-link-active')) e.currentTarget.style.color='rgba(255,255,255,0.6)' }"
-          >
-            <component :is="item.icon" style="width:14px; height:14px; flex-shrink:0;" />
-            {{ item.label }}
-          </router-link>
+        <!-- Mientras carga el usuario -->
+        <template v-if="!authStore.user">
+          <div class="flex flex-col gap-2 px-4 mt-4">
+            <div v-for="n in 4" :key="n"
+              style="height:32px; background:rgba(255,255,255,0.06); border-radius:6px;"
+            />
+          </div>
+        </template>
+
+        <!-- Menú filtrado por rol -->
+        <template v-else>
+          <template v-for="section in filteredMenu" :key="section.label">
+            <p style="padding:0 16px; font-size:9px; color:rgba(255,255,255,0.3); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:4px; margin-top:12px;">
+              {{ section.label }}
+            </p>
+            <router-link
+              v-for="item in section.items"
+              :key="item.to"
+              :to="item.to"
+              class="flex items-center gap-2 transition-all"
+              style="padding:9px 16px; font-size:12px; color:rgba(255,255,255,0.6); border-left:3px solid transparent; text-decoration:none;"
+              active-class="sidebar-active"
+              @mouseover="e => { if (!e.currentTarget.classList.contains('router-link-active')) e.currentTarget.style.color='rgba(255,255,255,1)' }"
+              @mouseleave="e => { if (!e.currentTarget.classList.contains('router-link-active')) e.currentTarget.style.color='rgba(255,255,255,0.6)' }"
+            >
+              <component :is="item.icon" style="width:14px; height:14px; flex-shrink:0;" />
+              {{ item.label }}
+            </router-link>
+          </template>
         </template>
       </aside>
 
@@ -104,6 +112,7 @@ const notify    = useNotify()
 const initials  = computed(() => getInitials(authStore.user?.name ?? ''))
 const roleLabel = computed(() => getRoleLabel(authStore.userRole))
 
+// ✅ Cada sección declara qué roles pueden verla
 const menuSections = [
   {
     label: 'Principal',
@@ -117,7 +126,7 @@ const menuSections = [
   },
   {
     label: 'Admin',
-    roles: ['admin'],
+    roles: ['admin'], // ✅ Solo admin ve esta sección
     items: [
       { to: '/usuarios',  label: 'Usuarios',   icon: Users },
       { to: '/config-bd', label: 'Config. BD', icon: Database },
@@ -125,9 +134,11 @@ const menuSections = [
   },
 ]
 
-const filteredMenu = computed(() =>
-  menuSections.filter(s => s.roles.includes(authStore.userRole))
-)
+// Filtra secciones según el rol actual
+const filteredMenu = computed(() => {
+  if (!authStore.userRole) return []
+  return menuSections.filter(s => s.roles.includes(authStore.userRole))
+})
 
 async function handleLogout() {
   await authStore.logout()
@@ -137,7 +148,6 @@ async function handleLogout() {
 </script>
 
 <style>
-/* Sidebar link activo */
 .sidebar-active {
   color: #D28B45 !important;
   border-left-color: #D28B45 !important;

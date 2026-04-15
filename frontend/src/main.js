@@ -10,16 +10,38 @@
 
 
 //version2
+// import { createApp } from 'vue'
+// import { createPinia } from 'pinia'
+// import App from './App.vue'
+// import router from './router'
+// import './assets/main.css'
+// import './style.css'
+
+// const app = createApp(App)
+
+// app.use(createPinia())
+// app.use(router)
+
+// app.mount('#app')
+
+//version3
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import App from './App.vue'
 import router from './router'
-import './assets/main.css'
 import './style.css'
 
 const app = createApp(App)
+const pinia = createPinia()
 
-app.use(createPinia())
+app.use(pinia)
 app.use(router)
 
-app.mount('#app')
+// Restaurar sesión antes de montar la app
+import { useAuthStore } from '@/modules/auth/store/authStore'
+
+const authStore = useAuthStore()
+
+authStore.fetchMe().finally(() => {
+    app.mount('#app')
+})

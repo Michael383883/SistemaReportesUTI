@@ -2,13 +2,15 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { authService } from '../services/authService'
 
+
 export const useAuthStore = defineStore('auth', () => {
     const user = ref(null)
     const token = ref(localStorage.getItem('token') ?? null)
     const loading = ref(false)
     const error = ref(null)
 
-    const isAuthenticated = computed(() => !!token.value && !!user.value)
+    // const isAuthenticated = computed(() => !!token.value && !!user.value)
+    const isAuthenticated = computed(() => !!token.value)
     const userRole = computed(() => user.value?.role ?? null)
     const isAdmin = computed(() => userRole.value === 'admin')
     const isSecretaria = computed(() => userRole.value === 'secretaria')
@@ -22,6 +24,7 @@ export const useAuthStore = defineStore('auth', () => {
             token.value = data.token
             user.value = data.user
             localStorage.setItem('token', data.token)
+           // localStorage.setItem('userRole', data.user.role)
         } catch (err) {
             error.value = err.response?.data?.message ?? 'Credenciales incorrectas'
             throw err
@@ -37,6 +40,7 @@ export const useAuthStore = defineStore('auth', () => {
             user.value = null
             token.value = null
             localStorage.removeItem('token')
+           //localStorage.removeItem('userRole')
         }
     }
 
@@ -45,10 +49,12 @@ export const useAuthStore = defineStore('auth', () => {
         try {
             const data = await authService.me()
             user.value = data.user
+            localStorage.setItem('userRole', data.user.role)
         } catch {
             user.value = null
             token.value = null
             localStorage.removeItem('token')
+            //localStorage.removeItem('userRole')
         }
     }
 
