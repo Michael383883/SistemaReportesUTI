@@ -2,7 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { authRoutes } from '@/modules/auth/routes'
 import { usersRoutes } from '@/modules/users/routes'
 import { dashboardRoutes } from '@/modules/dashboard/routes'
-
+import { databaseRoutes } from '@/modules/database/routes'
 const routes = [
   // Públicas
   ...authRoutes,
@@ -15,6 +15,7 @@ const routes = [
       { path: '', redirect: '/dashboard' },
       ...dashboardRoutes,
       ...usersRoutes,
+      ...databaseRoutes,
     ],
   },
 

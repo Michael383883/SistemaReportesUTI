@@ -3,7 +3,7 @@
     <div class="mb-5">
       <h1 class="text-[16px] font-medium text-navy">Dashboard</h1>
       <p class="text-[11px] text-gray-400 mt-0.5">
-        Resumen general del sistema · Gestión 2025
+        Resumen general del sistema · Gestión I-2026
       </p>
     </div>
 
@@ -57,9 +57,9 @@
 import StatCard from '@/shared/components/ui/StatCard.vue'
 
 const recent = [
-  { doc: 'Resolución 045/2025', user: 'Ana Flores',   date: '08 abr 2025', status: 'Procesado' },
-  { doc: 'Resolución 044/2025', user: 'Luis Quispe',  date: '07 abr 2025', status: 'Pendiente'  },
-  { doc: 'Resolución 043/2025', user: 'Ana Flores',   date: '06 abr 2025', status: 'Procesado' },
-  { doc: 'Resolución 042/2025', user: 'Carlos M.',    date: '05 abr 2025', status: 'Procesado' },
+  { doc: 'Resolución 045/2026', user: 'Ana Flores',   date: '08 abr 2026', status: 'Procesado' },
+  { doc: 'Generacion de Reporte 044/2026', user: 'Luis Quispe',  date: '07 abr 2026', status: 'Pendiente'  },
+  { doc: 'Resolución 043/2026', user: 'Ana Flores',   date: '06 abr 2026', status: 'Procesado' },
+  { doc: 'Resolución 042/2026', user: 'Carlos M.',    date: '05 abr 2026', status: 'Procesado' },
 ]
 </script>

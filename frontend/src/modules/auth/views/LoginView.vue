@@ -66,26 +66,60 @@
         </div>
 
         <!-- Password -->
-        <div class="mb-5">
-          <label class="block text-[11px] text-gray-500 font-medium mb-1">
-            Contraseña
-          </label>
+<div class="mb-5">
+  <label class="block text-[11px] text-gray-500 font-medium mb-1">
+    Contraseña
+  </label>
 
-          <input
-            v-model="form.password"
-            type="password"
-            placeholder="••••••••"
-            autocomplete="current-password"
-            @input="authStore.clearError()"
-            class="w-full px-3 py-2 rounded-lg border text-sm bg-gray-50 outline-none transition
-              focus:bg-white focus:border-[#081F33]"
-            :class="errors.password ? 'border-red-400' : 'border-gray-200'"
-          />
+  <div class="relative">
+    <input
+      v-model="form.password"
+      :type="showPassword ? 'text' : 'password'"
+      placeholder="••••••••"
+      autocomplete="current-password"
+      @input="authStore.clearError()"
+      class="w-full px-3 py-2 pr-10 rounded-lg border text-sm bg-gray-50 outline-none transition
+        focus:bg-white focus:border-[#081F33]"
+      :class="errors.password ? 'border-red-400' : 'border-gray-200'"
+    />
 
-          <p v-if="errors.password" class="text-[10px] text-red-500 mt-1">
-            {{ errors.password }}
-          </p>
-        </div>
+    <!-- Botón ojo -->
+    <button
+      type="button"
+      @click="showPassword = !showPassword"
+      class="absolute inset-y-0 right-2 flex items-center text-gray-500 hover:text-gray-700"
+    >
+      <!-- Ojo abierto -->
+      <svg v-if="!showPassword" xmlns="http://www.w3.org/2000/svg"
+        class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+          d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+          d="M2.458 12C3.732 7.943 7.523 5 12 5
+             c4.477 0 8.268 2.943 9.542 7
+             -1.274 4.057-5.065 7-9.542 7
+             -4.477 0-8.268-2.943-9.542-7z"/>
+      </svg>
+
+      <!-- Ojo cerrado -->
+      <svg v-else xmlns="http://www.w3.org/2000/svg"
+        class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+          d="M13.875 18.825A10.05 10.05 0 0112 19
+             c-4.478 0-8.27-2.943-9.543-7
+             a9.956 9.956 0 012.042-3.368M6.18 6.18
+             A9.956 9.956 0 0112 5c4.478 0 8.27 2.943
+             9.543 7a9.956 9.956 0 01-4.132 5.411M15 12
+             a3 3 0 11-6 0 3 3 0 016 0zm6 6L3 3"/>
+      </svg>
+    </button>
+  </div>
+
+  <p v-if="errors.password" class="text-[10px] text-red-500 mt-1">
+    {{ errors.password }}
+  </p>
+</div>
+      
 
         <!-- Botón -->
         <button
@@ -112,7 +146,7 @@
           Secretaría
         </span>
         <span class="text-[10px] px-3 py-1 rounded-full bg-red-50 text-red-700 font-medium">
-          UTI
+          uti
         </span>
       </div>
 
@@ -121,13 +155,14 @@
 </template>
 
 <script setup>
-import { reactive } from 'vue'
+import { reactive, ref } from 'vue'
 import { useAuthStore } from '../store/authStore'
 import { useAuth } from '../composables/useAuth'
 import { AlertCircle, Loader2 } from 'lucide-vue-next'
 
 const authStore = useAuthStore()
 const { login } = useAuth()
+const showPassword = ref(false)
 
 const form = reactive({
   email: '',
