@@ -4,6 +4,8 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\DatabaseController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\DocenteController;
+
 
 // Auth (público)
 Route::prefix('auth')->group(function () {
@@ -23,6 +25,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('role:admin')->group(function () {
         Route::apiResource('users', UserController::class);
     });
+
+
 });
 
 //dbconection
@@ -31,3 +35,7 @@ Route::prefix('database')->group(function () {
     Route::post('migrate', [DatabaseController::class, 'migrate']);
 });
 
+
+
+// DOCENTES (puedes proteger o no)
+Route::apiResource('docentes', DocenteController::class);

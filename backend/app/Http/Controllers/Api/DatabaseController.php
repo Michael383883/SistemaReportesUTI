@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
-
+use Illuminate\Http\Request;
 class DatabaseController extends Controller
 {
     /**
@@ -22,38 +22,75 @@ class DatabaseController extends Controller
     /**
      * POST /api/database/migrate
      */
-    public function migrate(): JsonResponse
+    public function migrate(Request $request): JsonResponse
     {
-        // Verificar conexión SQL Server
-        $sqlStatus = $this->checkConnection('sqlsrv2');
+        $migraciones = $request->input('migraciones');
 
-        if (!$sqlStatus['connected']) {
+        if (!$migraciones || !is_array($migraciones)) {
             return response()->json([
                 'success' => false,
-                'message' => 'SQL Server no tiene conexión activa.'
-            ], 422);
+                'message' => 'Debes enviar un arreglo de migraciones'
+            ], 400);
         }
 
-        try {
-            // 🔁 EJEMPLO REAL DE MIGRACIÓN
-            $rows = DB::connection('sqlsrv2')->table('tu_tabla')->get();
+        $resultados = [];
 
-            DB::connection('pgsql')->table('tu_tabla')->insert(
-                $rows->map(fn($item) => (array) $item)->toArray()
-            );
+        foreach ($migraciones as $migracion) {
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Migración completada exitosamente.'
-            ]);
-        } catch (\Throwable $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Error durante la migración: ' . $e->getMessage()
-            ], 500);
+            $origen = $migracion['origen'] ?? null;
+            $destino = $migracion['destino'] ?? null;
+
+            if (!$origen || !$destino) {
+                $resultados[] = [
+                    'tabla' => $origen,
+                    'status' => 'error',
+                    'mensaje' => 'Faltan datos (origen/destino)'
+                ];
+                continue;
+            }
+
+            try {
+                $rows = DB::connection('sqlsrv2')
+                    ->table($origen)
+                    ->get();
+
+                foreach ($rows as $row) {
+                    DB::connection('pgsql')
+                        ->table($destino)
+                        ->updateOrInsert(
+                            ['codigo' => $row->CODIGO ?? null], // clave base
+                            [
+                                'ci' => $row->CI ?? null,
+                                'nombres' => $row->NOMBRES ?? null,
+                                'apellidos' => $row->APELLIDOS ?? null,
+                                'fecha_nac' => $row->FECHA_NAC ?? null,
+                                'sexo' => $row->SEXO ?? null,
+                                'titulo' => $row->TITULO ?? null,
+                                'fecha_nombramiento' => $row->FECHA_NOMBRAMIENTO ?? null,
+                            ]
+                        );
+                }
+
+                $resultados[] = [
+                    'tabla' => $origen,
+                    'status' => 'ok',
+                    'filas' => count($rows)
+                ];
+
+            } catch (\Throwable $e) {
+                $resultados[] = [
+                    'tabla' => $origen,
+                    'status' => 'error',
+                    'mensaje' => $e->getMessage()
+                ];
+            }
         }
+
+        return response()->json([
+            'success' => true,
+            'resultados' => $resultados
+        ]);
     }
-
     // ─── Helper ─────────────────────────────────────────────
 
     private function checkConnection(string $connection): array
