@@ -97,6 +97,7 @@
 <script setup>
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
+
 import { useAuthStore } from '@/modules/auth/store/authStore'
 import { getRoleLabel, getInitials } from '@/shared/utils/helpers'
 import { useNotify } from '@/shared/composables/useNotify'
@@ -126,7 +127,7 @@ const menuSections = [
   },
   {
     label: 'Admin',
-    roles: ['admin'], // ✅ Solo admin ve esta sección
+    roles: ['admin'], // Solo admin ve esta sección
     items: [
       { to: '/usuarios',  label: 'Usuarios',   icon: Users },
       { to: '/config-bd', label: 'Config. BD', icon: Database },

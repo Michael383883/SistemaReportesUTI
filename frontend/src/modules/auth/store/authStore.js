@@ -24,7 +24,6 @@ export const useAuthStore = defineStore('auth', () => {
             token.value = data.token
             user.value = data.user
             localStorage.setItem('token', data.token)
-           // localStorage.setItem('userRole', data.user.role)
         } catch (err) {
             error.value = err.response?.data?.message ?? 'Credenciales incorrectas'
             throw err
@@ -40,7 +39,7 @@ export const useAuthStore = defineStore('auth', () => {
             user.value = null
             token.value = null
             localStorage.removeItem('token')
-           //localStorage.removeItem('userRole')
+
         }
     }
 
@@ -49,12 +48,11 @@ export const useAuthStore = defineStore('auth', () => {
         try {
             const data = await authService.me()
             user.value = data.user
-            localStorage.setItem('userRole', data.user.role)
         } catch {
             user.value = null
             token.value = null
             localStorage.removeItem('token')
-            //localStorage.removeItem('userRole')
+
         }
     }
 

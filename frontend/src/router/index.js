@@ -71,7 +71,7 @@ import { usersRoutes } from '@/modules/users/routes'
 import { dashboardRoutes } from '@/modules/dashboard/routes'
 import { databaseRoutes } from '@/modules/database/routes'
 import { useAuthStore } from '@/modules/auth/store/authStore'
-
+import { docentesRoutes } from '@/modules/docentes/routes'
 const routes = [
   ...authRoutes,
   {
@@ -83,6 +83,7 @@ const routes = [
       ...dashboardRoutes,
       ...usersRoutes,
       ...databaseRoutes,
+      ...docentesRoutes,
     ],
   },
   { path: '/:pathMatch(.*)*', redirect: '/dashboard' },
@@ -109,7 +110,7 @@ router.beforeEach((to, _from, next) => {
   }
 
   if (requiredRoles?.length > 0) {
-    // ✅ Se llama aquí dentro, cuando Pinia ya está activa
+    //  Se llama aquí dentro, cuando Pinia ya está activa
     const authStore = useAuthStore()
     const userRole = authStore.userRole
 
