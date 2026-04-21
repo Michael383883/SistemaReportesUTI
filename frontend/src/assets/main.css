@@ -1,0 +1,66 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  html,
+  body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    font-family: Arial, sans-serif;
+    font-size: 12px;
+    color: #374151;
+  }
+
+  #app {
+    height: 100%;
+  }
+}
+
+/* Tokens de color globales como CSS variables */
+:root {
+  --color-navy: #081F33;
+  --color-navy-dark: #051828;
+  --color-gold: #D28B45;
+  --color-gold-dark: #B07030;
+  --color-red: #E30613;
+}
+
+/* Clases utilitarias manuales para asegurar que Tailwind las incluya */
+@layer utilities {
+  .bg-navy {
+    background-color: #081F33 !important;
+  }
+
+  .bg-navy-dark {
+    background-color: #051828 !important;
+  }
+
+  .bg-gold {
+    background-color: #D28B45 !important;
+  }
+
+  .text-navy {
+    color: #081F33 !important;
+  }
+
+  .text-gold {
+    color: #D28B45 !important;
+  }
+
+  .border-gold {
+    border-color: #D28B45 !important;
+  }
+
+  .border-navy {
+    border-color: #081F33 !important;
+  }
+}

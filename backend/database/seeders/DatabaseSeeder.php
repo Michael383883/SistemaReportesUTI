@@ -3,23 +3,44 @@
 namespace Database\Seeders;
 
 use App\Models\User;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
 
 class DatabaseSeeder extends Seeder
 {
-    use WithoutModelEvents;
-
-    /**
-     * Seed the application's database.
-     */
     public function run(): void
     {
-        // User::factory(10)->create();
+        // Admin inicial del sistema
+        User::firstOrCreate(
+            ['email' => 'admin@umss.edu'],
+            [
+                'name' => 'Administrador UTI',
+                'password' => Hash::make('Admin1234!'),
+                'role' => 'admin',
+                'active' => true,
+            ]
+        );
 
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
-        ]);
+        // Usuario Secretaría de prueba
+        User::firstOrCreate(
+            ['email' => 'secretaria@umss.edu'],
+            [
+                'name' => 'Secretaría FCE',
+                'password' => Hash::make('Secret1234!'),
+                'role' => 'secretaria',
+                'active' => true,
+            ]
+        );
+
+        // Usuario UTI de prueba
+        User::firstOrCreate(
+            ['email' => 'uti@umss.edu'],
+            [
+                'name' => 'Técnico UTI',
+                'password' => Hash::make('Uti12345!'),
+                'role' => 'uti',
+                'active' => true,
+            ]
+        );
     }
 }
