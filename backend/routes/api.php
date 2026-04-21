@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\DatabaseController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\DocenteController;
+use App\Http\Controllers\Api\ReporteDocenteController;
 
 
 // Auth (público)
@@ -35,7 +36,8 @@ Route::prefix('database')->group(function () {
     Route::post('migrate', [DatabaseController::class, 'migrate']);
 });
 
-
+//reporte
+Route::post('/reporte-docente', [ReporteDocenteController::class, 'materiasDictadas']);
 
 // DOCENTES (puedes proteger o no)
 Route::apiResource('docentes', DocenteController::class);
