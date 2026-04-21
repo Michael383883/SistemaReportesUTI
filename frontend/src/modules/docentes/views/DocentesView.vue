@@ -4,7 +4,7 @@
     <!-- Header -->
     <div class="flex items-start justify-between mb-7">
       <div>
-        <h1 class="text-2xl font-bold text-black-100 tracking-tight m-0 mb-1">Docentes</h1>
+        <h1 class="text-2xl font-bold text-slate-100 tracking-tight m-0 mb-1">Docentes</h1>
         <p class="text-xs text-slate-400 m-0">Búsqueda y consulta de docentes registrados</p>
       </div>
       <div class="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-500/10 border border-indigo-500/20 rounded-full text-xs text-indigo-400 font-medium">
@@ -97,16 +97,40 @@
             </div>
           </div>
 
-          <!-- Close button -->
-          <button
-            class="bg-transparent border-none cursor-pointer text-slate-400 p-1.5 rounded-lg flex items-center self-start hover:text-slate-100 hover:bg-white/10 transition-colors"
-            title="Cerrar"
-            @click="clearSelection"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-            </svg>
-          </button>
+          <!-- Acciones -->
+          <div class="flex items-center gap-2 self-start">
+            <!-- ✅ BOTÓN GENERAR REPORTE -->
+            <button
+              class="
+                inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold
+                bg-amber-500 hover:bg-amber-400 active:bg-amber-600
+                text-slate-900 transition-all duration-150 cursor-pointer border-none
+                shadow-lg shadow-amber-500/20
+              "
+              title="Generar reporte de materias dictadas"
+              @click="irAlReporte"
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+                <line x1="16" y1="13" x2="8" y2="13"/>
+                <line x1="16" y1="17" x2="8" y2="17"/>
+                <polyline points="10 9 9 9 8 9"/>
+              </svg>
+              Generar reporte
+            </button>
+
+            <!-- Cerrar -->
+            <button
+              class="bg-transparent border-none cursor-pointer text-slate-400 p-1.5 rounded-lg flex items-center hover:text-slate-100 hover:bg-white/10 transition-colors"
+              title="Cerrar"
+              @click="clearSelection"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+          </div>
         </div>
       </div>
     </Transition>
@@ -139,8 +163,11 @@
 
 <script setup>
 import { onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import DocenteSearch from '../components/DocenteSearch.vue'
 import { useDocentes } from '../composables/useDocentes'
+
+const router = useRouter()
 
 const {
   docentes,
@@ -156,6 +183,15 @@ const {
 } = useDocentes()
 
 const initials = (d) => ((d.nombres?.[0] || '') + (d.apellidos?.[0] || '')).toUpperCase() || '?'
+
+// ✅ Redirige a la vista de reporte pasando el código del docente
+const irAlReporte = () => {
+  if (!selectedDocente.value) return
+  router.push({
+    name: 'reporte',
+    query: { codigo: selectedDocente.value.codigo }
+  })
+}
 
 onMounted(() => fetchDocentes())
 </script>
