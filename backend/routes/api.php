@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\DocenteController;
 use App\Http\Controllers\Api\ReporteDocenteController;
 
 
+
 // Auth (público)
 Route::prefix('auth')->group(function () {
     Route::post('login', [AuthController::class, 'login']);
@@ -41,3 +42,18 @@ Route::post('/reporte-docente', [ReporteDocenteController::class, 'materiasDicta
 
 // DOCENTES (puedes proteger o no)
 Route::apiResource('docentes', DocenteController::class);
+
+// routes/api.php
+Route::post('/database/incremental-migrate', [DatabaseController::class, 'incrementalMigrate']);
+
+
+
+// Route::prefix('resoluciones')->group(function () {
+//     Route::post('/procesar', [ResolucionController::class, 'procesar']);
+//     Route::post('/guardar', [ResolucionController::class, 'guardar']);
+//     Route::get('/', [ResolucionController::class, 'index']);
+//     Route::get('/{resolucion}', [ResolucionController::class, 'show']);
+// });
+// Route::post('/resoluciones/debug', [ResolucionController::class, 'debug']);
+
+// Route::post('/leer-pdf', [PdfController::class, 'leerPdf']);

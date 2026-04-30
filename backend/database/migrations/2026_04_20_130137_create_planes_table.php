@@ -11,7 +11,7 @@ return new class extends Migration {
     public function up(): void
     {
         Schema::create('planes', function (Blueprint $table) {
-            $table->decimal('anio', 10, 0);
+            $table->integer('anio');
             $table->string('codigo', 6);
             $table->string('nombre', 192)->nullable();
 

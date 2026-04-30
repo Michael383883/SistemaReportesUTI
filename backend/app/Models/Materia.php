@@ -8,9 +8,8 @@ class Materia extends Model
 {
     protected $table = 'materias';
     public $timestamps = false;
-    public $incrementing = false; // ← sin autoincrement
-    protected $primaryKey = null; // ← sin PK simple
-
+    public $incrementing = false; 
+ 
     protected $fillable = [
         'anio',
         'plan',
