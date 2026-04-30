@@ -1,84 +1,81 @@
 // composables/useGenerarPDF.js
-// Genera un PDF de impresión oficial estilo UMSS – Materias dictadas de un docente
+// Genera un PDF oficial estilo UMSS – Materias dictadas de un docente
+// Orientación: PORTRAIT (vertical) – Letter 216 × 279 mm
 // Dependencias: jspdf  +  jspdf-autotable
 //   npm install jspdf jspdf-autotable
 
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
 
-/**
- * Formatea una gestión para que sea legible en el PDF.
- * Ejemplos: "2021/4 - Invierno", "2024/1"
- */
 function formatGestion(g) {
     return g || ''
 }
 
-/**
- * Genera y abre/descarga el PDF del reporte docente.
- * @param {Object} reporte  - objeto devuelto por la API (misma forma que reporte.value)
- * @param {Object} [opts]
- * @param {'open'|'save'|'print'} [opts.action='open']  - qué hacer con el PDF
- */
 export function generarPDF(reporte, opts = {}) {
     const { action = 'open' } = opts
 
-    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'letter' })
+    // ── PORTRAIT Letter (216 × 279 mm) ──────────────────────────────────────────
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' })
 
-    // ── Fuentes y constantes ─────────────────────────────────────────────────────
-    const PAGE_W = doc.internal.pageSize.getWidth()   // ~279 mm (letter landscape)
-    const MARGIN_L = 14
-    const MARGIN_R = 14
-    const COL_WIDTH = PAGE_W - MARGIN_L - MARGIN_R
+    const PAGE_W = doc.internal.pageSize.getWidth()   // ~215.9 mm
+    const PAGE_H = doc.internal.pageSize.getHeight()  // ~279.4 mm
+    const MARGIN_L = 12
+    const MARGIN_R = 12
+    const CONTENT_W = PAGE_W - MARGIN_L - MARGIN_R    // ~191.9 mm útiles
 
-    // Colores
     const COLOR_BLACK = [0, 0, 0]
-    const COLOR_GRAY_BG = [235, 235, 235]   // cabecera de tabla
-    const COLOR_GRAY_LN = [200, 200, 200]   // líneas
+    const COLOR_GRAY_BG = [218, 218, 218]
+    const COLOR_GRAY_LN = [170, 170, 170]
+    const COLOR_ALT_ROW = [246, 246, 246]
 
-    // ── Encabezado institucional ─────────────────────────────────────────────────
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(9)
-    doc.setTextColor(...COLOR_BLACK)
+    // ════════════════════════════════════════════════════════════════════════════
+    // Encabezado institucional — se repite en cada página
+    // ════════════════════════════════════════════════════════════════════════════
+    function drawHeader() {
+        // ── Institución izquierda ────────────────────────────────────────────────
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(7.5)
+        doc.setTextColor(...COLOR_BLACK)
+        doc.text('UNIVERSIDAD MAYOR DE SAN SIMON', MARGIN_L, 10)
+        doc.text('FACULTAD DE CIENCIAS ECONOMICAS', MARGIN_L, 14)
 
-    doc.text('UNIVERSIDAD MAYOR DE SAN SIMON', MARGIN_L, 14)
-    doc.text('FACULTAD DE CIENCIAS ECONOMICAS', MARGIN_L, 18.5)
+        // ── Título centrado (mismo bloque vertical) ──────────────────────────────
+        doc.setFontSize(11)
+        doc.text('MATERIAS DICTADAS DE UN DOCENTE', PAGE_W / 2, 12, { align: 'center' })
 
-    // Título centrado
-    doc.setFontSize(13)
-    doc.setFont('helvetica', 'bold')
-    doc.text('MATERIAS DICTADAS DE UN DOCENTE', PAGE_W / 2, 16.5, { align: 'center' })
+        // ── Línea divisoria ──────────────────────────────────────────────────────
+        doc.setDrawColor(...COLOR_GRAY_LN)
+        doc.setLineWidth(0.3)
+        doc.line(MARGIN_L, 17, PAGE_W - MARGIN_R, 17)
 
-    // Línea divisoria
-    doc.setDrawColor(...COLOR_GRAY_LN)
-    doc.setLineWidth(0.3)
-    doc.line(MARGIN_L, 21, PAGE_W - MARGIN_R, 21)
+        // ── Descripción (6.5 pt) ─────────────────────────────────────────────────
+        doc.setFont('helvetica', 'normal')
+        doc.setFontSize(6.5)
+        doc.setTextColor(40, 40, 40)
+        const descripcion =
+            'Datos Históricos pertenecientes a la Facultad de Ciencias Económicas registrados en el SISS ' +
+            'a partir de la gestión 2001. El reporte también detalla los grupos compartidos solo para los ' +
+            'cursos Intersemestrales de Verano e Invierno.'
+        const descLines = doc.splitTextToSize(descripcion, CONTENT_W)
+        doc.text(descLines, MARGIN_L, 21)
 
-    // Descripción
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(7.5)
-    doc.setTextColor(60, 60, 60)
-    const descripcion =
-        'Datos Históricos pertenecientes a la Facultad de Ciencias Económicas registrados en el SISS ' +
-        'a partir de la gestión 2001. El reporte también detalla los grupos compartidos solo para los ' +
-        'cursos Intersemestrales de Verano e Invierno.'
-    const descLines = doc.splitTextToSize(descripcion, COL_WIDTH)
-    doc.text(descLines, MARGIN_L, 26)
+        // ── Nombre del docente ───────────────────────────────────────────────────
+        const docenteY = 21 + descLines.length * 3.0 + 3
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(8)
+        doc.setTextColor(...COLOR_BLACK)
+        const codigoDoc = reporte.docente?.codigo || ''
+        const nombreDoc = reporte.docente?.nombre || ''
+        doc.text(`DOCENTE : (${codigoDoc}) - ${nombreDoc}`, MARGIN_L, docenteY)
 
-    // ── Datos del docente ────────────────────────────────────────────────────────
-    let cursorY = 26 + descLines.length * 3.8 + 3
+        return docenteY + 3
+    }
 
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(9.5)
-    doc.setTextColor(...COLOR_BLACK)
+    const startY = drawHeader()
 
-    const codigoDoc = reporte.docente?.codigo || ''
-    const nombreDoc = reporte.docente?.nombre || ''
-    doc.text(`DOCENTE : (${codigoDoc}) - ${nombreDoc}`, MARGIN_L, cursorY)
-
-    cursorY += 5
-
-    // ── Tabla de materias ────────────────────────────────────────────────────────
+    // ── Columnas ──────────────────────────────────────────────────────────────────
+    // Ancho útil portrait ~191.9 mm
+    // Distribución (mm): 6 + 22 + 8 + 52 + 20 + 8 + 22 + auto(~53.9) = ~191.9
     const columnas = [
         { header: 'Nº', dataKey: 'nro' },
         { header: 'GESTIÓN', dataKey: 'gestion' },
@@ -101,84 +98,105 @@ export function generarPDF(reporte, opts = {}) {
         designacion: m.designacion || '',
     }))
 
+    // ── Tabla ─────────────────────────────────────────────────────────────────────
     autoTable(doc, {
-        startY: cursorY,
+        startY,
         margin: { left: MARGIN_L, right: MARGIN_R },
+        tableWidth: CONTENT_W,
         head: [columnas.map((c) => c.header)],
         body: filas.map((f) => columnas.map((c) => f[c.dataKey])),
 
-        // ── Estilos generales ──
         styles: {
             font: 'helvetica',
-            fontSize: 8,
-            cellPadding: { top: 2, bottom: 2, left: 3, right: 3 },
+            fontSize: 6.2,                          // ← reducido
+            cellPadding: { top: 1.2, bottom: 1.2, left: 1.5, right: 1.5 },
             textColor: COLOR_BLACK,
             lineColor: COLOR_GRAY_LN,
             lineWidth: 0.2,
             overflow: 'linebreak',
-            valign: 'top',
+            valign: 'middle',
         },
 
-        // ── Cabecera ──
         headStyles: {
             fillColor: COLOR_GRAY_BG,
             textColor: COLOR_BLACK,
             fontStyle: 'bold',
-            fontSize: 7.5,
+            fontSize: 6.2,                           // ← reducido
             halign: 'center',
+            valign: 'middle',
+            lineColor: [130, 130, 130],
+            lineWidth: 0.3,
         },
 
-        // ── Filas alternadas ──
         alternateRowStyles: {
-            fillColor: [248, 248, 248],
+            fillColor: COLOR_ALT_ROW,
         },
 
-        // ── Anchos de columna (mm) ──
         columnStyles: {
-            0: { cellWidth: 9, halign: 'center' },   // Nº
-            1: { cellWidth: 32 },                       // Gestión
-            2: { cellWidth: 14, halign: 'center' },    // Plan
-            3: { cellWidth: 55 },                       // Materia
-            4: { cellWidth: 24, halign: 'center' },    // Compartido
-            5: { cellWidth: 12, halign: 'center' },    // GRP
-            6: { cellWidth: 28 },                       // Resolución
-            7: { cellWidth: 'auto' },                   // Designación (resto)
+            0: { cellWidth: 6, halign: 'center' },  // Nº
+            1: { cellWidth: 22 },  // Gestión  — "2021/4 - Invierno" 1 línea
+            2: { cellWidth: 8, halign: 'center' },  // Plan     — ajusta "ADM/COM/FIN"
+            3: { cellWidth: 52 },  // Materia  — texto largo
+            4: { cellWidth: 20, halign: 'center' },  // Compartido
+            5: { cellWidth: 8, halign: 'center' },  // GRP
+            6: { cellWidth: 22 },  // Resolución
+            7: { cellWidth: 'auto' },  // Designación (~53.9 mm)
         },
 
-        // ── Estilo por celda (compartido en violeta suave) ──
         didParseCell(data) {
-            if (data.section === 'body' && data.column.index === 4 && data.cell.raw === 'COMPARTIDO') {
-                data.cell.styles.textColor = [90, 60, 180]
+            // COMPARTIDO en negrita
+            if (
+                data.section === 'body' &&
+                data.column.index === 4 &&
+                data.cell.raw === 'COMPARTIDO'
+            ) {
+                data.cell.styles.textColor = COLOR_BLACK
                 data.cell.styles.fontStyle = 'bold'
+                data.cell.styles.fontSize = 5.8
+            }
+            // Materia y Designación: fuente ligeramente más pequeña para acomodar texto
+            if (data.section === 'body' && (data.column.index === 3 || data.column.index === 7)) {
+                data.cell.styles.fontSize = 6.0
             }
         },
 
-        // ── Pie de página con número de página ──
-        didDrawPage(data) {
+        didAddPage() {
+            drawHeader()
+        },
+
+        didDrawPage() {
             const pageCount = doc.internal.getNumberOfPages()
             const pageNum = doc.internal.getCurrentPageInfo().pageNumber
+            const footerY = PAGE_H - 5
+
+            // Línea sobre pie
+            doc.setDrawColor(...COLOR_GRAY_LN)
+            doc.setLineWidth(0.2)
+            doc.line(MARGIN_L, footerY - 3.5, PAGE_W - MARGIN_R, footerY - 3.5)
+
             doc.setFont('helvetica', 'normal')
-            doc.setFontSize(7)
-            doc.setTextColor(120, 120, 120)
-            doc.text(
-                `Página ${pageNum} de ${pageCount}`,
-                PAGE_W / 2,
-                doc.internal.pageSize.getHeight() - 6,
-                { align: 'center' }
-            )
-            // Fecha de impresión
-            const ahora = new Date().toLocaleString('es-BO', { dateStyle: 'short', timeStyle: 'short' })
-            doc.text(`Generado: ${ahora}`, PAGE_W - MARGIN_R, doc.internal.pageSize.getHeight() - 6, { align: 'right' })
+            doc.setFontSize(6)
+            doc.setTextColor(90, 90, 90)
+
+            doc.text('Procesado UTi - Facultad de Ciencias Económicas', MARGIN_L, footerY)
+            doc.text(`Página ${pageNum} de ${pageCount}`, PAGE_W / 2, footerY, { align: 'center' })
+
+            const ahora = new Date().toLocaleString('es-BO', {
+                dateStyle: 'short',
+                timeStyle: 'short',
+            })
+            doc.text(ahora, PAGE_W - MARGIN_R, footerY, { align: 'right' })
         },
     })
 
-    // ── Acción ──────────────────────────────────────────────────────────────────
-    const fileName = `reporte_docente_${codigoDoc || 'doc'}.pdf`
+    // ── Acción ────────────────────────────────────────────────────────────────────
+    const codigoDoc = reporte.docente?.codigo || 'doc'
+    const fileName = `reporte_docente_${codigoDoc}.pdf`
 
     if (action === 'save') {
         doc.save(fileName)
+
     } else if (action === 'print') {
-        // Abrir en nueva pestaña para que el navegador muestre el diálogo de impresión
         const blob = doc.output('blob')
         const url = URL.createObjectURL(blob)
         const iframe = document.createElement('iframe')
@@ -193,12 +211,11 @@ export function generarPDF(reporte, opts = {}) {
                 URL.revokeObjectURL(url)
             }, 2000)
         }
+
     } else {
-        // 'open' → abrir en nueva pestaña (el navegador ofrece imprimir / descargar)
         const blob = doc.output('blob')
         const url = URL.createObjectURL(blob)
         window.open(url, '_blank')
-        // Opcional: revocar después de un rato
         setTimeout(() => URL.revokeObjectURL(url), 60_000)
     }
 }

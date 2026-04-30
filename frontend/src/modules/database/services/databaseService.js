@@ -14,7 +14,7 @@ export const databaseService = {
         const payload = {
             migraciones: [
                 {
-                    origen: "PLANES",
+                    origen: "Docentes",
                     destino: "docentes"
                 }
             ]

@@ -120,7 +120,7 @@ const menuSections = [
     roles: ['admin', 'secretaria', 'uti'],
     items: [
       { to: '/dashboard',  label: 'Dashboard',  icon: LayoutDashboard },
-      { to: '/documentos', label: 'Documentos', icon: FileText },
+      { to: '/resoluciones', label: 'Documentos', icon: FileText },
       { to: '/docentes',   label: 'Docentes',   icon: Users },
       { to: '/reportes',   label: 'Reportes',   icon: BarChart2 },
     ],
