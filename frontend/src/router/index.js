@@ -76,6 +76,7 @@ import { docentesRoutes } from '@/modules/docentes/routes'
 import { reportesRoutes } from '@/modules/reportes/routes'
 import { resolucionesRoutes } from '@/modules/resoluciones/routes'
 
+
 const routes = [
   ...authRoutes,
   {

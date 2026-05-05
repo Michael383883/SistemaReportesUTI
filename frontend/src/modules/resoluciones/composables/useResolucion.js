@@ -1,189 +1,196 @@
 // composables/useResolucion.js
-import { ref, computed } from 'vue'
+import { ref } from 'vue'
 import axios from 'axios'
 
-const API_BASE = import.meta.env.VITE_API_URL || '/api'
+const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api'
+
+function authHeaders() {
+    const token = localStorage.getItem('token')
+    return token ? { Authorization: `Bearer ${token}` } : {}
+}
 
 export function useResolucion() {
-    // ── Estado ──────────────────────────────────────────────
-    const paso = ref(1) // 1: subir PDF | 2: formulario | 3: preview resultados
+    const loading = ref(false)
+    const error = ref('')
+    const resolucionId = ref(null)
+    const resolucionGuardada = ref(null)
+    const detallesGuardados = ref([])
 
-    // PDF
-    const archivo = ref(null)  // File object
-    const pdfUrl = ref(null)  // object URL para preview
-    const pdfNombre = ref('')
-
-    // Formulario
-    const numero = ref('')  // "RR Nº 034/2026"
-    const descripcion = ref('')  // "Del 27 febrero al 07 julio de 2026..."
-    const fecha = ref('')  // "2026-02-27"
-    const gestion = ref('')  // "I/2026"
-
-    // Resultados del backend
-    const resultado = ref(null)  // respuesta completa del endpoint /procesar
-
-    // UI
-    const cargando = ref(false)
-    const error = ref(null)
-    const mensajeOk = ref('')
-
-    // ── Computed ─────────────────────────────────────────────
-    const hayResultado = computed(() => resultado.value !== null)
-    const totalCarreras = computed(() => resultado.value?.data?.carreras?.length ?? 0)
-    const totalMaterias = computed(() =>
-        resultado.value?.data?.carreras?.reduce(
-            (acc, c) => acc + (c.materias?.length ?? 0), 0
-        ) ?? 0
-    )
-
-    // ── Validación PDF ────────────────────────────────────────
-    const MAX_MB = 5
-
-    function seleccionarPdf(file) {
-        error.value = null
-        if (!file) return false
-
-        if (file.type !== 'application/pdf') {
-            error.value = 'Solo se permiten archivos PDF.'
-            return false
-        }
-
-        const mb = file.size / 1024 / 1024
-        if (mb > MAX_MB) {
-            error.value = `El archivo supera el límite de ${MAX_MB} MB.`
-            return false
-        }
-
-        if (pdfUrl.value) URL.revokeObjectURL(pdfUrl.value)
-
-        archivo.value = file
-        pdfNombre.value = file.name
-        pdfUrl.value = URL.createObjectURL(file)
-        return true
-    }
-
-    function limpiarPdf() {
-        if (pdfUrl.value) URL.revokeObjectURL(pdfUrl.value)
-        archivo.value = null
-        pdfUrl.value = null
-        pdfNombre.value = ''
-    }
-
-    // ── Navegación entre pasos ────────────────────────────────
-    function irAPaso(n) { paso.value = n }
-
-    function siguientePaso() {
-        error.value = null
-        if (paso.value === 1) {
-            if (!archivo.value) { error.value = 'Selecciona un PDF primero.'; return }
-            paso.value = 2
-        } else if (paso.value === 2) {
-            if (!numero.value.trim()) { error.value = 'Ingresa el número de resolución.'; return }
-            if (!descripcion.value.trim()) { error.value = 'Ingresa una descripción.'; return }
-            procesarPdf()
-        }
-    }
-
-    function reiniciar() {
-        limpiarPdf()
-        numero.value = ''
-        descripcion.value = ''
-        fecha.value = ''
-        gestion.value = ''
-        resultado.value = null
-        error.value = null
-        mensajeOk.value = ''
-        cargando.value = false
-        paso.value = 1
-    }
-
-    // ── POST /procesar ────────────────────────────────────────
-    async function procesarPdf() {
-        cargando.value = true
-        error.value = null
+    // ─────────────────────────────────────────────────────────────
+    // 1. POST /api/resoluciones
+    // ─────────────────────────────────────────────────────────────
+    async function guardarResolucion({ numero, descripcion, anio, periodo, archivo }) {
+        loading.value = true
+        error.value = ''
 
         try {
             const form = new FormData()
-            form.append('pdf', archivo.value)
-            form.append('numero', numero.value.trim())
-            form.append('descripcion', descripcion.value.trim())
-            if (fecha.value) form.append('fecha', fecha.value)
-            if (gestion.value) form.append('gestion', gestion.value)
+
+            // Todos los campos como string — FormData siempre serializa a string,
+            // pero lo hacemos explícito para evitar problemas con null/undefined
+            form.append('nro_resolucion', String(numero).trim())
+            form.append('descripcion', String(descripcion ?? '').trim())
+            form.append('anio', String(anio))
+            form.append('periodo', String(periodo))       // "1" o "2"
+            form.append('subido_por', 'admin')               // nullable en backend
+
+            if (archivo) {
+                form.append('archivo_pdf', archivo)
+                form.append('nombre_archivo', archivo.name)
+                form.append('tamanio_kb', String(Math.round(archivo.size / 1024)))
+            }
+
+            // Log de depuración — quitar en producción
+            console.group('📤 POST /api/resoluciones')
+            for (const [key, val] of form.entries()) {
+                console.log(key, val instanceof File ? `File(${val.name}, ${val.size}B)` : val)
+            }
+            console.groupEnd()
 
             const { data } = await axios.post(
-                `${API_BASE}/api/resoluciones/procesar`,
+                `${API_BASE}/api/resoluciones`,
                 form,
-                { headers: { 'Content-Type': 'multipart/form-data' } }
+                {
+                    headers: {
+                        'Content-Type': 'multipart/form-data',
+                        ...authHeaders(),
+                    },
+                }
             )
 
-            if (!data.success) throw new Error(data.message ?? 'Error al procesar el PDF.')
+            // El controller devuelve { ok: true, id_resolucion: N }
+            if (!data.ok) throw new Error(data.error ?? 'Error al guardar la resolución.')
 
-            resultado.value = data  // guarda { success, pdf_path, data: { carreras }, meta }
-            paso.value = 3
+            resolucionId.value = data.id_resolucion
+            return data.id_resolucion
+
         } catch (e) {
-            console.error('procesarPdf error:', e)
-            console.error('response:', e.response?.data)
-            error.value = e.response?.data?.message ?? e.message ?? 'Error inesperado.'
+            // Muestra los errores de validación de Laravel si existen
+            const laravelErrors = e.response?.data?.errores
+            if (laravelErrors) {
+                const msgs = Object.values(laravelErrors).flat().join(' | ')
+                error.value = msgs
+            } else {
+                error.value = e.response?.data?.error
+                    ?? e.response?.data?.message
+                    ?? e.message
+                    ?? 'Error al guardar la resolución.'
+            }
+            console.error('❌ guardarResolucion:', e.response?.data ?? e.message)
+            throw e
         } finally {
-            cargando.value = false
+            loading.value = false
         }
     }
 
-    // ── POST /guardar ─────────────────────────────────────────
-    async function migrarResolucion() {
-        if (!hayResultado.value) return
-        cargando.value = true
-        error.value = null
-        mensajeOk.value = ''
+    // ─────────────────────────────────────────────────────────────
+    // 2. POST /api/resoluciones/{id}/detalles/bulk
+    // ─────────────────────────────────────────────────────────────
+    async function guardarDetalles(idResolucion, detalles) {
+        loading.value = true
+        error.value = ''
 
         try {
-            const { data } = await axios.post(`${API_BASE}/resoluciones/guardar`, {
-                numero: numero.value.trim(),
-                descripcion: descripcion.value.trim(),
-                fecha: fecha.value || null,
-                gestion: gestion.value || null,
-                pdf_path: resultado.value?.pdf_path ?? null,
-                data: {
-                    carreras: resultado.value?.data?.carreras ?? [],
-                },
-            })
+            const { data } = await axios.post(
+                `${API_BASE}/api/resoluciones/${idResolucion}/detalles/bulk`,
+                { detalles },
+                { headers: { ...authHeaders() } }
+            )
 
-            if (!data.success) throw new Error(data.message ?? 'Error al guardar.')
+            return data
 
-            mensajeOk.value = data.message ?? 'Resolución migrada correctamente.'
         } catch (e) {
-            error.value = e.response?.data?.message ?? e.message ?? 'Error al guardar.'
+            const laravelErrors = e.response?.data?.errors ?? e.response?.data?.errores
+            if (laravelErrors) {
+                error.value = Object.values(laravelErrors).flat().join(' | ')
+            } else {
+                error.value = e.response?.data?.message ?? e.message ?? 'Error al guardar los detalles.'
+            }
+            console.error('❌ guardarDetalles:', e.response?.data ?? e.message)
+            throw e
         } finally {
-            cargando.value = false
+            loading.value = false
         }
     }
 
-    // ── Exponer ───────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────
+    // 3. GET /api/resoluciones/{id}  +  GET /api/resoluciones/{id}/detalles
+    // ─────────────────────────────────────────────────────────────
+    async function cargarResolucionCompleta(idResolucion) {
+        loading.value = true
+        error.value = ''
+
+        try {
+            const [resRes, detRes] = await Promise.all([
+                axios.get(`${API_BASE}/api/resoluciones/${idResolucion}`, { headers: authHeaders() }),
+                axios.get(`${API_BASE}/api/resoluciones/${idResolucion}/detalles`, { headers: authHeaders() }),
+            ])
+
+            resolucionGuardada.value = resRes.data
+            detallesGuardados.value = detRes.data
+
+        } catch (e) {
+            error.value = e.response?.data?.message ?? e.message ?? 'Error al cargar la resolución.'
+            console.error('❌ cargarResolucionCompleta:', e.response?.data ?? e.message)
+            throw e
+        } finally {
+            loading.value = false
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // 4. Reset
+    // ─────────────────────────────────────────────────────────────
+    function reset() {
+        loading.value = false
+        error.value = ''
+        resolucionId.value = null
+        resolucionGuardada.value = null
+        detallesGuardados.value = []
+    }
+    // ─────────────────────────────────────────────────────────────
+    // 5. POST /api/resoluciones/{id}/aplicar-grupos
+    // ─────────────────────────────────────────────────────────────
+    async function aplicarEnGrupos(idResolucion) {
+        loading.value = true
+        error.value = ''
+
+        try {
+            const { data } = await axios.post(
+                `${API_BASE}/api/resoluciones/${idResolucion}/aplicar-grupos`,
+                {},
+                { headers: { ...authHeaders() } }
+            )
+
+            if (!data.ok) throw new Error(data.error ?? 'Error al aplicar en grupos.')
+
+            return data // { ok, filas_afectadas, grupos }
+
+        } catch (e) {
+            error.value = e.response?.data?.error
+                ?? e.response?.data?.message
+                ?? e.message
+                ?? 'Error al aplicar en grupos.'
+            console.error('❌ aplicarEnGrupos:', e.response?.data ?? e.message)
+            throw e
+        } finally {
+            loading.value = false
+        }
+    }
+
+    
+
+
     return {
-        // estado
-        paso,
-        archivo,
-        pdfUrl,
-        pdfNombre,
-        numero,
-        descripcion,
-        fecha,
-        gestion,
-        resultado,
-        cargando,
+        loading,
         error,
-        mensajeOk,
-        // computed
-        hayResultado,
-        totalCarreras,
-        totalMaterias,
-        // métodos
-        seleccionarPdf,
-        limpiarPdf,
-        irAPaso,
-        siguientePaso,
-        procesarPdf,
-        migrarResolucion,
-        reiniciar,
+        resolucionId,
+        resolucionGuardada,
+        detallesGuardados,
+        guardarResolucion,
+        guardarDetalles,
+        cargarResolucionCompleta,
+        reset,
+        aplicarEnGrupos,  
     }
 }

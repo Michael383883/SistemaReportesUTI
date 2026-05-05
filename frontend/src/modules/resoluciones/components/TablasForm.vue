@@ -499,8 +499,24 @@ function agregarFila() {
 
   if (!valid) return
 
+  // filas.value.push({
+  //   docente:      { ...filaActual.docente },
+  //   cod_plan:     filaActual.cod_plan.trim(),
+  //   cod_materia:  filaActual.cod_materia.trim(),
+  //   grupo:        filaActual.grupo.trim(),
+  //   tipo:         filaActual.tipo.trim(),
+  //   esCompartido: filaActual.esCompartido,
+  //   observacion:  filaActual.esCompartido ? 'COMPARTIDO' : null,
+  // })
   filas.value.push({
-    docente:      { ...filaActual.docente },
+    docente: {
+      ...filaActual.docente,
+      // Normaliza: asegura que cod_docente siempre exista
+      cod_docente: filaActual.docente.cod_docente
+                  ?? filaActual.docente.codigo
+                  ?? filaActual.docente.id_docente
+                  ?? filaActual.docente.id,
+    },
     cod_plan:     filaActual.cod_plan.trim(),
     cod_materia:  filaActual.cod_materia.trim(),
     grupo:        filaActual.grupo.trim(),
@@ -524,6 +540,7 @@ function eliminarFila(index) {
 
 // ─── Submit ───────────────────────────────────────────────────────
 function submitTablas() {
+  console.log('filas[0]:', JSON.stringify(filas.value[0], null, 2))  
   errorFilas.value = ''
 
   if (filas.value.length === 0) {
@@ -531,13 +548,21 @@ function submitTablas() {
     return
   }
 
+  // const payload = filas.value.map(f => ({
+  //   cod_docente: f.docente.cod_docente,
+  //   cod_plan:    f.cod_plan,
+  //   cod_materia: f.cod_materia,
+  //   grupo:       f.grupo       || null,
+  //   tipo:        f.tipo        || null,
+  //   observacion: f.observacion,
+  // }))
   const payload = filas.value.map(f => ({
-    cod_docente: f.docente.cod_docente,
+    cod_docente: Number(f.docente.cod_docente),  // decimal(10,0) necesita número
     cod_plan:    f.cod_plan,
     cod_materia: f.cod_materia,
     grupo:       f.grupo       || null,
     tipo:        f.tipo        || null,
-    observacion: f.observacion,
+    observacion: f.observacion || null,
   }))
 
   emit('submit', payload)
