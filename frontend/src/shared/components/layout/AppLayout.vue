@@ -113,16 +113,18 @@ const notify    = useNotify()
 const initials  = computed(() => getInitials(authStore.user?.name ?? ''))
 const roleLabel = computed(() => getRoleLabel(authStore.userRole))
 
-// ✅ Cada sección declara qué roles pueden verla
+//  Cada sección declara qué roles pueden verla
 const menuSections = [
   {
     label: 'Principal',
     roles: ['admin', 'secretaria', 'uti'],
     items: [
       { to: '/dashboard',  label: 'Dashboard',  icon: LayoutDashboard },
-      { to: '/documentos', label: 'Documentos', icon: FileText },
+      { to: '/resoluciones', label: 'Documentos', icon: FileText },
       { to: '/docentes',   label: 'Docentes',   icon: Users },
       { to: '/reportes',   label: 'Reportes',   icon: BarChart2 },
+      
+      
     ],
   },
   {

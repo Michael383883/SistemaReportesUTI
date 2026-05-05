@@ -11,21 +11,21 @@ return new class extends Migration {
     public function up(): void
     {
         Schema::create('grupos', function (Blueprint $table) {
-            $table->decimal('anio', 10, 0);
+            $table->integer('anio');
             $table->string('periodo', 4);
             $table->string('plan', 6)->nullable();
             $table->string('materia', 7);
             $table->string('grupo', 2);
-            $table->decimal('docente', 10, 0);
+            $table->integer('docente');
             $table->string('primario', 1)->nullable();
-            $table->decimal('cuota', 10, 0)->nullable();
+            $table->integer('cuota')->nullable();
             $table->string('tipo', 1)->nullable();
-            $table->decimal('quota_plan', 10, 0)->nullable();
+            $table->integer('quota_plan')->nullable();
             $table->string('resolucion', 100)->nullable();
             $table->string('designacion', 1000)->nullable();
             $table->string('tiempo', 50)->nullable();
 
-            //$table->primary(['anio', 'periodo', 'materia', 'grupo']);
+            
         });
     }
 

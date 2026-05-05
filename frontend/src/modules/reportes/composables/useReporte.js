@@ -8,11 +8,6 @@ export function useReporte() {
     const loading = ref(false)
     const error = ref(null)
 
-    /**
-     * Genera el reporte de un docente.
-     * @param {number|string} codigoDocente - Código SIS del docente
-     * @param {number|null}   anio          - Año desde (opcional)
-     */
     const generarReporte = async (codigoDocente, anio = null) => {
         loading.value = true
         error.value = null
@@ -36,6 +31,65 @@ export function useReporte() {
         }
     }
 
+    // ─────────────────────────────────────────────────────
+    // Abre o descarga el PDF de una resolución
+    // Recibe el nro_resolucion (ej: "RR N 21/2007")
+    // Primero busca el id, luego abre /resoluciones/{id}/pdf
+    // ─────────────────────────────────────────────────────
+    const verPdfResolucion = async (nroResolucion, descargar = false) => {
+        try {
+            const token = localStorage.getItem('token')
+
+            // 1. Buscar el id_resolucion por nro_resolucion
+            const { data } = await axios.get(
+                `${API_BASE}/api/resoluciones/por-numero`,
+                {
+                    params: { nro: nroResolucion },
+                    headers: { Authorization: `Bearer ${token}` },
+                }
+            )
+
+            if (!data.ok) {
+                alert('No se encontró el PDF para esta resolución.')
+                return
+            }
+
+            // 2. Construir la URL del PDF
+            const url = `${API_BASE}/api/resoluciones/${data.id_resolucion}/pdf`
+
+            if (descargar) {
+                // Descarga forzada
+                const link = document.createElement('a')
+                link.href = url
+                link.setAttribute('download', data.nombre_archivo || 'resolucion.pdf')
+                // Agregar token en header no funciona con <a>, 
+                // entonces pedimos el blob y lo descargamos
+                const blob = await axios.get(url, {
+                    responseType: 'blob',
+                    headers: { Authorization: `Bearer ${token}` },
+                })
+                const blobUrl = URL.createObjectURL(new Blob([blob.data], { type: 'application/pdf' }))
+                link.href = blobUrl
+                document.body.appendChild(link)
+                link.click()
+                document.body.removeChild(link)
+                URL.revokeObjectURL(blobUrl)
+            } else {
+                // Ver en nueva pestaña — igual usando blob para enviar el token
+                const blob = await axios.get(url, {
+                    responseType: 'blob',
+                    headers: { Authorization: `Bearer ${token}` },
+                })
+                const blobUrl = URL.createObjectURL(new Blob([blob.data], { type: 'application/pdf' }))
+                window.open(blobUrl, '_blank')
+            }
+
+        } catch (err) {
+            console.error('❌ verPdfResolucion:', err)
+            alert('Error al obtener el PDF.')
+        }
+    }
+
     const limpiarReporte = () => {
         reporte.value = null
         error.value = null
@@ -47,5 +101,6 @@ export function useReporte() {
         error,
         generarReporte,
         limpiarReporte,
+        verPdfResolucion,  // 👈 nueva
     }
 }

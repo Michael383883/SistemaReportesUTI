@@ -19,299 +19,6 @@ class DatabaseController extends Controller
         ]);
     }
 
-    /**
-     * POST /api/database/migrate
-     */
-    // public function migrate(Request $request): JsonResponse
-    // {
-    //     $migraciones = $request->input('migraciones');
-
-    //     if (!$migraciones || !is_array($migraciones)) {
-    //         return response()->json([
-    //             'success' => false,
-    //             'message' => 'Debes enviar un arreglo de migraciones'
-    //         ], 400);
-    //     }
-
-    //     $resultados = [];
-
-    //     foreach ($migraciones as $migracion) {
-
-    //         $origen = $migracion['origen'] ?? null;
-    //         $destino = $migracion['destino'] ?? null;
-
-    //         if (!$origen || !$destino) {
-    //             $resultados[] = [
-    //                 'tabla' => $origen,
-    //                 'status' => 'error',
-    //                 'mensaje' => 'Faltan datos (origen/destino)'
-    //             ];
-    //             continue;
-    //         }
-
-    //         try {
-    //             $rows = DB::connection('sqlsrv2')
-    //                 ->table($origen)
-    //                 ->get();
-
-    //             foreach ($rows as $row) {
-    //                 DB::connection('pgsql')
-    //                     ->table($destino)
-    //                     ->updateOrInsert(
-    //                         ['codigo' => $row->CODIGO ?? null], // clave base
-    //                         [
-    //                             'ci' => $row->CI ?? null,
-    //                             'nombres' => $row->NOMBRES ?? null,
-    //                             'apellidos' => $row->APELLIDOS ?? null,
-    //                             'fecha_nac' => $row->FECHA_NAC ?? null,
-    //                             'sexo' => $row->SEXO ?? null,
-    //                             'titulo' => $row->TITULO ?? null,
-    //                             'fecha_nombramiento' => $row->FECHA_NOMBRAMIENTO ?? null,
-    //                         ]
-    //                     );
-    //             }
-
-    //             $resultados[] = [
-    //                 'tabla' => $origen,
-    //                 'status' => 'ok',
-    //                 'filas' => count($rows)
-    //             ];
-
-    //         } catch (\Throwable $e) {
-    //             $resultados[] = [
-    //                 'tabla' => $origen,
-    //                 'status' => 'error',
-    //                 'mensaje' => $e->getMessage()
-    //             ];
-    //         }
-    //     }
-
-    //     return response()->json([
-    //         'success' => true,
-    //         'resultados' => $resultados
-    //     ]);
-    // }
-//romper memoria
-    // public function migrate(Request $request): JsonResponse
-    // {
-    //     $migraciones = $request->input('migraciones');
-
-    //     if (!$migraciones || !is_array($migraciones)) {
-    //         return response()->json([
-    //             'success' => false,
-    //             'message' => 'Debes enviar un arreglo de migraciones'
-    //         ], 400);
-    //     }
-
-    //     $resultados = [];
-
-    //     foreach ($migraciones as $migracion) {
-
-    //         $origen = $migracion['origen'] ?? null;
-    //         $destino = $migracion['destino'] ?? null;
-
-    //         if (!$origen || !$destino) {
-    //             $resultados[] = [
-    //                 'tabla' => $origen,
-    //                 'status' => 'error',
-    //                 'mensaje' => 'Faltan datos (origen/destino)'
-    //             ];
-    //             continue;
-    //         }
-
-    //         try {
-    //             $rows = DB::connection('sqlsrv2')
-    //                 ->table($origen)
-    //                 ->get();
-
-    //             $filasProcesadas = 0;
-
-    //             foreach ($rows as $row) {
-
-    //                 // 🔥 Convertir a array y pasar TODO a minúsculas
-    //                 $data = array_change_key_case((array) $row, CASE_LOWER);
-
-    //                 DB::connection('pgsql')
-    //                     ->table($destino)
-    //                     ->insert($data);
-
-    //                 $filasProcesadas++;
-    //             }
-
-    //             $resultados[] = [
-    //                 'tabla' => $origen,
-    //                 'status' => 'ok',
-    //                 'filas' => $filasProcesadas
-    //             ];
-
-    //         } catch (\Throwable $e) {
-    //             $resultados[] = [
-    //                 'tabla' => $origen,
-    //                 'status' => 'error',
-    //                 'mensaje' => $e->getMessage()
-    //             ];
-    //         }
-    //     }
-
-    //     return response()->json([
-    //         'success' => true,
-    //         'resultados' => $resultados
-    //     ]);
-    // }
-
-    //grupos com
-
-    // public function migrate(Request $request): JsonResponse
-    // {
-    //     // 🔥 TIEMPO MÁXIMO: 90 segundos
-    //     set_time_limit(90);
-    //     ini_set('max_execution_time', 90);
-    //     ini_set('memory_limit', '512M');
-
-    //     // 🔥 quitar logs de queries (mejora rendimiento)
-    //     DB::connection('pgsql')->disableQueryLog();
-    //     DB::connection('sqlsrv2')->disableQueryLog();
-
-    //     $migraciones = $request->input('migraciones');
-
-    //     if (!$migraciones || !is_array($migraciones)) {
-    //         return response()->json([
-    //             'success' => false,
-    //             'message' => 'Debes enviar un arreglo de migraciones'
-    //         ], 400);
-    //     }
-
-    //     $resultados = [];
-
-    //     // 🔥 PK MANUALES
-    //     $pkManual = [
-    //         'GRUPOS' => ['ANIO', 'PERIODO', 'MATERIA', 'GRUPO'],
-    //         'MATERIAS' => ['ANIO', 'PLAN', 'CODIGO'],
-    //         'PLANES' => ['PLAN']
-    //     ];
-
-    //     foreach ($migraciones as $migracion) {
-
-    //         $origen = $migracion['origen'] ?? null;
-    //         $destino = $migracion['destino'] ?? null;
-
-    //         if (!$origen || !$destino) {
-    //             $resultados[] = [
-    //                 'tabla' => $origen,
-    //                 'status' => 'error',
-    //                 'mensaje' => 'Faltan datos (origen/destino)'
-    //             ];
-    //             continue;
-    //         }
-
-    //         try {
-
-    //             // 🔍 detectar PK desde SQL Server
-    //             $pk = DB::connection('sqlsrv2')->select("
-    //             SELECT c.COLUMN_NAME
-    //             FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS tc
-    //             JOIN INFORMATION_SCHEMA.CONSTRAINT_COLUMN_USAGE c
-    //                 ON c.CONSTRAINT_NAME = tc.CONSTRAINT_NAME
-    //             WHERE tc.TABLE_NAME = ?
-    //             AND tc.CONSTRAINT_TYPE = 'PRIMARY KEY'
-    //         ", [$origen]);
-
-    //             if (!empty($pk)) {
-    //                 $pkColumns = array_map(fn($c) => strtolower($c->COLUMN_NAME), $pk);
-    //             } else {
-    //                 if (!isset($pkManual[$origen])) {
-    //                     throw new \Exception("No se pudo determinar PK para $origen");
-    //                 }
-    //                 $pkColumns = array_map('strtolower', $pkManual[$origen]);
-    //             }
-
-    //             $batchSize = 2000; // 🔥 MÁS RÁPIDO
-    //             $lastValues = null;
-    //             $filasProcesadas = 0;
-
-    //             while (true) {
-
-    //                 $query = DB::connection('sqlsrv2')->table($origen);
-
-    //                 foreach ($pkColumns as $col) {
-    //                     $query->orderBy(strtoupper($col));
-    //                 }
-
-    //                 // 🔥 paginación manual (SQL Server 2008)
-    //                 if ($lastValues) {
-    //                     $query->where(function ($q) use ($pkColumns, $lastValues) {
-    //                         foreach ($pkColumns as $i => $col) {
-    //                             $q->orWhere(function ($sub) use ($pkColumns, $lastValues, $i, $col) {
-    //                                 for ($j = 0; $j < $i; $j++) {
-    //                                     $sub->where(strtoupper($pkColumns[$j]), '=', $lastValues[$pkColumns[$j]]);
-    //                                 }
-    //                                 $sub->where(strtoupper($col), '>', $lastValues[$col]);
-    //                             });
-    //                         }
-    //                     });
-    //                 }
-
-    //                 $rows = $query->take($batchSize)->get();
-
-    //                 if ($rows->isEmpty())
-    //                     break;
-
-    //                 $data = [];
-
-    //                 foreach ($rows as $row) {
-    //                     $data[] = array_change_key_case((array) $row, CASE_LOWER);
-    //                 }
-
-    //                 // 🔥 eliminar duplicados
-    //                 $uniqueData = [];
-
-    //                 foreach ($data as $item) {
-    //                     $key = implode('|', array_map(fn($k) => trim((string) ($item[$k] ?? '')), $pkColumns));
-    //                     $uniqueData[$key] = $item;
-    //                 }
-
-    //                 $data = array_values($uniqueData);
-
-    //                 if (empty($data))
-    //                     break;
-
-    //                 $updateColumns = array_diff(array_keys($data[0]), $pkColumns);
-
-    //                 DB::connection('pgsql')
-    //                     ->table($destino)
-    //                     ->upsert($data, $pkColumns, $updateColumns);
-
-    //                 $filasProcesadas += count($data);
-
-    //                 // 🔥 guardar último registro
-    //                 $lastRow = end($data);
-    //                 $lastValues = [];
-
-    //                 foreach ($pkColumns as $col) {
-    //                     $lastValues[$col] = $lastRow[$col];
-    //                 }
-    //             }
-
-    //             $resultados[] = [
-    //                 'tabla' => $origen,
-    //                 'status' => 'ok',
-    //                 'filas' => $filasProcesadas
-    //             ];
-
-    //         } catch (\Throwable $e) {
-    //             $resultados[] = [
-    //                 'tabla' => $origen,
-    //                 'status' => 'error',
-    //                 'mensaje' => $e->getMessage()
-    //             ];
-    //         }
-    //     }
-
-    //     return response()->json([
-    //         'success' => true,
-    //         'resultados' => $resultados
-    //     ]);
-    // }
 
     public function migrate(Request $request): JsonResponse
     {
@@ -580,5 +287,297 @@ class DatabaseController extends Controller
             'host' => config("database.connections.$connection.host"),
             'database' => config("database.connections.$connection.database"),
         ];
+    }
+
+    //control de migraciones 
+    public function incrementalMigrate(Request $request): JsonResponse
+    {
+        set_time_limit(600);
+        ini_set('memory_limit', '512M');
+
+        $migraciones = $request->input('migraciones');
+
+        if (!$migraciones || !is_array($migraciones)) {
+            return response()->json(['success' => false, 'message' => 'Debes enviar un arreglo de migraciones'], 400);
+        }
+
+        $resultados = [];
+
+        foreach ($migraciones as $migracion) {
+            $origen = $migracion['origen'] ?? null;
+            $destino = $migracion['destino'] ?? null;
+
+            if (!$origen || !$destino) {
+                $resultados[] = ['tabla' => $origen, 'status' => 'error', 'mensaje' => 'Faltan datos'];
+                continue;
+            }
+
+            try {
+                $stats = $this->syncTable($origen, $destino);
+                $resultados[] = array_merge(['tabla' => $origen, 'status' => 'ok'], $stats);
+            } catch (\Throwable $e) {
+                $resultados[] = ['tabla' => $origen, 'status' => 'error', 'mensaje' => $e->getMessage()];
+            }
+        }
+
+        return response()->json(['success' => true, 'resultados' => $resultados]);
+    }
+
+
+    //MIGRACION VELOSIDAD A LA MITAD DEL NUEVO
+    // private function syncTable(string $origen, string $destino): array
+    // {
+    //     $batchSize = 500;
+    //     $page = 1;
+    //     $stats = ['insertados' => 0, 'actualizados' => 0, 'eliminados' => 0];
+
+    //     // Obtener columnas del origen
+    //     $columnas = DB::connection('sqlsrv2')->select(
+    //         "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = ? ORDER BY ORDINAL_POSITION",
+    //         [$origen]
+    //     );
+    //     $colNames = array_map(fn($c) => $c->COLUMN_NAME, $columnas);
+    //     $colsStr = implode(', ', array_map(fn($c) => '[' . $c . ']', $colNames));
+
+    //     // Snapshot actual en Postgres (row_key => row_hash)
+    //     $snapshotActual = DB::connection('pgsql')
+    //         ->table('migration_snapshots')
+    //         ->where('tabla', $origen)
+    //         ->pluck('row_hash', 'row_key')
+    //         ->toArray();
+
+    //     // Keys vistas en esta corrida (para detectar eliminados)
+    //     $keysVistas = [];
+
+    //     // Paginación con ROW_NUMBER (compatible SQL Server 2008)
+    //     $orderCol = '[' . $colNames[0] . ']';
+
+    //     while (true) {
+    //         $offset = ($page - 1) * $batchSize;
+    //         $limit = $offset + $batchSize;
+
+    //         $sql = "
+    //         SELECT {$colsStr}
+    //         FROM (
+    //             SELECT {$colsStr}, ROW_NUMBER() OVER (ORDER BY {$orderCol}) AS [rn]
+    //             FROM [{$origen}]
+    //         ) AS [p]
+    //         WHERE [rn] > {$offset} AND [rn] <= {$limit}
+    //     ";
+
+    //         $rows = DB::connection('sqlsrv2')->select($sql);
+    //         if (empty($rows))
+    //             break;
+
+    //         $toInsert = [];
+    //         $toUpdate = [];
+    //         $snapshotUpsert = [];
+
+    //         foreach ($rows as $row) {
+    //             $arr = array_change_key_case((array) $row, CASE_LOWER);
+
+
+    //             $hash = md5(implode('|', array_map('strval', $arr)));
+    //             // Usamos hash del contenido completo como row_key (sin PK real)
+    //             $key = $hash; // ← ver nota abajo
+
+    //             $keysVistas[$key] = true;
+
+    //             if (!isset($snapshotActual[$key])) {
+    //                 // Nunca visto → INSERT
+    //                 $toInsert[] = $arr;
+    //             }
+    //             // Si el key existe y el hash coincide → sin cambios (nada que hacer)
+    //             // (con hash-como-key, si el contenido cambió, aparece como fila nueva)
+
+    //             $snapshotUpsert[] = [
+    //                 'tabla' => $origen,
+    //                 'row_key' => $key,
+    //                 'row_hash' => $hash,
+    //                 'synced_at' => now(),
+    //             ];
+    //         }
+
+    //         // Insertar nuevas filas
+    //         if (!empty($toInsert)) {
+    //             foreach (array_chunk($toInsert, 100) as $chunk) {
+    //                 DB::connection('pgsql')->table($destino)->insert($chunk);
+    //                 $stats['insertados'] += count($chunk);
+    //             }
+    //         }
+
+    //         // Actualizar snapshot
+    //         foreach (array_chunk($snapshotUpsert, 200) as $chunk) {
+    //             DB::connection('pgsql')
+    //                 ->table('migration_snapshots')
+    //                 ->upsert($chunk, ['tabla', 'row_key'], ['row_hash', 'synced_at']);
+    //         }
+
+    //         $page++;
+    //         if (count($rows) < $batchSize)
+    //             break;
+    //     }
+
+    //     // Detectar filas eliminadas en SQL Server
+    //     $keysEliminadas = array_diff(array_keys($snapshotActual), array_keys($keysVistas));
+
+    //     if (!empty($keysEliminadas)) {
+    //         // Para tablas sin PK no podemos hacer DELETE preciso en destino sin PK
+    //         // La estrategia más segura: re-sincronizar la tabla completa si hay eliminados
+    //         // O alternativamente: llevar un conteo y alertar
+    //         $stats['eliminados'] = count($keysEliminadas);
+
+    //         // Limpiar snapshots de filas que ya no existen
+    //         foreach (array_chunk($keysEliminadas, 200) as $chunk) {
+    //             DB::connection('pgsql')
+    //                 ->table('migration_snapshots')
+    //                 ->where('tabla', $origen)
+    //                 ->whereIn('row_key', $chunk)
+    //                 ->delete();
+    //         }
+
+    //         // ⚠️ Sin PK no hay forma de borrar la fila exacta en destino.
+    //         // Opciones: (a) full re-sync solo cuando hay eliminados, (b) agregar columna de control en destino
+    //         // Por ahora: registrar en el resultado para que el cliente decida
+    //         $stats['requiere_resync'] = true;
+    //     }
+
+    //     return $stats;
+    // }
+
+
+    //migracion k no falla pero tarda un poco mass
+
+    private function syncTable(string $origen, string $destino): array
+    {
+        $batchSize = 500;
+        $page = 1;
+        $stats = ['insertados' => 0, 'actualizados' => 0, 'eliminados' => 0];
+
+        $columnas = DB::connection('sqlsrv2')->select(
+            "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = ? ORDER BY ORDINAL_POSITION",
+            [$origen]
+        );
+        $colNames = array_map(fn($c) => $c->COLUMN_NAME, $columnas);
+        $colsStr = implode(', ', array_map(fn($c) => '[' . $c . ']', $colNames));
+
+        // ORDER BY todas las columnas para que el orden sea 100% estable entre corridas
+        $orderStr = implode(', ', array_map(fn($c) => '[' . $c . ']', $colNames));
+
+        $snapshotActual = DB::connection('pgsql')
+            ->table('migration_snapshots')
+            ->where('tabla', $origen)
+            ->pluck('row_hash', 'row_key')
+            ->toArray();
+
+        \Log::info("[$origen] INICIO — Snapshot previo: " . count($snapshotActual) . " filas");
+
+        $keysVistas = [];
+        $rowNumber = 0; // contador global de fila, independiente de la página
+
+        while (true) {
+            $offset = ($page - 1) * $batchSize;
+            $limit = $offset + $batchSize;
+
+            $sql = "
+            SELECT {$colsStr}
+            FROM (
+                SELECT {$colsStr}, ROW_NUMBER() OVER (ORDER BY {$orderStr}) AS [rn]
+                FROM [{$origen}]
+            ) AS [p]
+            WHERE [rn] > {$offset} AND [rn] <= {$limit}
+        ";
+
+            $rows = DB::connection('sqlsrv2')->select($sql);
+            if (empty($rows))
+                break;
+
+            $toInsert = [];
+            $snapshotUpsert = [];
+
+            foreach ($rows as $row) {
+                $arr = array_change_key_case((array) $row, CASE_LOWER);
+
+                // Normalizar para hash estable
+                $norm = array_map(function ($val) {
+                    if (is_null($val))
+                        return '';
+                    if (is_numeric($val)) {
+                        return strpos((string) $val, '.') === false
+                            ? (string) (int) $val
+                            : rtrim(rtrim((string) (float) $val, '0'), '.');
+                    }
+                    return trim((string) $val);
+                }, $arr);
+
+                $rowNumber++;
+
+                // ✅ row_key = número de fila secuencial (estable si el ORDER BY es estable)
+                // Así dos filas idénticas tienen keys diferentes: "1", "2", etc.
+                $key = (string) $rowNumber;
+                $hash = md5(implode('|', $norm));
+
+                $keysVistas[$key] = true;
+
+                if (!isset($snapshotActual[$key])) {
+                    // Fila nueva (posición nunca vista antes)
+                    $toInsert[] = $arr;
+                } elseif ($snapshotActual[$key] !== $hash) {
+                    // Misma posición pero contenido diferente → el dato cambió
+                    // Sin PK no podemos hacer UPDATE preciso, lo insertamos como nuevo
+                    $toInsert[] = $arr;
+                    $stats['actualizados']++;
+                }
+                // Hash igual → sin cambios
+
+                $snapshotUpsert[] = [
+                    'tabla' => $origen,
+                    'row_key' => $key,
+                    'row_hash' => $hash,
+                    'synced_at' => now(),
+                ];
+            }
+
+            if (!empty($toInsert)) {
+                foreach (array_chunk($toInsert, 100) as $chunk) {
+                    DB::connection('pgsql')->table($destino)->insert($chunk);
+                    $stats['insertados'] += count($chunk);
+                }
+            }
+
+            foreach (array_chunk($snapshotUpsert, 200) as $chunk) {
+                DB::connection('pgsql')
+                    ->table('migration_snapshots')
+                    ->upsert($chunk, ['tabla', 'row_key'], ['row_hash', 'synced_at']);
+            }
+
+            $page++;
+            if (count($rows) < $batchSize)
+                break;
+        }
+
+        \Log::info("[$origen] Leídas: $rowNumber filas — Keys vistas: " . count($keysVistas) . " — Snapshot previo: " . count($snapshotActual));
+
+        // Detectar filas eliminadas (posiciones que ya no existen)
+        $keysEliminadas = array_diff(array_keys($snapshotActual), array_keys($keysVistas));
+
+        if (!empty($keysEliminadas)) {
+            \Log::info("[$origen] Eliminadas: " . count($keysEliminadas));
+            $stats['eliminados'] = count($keysEliminadas);
+
+            foreach (array_chunk($keysEliminadas, 200) as $chunk) {
+                DB::connection('pgsql')
+                    ->table('migration_snapshots')
+                    ->where('tabla', $origen)
+                    ->whereIn('row_key', $chunk)
+                    ->delete();
+            }
+
+            $stats['requiere_resync'] = true;
+        }
+
+        \Log::info("[$origen] FIN — insert:{$stats['insertados']} act:{$stats['actualizados']} elim:{$stats['eliminados']}");
+
+        return $stats;
     }
 }

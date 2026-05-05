@@ -74,6 +74,9 @@ import { useAuthStore } from '@/modules/auth/store/authStore'
 import { docentesRoutes } from '@/modules/docentes/routes'
 //import { reportesRoutes } from '../modules/reportes/routes'
 import { reportesRoutes } from '@/modules/reportes/routes'
+import { resolucionesRoutes } from '@/modules/resoluciones/routes'
+
+
 const routes = [
   ...authRoutes,
   {
@@ -87,6 +90,7 @@ const routes = [
       ...databaseRoutes,
       ...docentesRoutes,
       ...reportesRoutes,
+      ...resolucionesRoutes,
     ],
   },
   { path: '/:pathMatch(.*)*', redirect: '/dashboard' },
