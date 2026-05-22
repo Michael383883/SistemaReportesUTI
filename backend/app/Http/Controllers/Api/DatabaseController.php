@@ -14,11 +14,10 @@ class DatabaseController extends Controller
     public function status(): JsonResponse
     {
         return response()->json([
-            'postgres' => $this->checkConnection('pgsql'),
-            'sqlserver' => $this->checkConnection('sqlsrv2'),
+            'sqlserver_2022' => $this->checkConnection('sqlsrv'),
+            'sqlserver_2008' => $this->checkConnection('sqlsrv2'),
         ]);
     }
-
 
     public function migrate(Request $request): JsonResponse
     {
@@ -325,7 +324,7 @@ class DatabaseController extends Controller
 
 
     //MIGRACION VELOSIDAD A LA MITAD DEL NUEVO
-   
+
     //EL DE ARIBA ES ANTES DE HORARIOSSSSS2
     private function syncTable(string $origen, string $destino): array
     {
