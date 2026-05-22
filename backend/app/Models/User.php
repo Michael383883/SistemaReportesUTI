@@ -29,11 +29,10 @@ class User extends Authenticatable
         return [
             'password' => 'hashed',
             'active' => 'boolean',
-            'email_verified_at' => 'datetime',
         ];
     }
 
-    // ── Helpers de rol 
+    // Roles
     public function isAdmin(): bool
     {
         return $this->role === 'admin';
@@ -42,6 +41,11 @@ class User extends Authenticatable
     public function isSecretaria(): bool
     {
         return $this->role === 'secretaria';
+    }
+
+    public function isSecretariaTalleres(): bool
+    {
+        return $this->role === 'secretaria_talleres';
     }
 
     public function isUTI(): bool

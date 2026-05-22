@@ -18,7 +18,7 @@ class AuthController extends Controller
     {
         $credentials = $request->only('email', 'password');
 
-        if (! Auth::attempt($credentials)) {
+        if (!Auth::attempt($credentials)) {
             return response()->json([
                 'message' => 'Credenciales incorrectas. Verifique su correo y contraseña.',
             ], 401);
@@ -27,7 +27,7 @@ class AuthController extends Controller
         $user = Auth::user();
 
         // Verifica que el usuario esté activo
-        if (! $user->active) {
+        if (!$user->active) {
             Auth::logout();
             return response()->json([
                 'message' => 'Su cuenta está desactivada. Contacte al administrador.',
@@ -42,7 +42,7 @@ class AuthController extends Controller
 
         return response()->json([
             'token' => $token,
-            'user'  => $this->formatUser($user),
+            'user' => $this->formatUser($user),
         ]);
     }
 
@@ -73,10 +73,10 @@ class AuthController extends Controller
     private function formatUser($user): array
     {
         return [
-            'id'     => $user->id,
-            'name'   => $user->name,
-            'email'  => $user->email,
-            'role'   => $user->role,
+            'id' => $user->id,
+            'name' => $user->name,
+            'email' => $user->email,
+            'role' => $user->role,
             'active' => $user->active,
         ];
     }

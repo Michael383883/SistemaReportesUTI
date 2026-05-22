@@ -4,10 +4,10 @@
     <!-- Header -->
     <div class="flex items-start justify-between mb-7">
       <div>
-        <h1 class="text-2xl font-bold text-slate-100 tracking-tight m-0 mb-1">Docentes</h1>
-        <p class="text-xs text-slate-400 m-0">Búsqueda y consulta de docentes registrados</p>
+        <h1 class="text-[20px] font-bold text-slate-100 tracking-tight m-0 mb-1">Docentes</h1>
+        <p class="text-[13px] text-slate-400 m-0">Búsqueda y consulta de docentes registrados</p>
       </div>
-      <div class="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-500/10 border border-indigo-500/20 rounded-full text-xs text-indigo-400 font-medium">
+      <div class="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-500/10 border border-indigo-500/20 rounded-full text-[12px] text-indigo-400 font-medium">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
           <circle cx="9" cy="7" r="4"/>
@@ -17,13 +17,13 @@
     </div>
 
     <!-- Error banner -->
-    <div v-if="error" class="flex items-center gap-2 px-3.5 py-2.5 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm mb-5">
+    <div v-if="error" class="flex items-center gap-2 px-3.5 py-2.5 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-[14px] mb-5">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
       </svg>
       {{ error }}
       <button
-        class="ml-auto bg-red-500/15 border-none text-red-400 text-xs font-semibold px-2.5 py-1 rounded cursor-pointer hover:bg-red-500/25 transition-colors"
+        class="ml-auto bg-red-500/15 border-none text-red-400 text-[12px] font-semibold px-2.5 py-1 rounded cursor-pointer hover:bg-red-500/25 transition-colors"
         @click="fetchDocentes"
       >
         Reintentar
@@ -56,39 +56,39 @@
 
         <div class="flex items-center gap-4 py-5 pr-6 pl-7">
           <!-- Avatar -->
-          <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-blue-700 to-violet-600 text-white text-base font-bold flex items-center justify-center shrink-0 tracking-wide">
+          <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-blue-700 to-violet-600 text-white text-[16px] font-bold flex items-center justify-center shrink-0 tracking-wide">
             {{ initials(selectedDocente) }}
           </div>
 
           <!-- Info -->
           <div class="flex-1 min-w-0">
-            <h2 class="text-base font-semibold text-slate-100 m-0 mb-2 tracking-tight">
+            <h2 class="text-[16px] font-semibold text-slate-100 m-0 mb-2 tracking-tight">
               {{ selectedDocente.nombres }} {{ selectedDocente.apellidos }}
             </h2>
 
-            <!-- Tags -->
+            <!-- Tags - BADGES / CHIPS -->
             <div class="flex flex-wrap gap-1.5 mb-2.5">
-              <span class="inline-flex items-center px-2 py-0.5 rounded text-[0.72rem] font-semibold bg-indigo-500/15 text-indigo-300">
+              <span class="inline-flex items-center px-2 py-0.5 rounded text-[12px] font-semibold bg-indigo-500/15 text-indigo-300">
                 SIS: {{ selectedDocente.codigo }}
               </span>
-              <span v-if="selectedDocente.departamento" class="inline-flex items-center px-2 py-0.5 rounded text-[0.72rem] font-semibold bg-emerald-500/10 text-emerald-400">
+              <span v-if="selectedDocente.departamento" class="inline-flex items-center px-2 py-0.5 rounded text-[12px] font-semibold bg-emerald-500/10 text-emerald-400">
                 {{ selectedDocente.departamento }}
               </span>
-              <span v-if="selectedDocente.categoria" class="inline-flex items-center px-2 py-0.5 rounded text-[0.72rem] font-semibold bg-amber-500/10 text-amber-400">
+              <span v-if="selectedDocente.categoria" class="inline-flex items-center px-2 py-0.5 rounded text-[12px] font-semibold bg-amber-500/10 text-amber-400">
                 {{ selectedDocente.categoria }}
               </span>
             </div>
 
-            <!-- Meta -->
+            <!-- Meta - TEXTO SECUNDARIO -->
             <div class="flex flex-wrap gap-3.5">
-              <div v-if="selectedDocente.email" class="flex items-center gap-1.5 text-xs text-slate-400">
+              <div v-if="selectedDocente.email" class="flex items-center gap-1.5 text-[13px] text-slate-400">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
                   <polyline points="22,6 12,13 2,6"/>
                 </svg>
                 {{ selectedDocente.email }}
               </div>
-              <div v-if="selectedDocente.telefono" class="flex items-center gap-1.5 text-xs text-slate-400">
+              <div v-if="selectedDocente.telefono" class="flex items-center gap-1.5 text-[13px] text-slate-400">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.64 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l.81-.81a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
                 </svg>
@@ -99,10 +99,10 @@
 
           <!-- Acciones -->
           <div class="flex items-center gap-2 self-start">
-            <!-- ✅ BOTÓN GENERAR REPORTE -->
+            <!-- BOTÓN GENERAR REPORTE - TEXTO NORMAL / BOTONES -->
             <button
               class="
-                inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold
+                inline-flex items-center gap-2 px-4 py-2 rounded-lg text-[14px] font-semibold
                 bg-amber-500 hover:bg-amber-400 active:bg-amber-600
                 text-slate-900 transition-all duration-150 cursor-pointer border-none
                 shadow-lg shadow-amber-500/20
@@ -151,8 +151,8 @@
             <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
           </svg>
         </div>
-        <p class="text-sm font-semibold text-slate-400 m-0 mb-1.5">Seleccioná un docente</p>
-        <p class="text-xs text-slate-500 m-0 max-w-xs leading-relaxed">
+        <p class="text-[14px] font-semibold text-slate-400 m-0 mb-1.5">Seleccioná un docente</p>
+        <p class="text-[13px] text-slate-500 m-0 max-w-xs leading-relaxed">
           Usá el buscador de arriba para encontrar un docente por nombre o código
         </p>
       </div>

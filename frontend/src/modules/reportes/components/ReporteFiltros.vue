@@ -21,6 +21,44 @@
       />
     </div>
 
+    <!-- Código de materia -->
+    <div class="flex flex-col gap-1.5">
+      <label class="text-[0.68rem] font-semibold tracking-widest uppercase text-slate-400">
+        Materia
+      </label>
+      <input
+        v-model="materiaLocal"
+        type="text"
+        placeholder="Ej: 1301033"
+        maxlength="20"
+        class="
+          w-40 bg-slate-800 border border-slate-700 rounded-lg
+          text-slate-100 text-sm px-3 py-2 outline-none
+          placeholder-slate-500 transition-all duration-150
+          focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20
+        "
+      />
+    </div>
+
+    <!-- Grupo -->
+    <div class="flex flex-col gap-1.5">
+      <label class="text-[0.68rem] font-semibold tracking-widest uppercase text-slate-400">
+        Grupo
+      </label>
+      <input
+        v-model="grupoLocal"
+        type="text"
+        placeholder="Ej: 01"
+        maxlength="10"
+        class="
+          w-28 bg-slate-800 border border-slate-700 rounded-lg
+          text-slate-100 text-sm px-3 py-2 outline-none
+          placeholder-slate-500 transition-all duration-150
+          focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20
+        "
+      />
+    </div>
+
     <!-- Botón regenerar -->
     <button
       :disabled="loading"
@@ -45,26 +83,25 @@
       {{ loading ? 'Generando...' : 'Re-generar' }}
     </button>
 
-    <!-- Limpiar año -->
+    <!-- Limpiar filtros -->
     <button
-      v-if="anioLocal"
+      v-if="anioLocal || materiaLocal || grupoLocal"
       class="
         inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium
         border border-slate-700 text-slate-400 bg-transparent hover:bg-white/5
         hover:text-slate-200 transition-all duration-150 cursor-pointer
       "
-      @click="limpiarAnio"
+      @click="limpiarFiltros"
     >
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
         <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
       </svg>
-      Quitar filtro
+      Quitar filtros
     </button>
 
-    <!-- ── Botón PDF con menú desplegable ─────────────────────────── -->
+    <!-- Botón PDF con menú desplegable -->
     <div class="relative ml-auto" ref="pdfMenuRef">
       <div class="inline-flex rounded-lg overflow-hidden shadow-lg shadow-red-900/20 border border-red-700/40">
-        <!-- Acción principal: abrir PDF -->
         <button
           :disabled="!reporte || loading"
           class="
@@ -75,7 +112,6 @@
           "
           @click="onPDF('open')"
         >
-          <!-- PDF icon -->
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
             <polyline points="14 2 14 8 20 8"/>
@@ -86,7 +122,6 @@
           Generar Reporte PDF
         </button>
 
-        <!-- Flecha desplegable -->
         <button
           :disabled="!reporte || loading"
           class="
@@ -107,7 +142,6 @@
         </button>
       </div>
 
-      <!-- Dropdown -->
       <Transition
         enter-active-class="transition ease-out duration-150"
         enter-from-class="opacity-0 translate-y-1 scale-95"
@@ -140,28 +174,30 @@
         </div>
       </Transition>
     </div>
-    <!-- ── Fin botón PDF ───────────────────────────────────────────── -->
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { generarPDF } from '../composables/useGenerarPDF'
 
 const props = defineProps({
   anio:    { type: [Number, String], default: null },
+  materia: { type: String, default: '' },
+  grupo:   { type: String, default: '' },
   loading: { type: Boolean, default: false },
-  // El reporte completo es necesario para generar el PDF
   reporte: { type: Object, default: null },
 })
 
-const emit = defineEmits(['generar', 'update:anio'])
+const emit = defineEmits(['generar', 'update:anio', 'update:materia', 'update:grupo'])
 
-const anioActual = new Date().getFullYear()
-const anioLocal  = ref(props.anio || '')
+const anioActual   = new Date().getFullYear()
+const anioLocal    = ref(props.anio    || '')
+const materiaLocal = ref(props.materia || '')
+const grupoLocal   = ref(props.grupo   || '')
 
-// ── Menú PDF ────────────────────────────────────────────────────────────────
-const menuOpen  = ref(false)
+// ── Menú PDF ─────────────────────────────────────────────────────────────────
+const menuOpen   = ref(false)
 const pdfMenuRef = ref(null)
 
 const pdfOpciones = [
@@ -195,7 +231,6 @@ const pdfOpciones = [
 
 const toggleMenu = () => { menuOpen.value = !menuOpen.value }
 
-// Cerrar al click fuera
 const onClickOutside = (e) => {
   if (pdfMenuRef.value && !pdfMenuRef.value.contains(e.target)) {
     menuOpen.value = false
@@ -210,14 +245,24 @@ const onPDF = (action) => {
   generarPDF(props.reporte, { action })
 }
 
-// ── Re-generar reporte ───────────────────────────────────────────────────────
+// ── Acciones ──────────────────────────────────────────────────────────────────
 const onGenerar = () => {
-  emit('update:anio', anioLocal.value ? Number(anioLocal.value) : null)
-  emit('generar', anioLocal.value ? Number(anioLocal.value) : null)
+  const anio    = anioLocal.value    ? Number(anioLocal.value) : null
+  const materia = materiaLocal.value.trim() || null
+  const grupo   = grupoLocal.value.trim()   || null
+
+  emit('update:anio',    anio)
+  emit('update:materia', materia)
+  emit('update:grupo',   grupo)
+  emit('generar', { anio, materia, grupo })
 }
 
-const limpiarAnio = () => {
-  anioLocal.value = ''
-  emit('update:anio', null)
+const limpiarFiltros = () => {
+  anioLocal.value    = ''
+  materiaLocal.value = ''
+  grupoLocal.value   = ''
+  emit('update:anio',    null)
+  emit('update:materia', null)
+  emit('update:grupo',   null)
 }
 </script>

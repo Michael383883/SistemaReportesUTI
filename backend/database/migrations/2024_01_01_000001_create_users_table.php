@@ -10,8 +10,7 @@ use Illuminate\Support\Facades\Schema;
 // ║  php artisan make:migration create_users_table               ║
 // ╚══════════════════════════════════════════════════════════════╝
 
-return new class extends Migration
-{
+return new class extends Migration {
     public function up(): void
     {
         Schema::create('users', function (Blueprint $table) {
@@ -20,8 +19,8 @@ return new class extends Migration
             $table->string('email')->unique();
             $table->string('password');
 
-            // Roles del sistema: admin | secretaria | uti
-            $table->enum('role', ['admin', 'secretaria', 'uti'])->default('uti');
+            // Roles del sistema: admin | secretaria | secretaria_talleres | uti
+            $table->enum('role', ['admin', 'secretaria', 'secretaria_talleres', 'uti'])->default('uti');
             $table->boolean('active')->default(true);
 
             $table->rememberToken();

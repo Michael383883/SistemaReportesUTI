@@ -1,5 +1,5 @@
 <template>
-  <div class="px-9 py-8 max-w-6xl">
+  <div class="px-9 py-0 max-w-6xl00">
 
     <!-- Header de página -->
     <div class="flex items-start justify-between mb-7">
@@ -36,6 +36,8 @@
       <div class="mb-5">
         <ReporteFiltros
           v-model:anio="anioFiltro"
+          v-model:materia="materiaFiltro"   
+          v-model:grupo="grupoFiltro"       
           :loading="loading"
           :reporte="reporte"
           @generar="reGenerar"
@@ -74,6 +76,9 @@ const router = useRouter()
 const { reporte, loading, error, generarReporte } = useReporte()
 
 const anioFiltro = ref(null)
+const materiaFiltro = ref(null)   // AÑADIR
+const grupoFiltro   = ref(null)   // AÑADIR
+
 
 onMounted(async () => {
   const codigo = route.query.codigo
@@ -83,10 +88,20 @@ onMounted(async () => {
   await generarReporte(codigo, anio)
 })
 
-const reGenerar = async (nuevoAnio) => {
+const reGenerar = async ({ anio, materia, grupo }) => {
   const codigo = route.query.codigo
   if (!codigo) return
-  router.replace({ query: { codigo, ...(nuevoAnio ? { anio: nuevoAnio } : {}) } })
-  await generarReporte(codigo, nuevoAnio)
+
+  router.replace({
+    query: {
+      codigo,
+      ...(anio    ? { anio }    : {}),
+      ...(materia ? { materia } : {}),
+      ...(grupo   ? { grupo }   : {}),
+    }
+  })
+
+  await generarReporte(codigo, anio, materia, grupo)  // AÑADIR materia, grupo
 }
+
 </script>

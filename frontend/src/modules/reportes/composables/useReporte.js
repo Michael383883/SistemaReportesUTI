@@ -8,7 +8,30 @@ export function useReporte() {
     const loading = ref(false)
     const error = ref(null)
 
-    const generarReporte = async (codigoDocente, anio = null) => {
+    // const generarReporte = async (codigoDocente, anio = null) => {
+    //     loading.value = true
+    //     error.value = null
+    //     reporte.value = null
+
+    //     try {
+    //         const token = localStorage.getItem('token')
+    //         const payload = { docente: Number(codigoDocente) }
+    //         if (anio) payload.anio = Number(anio)
+
+    //         const response = await axios.post(
+    //             `${API_BASE}/api/reporte-docente`,
+    //             payload,
+    //             { headers: { Authorization: `Bearer ${token}` } }
+    //         )
+    //         reporte.value = response.data
+    //     } catch (err) {
+    //         error.value = err.response?.data?.message || 'Error al generar el reporte'
+    //     } finally {
+    //         loading.value = false
+    //     }
+    // }
+
+    const generarReporte = async (codigoDocente, anio = null, materia = null, grupo = null) => {
         loading.value = true
         error.value = null
         reporte.value = null
@@ -16,7 +39,10 @@ export function useReporte() {
         try {
             const token = localStorage.getItem('token')
             const payload = { docente: Number(codigoDocente) }
+
             if (anio) payload.anio = Number(anio)
+            if (materia) payload.materia = materia   // AÑADIR
+            if (grupo) payload.grupo = grupo     // AÑADIR
 
             const response = await axios.post(
                 `${API_BASE}/api/reporte-docente`,

@@ -32,6 +32,17 @@ class DatabaseSeeder extends Seeder
             ]
         );
 
+        // Usuario Secretaría de Talleres de prueba
+        User::firstOrCreate(
+            ['email' => 'talleres@umss.edu'],
+            [
+                'name' => 'Secretaría Talleres',
+                'password' => Hash::make('Talleres1234!'),
+                'role' => 'secretaria_talleres',
+                'active' => true,
+            ]
+        );
+
         // Usuario UTI de prueba
         User::firstOrCreate(
             ['email' => 'uti@umss.edu'],
