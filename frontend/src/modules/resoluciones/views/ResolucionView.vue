@@ -3,8 +3,8 @@
 
     <!-- Header -->
     <div class="mb-8">
-      <h1 class="text-xl font-medium text-gray-900">Resoluciones</h1>
-      <p class="text-xs text-gray-400 mt-1">Carga y procesamiento de resoluciones en PDF</p>
+      <h1 class="text-[20px] font-semibold text-gray-900">Resoluciones</h1>
+      <p class="text-[13px] text-gray-400 mt-1">Carga y procesamiento de resoluciones en PDF</p>
     </div>
 
     <!-- Stepper -->
@@ -12,7 +12,7 @@
       <template v-for="(step, i) in steps" :key="i">
         <div class="flex flex-col items-center">
           <div
-            class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium border-2 transition-all duration-300"
+            class="w-10 h-10 rounded-full flex items-center justify-center text-[12px] font-medium border-2 transition-all duration-300"
             :class="
               currentStep > i
                 ? 'bg-blue-600 border-blue-600 text-white'
@@ -27,7 +27,7 @@
             <span v-else>{{ i + 1 }}</span>
           </div>
           <span
-            class="text-[10px] mt-1.5 font-medium"
+            class="text-[11px] mt-1.5 font-medium"
             :class="currentStep === i ? 'text-blue-600' : 'text-gray-400'"
           >
             {{ step }}
@@ -50,7 +50,7 @@
       <div class="flex gap-1 p-1 bg-gray-100 rounded-xl mb-6 w-fit">
         <button
           @click="modoEntrada = 'camara'"
-          class="px-5 py-2 text-xs font-medium rounded-lg transition-all duration-200"
+          class="px-5 py-2 text-[14px] font-medium rounded-lg transition-all duration-200"
           :class="modoEntrada === 'camara'
             ? 'bg-white text-blue-600 shadow-sm'
             : 'text-gray-500 hover:text-gray-700'"
@@ -59,7 +59,7 @@
         </button>
         <button
           @click="modoEntrada = 'pdf'"
-          class="px-5 py-2 text-xs font-medium rounded-lg transition-all duration-200"
+          class="px-5 py-2 text-[14px] font-medium rounded-lg transition-all duration-200"
           :class="modoEntrada === 'pdf'
             ? 'bg-white text-blue-600 shadow-sm'
             : 'text-gray-500 hover:text-gray-700'"
@@ -108,7 +108,7 @@
                   <path stroke-linecap="round" stroke-linejoin="round"
                     d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                 </svg>
-                <span class="text-xs font-medium text-blue-700 truncate max-w-xs">{{ archivo.name }}</span>
+                <span class="text-[13px] font-medium text-blue-700 truncate max-w-xs">{{ archivo.name }}</span>
                 <button @click="limpiarArchivo" class="text-blue-400 hover:text-red-500 transition-colors ml-1">
                   <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
@@ -118,14 +118,14 @@
 
               <!-- Placeholder -->
               <div v-else>
-                <p class="text-sm font-medium text-gray-700">Arrastra tu PDF aquí</p>
-                <p class="text-xs text-gray-400 mt-1">o selecciona desde tu dispositivo</p>
+                <p class="text-[14px] font-medium text-gray-700">Arrastra tu PDF aquí</p>
+                <p class="text-[13px] text-gray-400 mt-1">o selecciona desde tu dispositivo</p>
               </div>
 
               <!-- Botón seleccionar -->
               <label class="cursor-pointer">
                 <input type="file" accept=".pdf" class="hidden" @change="handleFileSelect"/>
-                <span class="inline-flex items-center gap-2 px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-lg transition-colors">
+                <span class="inline-flex items-center gap-2 px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-[14px] font-medium rounded-lg transition-colors">
                   <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
                   </svg>
@@ -133,7 +133,7 @@
                 </span>
               </label>
 
-              <p class="text-[10px] text-gray-400">Solo archivos .pdf · Máximo 5 MB</p>
+              <p class="text-[11px] text-gray-400">Solo archivos .pdf · Máximo 5 MB</p>
             </div>
           </div>
 
@@ -142,7 +142,7 @@
             <button
               v-if="archivo"
               @click="currentStep = 1"
-              class="inline-flex items-center gap-2 px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-lg transition-colors"
+              class="inline-flex items-center gap-2 px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-[14px] font-medium rounded-lg transition-colors"
             >
               Continuar
               <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -156,7 +156,7 @@
       <!-- Error paso 0 -->
       <div
         v-if="uploadError"
-        class="mt-4 flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-xs"
+        class="mt-4 flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-[12px]"
       >
         <svg class="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
           <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
@@ -181,7 +181,7 @@
 
       <div
         v-if="resolucion.error.value"
-        class="mt-4 flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-xs"
+        class="mt-4 flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-[12px]"
       >
         <svg class="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
           <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
@@ -196,7 +196,7 @@
     <div v-if="currentStep === 2">
 
       <!-- Banner resolución guardada -->
-      <div class="mb-4 flex items-center gap-2 px-4 py-2.5 bg-blue-50 border border-blue-100 rounded-lg text-blue-700 text-xs font-medium">
+      <div class="mb-4 flex items-center gap-2 px-4 py-2.5 bg-blue-50 border border-blue-100 rounded-lg text-blue-700 text-[12px] font-medium">
         <svg class="w-4 h-4 flex-shrink-0 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
           <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
         </svg>
@@ -212,7 +212,7 @@
 
       <div
         v-if="resolucion.error.value"
-        class="mt-4 flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-xs"
+        class="mt-4 flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-[12px]"
       >
         <svg class="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
           <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>

@@ -24,7 +24,7 @@
             :class="i % 2 === 0 ? 'bg-transparent' : 'bg-slate-900/20'"
           >
             <!-- Nº -->
-            <td class="px-4 py-3 text-slate-500 font-medium text-xs tabular-nums">{{ m.nro }}</td>
+            <td class="px-4 py-3 text-slate-500 font-medium text-[13px] tabular-nums">{{ m.nro }}</td>
 
             <!-- Gestión -->
             <td class="px-4 py-3">
@@ -48,11 +48,7 @@
             <!-- Compartido -->
             <td class="px-4 py-3">
               <span v-if="m.compartido"
-                    class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[0.68rem] font-semibold bg-violet-500/15 text-violet-300">
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                  <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/>
-                  <polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/>
-                </svg>
+                    class="inline-flex items-center px-2 py-0.5 rounded text-[0.68rem] font-semibold bg-violet-500/15 text-violet-300">
                 Compartido
               </span>
               <span v-else class="text-slate-600 text-xs">—</span>

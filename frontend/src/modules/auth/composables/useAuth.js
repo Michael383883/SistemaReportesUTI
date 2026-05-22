@@ -7,14 +7,22 @@ export function useAuth() {
   const route = useRoute()
 
   async function login(credentials) {
-    await authStore.login(credentials)
+    await authStore.login(credentials)   // ← aquí ya se guarda user + role
+
+    // 1. Si venía con ?redirect= y es una ruta interna válida → respetarla
     const redirect = route.query?.redirect
-    // Validación: solo permitir rutas internas seguras
     if (typeof redirect === 'string' && redirect.startsWith('/')) {
-      router.push(redirect)
-    } else {
-      router.push('/dashboard')
+      return router.push(redirect)
     }
+
+    // 2. Redirigir al home correcto según rol
+    const roleHome = {
+      secretaria: '/secretaria/dashboard',
+      admin: '/dashboard',
+      uti: '/dashboard',          // ajusta si tienes ruta propia
+    }
+    const home = roleHome[authStore.userRole] ?? '/dashboard'
+    router.push(home)
   }
 
   async function logout() {

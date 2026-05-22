@@ -40,50 +40,46 @@
             >
               <option value="admin">Administrador</option>
               <option value="secretaria">Secretaría</option>
+              <option value="secretaria_talleres">Secretaría Talleres</option>
               <option value="uti">UTI</option>
             </select>
           </div>
 
           <div>
-  <label class="block text-[11px] text-gray-400 mb-1.5">
-    {{ user ? 'Contraseña (opcional)' : 'Contraseña' }}
-  </label>
+            <label class="block text-[11px] text-gray-400 mb-1.5">
+              {{ user ? 'Contraseña (opcional)' : 'Contraseña' }}
+            </label>
 
-    <div class="relative">
-      <input
-        v-model="form.password"
-        :type="showPassword ? 'text' : 'password'"
-        placeholder="Mín. 8 caracteres"
-        class="w-full px-3 py-2.5 pr-10 text-[12px] rounded-lg border bg-gray-50 focus:outline-none focus:border-navy focus:bg-white transition-colors"
-        :class="errors.password ? 'border-red-400' : 'border-gray-200'"
-      />
+            <div class="relative">
+              <input
+                v-model="form.password"
+                :type="showPassword ? 'text' : 'password'"
+                placeholder="Mín. 8 caracteres"
+                class="w-full px-3 py-2.5 pr-10 text-[12px] rounded-lg border bg-gray-50 focus:outline-none focus:border-navy focus:bg-white transition-colors"
+                :class="errors.password ? 'border-red-400' : 'border-gray-200'"
+              />
 
-      <!-- Botón ojito -->
-      <button
-        type="button"
-        @click="showPassword = !showPassword"
-        class="absolute inset-y-0 right-2 flex items-center text-gray-400 hover:text-gray-600"
-      >
-        <!-- Ojo cerrado -->
-        <svg v-if="!showPassword" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-            d="M13.875 18.825A10.05 10.05 0 0112 19c-5 0-9-4-10-7a10.05 10.05 0 012.293-3.95M6.223 6.223A9.956 9.956 0 0112 5c5 0 9 4 10 7a9.956 9.956 0 01-4.293 4.95M15 12a3 3 0 11-6 0 3 3 0 016 0zm6 6L3 3" />
-        </svg>
+              <button
+                type="button"
+                @click="showPassword = !showPassword"
+                class="absolute inset-y-0 right-2 flex items-center text-gray-400 hover:text-gray-600"
+              >
+                <svg v-if="!showPassword" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M13.875 18.825A10.05 10.05 0 0112 19c-5 0-9-4-10-7a10.05 10.05 0 012.293-3.95M6.223 6.223A9.956 9.956 0 0112 5c5 0 9 4 10 7a9.956 9.956 0 01-4.293 4.95M15 12a3 3 0 11-6 0 3 3 0 016 0zm6 6L3 3" />
+                </svg>
 
-        <!-- Ojo abierto -->
-        <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-            d="M15 12a3 3 0 11-6 0 3 3 0 016 0zm6 0c-1 3-5 7-9 7s-8-4-9-7c1-3 5-7 9-7s8 4 9 7z" />
-        </svg>
-      </button>
-    </div>
+                <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0zm6 0c-1 3-5 7-9 7s-8-4-9-7c1-3 5-7 9-7s8 4 9 7z" />
+                </svg>
+              </button>
+            </div>
 
-    <p v-if="errors.password" class="text-[10px] text-red-500 mt-1">
-      {{ errors.password }}
-    </p>
-  </div>
-
-
+            <p v-if="errors.password" class="text-[10px] text-red-500 mt-1">
+              {{ errors.password }}
+            </p>
+          </div>
         </div>
 
         <div class="flex gap-2 justify-end">

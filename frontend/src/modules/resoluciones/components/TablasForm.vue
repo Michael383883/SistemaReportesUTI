@@ -499,15 +499,7 @@ function agregarFila() {
 
   if (!valid) return
 
-  // filas.value.push({
-  //   docente:      { ...filaActual.docente },
-  //   cod_plan:     filaActual.cod_plan.trim(),
-  //   cod_materia:  filaActual.cod_materia.trim(),
-  //   grupo:        filaActual.grupo.trim(),
-  //   tipo:         filaActual.tipo.trim(),
-  //   esCompartido: filaActual.esCompartido,
-  //   observacion:  filaActual.esCompartido ? 'COMPARTIDO' : null,
-  // })
+
   filas.value.push({
     docente: {
       ...filaActual.docente,
@@ -548,14 +540,7 @@ function submitTablas() {
     return
   }
 
-  // const payload = filas.value.map(f => ({
-  //   cod_docente: f.docente.cod_docente,
-  //   cod_plan:    f.cod_plan,
-  //   cod_materia: f.cod_materia,
-  //   grupo:       f.grupo       || null,
-  //   tipo:        f.tipo        || null,
-  //   observacion: f.observacion,
-  // }))
+
   const payload = filas.value.map(f => ({
     cod_docente: Number(f.docente.cod_docente),  // decimal(10,0) necesita número
     cod_plan:    f.cod_plan,
