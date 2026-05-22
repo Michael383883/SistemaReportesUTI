@@ -3,52 +3,68 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\User\StoreUserRequest;
-use App\Http\Requests\User\UpdateUserRequest;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rule;
 
 class UserController extends Controller
 {
     /**
-     * HU3 — Listar usuarios
      * GET /api/users
      */
     public function index(Request $request): JsonResponse
     {
         $users = User::query()
-            ->when($request->role,   fn ($q) => $q->where('role',   $request->role))
-            ->when($request->active, fn ($q) => $q->where('active', filter_var($request->active, FILTER_VALIDATE_BOOLEAN)))
+            ->when($request->role, fn($q) => $q->where('role', $request->role))
+            ->when(
+                $request->has('active'),
+                fn($q) => $q->where('active', filter_var($request->active, FILTER_VALIDATE_BOOLEAN))
+            )
             ->orderBy('name')
             ->get()
-            ->map(fn ($u) => $this->formatUser($u));
+            ->map(fn($u) => $this->formatUser($u));
 
         return response()->json(['data' => $users]);
     }
 
     /**
-     * HU3 — Crear usuario
      * POST /api/users
      */
-    public function store(StoreUserRequest $request): JsonResponse
+    public function store(Request $request): JsonResponse
     {
-        $user = User::create([
-            'name'     => $request->name,
-            'email'    => $request->email,
-            'password' => $request->password,   // el cast 'hashed' encripta automático
-            'role'     => $request->role,
-            'active'   => $request->boolean('active', true),
+        $data = $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email',
+            'password' => 'required|string|min:8',
+            'role' => ['required', Rule::in(['admin', 'secretaria', 'secretaria_talleres', 'uti'])],
+            'active' => 'boolean',
         ]);
+
+        $active = $request->boolean('active', true) ? 1 : 0;
+
+        DB::statement("
+            INSERT INTO users (name, email, password, role, active, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, GETDATE(), GETDATE())
+        ", [
+            $data['name'],
+            $data['email'],
+            Hash::make($data['password']),
+            $data['role'],
+            $active,
+        ]);
+
+        $user = User::where('email', $data['email'])->first();
 
         return response()->json([
             'message' => 'Usuario creado correctamente.',
-            'data'    => $this->formatUser($user),
+            'data' => $this->formatUser($user),
         ], 201);
     }
 
     /**
-     * HU3 — Mostrar un usuario
      * GET /api/users/{user}
      */
     public function show(User $user): JsonResponse
@@ -57,56 +73,83 @@ class UserController extends Controller
     }
 
     /**
-     * HU3 — Actualizar usuario
      * PUT /api/users/{user}
      */
-    public function update(UpdateUserRequest $request, User $user): JsonResponse
+    public function update(Request $request, User $user): JsonResponse
     {
-        $data = $request->only(['name', 'email', 'role', 'active']);
+        $data = $request->validate([
+            'name' => 'sometimes|string|max:255',
+            'email' => ['sometimes', 'email', Rule::unique('users', 'email')->ignore($user->id)],
+            'password' => 'sometimes|string|min:8',
+            'role' => ['sometimes', Rule::in(['admin', 'secretaria', 'secretaria_talleres', 'uti'])],
+            'active' => 'sometimes|boolean',
+        ]);
 
-        // Solo actualiza contraseña si viene en el request
+        // Construye el SET dinámicamente
+        $sets = ['updated_at = GETDATE()'];
+        $params = [];
+
+        if (isset($data['name'])) {
+            $sets[] = 'name = ?';
+            $params[] = $data['name'];
+        }
+        if (isset($data['email'])) {
+            $sets[] = 'email = ?';
+            $params[] = $data['email'];
+        }
         if ($request->filled('password')) {
-            $data['password'] = $request->password;
+            $sets[] = 'password = ?';
+            $params[] = Hash::make($data['password']);
+        }
+        if (isset($data['role'])) {
+            $sets[] = 'role = ?';
+            $params[] = $data['role'];
+        }
+        if (isset($data['active'])) {
+            $sets[] = 'active = ?';
+            $params[] = $data['active'] ? 1 : 0;
         }
 
-        $user->update($data);
+        $params[] = $user->id;
+
+        DB::statement('UPDATE users SET ' . implode(', ', $sets) . ' WHERE id = ?', $params);
+
+        $updated = User::find($user->id);
 
         return response()->json([
             'message' => 'Usuario actualizado correctamente.',
-            'data'    => $this->formatUser($user->fresh()),
+            'data' => $this->formatUser($updated),
         ]);
     }
 
     /**
-     * HU3 — Eliminar usuario
      * DELETE /api/users/{user}
      */
     public function destroy(Request $request, User $user): JsonResponse
     {
-        // Evita que el admin se elimine a sí mismo
         if ($request->user()->id === $user->id) {
             return response()->json([
                 'message' => 'No puede eliminar su propia cuenta.',
             ], 422);
         }
 
-        // Revoca todos los tokens del usuario eliminado
         $user->tokens()->delete();
         $user->delete();
 
-        return response()->json(['message' => 'Usuario eliminado correctamente.'], 200);
+        return response()->json(['message' => 'Usuario eliminado correctamente.']);
     }
 
-    // ── Formato consistente ──────────────────────────────────────
     private function formatUser(User $user): array
     {
         return [
-            'id'         => $user->id,
-            'name'       => $user->name,
-            'email'      => $user->email,
-            'role'       => $user->role,
-            'active'     => $user->active,
-            'created_at' => $user->created_at?->format('Y-m-d'),
+            'id' => $user->id,
+            'name' => $user->name,
+            'email' => $user->email,
+            'role' => $user->role,
+            'active' => (bool) $user->active,
+            'created_at' => $user->created_at
+                ? \Carbon\Carbon::parse($user->created_at)->format('Y-m-d')
+                : null,
         ];
     }
 }

@@ -2,56 +2,55 @@
 
 namespace Database\Seeders;
 
-use App\Models\User;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
 class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
-        // Admin inicial del sistema
-        User::firstOrCreate(
-            ['email' => 'admin@umss.edu'],
+        $users = [
             [
-                'name' => 'Administrador UTI',
+                'email'    => 'admin@umss.edu',
+                'name'     => 'Administrador UTI',
                 'password' => Hash::make('Admin1234!'),
-                'role' => 'admin',
-                'active' => true,
-            ]
-        );
-
-        // Usuario Secretaría de prueba
-        User::firstOrCreate(
-            ['email' => 'secretaria@umss.edu'],
+                'role'     => 'admin',
+            ],
             [
-                'name' => 'Secretaría FCE',
+                'email'    => 'secretaria@umss.edu',
+                'name'     => 'Secretaría FCE',
                 'password' => Hash::make('Secret1234!'),
-                'role' => 'secretaria',
-                'active' => true,
-            ]
-        );
-
-        // Usuario Secretaría de Talleres de prueba
-        User::firstOrCreate(
-            ['email' => 'talleres@umss.edu'],
+                'role'     => 'secretaria',
+            ],
             [
-                'name' => 'Secretaría Talleres',
+                'email'    => 'talleres@umss.edu',
+                'name'     => 'Secretaría Talleres',
                 'password' => Hash::make('Talleres1234!'),
-                'role' => 'secretaria_talleres',
-                'active' => true,
-            ]
-        );
-
-        // Usuario UTI de prueba
-        User::firstOrCreate(
-            ['email' => 'uti@umss.edu'],
+                'role'     => 'secretaria_talleres',
+            ],
             [
-                'name' => 'Técnico UTI',
+                'email'    => 'uti@umss.edu',
+                'name'     => 'Técnico UTI',
                 'password' => Hash::make('Uti12345!'),
-                'role' => 'uti',
-                'active' => true,
-            ]
-        );
+                'role'     => 'uti',
+            ],
+        ];
+
+        foreach ($users as $user) {
+            DB::statement("
+                IF NOT EXISTS (SELECT 1 FROM users WHERE email = ?)
+                BEGIN
+                    INSERT INTO users (name, email, password, role, active, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, 1, GETDATE(), GETDATE())
+                END
+            ", [
+                $user['email'],
+                $user['name'],
+                $user['email'],
+                $user['password'],
+                $user['role'],
+            ]);
+        }
     }
 }

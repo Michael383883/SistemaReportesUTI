@@ -1,19 +1,24 @@
 import api from '@/shared/services/api'
 
 export const authService = {
-  async getCsrfCookie() {
-    await api.get('/sanctum/csrf-cookie')
-  },
-
   async login(credentials) {
-    await this.getCsrfCookie()
     const { data } = await api.post('/api/auth/login', credentials)
+
+    console.log('Respuesta completa del login:', data)
+    console.log('Token recibido:', data.token)
+
+    if (data.token) {
+      localStorage.setItem('token', data.token)
+      localStorage.setItem('user', JSON.stringify(data.user))
+    }
+
     return data
   },
 
   async logout() {
     await api.post('/api/auth/logout')
     localStorage.removeItem('token')
+    localStorage.removeItem('user')
   },
 
   async me() {

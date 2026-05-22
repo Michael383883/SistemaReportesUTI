@@ -1,8 +1,9 @@
 import axios from 'axios'
+import router from '@/router'
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:8000',
-  withCredentials: false, //en producion canviar a true para que no vea lo de los cruces
+  withCredentials: false,
   headers: {
     'Content-Type': 'application/json',
     Accept: 'application/json',
@@ -18,10 +19,15 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    if (import.meta.env.DEV) {
+      console.error('[API Error]', error.response?.status, error.config?.url, error.message)
+    }
+
     if (error.response?.status === 401) {
       localStorage.removeItem('token')
-      window.location.href = '/login'
+      router.push('/login')
     }
+
     return Promise.reject(error)
   }
 )

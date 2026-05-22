@@ -3,12 +3,7 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
-
-// ╔══════════════════════════════════════════════════════════════╗
-// ║  INSTRUCCIÓN: Reemplaza la migration de users existente      ║
-// ║  o créala como nueva:                                        ║
-// ║  php artisan make:migration create_users_table               ║
-// ╚══════════════════════════════════════════════════════════════╝
+use Illuminate\Support\Facades\DB;
 
 return new class extends Migration {
     public function up(): void
@@ -18,14 +13,20 @@ return new class extends Migration {
             $table->string('name');
             $table->string('email')->unique();
             $table->string('password');
-
-            // Roles del sistema: admin | secretaria | secretaria_talleres | uti
-            $table->enum('role', ['admin', 'secretaria', 'secretaria_talleres', 'uti'])->default('uti');
-            $table->boolean('active')->default(true);
-
+            $table->string('role', 30)->default('uti');
+            $table->boolean('active')->default(1);
             $table->rememberToken();
-            $table->timestamps();
+
+            // datetime2 acepta milisegundos — soluciona el error de conversión
+            $table->dateTimeTz('created_at', 7)->nullable();
+            $table->dateTimeTz('updated_at', 7)->nullable();
         });
+
+        DB::statement("
+            ALTER TABLE users
+            ADD CONSTRAINT chk_users_role
+            CHECK (role IN ('admin', 'secretaria', 'secretaria_talleres', 'uti'))
+        ");
     }
 
     public function down(): void
