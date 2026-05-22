@@ -163,7 +163,7 @@ class DatabaseController extends Controller
                         : null;
                 }
 
-                // 🟢 CASO 1: Tablas pequeñas o sin PK
+                //  CASO 1: Tablas pequeñas o sin PK
                 if ($total < 5000 || !$pkColumns) {
 
                     $rows = DB::connection('sqlsrv2')->table($origen)->get();
@@ -179,7 +179,7 @@ class DatabaseController extends Controller
 
                 } else {
 
-                    // 🔴 CASO 2: Tablas grandes con PK — keyset pagination
+                    //  CASO 2: Tablas grandes con PK — keyset pagination
                     $batchSize = 2000;
                     $lastValues = null;
 
@@ -292,7 +292,7 @@ class DatabaseController extends Controller
     //control de migraciones 
     public function incrementalMigrate(Request $request): JsonResponse
     {
-        set_time_limit(600);
+        set_time_limit(0);
         ini_set('memory_limit', '512M');
 
         $migraciones = $request->input('migraciones');
@@ -325,144 +325,79 @@ class DatabaseController extends Controller
 
 
     //MIGRACION VELOSIDAD A LA MITAD DEL NUEVO
-    // private function syncTable(string $origen, string $destino): array
-    // {
-    //     $batchSize = 500;
-    //     $page = 1;
-    //     $stats = ['insertados' => 0, 'actualizados' => 0, 'eliminados' => 0];
-
-    //     // Obtener columnas del origen
-    //     $columnas = DB::connection('sqlsrv2')->select(
-    //         "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = ? ORDER BY ORDINAL_POSITION",
-    //         [$origen]
-    //     );
-    //     $colNames = array_map(fn($c) => $c->COLUMN_NAME, $columnas);
-    //     $colsStr = implode(', ', array_map(fn($c) => '[' . $c . ']', $colNames));
-
-    //     // Snapshot actual en Postgres (row_key => row_hash)
-    //     $snapshotActual = DB::connection('pgsql')
-    //         ->table('migration_snapshots')
-    //         ->where('tabla', $origen)
-    //         ->pluck('row_hash', 'row_key')
-    //         ->toArray();
-
-    //     // Keys vistas en esta corrida (para detectar eliminados)
-    //     $keysVistas = [];
-
-    //     // Paginación con ROW_NUMBER (compatible SQL Server 2008)
-    //     $orderCol = '[' . $colNames[0] . ']';
-
-    //     while (true) {
-    //         $offset = ($page - 1) * $batchSize;
-    //         $limit = $offset + $batchSize;
-
-    //         $sql = "
-    //         SELECT {$colsStr}
-    //         FROM (
-    //             SELECT {$colsStr}, ROW_NUMBER() OVER (ORDER BY {$orderCol}) AS [rn]
-    //             FROM [{$origen}]
-    //         ) AS [p]
-    //         WHERE [rn] > {$offset} AND [rn] <= {$limit}
-    //     ";
-
-    //         $rows = DB::connection('sqlsrv2')->select($sql);
-    //         if (empty($rows))
-    //             break;
-
-    //         $toInsert = [];
-    //         $toUpdate = [];
-    //         $snapshotUpsert = [];
-
-    //         foreach ($rows as $row) {
-    //             $arr = array_change_key_case((array) $row, CASE_LOWER);
-
-
-    //             $hash = md5(implode('|', array_map('strval', $arr)));
-    //             // Usamos hash del contenido completo como row_key (sin PK real)
-    //             $key = $hash; // ← ver nota abajo
-
-    //             $keysVistas[$key] = true;
-
-    //             if (!isset($snapshotActual[$key])) {
-    //                 // Nunca visto → INSERT
-    //                 $toInsert[] = $arr;
-    //             }
-    //             // Si el key existe y el hash coincide → sin cambios (nada que hacer)
-    //             // (con hash-como-key, si el contenido cambió, aparece como fila nueva)
-
-    //             $snapshotUpsert[] = [
-    //                 'tabla' => $origen,
-    //                 'row_key' => $key,
-    //                 'row_hash' => $hash,
-    //                 'synced_at' => now(),
-    //             ];
-    //         }
-
-    //         // Insertar nuevas filas
-    //         if (!empty($toInsert)) {
-    //             foreach (array_chunk($toInsert, 100) as $chunk) {
-    //                 DB::connection('pgsql')->table($destino)->insert($chunk);
-    //                 $stats['insertados'] += count($chunk);
-    //             }
-    //         }
-
-    //         // Actualizar snapshot
-    //         foreach (array_chunk($snapshotUpsert, 200) as $chunk) {
-    //             DB::connection('pgsql')
-    //                 ->table('migration_snapshots')
-    //                 ->upsert($chunk, ['tabla', 'row_key'], ['row_hash', 'synced_at']);
-    //         }
-
-    //         $page++;
-    //         if (count($rows) < $batchSize)
-    //             break;
-    //     }
-
-    //     // Detectar filas eliminadas en SQL Server
-    //     $keysEliminadas = array_diff(array_keys($snapshotActual), array_keys($keysVistas));
-
-    //     if (!empty($keysEliminadas)) {
-    //         // Para tablas sin PK no podemos hacer DELETE preciso en destino sin PK
-    //         // La estrategia más segura: re-sincronizar la tabla completa si hay eliminados
-    //         // O alternativamente: llevar un conteo y alertar
-    //         $stats['eliminados'] = count($keysEliminadas);
-
-    //         // Limpiar snapshots de filas que ya no existen
-    //         foreach (array_chunk($keysEliminadas, 200) as $chunk) {
-    //             DB::connection('pgsql')
-    //                 ->table('migration_snapshots')
-    //                 ->where('tabla', $origen)
-    //                 ->whereIn('row_key', $chunk)
-    //                 ->delete();
-    //         }
-
-    //         // ⚠️ Sin PK no hay forma de borrar la fila exacta en destino.
-    //         // Opciones: (a) full re-sync solo cuando hay eliminados, (b) agregar columna de control en destino
-    //         // Por ahora: registrar en el resultado para que el cliente decida
-    //         $stats['requiere_resync'] = true;
-    //     }
-
-    //     return $stats;
-    // }
-
-
-    //migracion k no falla pero tarda un poco mass
-
+   
+    //EL DE ARIBA ES ANTES DE HORARIOSSSSS2
     private function syncTable(string $origen, string $destino): array
     {
         $batchSize = 500;
         $page = 1;
-        $stats = ['insertados' => 0, 'actualizados' => 0, 'eliminados' => 0];
+
+        $stats = [
+            'insertados' => 0,
+            'actualizados' => 0,
+            'eliminados' => 0
+        ];
+
+        // =====================================================
+        // OBTENER COLUMNAS
+        // =====================================================
 
         $columnas = DB::connection('sqlsrv2')->select(
-            "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = ? ORDER BY ORDINAL_POSITION",
+            "
+        SELECT COLUMN_NAME
+        FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_NAME = ?
+        ORDER BY ORDINAL_POSITION
+        ",
             [$origen]
         );
-        $colNames = array_map(fn($c) => $c->COLUMN_NAME, $columnas);
-        $colsStr = implode(', ', array_map(fn($c) => '[' . $c . ']', $colNames));
 
-        // ORDER BY todas las columnas para que el orden sea 100% estable entre corridas
-        $orderStr = implode(', ', array_map(fn($c) => '[' . $c . ']', $colNames));
+        $colNames = array_map(
+            fn($c) => trim($c->COLUMN_NAME),
+            $columnas
+        );
+
+        // Validar columnas
+        if (empty($colNames)) {
+            throw new \Exception("La tabla {$origen} no tiene columnas válidas");
+        }
+
+        // =====================================================
+        // COLUMNAS SQL
+        // =====================================================
+
+        $colsStr = implode(
+            ', ',
+            array_map(fn($c) => '[' . $c . ']', $colNames)
+        );
+
+        // =====================================================
+        // ORDER BY MANUAL PARA TABLAS SIN PK
+        // =====================================================
+
+        $orderManual = [
+
+            // HORARIOS2
+            'HORARIOS2' => '[ANIO], [PERIODO], [HORA]',
+
+            // puedes agregar más tablas aquí
+            // 'OTRA_TABLA' => '[CAMPO1], [CAMPO2]'
+        ];
+
+        $orderStr = $orderManual[$origen]
+            ?? implode(
+                ', ',
+                array_map(fn($c) => '[' . $c . ']', $colNames)
+            );
+
+        // Validar ORDER BY
+        if (empty(trim($orderStr))) {
+            throw new \Exception("ORDER BY vacío para {$origen}");
+        }
+
+        // =====================================================
+        // SNAPSHOT ACTUAL
+        // =====================================================
 
         $snapshotActual = DB::connection('pgsql')
             ->table('migration_snapshots')
@@ -470,65 +405,110 @@ class DatabaseController extends Controller
             ->pluck('row_hash', 'row_key')
             ->toArray();
 
-        \Log::info("[$origen] INICIO — Snapshot previo: " . count($snapshotActual) . " filas");
+        \Log::info("[$origen] INICIO — Snapshot previo: " . count($snapshotActual));
 
         $keysVistas = [];
-        $rowNumber = 0; // contador global de fila, independiente de la página
+        $rowNumber = 0;
+
+        // =====================================================
+        // PAGINACIÓN SQL SERVER 2008
+        // =====================================================
 
         while (true) {
+
             $offset = ($page - 1) * $batchSize;
             $limit = $offset + $batchSize;
 
             $sql = "
             SELECT {$colsStr}
             FROM (
-                SELECT {$colsStr}, ROW_NUMBER() OVER (ORDER BY {$orderStr}) AS [rn]
+                SELECT
+                    {$colsStr},
+                    ROW_NUMBER() OVER (ORDER BY {$orderStr}) AS [rn]
                 FROM [{$origen}]
             ) AS [p]
-            WHERE [rn] > {$offset} AND [rn] <= {$limit}
+            WHERE [rn] > {$offset}
+            AND [rn] <= {$limit}
         ";
 
             $rows = DB::connection('sqlsrv2')->select($sql);
-            if (empty($rows))
+
+            if (empty($rows)) {
                 break;
+            }
 
             $toInsert = [];
             $snapshotUpsert = [];
 
             foreach ($rows as $row) {
-                $arr = array_change_key_case((array) $row, CASE_LOWER);
 
-                // Normalizar para hash estable
+                $arr = array_change_key_case(
+                    (array) $row,
+                    CASE_LOWER
+                );
+
+                // quitar rn
+                unset($arr['rn']);
+
+                // =====================================================
+                // NORMALIZAR HASH
+                // =====================================================
+
                 $norm = array_map(function ($val) {
-                    if (is_null($val))
+
+                    if (is_null($val)) {
                         return '';
+                    }
+
                     if (is_numeric($val)) {
+
                         return strpos((string) $val, '.') === false
                             ? (string) (int) $val
-                            : rtrim(rtrim((string) (float) $val, '0'), '.');
+                            : rtrim(
+                                rtrim((string) (float) $val, '0'),
+                                '.'
+                            );
                     }
+
                     return trim((string) $val);
+
                 }, $arr);
 
                 $rowNumber++;
 
-                // ✅ row_key = número de fila secuencial (estable si el ORDER BY es estable)
-                // Así dos filas idénticas tienen keys diferentes: "1", "2", etc.
+                // =====================================================
+                // KEY ESTABLE
+                // =====================================================
+
                 $key = (string) $rowNumber;
-                $hash = md5(implode('|', $norm));
+
+                // HASH
+                $hash = md5(
+                    implode('|', $norm)
+                );
 
                 $keysVistas[$key] = true;
 
+                // =====================================================
+                // INSERT / UPDATE DETECTION
+                // =====================================================
+
                 if (!isset($snapshotActual[$key])) {
-                    // Fila nueva (posición nunca vista antes)
+
+                    // fila nueva
                     $toInsert[] = $arr;
+
                 } elseif ($snapshotActual[$key] !== $hash) {
-                    // Misma posición pero contenido diferente → el dato cambió
-                    // Sin PK no podemos hacer UPDATE preciso, lo insertamos como nuevo
+
+                    // fila modificada
                     $toInsert[] = $arr;
+
                     $stats['actualizados']++;
                 }
-                // Hash igual → sin cambios
+
+                // =====================================================
+                // SNAPSHOT UPSERT
+                // =====================================================
 
                 $snapshotUpsert[] = [
                     'tabla' => $origen,
@@ -538,34 +518,61 @@ class DatabaseController extends Controller
                 ];
             }
 
+            // =====================================================
+            // INSERTAR EN POSTGRES
+            // =====================================================
+
             if (!empty($toInsert)) {
+
                 foreach (array_chunk($toInsert, 100) as $chunk) {
-                    DB::connection('pgsql')->table($destino)->insert($chunk);
+
+                    DB::connection('pgsql')
+                        ->table($destino)
+                        ->insert($chunk);
+
                     $stats['insertados'] += count($chunk);
                 }
             }
 
+            // =====================================================
+            // ACTUALIZAR SNAPSHOT
+            // =====================================================
+
             foreach (array_chunk($snapshotUpsert, 200) as $chunk) {
+
                 DB::connection('pgsql')
                     ->table('migration_snapshots')
-                    ->upsert($chunk, ['tabla', 'row_key'], ['row_hash', 'synced_at']);
+                    ->upsert(
+                        $chunk,
+                        ['tabla', 'row_key'],
+                        ['row_hash', 'synced_at']
+                    );
             }
 
             $page++;
-            if (count($rows) < $batchSize)
+
+            if (count($rows) < $batchSize) {
                 break;
+            }
         }
 
-        \Log::info("[$origen] Leídas: $rowNumber filas — Keys vistas: " . count($keysVistas) . " — Snapshot previo: " . count($snapshotActual));
+        // =====================================================
+        // DETECTAR ELIMINADOS
+        // =====================================================
 
-        // Detectar filas eliminadas (posiciones que ya no existen)
-        $keysEliminadas = array_diff(array_keys($snapshotActual), array_keys($keysVistas));
+        $keysEliminadas = array_diff(
+            array_keys($snapshotActual),
+            array_keys($keysVistas)
+        );
 
         if (!empty($keysEliminadas)) {
-            \Log::info("[$origen] Eliminadas: " . count($keysEliminadas));
+
             $stats['eliminados'] = count($keysEliminadas);
 
+            \Log::info("[$origen] Eliminadas: " . count($keysEliminadas));
+
             foreach (array_chunk($keysEliminadas, 200) as $chunk) {
+
                 DB::connection('pgsql')
                     ->table('migration_snapshots')
                     ->where('tabla', $origen)
@@ -576,8 +583,182 @@ class DatabaseController extends Controller
             $stats['requiere_resync'] = true;
         }
 
-        \Log::info("[$origen] FIN — insert:{$stats['insertados']} act:{$stats['actualizados']} elim:{$stats['eliminados']}");
+        // =====================================================
+        // LOG FINAL
+        // =====================================================
+
+        \Log::info(
+            "[$origen] FIN — insert:{$stats['insertados']} "
+            . "act:{$stats['actualizados']} "
+            . "elim:{$stats['eliminados']}"
+        );
 
         return $stats;
     }
+
+
+    /**
+     * POST /api/database/migraciontot
+     *
+     * Recibe { origen: "TABLA_SQLSERVER", destino: "tabla_postgres" }
+     * Crea la tabla en Postgres si no existe, y migra todos los datos.
+     */
+    public function migraciontot(Request $request): JsonResponse
+    {
+        set_time_limit(300);
+        ini_set('memory_limit', '512M');
+
+        $origen = $request->input('origen');
+        $destino = $request->input('destino');
+
+        if (!$origen || !$destino) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Debes enviar origen y destino',
+            ], 400);
+        }
+
+        try {
+            // =====================================================
+            // 1. LEER COLUMNAS DEL ORIGEN (SQL Server)
+            // =====================================================
+            $columnas = DB::connection('sqlsrv2')->select("
+            SELECT COLUMN_NAME, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH,
+                   NUMERIC_PRECISION, NUMERIC_SCALE, IS_NULLABLE
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_NAME = ?
+            ORDER BY ORDINAL_POSITION
+        ", [$origen]);
+
+            if (empty($columnas)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "La tabla '{$origen}' no existe o no tiene columnas",
+                ], 404);
+            }
+
+            // =====================================================
+            // 2. MAPEAR TIPOS SQL Server → PostgreSQL
+            // =====================================================
+            $mapTipos = [
+                'int' => 'INTEGER',
+                'bigint' => 'BIGINT',
+                'smallint' => 'SMALLINT',
+                'tinyint' => 'SMALLINT',
+                'bit' => 'BOOLEAN',
+                'float' => 'DOUBLE PRECISION',
+                'real' => 'REAL',
+                'decimal' => 'NUMERIC',
+                'numeric' => 'NUMERIC',
+                'money' => 'NUMERIC(19,4)',
+                'smallmoney' => 'NUMERIC(10,4)',
+                'char' => 'CHAR',
+                'nchar' => 'CHAR',
+                'varchar' => 'VARCHAR',
+                'nvarchar' => 'VARCHAR',
+                'text' => 'TEXT',
+                'ntext' => 'TEXT',
+                'date' => 'DATE',
+                'datetime' => 'TIMESTAMP',
+                'datetime2' => 'TIMESTAMP',
+                'smalldatetime' => 'TIMESTAMP',
+                'time' => 'TIME',
+                'uniqueidentifier' => 'UUID',
+                'binary' => 'BYTEA',
+                'varbinary' => 'BYTEA',
+                'image' => 'BYTEA',
+                'xml' => 'TEXT',
+            ];
+
+            // =====================================================
+            // 3. CONSTRUIR DDL Y CREAR TABLA EN POSTGRES
+            // =====================================================
+            $colDefs = [];
+
+            foreach ($columnas as $col) {
+                $sqlType = strtolower($col->DATA_TYPE);
+                $pgType = $mapTipos[$sqlType] ?? 'TEXT';
+                $nullable = strtoupper($col->IS_NULLABLE) === 'YES' ? '' : ' NOT NULL';
+                $colName = strtolower($col->COLUMN_NAME);
+
+                // Agregar precisión/longitud donde aplica
+                if (in_array($sqlType, ['varchar', 'nvarchar', 'char', 'nchar'])) {
+                    $len = $col->CHARACTER_MAXIMUM_LENGTH;
+                    $pgType .= ($len && $len > 0) ? "({$len})" : '';
+                } elseif (in_array($sqlType, ['decimal', 'numeric'])) {
+                    if ($col->NUMERIC_PRECISION) {
+                        $pgType .= "({$col->NUMERIC_PRECISION},{$col->NUMERIC_SCALE})";
+                    }
+                }
+
+                $colDefs[] = "    \"{$colName}\" {$pgType}{$nullable}";
+            }
+
+            $ddl = "CREATE TABLE IF NOT EXISTS \"{$destino}\" (\n"
+                . implode(",\n", $colDefs) . "\n)";
+
+            DB::connection('pgsql')->statement($ddl);
+
+            // =====================================================
+            // 4. MIGRAR DATOS CON PAGINACIÓN ROW_NUMBER()
+            //    (compatible SQL Server 2008)
+            // =====================================================
+            $colNames = array_map(fn($c) => $c->COLUMN_NAME, $columnas);
+            $colsStr = implode(', ', array_map(fn($c) => '[' . $c . ']', $colNames));
+            $orderStr = '[' . $colNames[0] . ']';   // primer campo como orden base
+
+            $batchSize = 500;
+            $page = 1;
+            $filasProcesadas = 0;
+
+            while (true) {
+                $offset = ($page - 1) * $batchSize;
+                $limit = $offset + $batchSize;
+
+                $sql = "
+                SELECT {$colsStr}
+                FROM (
+                    SELECT {$colsStr},
+                           ROW_NUMBER() OVER (ORDER BY {$orderStr}) AS [rn]
+                    FROM [{$origen}]
+                ) AS [paginado]
+                WHERE [rn] > {$offset} AND [rn] <= {$limit}
+            ";
+
+                $rows = DB::connection('sqlsrv2')->select($sql);
+
+                if (empty($rows))
+                    break;
+
+                $data = array_map(function ($row) {
+                    return array_change_key_case((array) $row, CASE_LOWER);
+                }, $rows);
+
+                foreach (array_chunk($data, 100) as $chunk) {
+                    DB::connection('pgsql')->table($destino)->insert($chunk);
+                    $filasProcesadas += count($chunk);
+                }
+
+                $page++;
+
+                if (count($rows) < $batchSize)
+                    break;
+            }
+
+            return response()->json([
+                'success' => true,
+                'tabla' => $destino,
+                'columnas' => count($columnas),
+                'filas' => $filasProcesadas,
+                'mensaje' => "Tabla '{$destino}' creada y migrada correctamente",
+            ]);
+
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
 }
