@@ -1,30 +1,35 @@
 <?php
 
 use Illuminate\Database\Migrations\Migration;
-use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
-return new class extends Migration
-{
+return new class extends Migration {
     /**
      * Run the migrations.
+     * Replica exacta de SQL Server 2008 usando tipos nativos raw
      */
     public function up(): void
     {
-        Schema::create('docentes', function (Blueprint $table) {
+        // Eliminar si existe
+        Schema::dropIfExists('DOCENTES');
 
-            $table->decimal('codigo', 10, 0)->primary();
+        // Crear tabla con tipos EXACTOS de SQL Server 2008
+        DB::statement('
+            CREATE TABLE [dbo].[DOCENTES] (
+                [CODIGO]             NUMERIC(9, 0)  NOT NULL,  -- ← 9 igual que el origen
+                [CI]                 VARCHAR(13)    NOT NULL,
+                [NOMBRES]            VARCHAR(40)    NULL,
+                [APELLIDOS]          VARCHAR(30)    NULL,
+                [FECHA_NAC]          DATETIME       NULL,
+                [SEXO]               VARCHAR(1)     NOT NULL,
+                [TITULO]             VARCHAR(4)     NULL,
+                [FECHA_NOMBRAMIENTO] DATETIME       NULL,
 
-            $table->string('ci', 13)->nullable(); // 
-            $table->string('nombres', 40)->nullable(); // 
-            $table->string('apellidos', 40)->nullable();
-            $table->dateTime('fecha_nac')->nullable();
-            $table->string('sexo', 1)->nullable(); // 
-            $table->string('titulo', 4)->nullable();
-            $table->dateTime('fecha_nombramiento')->nullable();
+                CONSTRAINT [PK_DOCENTES] PRIMARY KEY CLUSTERED ([CODIGO] ASC)
+            )
+        ');
 
-            $table->timestamps();
-        });
     }
 
     /**
@@ -32,6 +37,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('docentes');
+        Schema::dropIfExists('DOCENTES');
     }
 };
