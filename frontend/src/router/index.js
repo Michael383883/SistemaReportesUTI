@@ -10,6 +10,7 @@ import { resolucionesRoutes } from '@/modules/resoluciones/routes'
 import { reporteHorarioRoutes } from '@/modules/reporte-horario/routes'
 import { secretariaRoutes } from '@/modules/secretaria/routes'
 import { secretariaTalleresRoutes } from '@/modules/secretaria_talleres/routes'
+import { reporteHorarioRoutesadmin } from '@/modules/horariosadmin/routes'
 
 const routes = [
   ...authRoutes,
@@ -20,13 +21,7 @@ const routes = [
     children: [
       {
         path: '',
-        redirect: () => {
-          const authStore = useAuthStore()
-          const role = authStore.userRole
-          if (role === 'secretaria') return '/secretaria/dashboard'
-          if (role === 'secretaria_talleres') return '/secretariaTalleres/dashboard'
-          return '/dashboard'
-        },
+        redirect: '/dashboard', // ← simple fallback, beforeEach maneja el rol
       },
       ...dashboardRoutes,
       ...usersRoutes,
@@ -36,18 +31,13 @@ const routes = [
       ...resolucionesRoutes,
       ...reporteHorarioRoutes,
       ...secretariaRoutes,
-      ...secretariaTalleresRoutes,  // ← agregado
+      ...secretariaTalleresRoutes,
+      ...reporteHorarioRoutesadmin,
     ],
   },
   {
     path: '/:pathMatch(.*)*',
-    redirect: () => {
-      const authStore = useAuthStore()
-      const role = authStore.userRole
-      if (role === 'secretaria') return '/secretaria/dashboard'
-      if (role === 'secretaria_talleres') return '/secretariaTalleres/dashboard'
-      return '/dashboard'
-    },
+    redirect: '/dashboard',
   },
 ]
 
@@ -56,14 +46,14 @@ const router = createRouter({
   routes,
 })
 
-router.beforeEach(async (to, _from, next) => {
+router.beforeEach(async (to, _from) => {
   const token = localStorage.getItem('token')
   const requiresAuth = to.matched.some(r => r.meta.requiresAuth)
   const isGuest = to.matched.some(r => r.meta.isGuest)
   const requiredRoles = to.meta.roles
 
   if (requiresAuth && !token) {
-    return next({ path: '/login', query: { redirect: to.fullPath } })
+    return { path: '/login', query: { redirect: to.fullPath } }
   }
 
   if (token) {
@@ -75,23 +65,30 @@ router.beforeEach(async (to, _from, next) => {
 
   const authStore = useAuthStore()
 
+  if (to.path === '/') {
+    const role = authStore.userRole
+    if (role === 'secretaria') return { path: '/secretaria/dashboard' }
+    if (role === 'secretaria_talleres') return { path: '/secretariaTalleres/dashboard' }
+    return { path: '/dashboard' }
+  }
+
   if (isGuest && token) {
     const role = authStore.userRole
-    if (role === 'secretaria') return next('/secretaria/dashboard')
-    if (role === 'secretaria_talleres') return next('/secretariaTalleres/dashboard')
-    return next('/dashboard')
+    if (role === 'secretaria') return { path: '/secretaria/dashboard' }
+    if (role === 'secretaria_talleres') return { path: '/secretariaTalleres/dashboard' }
+    return { path: '/dashboard' }
   }
 
   if (requiredRoles?.length > 0) {
     const userRole = authStore.userRole
     if (!userRole || !requiredRoles.includes(userRole)) {
-      if (userRole === 'secretaria') return next('/secretaria/dashboard')
-      if (userRole === 'secretaria_talleres') return next('/secretariaTalleres/dashboard')
-      return next('/dashboard')
+      if (userRole === 'secretaria') return { path: '/secretaria/dashboard' }
+      if (userRole === 'secretaria_talleres') return { path: '/secretariaTalleres/dashboard' }
+      return { path: '/dashboard' }
     }
   }
 
-  next()
+  return true
 })
 
 export default router

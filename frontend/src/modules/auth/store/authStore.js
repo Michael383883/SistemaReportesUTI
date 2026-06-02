@@ -1,7 +1,8 @@
+// authStore.js
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { authService } from '../services/authService'
-
+import router from '@/router'  // ← importar directamente, NO useRouter()
 
 export const useAuthStore = defineStore('auth', () => {
     const user = ref(null)
@@ -9,7 +10,6 @@ export const useAuthStore = defineStore('auth', () => {
     const loading = ref(false)
     const error = ref(null)
 
-    // const isAuthenticated = computed(() => !!token.value && !!user.value)
     const isAuthenticated = computed(() => !!token.value)
     const userRole = computed(() => user.value?.role ?? null)
     const isAdmin = computed(() => userRole.value === 'admin')
@@ -24,6 +24,8 @@ export const useAuthStore = defineStore('auth', () => {
             token.value = data.token
             user.value = data.user
             localStorage.setItem('token', data.token)
+
+
         } catch (err) {
             error.value = err.response?.data?.message ?? 'Credenciales incorrectas'
             throw err
@@ -39,7 +41,6 @@ export const useAuthStore = defineStore('auth', () => {
             user.value = null
             token.value = null
             localStorage.removeItem('token')
-
         }
     }
 
@@ -52,7 +53,6 @@ export const useAuthStore = defineStore('auth', () => {
             user.value = null
             token.value = null
             localStorage.removeItem('token')
-
         }
     }
 

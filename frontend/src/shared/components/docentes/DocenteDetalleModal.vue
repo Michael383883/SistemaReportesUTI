@@ -25,7 +25,7 @@
             </div>
             <div>
               <h2 class="text-lg font-bold text-white leading-tight">{{ formatNombre(docente.nombre_docente) }}</h2>
-              <p class="text-teal-200 text-sm mt-0.5">Cód. {{ docente.docente }} · {{ docente.unidad || 'Sin unidad' }}</p>
+              
             </div>
           </div>
 
@@ -73,14 +73,8 @@
                   <p class="text-xs text-slate-400 mb-1">Carnet de Identidad</p>
                   <p class="text-sm font-semibold text-slate-800 font-mono">{{ docente.ci || '—' }}</p>
                 </div>
-                <div class="bg-slate-50 rounded-xl p-3">
-                  <p class="text-xs text-slate-400 mb-1">Código Docente</p>
-                  <p class="text-sm font-semibold text-slate-800 font-mono">{{ docente.docente || '—' }}</p>
-                </div>
-                <div class="bg-slate-50 rounded-xl p-3 col-span-2">
-                  <p class="text-xs text-slate-400 mb-1">Unidad Académica</p>
-                  <p class="text-sm font-semibold text-slate-800">{{ docente.unidad || '—' }}</p>
-                </div>
+               
+              
               </div>
             </section>
 
@@ -302,6 +296,7 @@ watch(() => props.modo, (val) => {
 function seleccionarTab(id) {
   if (id === 'carga') {
     emit('ver-horario', props.docente)
+    emit('cerrar')
     return
   }
   tabActiva.value = id

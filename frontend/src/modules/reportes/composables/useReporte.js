@@ -3,6 +3,53 @@ import axios from 'axios'
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api'
 
+const normalizeDocente = (doc) => {
+    if (!doc || typeof doc !== 'object') return doc
+    const out = { ...doc }
+
+    out.nombre = doc.nombre ?? doc.NOMBRE ?? doc.Nombre ?? ''
+    out.NOMBRE = doc.NOMBRE ?? doc.nombre ?? doc.Nombre ?? out.nombre
+
+    out.codigo = doc.codigo ?? doc.CODIGO ?? doc.cod ?? ''
+    out.CODIGO = doc.CODIGO ?? doc.codigo ?? doc.cod ?? out.codigo
+
+    out.id = doc.id ?? doc.ID ?? doc.id_docente ?? doc.ID_DOCENTE ?? null
+    out.ID = doc.ID ?? doc.id ?? doc.ID_DOCENTE ?? doc.id_docente ?? out.id
+
+    return out
+}
+
+const normalizeMateria = (m) => {
+    if (!m || typeof m !== 'object') return m
+    const out = { ...m }
+
+    out.nro = m.nro ?? m.NRO ?? m.numero ?? m.NUMERO ?? null
+    out.gestion = m.gestion ?? m.GESTION ?? m.anio ?? m.ANIO ?? ''
+    out.plan = m.plan ?? m.PLAN ?? ''
+    out.materia = m.materia ?? m.MATERIA ?? ''
+    out.compartido = m.compartido ?? m.COMPARTIDO ?? false
+    out.grp = m.grp ?? m.GRP ?? m.grupo ?? m.GRUPO ?? ''
+    out.resolucion = m.resolucion ?? m.RESOLUCION ?? m.resolucion_num ?? m.RESOLUCION_NUM ?? ''
+    out.designacion = m.designacion ?? m.DESIGNACION ?? ''
+    return out
+}
+
+const normalizeReporteResponse = (data) => {
+    if (!data || typeof data !== 'object') return data
+    const out = { ...data }
+
+    out.docente = normalizeDocente(data.docente ?? data.DOCENTE ?? data.Docente)
+    out.anio_desde = data.anio_desde ?? data.ANIO_DESDE ?? data.anio ?? data.ANIO ?? null
+    out.total = data.total ?? data.TOTAL ?? null
+
+    const materiasRaw = data.materias ?? data.MATERIAS ?? []
+    out.materias = Array.isArray(materiasRaw)
+        ? materiasRaw.map(normalizeMateria)
+        : materiasRaw
+
+    return out
+}
+
 export function useReporte() {
     const reporte = ref(null)
     const loading = ref(false)
@@ -49,7 +96,7 @@ export function useReporte() {
                 payload,
                 { headers: { Authorization: `Bearer ${token}` } }
             )
-            reporte.value = response.data
+            reporte.value = normalizeReporteResponse(response.data)
         } catch (err) {
             error.value = err.response?.data?.message || 'Error al generar el reporte'
         } finally {

@@ -78,9 +78,7 @@ const totalTalleres = computed(() =>
   props.kpis.talleres?.total ?? 0
 )
 
-const totalAlertas = computed(() =>
-  props.kpis.alertas?.length ?? 0
-)
+
 
 const cards = computed(() => [
   {
@@ -109,15 +107,6 @@ const cards = computed(() => [
     color: '#f59e0b',
     categoria: 'Talleres',
     percentage: Math.min((totalTalleres.value / 30) * 100, 100)
-  },
-  {
-    id: 'alertas',
-    label: 'Alertas Activas',
-    value: totalAlertas.value,
-    icon: AlertCircle,
-    color: '#ef4444',
-    categoria: 'Alertas',
-    percentage: totalAlertas.value > 0 ? 100 : 0
   }
 ])
 </script>

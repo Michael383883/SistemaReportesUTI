@@ -32,13 +32,13 @@
     </div>
 
     <!-- Error -->
-    <div v-else-if="error"
-      class="m-6 flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-xs">
-      <svg class="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
-      </svg>
-      {{ error }}
-    </div>
+        <div v-else-if="error || errorLocal"
+          class="m-6 flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-xs">
+          <svg class="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+          </svg>
+          {{ error || errorLocal }}
+        </div>
 
     <!-- ══════════════ FASE 1: preview resolución ══════════════ -->
     <div v-else-if="fase === 'preview'" class="divide-y divide-gray-100">
@@ -214,6 +214,8 @@ const props = defineProps({
   detalles:   { type: Array,   default: () => [] },
   loading:    { type: Boolean, default: false },
   error:      { type: String,  default: '' },
+  resolucionId: { type: [Number, String], default: null },    // ← NUEVO
+  aplicarEnGrupos:  { type: Function, default: null },      // ← NUEVO
 })
 
 const emit = defineEmits(['terminar', 'finalizar'])
@@ -226,8 +228,11 @@ const loadingLocal       = ref(false)
 const errorLocal         = ref('')
 
 async function handleTerminar() {
-  if (!props.resolucion?.id_resolucion) {
-    errorLocal.value = 'No se encontró el ID de la resolución.'
+  // Usa el id directo, no depende de mapKeysToCamelCase
+  const id = props.resolucionId ?? props.resolucion?.id_resolucion ?? props.resolucion?.iDResolucion
+
+  if (!id) {
+    errorLocal.value = 'No se encontró el ID de la resolución. (id=' + JSON.stringify(props.resolucion) + ')'
     return
   }
 
@@ -235,12 +240,12 @@ async function handleTerminar() {
   errorLocal.value   = ''
 
   try {
-    const resultado = await aplicarEnGrupos(props.resolucion.id_resolucion)
+    const resultado = await props.aplicarEnGrupos(id)
     gruposActualizados.value = resultado.grupos ?? []
     fase.value = 'grupos'
     emit('terminar')
-  } catch {
-    // el error ya lo maneja useResolucion
+  } catch (e) {
+    errorLocal.value = e?.message ?? 'Error al aplicar en grupos.'
   } finally {
     loadingLocal.value = false
   }

@@ -103,7 +103,7 @@
           <div class="flex items-center justify-between mb-6">
             <h2 class="text-lg font-semibold text-slate-800">Estudiantes Recientes</h2>
             <router-link
-              to="/secretaria-talleres/estudiantes"
+              to="/secretariaTalleres/estudiante"
               class="text-sm font-medium text-indigo-600 hover:text-indigo-700 transition-colors"
             >
               Ver todos →
@@ -158,8 +158,8 @@
                     </td>
                     <td class="py-3">
                       <div class="flex items-center gap-2">
-                        <div class="w-7 h-7 rounded-lg bg-teal-100 flex items-center justify-center text-teal-700 text-xs font-bold">
-                          {{ iniciales(item.docente) }}
+                        <div class="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 flex-shrink-0">
+                          <Users class="w-5 h-5" />
                         </div>
                         <span class="text-slate-600">{{ formatNombre(item.docente) }}</span>
                       </div>
@@ -220,79 +220,74 @@
         </div>
 
         <!-- Docentes Recientes -->
-        <div class="bg-white rounded-2xl border border-slate-200 p-6">
-          <div class="flex items-center justify-between mb-6">
-            <h2 class="text-lg font-semibold text-slate-800">Docentes Recientes</h2>
-            <router-link
-              to="/secretaria-talleres/docentes"
-              class="text-sm font-medium text-teal-600 hover:text-teal-700 transition-colors"
-            >
-              Ver todos →
-            </router-link>
-          </div>
-          <div class="space-y-3">
-            <div
-              v-for="doc in kpis.docentes?.recientes?.slice(0, 5)"
-              :key="doc.codigo"
-              class="flex items-center gap-4 p-3 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer group"
-              @click="irADocente(doc.codigo)"
-            >
-              <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-teal-500 to-teal-600 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
-                {{ iniciales(doc.nombre) }}
+        <!-- Últimos docentes agregados -->
+          <div class="lg:col-span-2 bg-white rounded-2xl border border-slate-200 p-6">
+            <div class="flex items-center justify-between mb-6">
+              <h2 class="text-lg font-semibold text-slate-800">Docentes Recientes</h2>
+              <router-link 
+                to="/secretariaTalleres/docentes"
+                class="text-sm font-medium text-teal-600 hover:text-teal-700 transition-colors"
+              >
+                Ver todos →
+              </router-link>
+            </div>
+            <div class="space-y-3">
+              <div 
+                v-for="docente in (docentesRecientes || []).slice(0, 5)"
+                :key="docente.codigo"
+                class="flex items-center gap-4 p-3 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer group"
+                @click="irADocente(docente.codigo)"
+              >
+               <div class="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 flex-shrink-0">
+                  <Users class="w-5 h-5" />
+                </div>
+                <div class="flex-1 min-w-0">
+                  <p class="text-sm font-semibold text-slate-800 truncate group-hover:text-teal-700 transition-colors">
+                    {{ formatNombre(docente.nombre) }}
+                  </p>
+                  <p class="text-xs text-slate-400">
+                    {{ docente.unidad || '—' }} · {{ docente.grado || '—' }}
+                  </p>
+                </div>
+                <div class="text-right flex-shrink-0">
+                  <span
+                    :class="[
+                      'text-sm font-bold px-2.5 py-1 rounded-lg',
+                      !docente.horas || docente.horas === 0
+                        ? 'bg-red-50 text-red-600'
+                        : docente.horas >= 20
+                          ? 'bg-teal-50 text-teal-700'
+                          : 'bg-slate-100 text-slate-700'
+                    ]"
+                  >{{ docente.horas ?? 0 }}h</span>
+                  <p class="text-xs text-slate-400 mt-1">{{ formatFecha(docente.fecha) }}</p>
+                </div>
               </div>
-              <div class="flex-1 min-w-0">
-                <p class="text-sm font-semibold text-slate-800 truncate group-hover:text-teal-700 transition-colors">
-                  {{ formatNombre(doc.nombre) }}
-                </p>
-                <p class="text-xs text-slate-400">{{ doc.taller }} · {{ doc.grado }}</p>
-              </div>
-              <div class="text-right flex-shrink-0">
-                <p :class="['text-sm font-semibold', doc.horas === 0 ? 'text-red-500' : 'text-slate-800']">
-                  {{ doc.horas }}h
-                </p>
-                <p class="text-xs text-slate-400">{{ formatFecha(doc.fecha) }}</p>
+
+              <!-- Estado vacío -->
+              <div v-if="!docentesRecientes?.length" class="flex flex-col items-center justify-center py-10 text-slate-400">
+                <Users class="w-8 h-8 mb-2 opacity-40" />
+                <p class="text-sm">Sin docentes recientes</p>
               </div>
             </div>
           </div>
-        </div>
+
+
       </template>
 
-      <!-- Alertas (siempre visibles) -->
-      <div v-if="kpis.alertas?.length" class="bg-white rounded-2xl border border-slate-200 p-6">
-        <h2 class="text-lg font-semibold text-slate-800 mb-4">Alertas y Notificaciones</h2>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <div
-            v-for="alerta in kpis.alertas"
-            :key="alerta.id"
-            :class="[
-              'flex items-start gap-3 p-4 rounded-xl border transition-all hover:shadow-md',
-              alertaStyles[alerta.tipo]?.bg || 'bg-slate-50 border-slate-200'
-            ]"
-          >
-            <div :class="['w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0', alertaStyles[alerta.tipo]?.iconBg]">
-              <component :is="alertaStyles[alerta.tipo]?.icon" :class="['w-5 h-5', alertaStyles[alerta.tipo]?.iconColor]" />
-            </div>
-            <div class="flex-1">
-              <p :class="['text-sm font-medium', alertaStyles[alerta.tipo]?.text]">{{ alerta.mensaje }}</p>
-              <router-link
-                v-if="alerta.accion"
-                :to="alerta.accion"
-                class="text-xs font-medium text-indigo-600 hover:text-indigo-700 mt-1 inline-block"
-              >Ver detalles →</router-link>
-            </div>
-          </div>
-        </div>
-      </div>
+     
 
     </div>
   </div>
 </template>
 
 <script setup>
+defineOptions({ name: 'DashboardPage' })
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { RefreshCw, AlertTriangle, Info, AlertCircle, Users, GraduationCap } from 'lucide-vue-next'
 import { Bar, Pie } from 'vue-chartjs'
+import { useDocentesRecientes } from '@/shared/composables/useDocentesRecientes'
 import {
   Chart as ChartJS, Title, Tooltip, Legend,
   BarElement, CategoryScale, LinearScale, ArcElement
@@ -308,35 +303,14 @@ const loading = ref(true)
 const periodoActual = ref('Mayo 2026')
 const activeTab = ref('estudiantes')
 const chartViewEst = ref('bar')
+const { recientes: docentesRecientes } = useDocentesRecientes()
 
 const tabs = [
   { id: 'estudiantes', label: 'Estudiantes', icon: GraduationCap },
   { id: 'docentes', label: 'Docentes', icon: Users },
 ]
 
-const alertaStyles = {
-  warning: {
-    bg: 'bg-amber-50 border-amber-200',
-    iconBg: 'bg-amber-100',
-    icon: AlertTriangle,
-    iconColor: 'text-amber-600',
-    text: 'text-amber-800'
-  },
-  info: {
-    bg: 'bg-blue-50 border-blue-200',
-    iconBg: 'bg-blue-100',
-    icon: Info,
-    iconColor: 'text-blue-600',
-    text: 'text-blue-800'
-  },
-  error: {
-    bg: 'bg-red-50 border-red-200',
-    iconBg: 'bg-red-100',
-    icon: AlertCircle,
-    iconColor: 'text-red-600',
-    text: 'text-red-800'
-  }
-}
+
 
 // ── Computed ─────────────────────────────────────────────────────────────────
 const maxNivel = computed(() => {

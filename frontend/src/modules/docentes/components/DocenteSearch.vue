@@ -96,24 +96,24 @@
         <ul v-else class="list-none m-0 p-1.5 max-h-72 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700" role="listbox">
           <li
             v-for="docente in filteredDocentes"
-            :key="docente.id"
+            :key="docente.ID"
             role="option"
             class="flex items-center gap-2.5 px-2.5 py-2 rounded-lg cursor-pointer transition-colors"
-            :class="selectedDocente?.id === docente.id ? 'bg-amber-500/10' : 'hover:bg-white/5'"
+            :class="selectedDocente?.ID === docente.ID ? 'bg-amber-500/10' : 'hover:bg-white/5'"
             @mousedown.prevent="selectDocente(docente)"
           >
             <div class="w-8 h-8 rounded-full bg-gradient-to-br from-blue-700 to-violet-600 text-white text-xs font-bold flex items-center justify-center shrink-0 tracking-wide">
               {{ initials(docente) }}
             </div>
             <div class="flex-1 min-w-0 flex flex-col gap-0.5">
-              <span class="text-sm font-medium text-slate-100 truncate">{{ docente.nombres }} {{ docente.apellidos }}</span>
+              <span class="text-sm font-medium text-slate-100 truncate">{{ docente.NOMBRES }} {{ docente.APELLIDOS }}</span>
               <span class="flex items-center gap-1.5">
                 <span class="text-[0.68rem] font-semibold tracking-wide bg-indigo-500/15 text-indigo-300 px-1.5 py-px rounded">
-                  SIS: {{ docente.codigo}}
+                  SIS: {{ docente.CODIGO}}
                 </span>
               </span>
             </div>
-            <svg v-if="selectedDocente?.id === docente.id" class="text-amber-500 shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <svg v-if="selectedDocente?.ID === docente.ID" class="text-amber-500 shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
               <polyline points="20 6 9 17 4 12"/>
             </svg>
           </li>
@@ -148,7 +148,7 @@ const isFocused    = ref(false)
 const searchQuery  = ref(props.searchQuery)
 const dropdownOpen = ref(props.dropdownOpen)
 
-const initials = (d) => ((d.nombres?.[0] || '') + (d.apellidos?.[0] || '')).toUpperCase() || '?'
+const initials = (d) => ((d.NOMBRES?.[0] || '') + (d.APELLIDOS?.[0] || '')).toUpperCase() || '?'
 
 const toggleDropdown = () => {
   dropdownOpen.value = !dropdownOpen.value
@@ -172,7 +172,7 @@ const onInput = () => {
 
 const selectDocente = (docente) => {
   emit('select', docente)
-  searchQuery.value  = `${docente.nombres} ${docente.apellidos}`
+  searchQuery.value  = `${docente.NOMBRES} ${docente.APELLIDOS}`
   dropdownOpen.value = false
   emit('update:dropdownOpen', false)
 }

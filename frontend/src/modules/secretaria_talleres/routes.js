@@ -1,8 +1,8 @@
 import DashboardPage from './views/DashboardPage.vue'
 import DocentesPage from './views/DocentesPage.vue'
 import EstudiantesPage from './views/EstudiantesPage.vue'
-
 export const secretariaTalleresRoutes = [
+
     {
         path: 'secretariaTalleres/dashboard',
         name: 'SecretariaTalleresDashboard',

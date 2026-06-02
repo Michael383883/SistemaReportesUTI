@@ -25,85 +25,59 @@
       <DashboardCards :kpis="kpis" :loading="loading" @cardClick="handleCardClick" />
 
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <!-- Gráfico principal: Docentes por Unidad -->
-        <div class="lg:col-span-2 bg-white rounded-2xl border border-slate-200 p-6">
-          <div class="flex items-center justify-between mb-6">
-            <h2 class="text-lg font-semibold text-slate-800">Docentes por Unidad Académica</h2>
-            <div class="flex items-center gap-2">
-              <button 
-                v-for="view in ['bar', 'pie']" 
-                :key="view"
-                @click="chartView = view"
-                :class="[
-                  'px-3 py-1.5 text-xs font-medium rounded-lg transition-colors',
-                  chartView === view ? 'bg-teal-50 text-teal-700 border border-teal-200' : 'text-slate-500 hover:bg-slate-50'
-                ]"
-              >
-                {{ view === 'bar' ? 'Barras' : 'Circular' }}
-              </button>
-            </div>
-          </div>
-          <div class="h-80">
-            <Bar v-if="chartView === 'bar'" :data="chartDataUnidades" :options="chartOptions" />
-            <Pie v-else :data="chartDataUnidadesPie" :options="chartOptionsPie" />
-          </div>
-        </div>
+       
 
         <!-- Distribución por Grado -->
-        <div class="bg-white rounded-2xl border border-slate-200 p-6">
-          <h2 class="text-lg font-semibold text-slate-800 mb-6">Por Grado Académico</h2>
-          <div class="space-y-4">
-            <div 
-              v-for="item in kpis.porGrado" 
-              :key="item.grado"
-              class="group cursor-pointer"
-            >
-              <div class="flex items-center justify-between mb-2">
-                <span class="text-sm font-medium text-slate-700">{{ item.grado }}</span>
-                <span class="text-sm font-semibold text-slate-800">{{ item.cantidad }}</span>
-              </div>
-              <div class="h-2 bg-slate-100 rounded-full overflow-hidden">
-                <div 
-                  class="h-full rounded-full transition-all duration-500 group-hover:opacity-80"
-                  :style="{ 
-                    width: (item.cantidad / maxGrado) * 100 + '%',
-                    backgroundColor: item.color 
-                  }"
-                />
-              </div>
+          <div class="bg-white rounded-2xl border border-slate-200 p-6 flex flex-col" style="height: 480px;">
+            
+            <!-- Header -->
+            <div class="flex items-center justify-between mb-5 flex-shrink-0">
+              <h2 class="text-lg font-semibold text-slate-800">Por Grado Académico</h2>
+              <span class="text-xs text-slate-400 bg-slate-100 px-2 py-1 rounded-full">
+                {{ kpis.porGrado?.length || 0 }} grados
+              </span>
             </div>
-          </div>
-          <div class="mt-6 pt-4 border-t border-slate-100">
-            <div class="flex items-center justify-between text-sm">
-              <span class="text-slate-500">Total</span>
-              <span class="font-bold text-slate-800">{{ kpis.porGrado?.reduce((acc, g) => acc + g.cantidad, 0) || 0 }}</span>
-            </div>
-          </div>
-        </div>
 
-        <!-- Carga Horaria -->
-        <div class="bg-white rounded-2xl border border-slate-200 p-6">
-          <h2 class="text-lg font-semibold text-slate-800 mb-6">Distribución de Carga Horaria</h2>
-          <div class="space-y-3">
-            <div 
-              v-for="item in kpis.cargaHoraria" 
-              :key="item.rango"
-              class="group"
-            >
-              <div class="flex items-center justify-between mb-1.5">
-                <span class="text-xs font-medium text-slate-600">{{ item.rango }}</span>
-                <span class="text-xs font-semibold text-slate-800">{{ item.cantidad }} doc.</span>
+            <!-- Lista scrolleable -->
+            <div class="flex-1 overflow-y-auto space-y-3 pr-2 min-h-0">
+              <div 
+                v-for="item in kpis.porGrado" 
+                :key="item.grado"
+                class="group cursor-pointer py-1"
+              >
+                <div class="flex items-center justify-between mb-1.5">
+                  <span class="text-sm font-medium text-slate-700 truncate max-w-[140px]">{{ item.grado }}</span>
+                  <div class="flex items-center gap-2 flex-shrink-0">
+                    <span class="text-xs text-slate-400">
+                      {{ Math.round((item.cantidad / (kpis.porGrado?.reduce((a,g) => a + g.cantidad, 0) || 1)) * 100) }}%
+                    </span>
+                    <span class="text-sm font-bold text-slate-800 w-10 text-right">{{ item.cantidad }}</span>
+                  </div>
+                </div>
+                <div class="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                  <div 
+                    class="h-full rounded-full transition-all duration-700 group-hover:opacity-75"
+                    :style="{ 
+                      width: (item.cantidad / maxGrado) * 100 + '%',
+                      backgroundColor: item.color 
+                    }"
+                  />
+                </div>
               </div>
-              <div class="h-2 bg-slate-100 rounded-full overflow-hidden">
-                <div 
-                  class="h-full rounded-full bg-gradient-to-r from-teal-400 to-teal-600 transition-all duration-500 group-hover:from-teal-500 group-hover:to-teal-700"
-                  :style="{ width: (item.cantidad / maxCarga) * 100 + '%' }"
-                />
+            </div>
+
+            <!-- Footer fijo -->
+            <div class="mt-4 pt-4 border-t border-slate-100 flex-shrink-0">
+              <div class="flex items-center justify-between">
+                <span class="text-sm text-slate-500">Total docentes</span>
+                <span class="text-base font-bold text-slate-800">
+                  {{ kpis.porGrado?.reduce((acc, g) => acc + g.cantidad, 0) || 0 }}
+                </span>
               </div>
             </div>
           </div>
-        </div>
 
+        
         <!-- Últimos docentes agregados -->
         <div class="lg:col-span-2 bg-white rounded-2xl border border-slate-200 p-6">
           <div class="flex items-center justify-between mb-6">
@@ -117,7 +91,7 @@
           </div>
           <div class="space-y-3">
             <div 
-              v-for="docente in kpis.docentesRecientes?.slice(0, 5)" 
+              v-for="docente in docentesRecientes?.slice(0, 5)" 
               :key="docente.codigo"
               class="flex items-center gap-4 p-3 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer group"
               @click="irADocente(docente.codigo)"
@@ -140,42 +114,6 @@
         </div>
       </div>
 
-      <!-- Alertas -->
-      <div v-if="kpis.alertas?.length" class="bg-white rounded-2xl border border-slate-200 p-6">
-        <h2 class="text-lg font-semibold text-slate-800 mb-4">Alertas y Notificaciones</h2>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div
-            v-for="alerta in kpis.alertas"
-            :key="alerta.id"
-            :class="[
-              'flex items-start gap-3 p-4 rounded-xl border transition-all hover:shadow-md',
-              alertaStyles[alerta.tipo]?.bg || 'bg-slate-50 border-slate-200'
-            ]"
-          >
-            <div :class="[
-              'w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0',
-              alertaStyles[alerta.tipo]?.iconBg || 'bg-slate-200'
-            ]">
-              <component 
-                :is="alertaStyles[alerta.tipo]?.icon" 
-                :class="['w-5 h-5', alertaStyles[alerta.tipo]?.iconColor || 'text-slate-500']"
-              />
-            </div>
-            <div class="flex-1">
-              <p :class="['text-sm font-medium', alertaStyles[alerta.tipo]?.text || 'text-slate-700']">
-                {{ alerta.mensaje }}
-              </p>
-              <router-link
-                v-if="alerta.accion"
-                :to="alerta.accion"
-                class="text-xs font-medium text-teal-600 hover:text-teal-700 mt-1 inline-block"
-              >
-                Ver detalles →
-              </router-link>
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
   </div>
 </template>
@@ -185,6 +123,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { RefreshCw, AlertTriangle, Info, AlertCircle, BellRing } from 'lucide-vue-next'
 import { Bar, Pie } from 'vue-chartjs'
+import { useDocentesRecientes } from '@/shared/composables/useDocentesRecientes'
 import {
   Chart as ChartJS,
   Title,
@@ -206,30 +145,44 @@ const kpis = ref({})
 const loading = ref(true)
 const chartView = ref('bar')
 const periodoActual = ref('Mayo 2026')
+const { recientes: docentesRecientes } = useDocentesRecientes()
 
-const alertaStyles = {
-  warning: {
-    bg: 'bg-amber-50 border-amber-200',
-    iconBg: 'bg-amber-100',
-    icon: AlertTriangle,
-    iconColor: 'text-amber-600',
-    text: 'text-amber-800'
-  },
-  info: {
-    bg: 'bg-blue-50 border-blue-200',
-    iconBg: 'bg-blue-100',
-    icon: Info,
-    iconColor: 'text-blue-600',
-    text: 'text-blue-800'
-  },
-  error: {
-    bg: 'bg-red-50 border-red-200',
-    iconBg: 'bg-red-100',
-    icon: AlertCircle,
-    iconColor: 'text-red-600',
-    text: 'text-red-800'
-  }
-}
+
+const chartDataCarga = computed(() => ({
+  labels: kpis.value.cargaHoraria?.map(c => c.rango) || [],
+  datasets: [
+    {
+      label: 'Docentes',
+      data: kpis.value.cargaHoraria?.map(c => c.cantidad) || [],
+      backgroundColor: [
+        '#f59e0b',
+        '#10b981',
+        '#14b8a6',
+        '#6366f1',
+        '#ef4444'
+      ],
+      borderRadius: 8
+    }
+  ]
+}))
+
+const chartDataGrados = computed(() => ({
+  labels: kpis.value.cargaHoraria?.map(c => c.rango) || [],
+  datasets: [
+    {
+      data: kpis.value.cargaHoraria?.map(c => c.cantidad) || [],
+      backgroundColor: [
+        '#f59e0b',
+        '#10b981',
+        '#14b8a6',
+        '#6366f1',
+        '#ef4444'
+      ],
+      borderWidth: 2,
+      borderColor: '#fff'
+    }
+  ]
+}))
 
 const maxGrado = computed(() => {
   if (!kpis.value.porGrado?.length) return 1
@@ -304,8 +257,13 @@ onMounted(async () => {
 
 async function cargarDatos() {
   loading.value = true
+
   try {
     kpis.value = await dashboardService.getKPIs()
+
+    console.log('KPIS', kpis.value)
+    console.log('TOP CARGA', kpis.value.topCargaHoraria)
+
   } catch (error) {
     console.error('Error cargando dashboard:', error)
   } finally {

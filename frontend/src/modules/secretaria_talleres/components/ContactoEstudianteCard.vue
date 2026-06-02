@@ -67,7 +67,7 @@
               </div>
               <div>
                 <p class="text-[10px] uppercase tracking-widest text-slate-400 font-medium">Materia · Grupo</p>
-                <p class="text-slate-700 text-sm font-medium">{{ estudiante.nombre_materia }} — Grupo {{ estudiante.grupo }}</p>
+                <p class="text-slate-700 text-sm font-medium">{{ estudiante.nom_materia  }} — Grupo {{ estudiante.grupo }}</p>
               </div>
             </div>
 

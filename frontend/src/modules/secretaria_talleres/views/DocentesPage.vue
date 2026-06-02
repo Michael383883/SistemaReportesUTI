@@ -35,20 +35,12 @@
           <input
             v-model="busqueda"
             type="text"
-            placeholder="Buscar por nombre, CI o unidad..."
+            placeholder="Buscar por nombre, CI "
             class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
           />
         </div>
 
-        <!-- Filtro Unidad -->
-        <select
-          v-model="filtroUnidad"
-          class="px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-500"
-        >
-          <option value="">Todas las unidades</option>
-          <option v-for="u in unidades" :key="u" :value="u">{{ u }}</option>
-        </select>
-
+        
         <!-- Filtro Grado -->
         <select
           v-model="filtroGrado"
@@ -113,7 +105,7 @@
                 <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Docente</th>
                 <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">C.I.</th>
                 <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Grado</th>
-                <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Unidad</th>
+               
                 <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Contacto</th>
                 <th class="text-center px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Horario</th>
                 <th class="text-center px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Carga</th>
@@ -135,7 +127,7 @@
             </div>
                     <div>
                       <p class="font-medium text-slate-800 leading-tight">{{ formatNombre(docente.nombre_docente) }}</p>
-                      <p class="text-xs text-slate-400">Cód. {{ docente.docente }}</p>
+                    
                     </div>
                   </div>
                 </td>
@@ -147,8 +139,7 @@
                     {{ docente.grado_academico || 'Sin especificar' }}
                   </span>
                 </td>
-                <!-- Unidad -->
-                <td class="px-4 py-3 text-slate-600 text-xs">{{ docente.unidad || '—' }}</td>
+                
                 <!-- Contacto -->
                 <td class="px-4 py-3">
                   <div class="flex flex-col gap-1">
@@ -275,7 +266,7 @@
             </div>
             <div class="min-w-0 flex-1">
               <p class="font-semibold text-slate-800 text-sm leading-tight truncate group-hover:text-teal-700 transition-colors">{{ formatNombre(docente.nombre_docente) }}</p>
-              <p class="text-xs text-slate-400 mt-0.5">{{ docente.unidad || 'Sin unidad' }}</p>
+             
             </div>
           </div>
 
@@ -321,7 +312,7 @@
     <HorarioRapidoModal
       v-if="docenteHorarioSeleccionado"
       :docente="docenteHorarioSeleccionado"
-      @cerrar="docenteHorarioSeleccionado = null"
+      @cerrar="cerrarHorarioRapido"
     />
 
     <!-- Modal Detalle Docente -->
@@ -330,15 +321,18 @@
       :docente="docenteSeleccionado"
       :modo="modoModal"
       @cerrar="cerrarModal"
+      @ver-horario="onVerHorarioDesdeModal"
     />
   </div>
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
+defineOptions({ name: 'DocentesPage' })
+import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import DocenteDetalleModal from '@/shared/components/docentes/DocenteDetalleModal.vue'
 import HorarioRapidoModal from '@/shared/components/docentes/HorarioRapidoModal.vue'
 import { docentesService } from '@/shared/services/docentesService'
+import { useDocentesRecientes } from '@/shared/composables/useDocentesRecientes'
 
 const cargando = ref(false)
 const docentes = ref([])
@@ -352,6 +346,16 @@ const docenteSeleccionado = ref(null)
 const docenteHorarioSeleccionado = ref(null)
 const modoModal = ref('detalle')
 const currentPeriod = ref('mayo 2026')
+const origenHorario = ref(null) // 'tabla' o 'detalle'
+
+
+const { registrar } = useDocentesRecientes()
+
+function abrirDetalle(docente) {
+  registrar(docente)           // ← registra la visita
+  docenteSeleccionado.value = docente
+  modoModal.value = 'detalle'
+}
 
 onMounted(async () => {
   await cargarDocentes()
@@ -432,12 +436,22 @@ const docentesPaginados = computed(() => {
 watch([busqueda, filtroUnidad, filtroGrado], () => { paginaActual.value = 1 })
 
 // Funciones para horarios
+
+async function onVerHorarioDesdeModal(docente) {
+  origenHorario.value = 'detalle'  // ← vino desde el detalle
+  docenteSeleccionado.value = null
+  await nextTick()
+  await verHorarioRapido(docente)
+}
 async function verHorarioRapido(docente) {
+  registrar(docente)  
+  if (origenHorario.value !== 'detalle') {
+    origenHorario.value = 'tabla'  // ← vino desde la tabla
+  }
   if (docente.horario_completo) {
     docenteHorarioSeleccionado.value = docente
     return
   }
-  
   try {
     const horario = await docentesService.getHorario(docente.docente)
     docenteHorarioSeleccionado.value = { ...docente, horario_completo: horario }
@@ -446,15 +460,26 @@ async function verHorarioRapido(docente) {
   }
 }
 
+function cerrarHorarioRapido() {
+  const docente = docenteHorarioSeleccionado.value
+  docenteHorarioSeleccionado.value = null
+
+  // Si vino desde el detalle, vuelve al detalle
+  if (origenHorario.value === 'detalle') {
+    origenHorario.value = null
+    docenteSeleccionado.value = docente
+    modoModal.value = 'detalle'
+  } else {
+    origenHorario.value = null
+  }
+}
+
 function verHorarioCompleto(docente) {
   docenteSeleccionado.value = docente
   modoModal.value = 'horario'
 }
 
-function abrirDetalle(docente) {
-  docenteSeleccionado.value = docente
-  modoModal.value = 'detalle'
-}
+
 
 function cerrarModal() {
   docenteSeleccionado.value = null

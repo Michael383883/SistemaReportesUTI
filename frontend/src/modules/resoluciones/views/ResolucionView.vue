@@ -230,7 +230,10 @@
         :detalles="resolucion.detallesGuardados.value"
         :loading="resolucion.loading.value"
         :error="resolucion.error.value"
-        @terminar="resetAll"
+        :resolucion-id="resolucion.resolucionId.value"
+        :aplicar-en-grupos="resolucion.aplicarEnGrupos"
+        @terminar="() => {}"
+        @finalizar="resetAll"
       />
     </div>
 

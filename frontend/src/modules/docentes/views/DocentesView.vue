@@ -63,36 +63,36 @@
           <!-- Info -->
           <div class="flex-1 min-w-0">
             <h2 class="text-[16px] font-semibold text-slate-100 m-0 mb-2 tracking-tight">
-              {{ selectedDocente.nombres }} {{ selectedDocente.apellidos }}
+                {{ selectedDocente.NOMBRES }} {{ selectedDocente.APELLIDOS }}
             </h2>
 
             <!-- Tags - BADGES / CHIPS -->
             <div class="flex flex-wrap gap-1.5 mb-2.5">
               <span class="inline-flex items-center px-2 py-0.5 rounded text-[12px] font-semibold bg-indigo-500/15 text-indigo-300">
-                SIS: {{ selectedDocente.codigo }}
+                SIS: {{ selectedDocente.CODIGO }}
               </span>
-              <span v-if="selectedDocente.departamento" class="inline-flex items-center px-2 py-0.5 rounded text-[12px] font-semibold bg-emerald-500/10 text-emerald-400">
-                {{ selectedDocente.departamento }}
+              <span v-if="selectedDocente.DEPARTAMENTO" class="inline-flex items-center px-2 py-0.5 rounded text-[12px] font-semibold bg-emerald-500/10 text-emerald-400">
+                {{ selectedDocente.DEPARTAMENTO }}
               </span>
-              <span v-if="selectedDocente.categoria" class="inline-flex items-center px-2 py-0.5 rounded text-[12px] font-semibold bg-amber-500/10 text-amber-400">
-                {{ selectedDocente.categoria }}
+              <span v-if="selectedDocente.CATEGORIA" class="inline-flex items-center px-2 py-0.5 rounded text-[12px] font-semibold bg-amber-500/10 text-amber-400">
+                {{ selectedDocente.CATEGORIA }}
               </span>
             </div>
 
             <!-- Meta - TEXTO SECUNDARIO -->
             <div class="flex flex-wrap gap-3.5">
-              <div v-if="selectedDocente.email" class="flex items-center gap-1.5 text-[13px] text-slate-400">
+              <div v-if="selectedDocente.EMAIL" class="flex items-center gap-1.5 text-[13px] text-slate-400">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
                   <polyline points="22,6 12,13 2,6"/>
                 </svg>
-                {{ selectedDocente.email }}
+                {{ selectedDocente.EMAIL }}
               </div>
-              <div v-if="selectedDocente.telefono" class="flex items-center gap-1.5 text-[13px] text-slate-400">
+              <div v-if="selectedDocente.TELEFONO" class="flex items-center gap-1.5 text-[13px] text-slate-400">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.64 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l.81-.81a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
                 </svg>
-                {{ selectedDocente.telefono }}
+                {{ selectedDocente.TELEFONO }}
               </div>
             </div>
           </div>
@@ -182,14 +182,14 @@ const {
   clearSelection,
 } = useDocentes()
 
-const initials = (d) => ((d.nombres?.[0] || '') + (d.apellidos?.[0] || '')).toUpperCase() || '?'
+const initials = (d) => ((d.NOMBRES?.[0] || '') + (d.APELLIDOS?.[0] || '')).toUpperCase() || '?'
 
 // ✅ Redirige a la vista de reporte pasando el código del docente
 const irAlReporte = () => {
   if (!selectedDocente.value) return
   router.push({
     name: 'reporte',
-    query: { codigo: selectedDocente.value.codigo }
+    query: { codigo: selectedDocente.value.CODIGO }
   })
 }
 

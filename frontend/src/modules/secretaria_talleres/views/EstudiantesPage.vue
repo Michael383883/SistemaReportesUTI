@@ -71,6 +71,26 @@
           </select>
         </div>
 
+
+        <div class="relative">
+  <select
+    v-model="filtros.grupo"
+    class="w-full pl-3 pr-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50"
+  >
+    <option value="">
+      Todos los grupos
+    </option>
+
+    <option
+      v-for="g in gruposDisponibles"
+      :key="g"
+      :value="g"
+    >
+      Grupo {{ g }}
+    </option>
+  </select>
+</div>
+
         <!-- Botón limpiar filtros -->
         <button
           @click="limpiarFiltros"
@@ -126,8 +146,8 @@
       <!-- Tabla segmentada por materia -->
       <div v-else class="space-y-8">
         <div
-          v-for="(grupo, nombreMateria) in gruposPorMateria"
-          :key="nombreMateria"
+          v-for="(item, key) in gruposPorMateria"
+         :key="key"
           class="bg-white rounded-2xl shadow-sm ring-1 ring-slate-200 overflow-hidden"
         >
           <!-- Header del grupo -->
@@ -139,12 +159,15 @@
                 </svg>
               </div>
               <div>
-                <h2 class="text-white font-bold text-base">{{ nombreMateria }}</h2>
-                <p class="text-blue-100 text-xs">{{ grupo[0]?.materia }} · Nivel {{ grupo[0]?.nivel }}</p>
+                <h2 class="text-white font-bold text-base">{{ item.materia }}</h2>
+                <p class="text-blue-100 text-xs">Grupo {{ item.grupo }}</p>
+              <p class="text-blue-100 text-xs">
+  Docente: {{ item.docente }}
+</p>
               </div>
             </div>
             <span class="rounded-full bg-white/20 text-white text-xs font-semibold px-3 py-1">
-              {{ grupo.length }} inscritos
+              {{ item.estudiantes.length }} inscritos
             </span>
           </div>
 
@@ -154,7 +177,7 @@
               <path stroke-linecap="round" stroke-linejoin="round" d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
             <span class="font-medium">Docente:</span>
-            <span>{{ grupo[0]?.docente }}</span>
+            <span>{{ item.docente }}</span>
           </div>
 
           <!-- Tabla -->
@@ -163,7 +186,7 @@
               <thead>
                 <tr class="bg-slate-50 border-b border-slate-100">
                   <th class="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-6 py-3 w-10">#</th>
-                  <th class="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Código</th>
+                
                   <th class="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Nombre del Estudiante</th>
                   <th class="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Carrera</th>
                   <th class="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Grupo</th>
@@ -172,19 +195,15 @@
               </thead>
               <tbody class="divide-y divide-slate-50">
                 <tr
-                  v-for="(est, idx) in grupo"
-                  :key="est.codigo"
+                  v-for="(est, idx) in item.estudiantes"
+                  :key="est.cod_estudiante"
                   class="hover:bg-blue-50/40 transition-colors group"
                 >
                   <!-- N° -->
                   <td class="px-6 py-3 text-slate-400 text-xs">{{ idx + 1 }}</td>
 
                   <!-- Código -->
-                  <td class="px-4 py-3">
-                    <span class="font-mono text-xs font-semibold text-slate-600 bg-slate-100 rounded px-1.5 py-0.5">
-                      {{ est.codigo }}
-                    </span>
-                  </td>
+                  
 
                   <!-- Nombre -->
                   <td class="px-4 py-3">
@@ -249,117 +268,247 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
-// ✅ FIX: importar también PLANES desde el servicio para consistencia con el componente hijo
-import estudiantesService, { PLANES } from '../services/estudiantesService'
+defineOptions({ name: 'EstudiantesPage' })
+import {
+  ref,
+  reactive,
+  computed,
+  onMounted,
+  watch
+} from 'vue'
+
+import estudiantesService, {
+  PLANES
+} from '../services/estudiantesService'
+
 import ContactoEstudianteCard from '../components/ContactoEstudianteCard.vue'
 
-// ── Estado ────────────────────────────────────────────────────
-const cargando       = ref(false)
-const estudiantes    = ref([])
-const materias       = ref([])
+// ─────────────────────────────────────────────
+// Estado
+// ─────────────────────────────────────────────
+const cargando = ref(false)
+const estudiantes = ref([])
+const materias = ref([])
 
 const filtros = reactive({
-  anio:     2026,
-  periodo:  1,
+  anio: 2026,
+  periodo: 1,
   busqueda: '',
-  plan:     '',
-  materia:  '',
+  plan: '',
+  materia: '',
+  grupo: ''
 })
 
-const modalVisible           = ref(false)
-const estudianteSeleccionado = ref({})
-const contactoData           = ref(null)
+const gruposDisponibles = computed(() => {
 
-// ── Cargar datos ───────────────────────────────────────────────
-onMounted(async () => {
+  let datos = estudiantes.value
+
+  if (filtros.materia) {
+    datos = datos.filter(
+      e => e.materia === filtros.materia
+    )
+  }
+
+  return [
+    ...new Set(
+      datos.map(e => e.grupo)
+    )
+  ].sort()
+
+})
+const modalVisible = ref(false)
+const estudianteSeleccionado = ref({})
+const contactoData = ref(null)
+
+// ─────────────────────────────────────────────
+// Cargar estudiantes desde API
+// ─────────────────────────────────────────────
+const cargarEstudiantes = async () => {
   cargando.value = true
+
   try {
-    // ✅ FIX: usar estudiantesService en lugar de svc (que no existía)
-    const [e, m] = await Promise.all([
-      estudiantesService.getEstudiantesEnTalleres({ anio: filtros.anio, periodo: filtros.periodo }),
-      estudiantesService.getMateriasDisponibles({ anio: filtros.anio, periodo: filtros.periodo }),
-    ])
-    estudiantes.value = e
-    materias.value    = m
+    const resultado = await estudiantesService.getInscritos({
+      plan: filtros.plan || null,
+      materia: filtros.materia || null
+    })
+
+    estudiantes.value = resultado.data || []
+
+    const materiasMap = new Map()
+
+    estudiantes.value.forEach(est => {
+      if (!materiasMap.has(est.materia)) {
+        materiasMap.set(est.materia, {
+          codigo: est.materia,
+          nombre: est.nom_materia,
+          nivel: est.nivel
+        })
+      }
+    })
+
+    materias.value = [...materiasMap.values()]
+  } catch (error) {
+    console.error('Error cargando estudiantes:', error)
   } finally {
     cargando.value = false
   }
+}
+
+onMounted(() => {
+  cargarEstudiantes()
 })
 
-// ── Filtrado ───────────────────────────────────────────────────
+// ─────────────────────────────────────────────
+// Recargar cuando cambien filtros servidor
+// ─────────────────────────────────────────────
+watch(
+  () => [filtros.plan, filtros.materia],
+  () => {
+    cargarEstudiantes()
+  }
+)
+
+// ─────────────────────────────────────────────
+// Filtro local por búsqueda
+// ─────────────────────────────────────────────
 const estudiantesFiltrados = computed(() => {
-  const b = filtros.busqueda.toLowerCase().trim()
-  return estudiantes.value.filter(e => {
-    const matchBusq = !b || e.nom_estudiante.toLowerCase().includes(b) || e.codigo.includes(b)
-    const matchPlan = !filtros.plan    || e.plan    === filtros.plan
-    const matchMat  = !filtros.materia || e.materia === filtros.materia
-    return matchBusq && matchPlan && matchMat
+
+  const texto = filtros.busqueda
+    .toLowerCase()
+    .trim()
+
+  return estudiantes.value.filter(est => {
+
+    const matchGrupo =
+      !filtros.grupo ||
+      est.grupo === filtros.grupo
+
+    const matchBusqueda =
+      !texto ||
+      est.nom_estudiante?.toLowerCase().includes(texto) ||
+      String(est.cod_estudiante).includes(texto)
+
+    return matchGrupo && matchBusqueda
   })
+
 })
 
+// ─────────────────────────────────────────────
 // Agrupar por materia
+// ─────────────────────────────────────────────
 const gruposPorMateria = computed(() => {
+
   return estudiantesFiltrados.value.reduce((acc, est) => {
-    const key = est.nombre_materia
-    if (!acc[key]) acc[key] = []
-    acc[key].push(est)
+
+    const key = `${est.materia}_${est.grupo}`
+
+    if (!acc[key]) {
+
+      acc[key] = {
+        materia: est.nom_materia,
+        codigoMateria: est.materia,
+        grupo: est.grupo,
+        docente: est.docente,
+        estudiantes: []
+      }
+
+    }
+
+    acc[key].estudiantes.push(est)
+
     return acc
+
   }, {})
+
 })
 
-// Pills activos
+// ─────────────────────────────────────────────
+// Pills filtros
+// ─────────────────────────────────────────────
 const filtrosActivos = computed(() => {
   const activos = []
-  if (filtros.plan)     activos.push({ key: 'plan',     label: abreviarPlan(filtros.plan) })
-  if (filtros.materia)  activos.push({ key: 'materia',  label: materias.value.find(m => m.codigo === filtros.materia)?.nombre || filtros.materia })
-  if (filtros.busqueda) activos.push({ key: 'busqueda', label: `"${filtros.busqueda}"` })
+
+  if (filtros.plan) {
+    activos.push({
+      key: 'plan',
+      label: abreviarPlan(filtros.plan)
+    })
+  }
+
+  if (filtros.materia) {
+    const materia = materias.value.find(
+      m => m.codigo === filtros.materia
+    )
+
+    activos.push({
+      key: 'materia',
+      label: materia?.nombre || filtros.materia
+    })
+  }
+
+  if (filtros.busqueda) {
+    activos.push({
+      key: 'busqueda',
+      label: `"${filtros.busqueda}"`
+    })
+  }
+
   return activos
 })
 
-// ── Helpers UI ─────────────────────────────────────────────────
-const iniciales = nombre =>
-  (nombre || '').split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()
-
-// ✅ FIX: usar PLANES importado en lugar de la copia local ABREVS
+// ─────────────────────────────────────────────
+// Helpers UI
+// ─────────────────────────────────────────────
 const ABREVS = {
   '109401': 'Adm. Empresas',
   '125091': 'Ing. Comercial',
   '089801': 'Cont. Pública',
   '126091': 'Ing. Financiera',
-  '059801': 'Economía',
+  '059801': 'Economía'
 }
-const abreviarPlan = plan => ABREVS[plan] || plan
+
+const abreviarPlan = plan =>
+  ABREVS[plan] || plan
 
 const COLORES = {
   '109401': 'bg-blue-100 text-blue-700',
   '125091': 'bg-emerald-100 text-emerald-700',
   '089801': 'bg-orange-100 text-orange-700',
   '126091': 'bg-violet-100 text-violet-700',
-  '059801': 'bg-rose-100 text-rose-700',
+  '059801': 'bg-rose-100 text-rose-700'
 }
-const colorPlan = plan => COLORES[plan] || 'bg-slate-100 text-slate-700'
 
-// ── Acciones ───────────────────────────────────────────────────
+const colorPlan = plan =>
+  COLORES[plan] ||
+  'bg-slate-100 text-slate-700'
+
+// ─────────────────────────────────────────────
+// Acciones
+// ─────────────────────────────────────────────
 const limpiarFiltros = () => {
   filtros.busqueda = ''
-  filtros.plan     = ''
-  filtros.materia  = ''
+  filtros.plan = ''
+  filtros.materia = ''
+  filtros.grupo = ''
 }
 
-const quitarFiltro = key => { filtros[key] = '' }
+const quitarFiltro = key => {
+  filtros[key] = ''
+}
 
-const verContacto = async est => {
+const verContacto = (est) => {
+
   estudianteSeleccionado.value = est
-  contactoData.value           = null
-  modalVisible.value           = true
-  try {
-    // ✅ FIX: usar estudiantesService en lugar de svc
-    contactoData.value = await estudiantesService.getContactoEstudiante(est.codigo)
-  } catch {
-    contactoData.value = { email: null, celular: null }
+
+  contactoData.value = {
+    email: est.correo,
+    celular: est.celular
   }
+
+  modalVisible.value = true
 }
 
-const cerrarModal = () => { modalVisible.value = false }
+const cerrarModal = () => {
+  modalVisible.value = false
+}
 </script>

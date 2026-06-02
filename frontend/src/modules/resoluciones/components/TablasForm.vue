@@ -125,10 +125,10 @@
                 <ul v-else class="list-none m-0 p-1.5 max-h-56 overflow-y-auto" role="listbox">
                   <li
                     v-for="doc in filteredDocentes"
-                    :key="doc.cod_docente ?? doc.id"
+                    :key="doc.COD_DOCENTE ?? doc.ID"
                     role="option"
                     class="flex items-center gap-2.5 px-2.5 py-2 rounded-lg cursor-pointer transition-colors"
-                    :class="selectedDocente?.cod_docente === doc.cod_docente
+                    :class="selectedDocente?.COD_DOCENTE === doc.COD_DOCENTE
                       ? 'bg-blue-50'
                       : 'hover:bg-gray-50'"
                     @mousedown.prevent="onSeleccionarDocente(doc)"
@@ -139,10 +139,10 @@
                     </div>
                     <div class="flex-1 min-w-0 flex flex-col gap-0.5">
                       <span class="text-sm font-medium text-gray-800 truncate">
-                        {{ doc.nombres }} {{ doc.apellidos }}
+                        {{ doc.NOMBRES }} {{ doc.APELLIDOS }}
                       </span>
                       <span class="text-[0.68rem] font-semibold tracking-wide bg-indigo-50 text-indigo-600 px-1.5 py-px rounded w-fit">
-                        SIS: {{ doc.codigo }}
+                        SIS: {{ doc.CODIGO }}
                       </span>
                     </div>
                     <svg
@@ -172,7 +172,7 @@
               <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
             </svg>
             <span class="text-xs text-blue-700 font-medium">
-              {{ filaActual.docente.nombres }} {{ filaActual.docente.apellidos }}
+              {{ filaActual.docente.NOMBRES }} {{ filaActual.docente.APELLIDOS }}
             </span>
             <button type="button" @click="onLimpiarDocente" class="ml-auto text-blue-400 hover:text-blue-600">
               <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -314,7 +314,7 @@
               >
                 <td class="px-3 py-2.5 text-gray-400 font-mono">{{ i + 1 }}</td>
                 <td class="px-3 py-2.5 text-gray-800 font-medium">
-                  {{ fila.docente.nombres }} {{ fila.docente.apellidos }}
+                  {{ fila.docente.NOMBRES }} {{ fila.docente.APELLIDOS }}
                 </td>
                 <td class="px-3 py-2.5 text-gray-600 font-mono">{{ fila.cod_plan }}</td>
                 <td class="px-3 py-2.5 text-gray-600 font-mono">{{ fila.cod_materia }}</td>
@@ -431,7 +431,7 @@ const errorFilas = ref('')
 
 // ─── Helpers buscador ─────────────────────────────────────────────
 const inicialesDocente = (d) =>
-  ((d.nombres?.[0] || '') + (d.apellidos?.[0] || '')).toUpperCase() || '?'
+  ((d.NOMBRES?.[0] || '') + (d.APELLIDOS?.[0] || '')).toUpperCase() || '?'
 
 function toggleDropdown() {
   dropdownOpen.value = !dropdownOpen.value
@@ -500,14 +500,14 @@ function agregarFila() {
   if (!valid) return
 
 
-  filas.value.push({
+    filas.value.push({
     docente: {
       ...filaActual.docente,
-      // Normaliza: asegura que cod_docente siempre exista
-      cod_docente: filaActual.docente.cod_docente
-                  ?? filaActual.docente.codigo
-                  ?? filaActual.docente.id_docente
-                  ?? filaActual.docente.id,
+      // Normaliza: asegura que cod_docente siempre exista (lee campos en mayúsculas del backend)
+      cod_docente: filaActual.docente.COD_DOCENTE
+                  ?? filaActual.docente.CODIGO
+                  ?? filaActual.docente.ID_DOCENTE
+                  ?? filaActual.docente.ID,
     },
     cod_plan:     filaActual.cod_plan.trim(),
     cod_materia:  filaActual.cod_materia.trim(),

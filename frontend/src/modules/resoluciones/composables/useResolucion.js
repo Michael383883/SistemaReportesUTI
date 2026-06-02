@@ -2,11 +2,33 @@
 import { ref } from 'vue'
 import axios from 'axios'
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api'
+const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'
 
 function authHeaders() {
     const token = localStorage.getItem('token')
     return token ? { Authorization: `Bearer ${token}` } : {}
+}
+
+// ─────────────────────────────────────────────────────────────
+// mapKeys: convierte SNAKE_UPPER a camelCase correcto
+// ID_RESOLUCION → idResolucion  (no iDResolucion)
+// COD_DOCENTE   → codDocente
+// NRO_RESOLUCION → nroResolucion
+// ─────────────────────────────────────────────────────────────
+function toCamel(str) {
+    return str
+        .toLowerCase()
+        .replace(/_([a-z])/g, (_, c) => c.toUpperCase())
+}
+
+function mapKeys(obj) {
+    if (Array.isArray(obj)) return obj.map(mapKeys)
+    if (obj && typeof obj === 'object') {
+        return Object.fromEntries(
+            Object.entries(obj).map(([k, v]) => [toCamel(k), mapKeys(v)])
+        )
+    }
+    return obj
 }
 
 export function useResolucion() {
@@ -26,13 +48,11 @@ export function useResolucion() {
         try {
             const form = new FormData()
 
-            // Todos los campos como string — FormData siempre serializa a string,
-            // pero lo hacemos explícito para evitar problemas con null/undefined
             form.append('nro_resolucion', String(numero).trim())
             form.append('descripcion', String(descripcion ?? '').trim())
             form.append('anio', String(anio))
-            form.append('periodo', String(periodo))       // "1" o "2"
-            form.append('subido_por', 'admin')               // nullable en backend
+            form.append('periodo', String(periodo))
+            form.append('subido_por', 'admin')
 
             if (archivo) {
                 form.append('archivo_pdf', archivo)
@@ -40,7 +60,6 @@ export function useResolucion() {
                 form.append('tamanio_kb', String(Math.round(archivo.size / 1024)))
             }
 
-            // Log de depuración — quitar en producción
             console.group('📤 POST /api/resoluciones')
             for (const [key, val] of form.entries()) {
                 console.log(key, val instanceof File ? `File(${val.name}, ${val.size}B)` : val)
@@ -58,18 +77,15 @@ export function useResolucion() {
                 }
             )
 
-            // El controller devuelve { ok: true, id_resolucion: N }
             if (!data.ok) throw new Error(data.error ?? 'Error al guardar la resolución.')
 
             resolucionId.value = data.id_resolucion
             return data.id_resolucion
 
         } catch (e) {
-            // Muestra los errores de validación de Laravel si existen
             const laravelErrors = e.response?.data?.errores
             if (laravelErrors) {
-                const msgs = Object.values(laravelErrors).flat().join(' | ')
-                error.value = msgs
+                error.value = Object.values(laravelErrors).flat().join(' | ')
             } else {
                 error.value = e.response?.data?.error
                     ?? e.response?.data?.message
@@ -104,7 +120,9 @@ export function useResolucion() {
             if (laravelErrors) {
                 error.value = Object.values(laravelErrors).flat().join(' | ')
             } else {
-                error.value = e.response?.data?.message ?? e.message ?? 'Error al guardar los detalles.'
+                error.value = e.response?.data?.message
+                    ?? e.message
+                    ?? 'Error al guardar los detalles.'
             }
             console.error('❌ guardarDetalles:', e.response?.data ?? e.message)
             throw e
@@ -126,11 +144,16 @@ export function useResolucion() {
                 axios.get(`${API_BASE}/api/resoluciones/${idResolucion}/detalles`, { headers: authHeaders() }),
             ])
 
-            resolucionGuardada.value = resRes.data
-            detallesGuardados.value = detRes.data
+            resolucionGuardada.value = mapKeys(resRes.data)
+            detallesGuardados.value = mapKeys(detRes.data)
+
+            console.log('✅ resolucionGuardada:', resolucionGuardada.value)
+            console.log('✅ detallesGuardados:', detallesGuardados.value)
 
         } catch (e) {
-            error.value = e.response?.data?.message ?? e.message ?? 'Error al cargar la resolución.'
+            error.value = e.response?.data?.message
+                ?? e.message
+                ?? 'Error al cargar la resolución.'
             console.error('❌ cargarResolucionCompleta:', e.response?.data ?? e.message)
             throw e
         } finally {
@@ -139,17 +162,7 @@ export function useResolucion() {
     }
 
     // ─────────────────────────────────────────────────────────────
-    // 4. Reset
-    // ─────────────────────────────────────────────────────────────
-    function reset() {
-        loading.value = false
-        error.value = ''
-        resolucionId.value = null
-        resolucionGuardada.value = null
-        detallesGuardados.value = []
-    }
-    // ─────────────────────────────────────────────────────────────
-    // 5. POST /api/resoluciones/{id}/aplicar-grupos
+    // 4. POST /api/resoluciones/{id}/aplicar-grupos
     // ─────────────────────────────────────────────────────────────
     async function aplicarEnGrupos(idResolucion) {
         loading.value = true
@@ -164,7 +177,9 @@ export function useResolucion() {
 
             if (!data.ok) throw new Error(data.error ?? 'Error al aplicar en grupos.')
 
-            return data // { ok, filas_afectadas, grupos }
+            console.log('✅ aplicarEnGrupos:', data)
+
+            return data  // { ok, filas_afectadas, grupos }
 
         } catch (e) {
             error.value = e.response?.data?.error
@@ -178,8 +193,16 @@ export function useResolucion() {
         }
     }
 
-    
-
+    // ─────────────────────────────────────────────────────────────
+    // 5. Reset
+    // ─────────────────────────────────────────────────────────────
+    function reset() {
+        loading.value = false
+        error.value = ''
+        resolucionId.value = null
+        resolucionGuardada.value = null
+        detallesGuardados.value = []
+    }
 
     return {
         loading,
@@ -190,7 +213,7 @@ export function useResolucion() {
         guardarResolucion,
         guardarDetalles,
         cargarResolucionCompleta,
+        aplicarEnGrupos,
         reset,
-        aplicarEnGrupos,  
     }
 }

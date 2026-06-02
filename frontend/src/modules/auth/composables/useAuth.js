@@ -18,6 +18,7 @@ export function useAuth() {
     // 2. Redirigir al home correcto según rol
     const roleHome = {
       secretaria: '/secretaria/dashboard',
+      secretaria_talleres: '/secretariaTalleres/dashboard', 
       admin: '/dashboard',
       uti: '/dashboard',          // ajusta si tienes ruta propia
     }

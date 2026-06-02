@@ -95,70 +95,117 @@
         </template>
 
         <template v-else>
-          <template
-            v-for="section in filteredMenu"
-            :key="section.label"
+
+  <template
+    v-for="section in filteredMenu"
+    :key="section.label"
+  >
+    <p
+      style="
+        padding:0 16px;
+        font-size:12px;
+        color:rgba(255,255,255,0.3);
+        text-transform:uppercase;
+        letter-spacing:0.08em;
+        margin-bottom:4px;
+        margin-top:12px;
+      "
+    >
+      {{ section.label }}
+    </p>
+
+    <template
+      v-for="item in section.items"
+      :key="item.label"
+    >
+
+      <!-- Item normal -->
+      <router-link
+        v-if="!item.children"
+        :to="item.to"
+        class="flex items-center gap-2 transition-all"
+        style="
+          padding:9px 16px;
+          font-size:14px;
+          color:rgba(255,255,255,0.6);
+          border-left:3px solid transparent;
+          text-decoration:none;
+        "
+        active-class="sidebar-active"
+      >
+        <component
+          :is="item.icon"
+          style="width:16px;height:16px;"
+        />
+        {{ item.label }}
+      </router-link>
+
+      <!-- Menú desplegable -->
+      <div v-else>
+        <button
+          @click="horarioOpen = !horarioOpen"
+          class="flex items-center justify-between w-full"
+          style="
+            padding:9px 16px;
+            color:rgba(255,255,255,0.6);
+            background:none;
+            border:none;
+            cursor:pointer;
+          "
+        >
+          <div class="flex items-center gap-2">
+            <component
+              :is="item.icon"
+              style="width:16px;height:16px;"
+            />
+            <span>{{ item.label }}</span>
+          </div>
+
+          <span>{{ horarioOpen ? '▾' : '▸' }}</span>
+        </button>
+
+        <div v-if="horarioOpen">
+          <router-link
+            v-for="child in item.children"
+            :key="child.to"
+            :to="child.to"
+            class="block"
+            style="
+              padding:8px 16px 8px 42px;
+              color:rgba(255,255,255,0.6);
+              text-decoration:none;
+            "
+            active-class="sidebar-active"
           >
-            <p
-              style="
-                padding:0 16px;
-                font-size:12px;
-                color:rgba(255,255,255,0.3);
-                text-transform:uppercase;
-                letter-spacing:0.08em;
-                margin-bottom:4px;
-                margin-top:12px;
-              "
-            >
-              {{ section.label }}
-            </p>
+            {{ child.label }}
+          </router-link>
+        </div>
+      </div>
 
-            <router-link
-              v-for="item in section.items"
-              :key="item.to"
-              :to="item.to"
-              class="flex items-center gap-2 transition-all"
-              style="
-                padding:9px 16px;
-                font-size:14px;
-                color:rgba(255,255,255,0.6);
-                border-left:3px solid transparent;
-                text-decoration:none;
-              "
-              active-class="sidebar-active"
-              @mouseover="e => {
-                if (!e.currentTarget.classList.contains('router-link-active'))
-                  e.currentTarget.style.color='rgba(255,255,255,1)'
-              }"
-              @mouseleave="e => {
-                if (!e.currentTarget.classList.contains('router-link-active'))
-                  e.currentTarget.style.color='rgba(255,255,255,0.6)'
-              }"
-            >
-              <component
-                :is="item.icon"
-                style="width:16px; height:16px; flex-shrink:0;"
-              />
+    </template>
+  </template>
 
-              {{ item.label }}
-            </router-link>
-          </template>
-        </template>
+</template>
       </aside>
 
+  
       <!-- Contenido principal -->
-      <main
-        class="flex-1 overflow-y-auto"
-        style="padding:20px;"
-      >
-        <router-view />
-      </main>
+<main
+  class="flex-1 overflow-y-auto"
+  style="padding:20px;"
+>
+  <router-view v-slot="{ Component }">
+    <keep-alive :include="['DocentesPage', 'EstudiantesPage', 'SecretariaDashboard', 'DashboardPage']">
+      <component :is="Component" />
+    </keep-alive>
+  </router-view>
+</main>
     </div>
   </div>
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { useAuthStore } from '@/modules/auth/store/authStore'
@@ -180,6 +227,7 @@ import {
 const authStore = useAuthStore()
 const router = useRouter()
 const notify = useNotify()
+const horarioOpen = ref(false)
 
 const roleLabel = computed(() =>
   getRoleLabel(authStore.userRole)
@@ -210,10 +258,20 @@ const menuSections = [
         label: 'Reportes',
         icon: BarChart2,
       },
+       // NUEVO MENÚ
       {
-        to: '/reporte-horario',
         label: 'Horario',
         icon: BarChart2,
+        children: [
+          {
+            to: '/reporte-horario-completo',
+            label: 'Horario Completo',
+          },
+          {
+            to: '/reporte-horario-resumen',
+            label: 'Horario Resumen',
+          },
+        ],
       },
       {
         to: '/usuarios',
@@ -267,7 +325,8 @@ const menuSections = [
       {
         to: '/secretariaTalleres/estudiante',
         label: 'Estudiante',
-        icon: BookOpen,
+        icon: GraduationCap,
+        
       },
     ],
   },
