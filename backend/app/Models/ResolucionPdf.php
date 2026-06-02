@@ -6,26 +6,30 @@ use Illuminate\Database\Eloquent\Model;
 
 class ResolucionPdf extends Model
 {
-    protected $table = 'resoluciones_pdf';
-    protected $primaryKey = 'id_resolucion';
+    protected $table = 'RESOLUCIONES_PDF';
+    protected $primaryKey = 'ID_RESOLUCION';
     public $timestamps = false;
 
     protected $fillable = [
-        'nro_resolucion',
-        'descripcion',
-        'anio',
-        'periodo',
-        'archivo_pdf',
-        'nombre_archivo',
-        'tamanio_kb',
-        'fecha_subida',
-        'subido_por',
+        'NRO_RESOLUCION',
+        'DESCRIPCION',
+        'ANIO',
+        'PERIODO',
+        'ARCHIVO_PDF',
+        'NOMBRE_ARCHIVO',
+        'TAMANIO_KB',
+        'FECHA_SUBIDA',
+        'SUBIDO_POR',
     ];
 
-    protected $hidden = ['archivo_pdf']; // Ocultarlo en listados
+    protected $hidden = ['ARCHIVO_PDF'];
 
     public function detalles()
     {
-        return $this->hasMany(ResolucionDetalle::class, 'id_resolucion', 'id_resolucion');
+        return $this->hasMany(
+            ResolucionDetalle::class,
+            'ID_RESOLUCION',
+            'ID_RESOLUCION'
+        );
     }
 }

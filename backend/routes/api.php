@@ -15,6 +15,10 @@ use App\Http\Controllers\Api\HorarioDocenteController;
 use App\Http\Controllers\Api\TallerEstudiantesController;
 
 use App\Http\Controllers\Api\DashboardController;
+use App\Http\Controllers\Api\HorarioAdminController;
+
+use App\Http\Controllers\Api\MigracionController;
+
 
 // Auth (público)
 Route::prefix('auth')->group(function () {
@@ -57,7 +61,7 @@ Route::apiResource('docentes', DocenteController::class);
 Route::post('/database/incremental-migrate', [DatabaseController::class, 'incrementalMigrate']);
 
 
-Route::post('/reporte-horario', [ReporteDocenteController::class, 'horario']);
+Route::get('/reporte-horario', [ReporteDocenteController::class, 'horario']);
 
 // Resoluciones
 Route::get('/resoluciones', [ResolucionPdfController::class, 'index']);
@@ -97,30 +101,60 @@ Route::prefix('horarios')->group(function () {
     Route::get('/docentes/{codigo_docente}', [HorarioDocenteController::class, 'show']);
 });
 
-// Reporte de estudiantes en talleres
-Route::prefix('talleres')->group(function () {
-    // Lista de estudiantes inscritos en materias de taller
-    // ?anio=2026&periodo=1&plan=109401&materia=1301054&grupo=00
-    Route::get('/estudiantes', [TallerEstudiantesController::class, 'index'])
-        ->name('talleres.estudiantes');
-    // Materias de tipo TALLER disponibles
-    // ?anio=2026&periodo=1&plan=109401
-    Route::get('/materias', [TallerEstudiantesController::class, 'materias'])
-        ->name('talleres.materias');
-    // Grupos para un plan/materia
-    // ?anio=2026&periodo=1&plan=109401&materia=1301054
-    Route::get('/grupos', [TallerEstudiantesController::class, 'grupos'])
-        ->name('talleres.grupos');
-});
+// Lista original (materia y plan obligatorios)
+Route::get('/talleres', [TallerEstudiantesController::class, 'index']);
+
+Route::get('/talleres/{materia}', [TallerEstudiantesController::class, 'materia']);
+//     // Lista de estudiantes inscritos en materias de taller
+//     // ?anio=2026&periodo=1&plan=109401&materia=1301054&grupo=00
+//     Route::get('/estudiantes', [TallerEstudiantesController::class, 'index'])
+//         ->name('talleres.estudiantes');
+//     // Materias de tipo TALLER disponibles
+//     // ?anio=2026&periodo=1&plan=109401
+//     Route::get('/materias', [TallerEstudiantesController::class, 'materias'])
+//         ->name('talleres.materias');
+//     // Grupos para un plan/materia
+//     // ?anio=2026&periodo=1&plan=109401&materia=1301054
+//     Route::get('/grupos', [TallerEstudiantesController::class, 'grupos'])
+//         ->name('talleres.grupos');
+// });
 
 // Contacto de un estudiante
 Route::get('/estudiantes/{codigo}/contacto', [TallerEstudiantesController::class, 'contacto'])
     ->name('estudiantes.contacto');
 
-    
+
 Route::prefix('secretaria-talleres')->group(function () {
 
     // Dashboard KPIs
     Route::get('/dashboard/kpis', [DashboardTalleresController::class, 'kpis']);
+
+});
+
+
+
+
+Route::post('/copiar-tablas', [
+    MigracionController::class,
+    'copiarTablas'
+]);
+
+Route::post('/sync-table', [
+    MigracionController::class,
+    'syncTable'
+]);
+
+// Carga horaria docentes (Admin)
+
+
+Route::prefix('admin/horarios')->group(function () {
+
+    // Horario completo
+    Route::get('/', [HorarioAdminController::class, 'index']);
+    Route::get('/{docente}', [HorarioAdminController::class, 'show']);
+
+    // Resumen
+    Route::get('/resumen/listado', [HorarioAdminController::class, 'resumen']);
+    Route::get('/resumen/docente/{docente}', [HorarioAdminController::class, 'resumenDocente']);
 
 });

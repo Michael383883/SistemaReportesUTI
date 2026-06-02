@@ -6,22 +6,26 @@ use Illuminate\Database\Eloquent\Model;
 
 class ResolucionDetalle extends Model
 {
-    protected $table = 'resolucion_detalle';
-    protected $primaryKey = 'id_detalle';
+    protected $table = 'RESOLUCION_DETALLE';
+    protected $primaryKey = 'ID_DETALLE';
     public $timestamps = false;
 
     protected $fillable = [
-        'id_resolucion',
-        'cod_docente',
-        'cod_plan',
-        'cod_materia',
-        'grupo',
-        'tipo',
-        'observacion',
+        'ID_RESOLUCION',
+        'COD_DOCENTE',
+        'COD_PLAN',
+        'COD_MATERIA',
+        'GRUPO',
+        'TIPO',
+        'OBSERVACION',
     ];
 
     public function resolucion()
     {
-        return $this->belongsTo(ResolucionPdf::class, 'id_resolucion', 'id_resolucion');
+        return $this->belongsTo(
+            ResolucionPdf::class,
+            'ID_RESOLUCION',
+            'ID_RESOLUCION'
+        );
     }
 }

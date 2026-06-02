@@ -1,0 +1,295 @@
+<?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+
+class HorarioAdminController extends Controller
+{
+    /**
+     * Retorna la carga horaria completa de docentes con grupos compartidos.
+     * Equivalente al reporte "Carga Horaria Docentes FCE"
+     */
+
+    public function index(Request $request)
+    {
+        $anio = (int) $request->query('anio', date('Y'));
+        $periodo = (int) $request->query('periodo', 1);
+        $docente = $request->query('docente');
+
+        $docenteFilter = $docente ? "AND h.DOCENTE = :docente" : "";
+        $bindings = ['anio' => $anio, 'periodo' => $periodo];
+        if ($docente)
+            $bindings['docente'] = $docente;
+
+        $sql = "
+        SELECT
+            TBL.ANIO, TBL.PERIODO, TBL.[PLAN], TBL.CARRERA, TBL.NIVEL,
+            TBL.DOCENTE, TBL.APELLIDOS, TBL.NOMBRES,
+            TBL.MATERIA, TBL.NOMBRE, TBL.TIPO, TBL.TIPO2,
+            TBL.GRUPO, TBL.DIA, TBL.ORDEN_DIA, TBL.HORA, TBL.HORARIO,
+            TBL.AMBIENTE, TBL.[CARGA HORARIA] AS CARGA_HORARIA,
+            TBL.COMP, TBL.COMPARTIDO, TBL.ORDEN,
+            NroInsMatGrpNE.[TOTAL NORMAL] AS TOTAL_NORMAL
+        FROM (
+            SELECT
+                h.ANIO, h.PERIODO, g.[PLAN],
+                CASE g.[PLAN]
+                    WHEN '059801' THEN 'ECO' WHEN '109401' THEN 'ADM'
+                    WHEN '089801' THEN 'CCP' WHEN '125091' THEN 'COM'
+                    WHEN '126091' THEN 'FIN' ELSE 'NN'
+                END AS CARRERA,
+                m.NIVEL, h.DOCENTE, d.APELLIDOS, d.NOMBRES,
+                g.MATERIA, m.NOMBRE, h.TIPO,
+                CASE WHEN h.TIPO = 'C' THEN '' WHEN h.TIPO = 'P' THEN '[AUX]' ELSE 'N' END AS TIPO2,
+                g.GRUPO, h.DIA,
+                CASE h.DIA
+                    WHEN 'LU' THEN 1 WHEN 'MA' THEN 2 WHEN 'MI' THEN 3
+                    WHEN 'JU' THEN 4 WHEN 'VI' THEN 5 WHEN 'SA' THEN 6 ELSE 0
+                END AS ORDEN_DIA,
+                h.HORA,
+                CASE
+                    WHEN h.HORA = 645  THEN '06:45 - 08:15'
+                    WHEN h.HORA = 815  THEN '08:15 - 09:45'
+                    WHEN h.HORA = 945  THEN '09:45 - 11:15'
+                    WHEN h.HORA = 1115 THEN '11:15 - 12:45'
+                    WHEN h.HORA = 1245 THEN '12:45 - 14:15'
+                    WHEN h.HORA = 1415 THEN '14:15 - 15:45'
+                    WHEN h.HORA = 1545 THEN '15:45 - 17:15'
+                    WHEN h.HORA = 1715 THEN '17:15 - 18:45'
+                    WHEN h.HORA = 1845 THEN '18:45 - 20:15'
+                    WHEN h.HORA = 2015 THEN '20:15 - 21:45'
+                    ELSE '00:00 - 00:00'
+                END AS HORARIO,
+                h.AMBIENTE,
+                SUM(CASE WHEN h.HORA > 0 AND h.GRUPO = 'NN' THEN 8 ELSE 2 END) AS [CARGA HORARIA],
+                gc.COMP, gc.COMPARTIDO, gc.ORDEN
+            FROM HORARIOS2 h
+            INNER JOIN GRUPOS g
+                ON h.ANIO = g.ANIO AND h.PERIODO = g.PERIODO
+                AND h.MATERIA = g.MATERIA AND h.GRUPO = g.GRUPO AND h.DOCENTE = g.DOCENTE
+            INNER JOIN MATERIAS m
+                ON g.ANIO = m.ANIO AND g.PERIODO = m.PERIODO
+                AND g.[PLAN] = m.[PLAN] AND g.MATERIA = m.CODIGO
+            INNER JOIN DOCENTES d ON h.DOCENTE = d.CODIGO
+            LEFT JOIN GRUPOS_COMPARTIDOS gc
+                ON g.[PLAN] = gc.[PLAN] AND g.MATERIA = gc.MATERIA
+                AND g.GRUPO = gc.GRUPO AND g.PRIMARIO = gc.PRIMARIO
+            WHERE h.ANIO = :anio
+              AND h.PERIODO = :periodo
+              AND h.TIPO IN ('C')
+              AND g.[PLAN] IN ('109401','125091','089801','126091','059801')
+              AND g.TIPO = 'N'
+              AND g.PRIMARIO IN ('Y')
+              AND h.HORA NOT IN (730,900,1030,1200,1330,1500,1630,1800,1930,2100)
+              $docenteFilter
+            GROUP BY
+                h.ANIO, h.PERIODO, g.[PLAN], m.NIVEL,
+                h.DOCENTE, d.APELLIDOS, d.NOMBRES,
+                g.MATERIA, m.NOMBRE, h.TIPO, g.GRUPO, h.DIA, h.HORA,
+                h.AMBIENTE, gc.COMP, gc.COMPARTIDO, gc.ORDEN
+        ) AS TBL
+        LEFT JOIN NroInsMatGrpNE
+            ON TBL.[PLAN] = NroInsMatGrpNE.[PLAN]
+            AND TBL.DOCENTE = NroInsMatGrpNE.CODIGO
+            AND TBL.MATERIA = NroInsMatGrpNE.MATERIA
+            AND TBL.GRUPO = NroInsMatGrpNE.GRUPO
+        ORDER BY TBL.APELLIDOS, TBL.NOMBRES, TBL.ORDEN, TBL.MATERIA,
+                 TBL.GRUPO, TBL.[PLAN], TBL.ORDEN_DIA, TBL.COMPARTIDO
+    ";
+
+        $data = collect(DB::select($sql, $bindings));
+
+        $grouped = $data->groupBy('DOCENTE')->map(function ($rows) {
+            $first = $rows->first();
+            return [
+                'docente' => $first->DOCENTE,
+                'apellidos' => $first->APELLIDOS,
+                'nombres' => $first->NOMBRES,
+                'horarios' => $rows->values(),
+                'total_ch' => $rows->sum('CARGA_HORARIA'),
+            ];
+        })->values();
+
+        return response()->json([
+            'anio' => $anio,
+            'periodo' => $periodo,
+            'total' => $grouped->count(),
+            'data' => $grouped,
+        ]);
+    }
+    /**
+     * Retorna la carga horaria de un docente específico.
+     */
+    public function show(Request $request, $docente)
+    {
+        return $this->index($request->merge(['docente' => $docente]));
+    }
+
+
+    /**
+     * Resumen de carga horaria docente.
+     * No devuelve horarios por día, solo materias y CH.
+     */
+    public function resumen(Request $request)
+    {
+        $anio = (int) $request->query('anio', date('Y'));
+        $periodo = (int) $request->query('periodo', 1);
+        $docente = $request->query('docente');
+
+        $docenteFilter = $docente ? "AND HORARIOS2.DOCENTE = :docente" : "";
+
+        $bindings = [
+            'anio' => $anio,
+            'periodo' => $periodo,
+        ];
+
+        if ($docente) {
+            $bindings['docente'] = $docente;
+        }
+
+        $sql = "
+        SELECT
+            HORARIOS2.ANIO,
+            HORARIOS2.PERIODO,
+            GRUPOS.[PLAN],
+
+            CASE GRUPOS.[PLAN]
+                WHEN '059801' THEN 'ECO'
+                WHEN '109401' THEN 'ADM'
+                WHEN '089801' THEN 'CCP'
+                WHEN '125091' THEN 'COM'
+                WHEN '126091' THEN 'FIN'
+                ELSE 'NN'
+            END AS CARRERA,
+
+            MATERIAS.NIVEL,
+            HORARIOS2.DOCENTE,
+            DOCENTES.APELLIDOS,
+            DOCENTES.NOMBRES,
+            GRUPOS.MATERIA,
+            MATERIAS.NOMBRE,
+            HORARIOS2.TIPO,
+
+            CASE
+                WHEN HORARIOS2.TIPO = 'C' THEN ''
+                WHEN HORARIOS2.TIPO = 'P' THEN '[AUX]'
+                ELSE 'N'
+            END AS TIPO2,
+
+            GRUPOS.GRUPO,
+
+            SUM(
+                CASE
+                    WHEN HORARIOS2.HORA > 0
+                    AND HORARIOS2.GRUPO = 'NN'
+                    THEN 8
+                    ELSE 2
+                END
+            ) AS CARGA_HORARIA,
+
+            GRUPOS_COMPARTIDOS.COMP,
+            GRUPOS_COMPARTIDOS.COMPARTIDO,
+            GRUPOS_COMPARTIDOS.ORDEN
+
+        FROM HORARIOS2
+
+        INNER JOIN GRUPOS
+            ON HORARIOS2.ANIO = GRUPOS.ANIO
+            AND HORARIOS2.PERIODO = GRUPOS.PERIODO
+            AND HORARIOS2.MATERIA = GRUPOS.MATERIA
+            AND HORARIOS2.GRUPO = GRUPOS.GRUPO
+            AND HORARIOS2.DOCENTE = GRUPOS.DOCENTE
+
+        INNER JOIN MATERIAS
+            ON GRUPOS.ANIO = MATERIAS.ANIO
+            AND GRUPOS.PERIODO = MATERIAS.PERIODO
+            AND GRUPOS.[PLAN] = MATERIAS.[PLAN]
+            AND GRUPOS.MATERIA = MATERIAS.CODIGO
+
+        INNER JOIN DOCENTES
+            ON HORARIOS2.DOCENTE = DOCENTES.CODIGO
+
+        LEFT JOIN GRUPOS_COMPARTIDOS
+            ON GRUPOS.[PLAN] = GRUPOS_COMPARTIDOS.[PLAN]
+            AND GRUPOS.MATERIA = GRUPOS_COMPARTIDOS.MATERIA
+            AND GRUPOS.GRUPO = GRUPOS_COMPARTIDOS.GRUPO
+            AND GRUPOS.PRIMARIO = GRUPOS_COMPARTIDOS.PRIMARIO
+
+        WHERE HORARIOS2.ANIO = :anio
+          AND HORARIOS2.PERIODO = :periodo
+          AND HORARIOS2.TIPO IN ('C')
+          AND GRUPOS.[PLAN] IN ('109401','125091','089801','126091','059801')
+          AND GRUPOS.TIPO = 'N'
+          AND GRUPOS.PRIMARIO = 'Y'
+          AND HORARIOS2.HORA NOT IN (
+              730,900,1030,1200,1330,
+              1500,1630,1800,1930,2100
+          )
+          $docenteFilter
+
+        GROUP BY
+            HORARIOS2.ANIO,
+            HORARIOS2.PERIODO,
+            GRUPOS.[PLAN],
+            MATERIAS.NIVEL,
+            HORARIOS2.DOCENTE,
+            DOCENTES.APELLIDOS,
+            DOCENTES.NOMBRES,
+            GRUPOS.MATERIA,
+            MATERIAS.NOMBRE,
+            HORARIOS2.TIPO,
+            GRUPOS.GRUPO,
+            GRUPOS_COMPARTIDOS.COMP,
+            GRUPOS_COMPARTIDOS.COMPARTIDO,
+            GRUPOS_COMPARTIDOS.ORDEN
+
+        ORDER BY
+            DOCENTES.APELLIDOS,
+            DOCENTES.NOMBRES,
+            GRUPOS_COMPARTIDOS.ORDEN,
+            GRUPOS.MATERIA,
+            GRUPOS.GRUPO,
+            GRUPOS.[PLAN],
+            GRUPOS_COMPARTIDOS.COMPARTIDO
+    ";
+
+        $data = collect(DB::select($sql, $bindings));
+
+        $grouped = $data->groupBy('DOCENTE')->map(function ($rows) {
+
+            $first = $rows->first();
+
+            return [
+                'docente' => $first->DOCENTE,
+                'apellidos' => $first->APELLIDOS,
+                'nombres' => $first->NOMBRES,
+
+                'materias' => $rows->values(),
+
+                'total_ch' => $rows->sum('CARGA_HORARIA'),
+            ];
+        })->values();
+
+        return response()->json([
+            'anio' => $anio,
+            'periodo' => $periodo,
+            'total' => $grouped->count(),
+            'data' => $grouped,
+        ]);
+    }
+
+    /**
+     * Resumen de un docente específico.
+     */
+    public function resumenDocente(Request $request, $docente)
+    {
+        return $this->resumen(
+            $request->merge([
+                'docente' => $docente
+            ])
+        );
+    }
+}

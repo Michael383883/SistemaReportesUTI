@@ -3,179 +3,190 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\DB;
 
 class TallerEstudiantesController extends Controller
 {
+    const ANIO_ACTUAL = '2026';
+    const PERIODO_ACTUAL = '1';
+
     /**
-     * GET /api/talleres/estudiantes
-     *
-     * Query params opcionales:
-     *   anio     string  ej. "2026"
-     *   periodo  string  ej. "1"
-     *   plan     string  ej. "109401"
-     *   materia  string  ej. "1301054"
-     *   grupo    string  ej. "00"
+     * Talleres de titulación identificados
      */
-    public function index(Request $request): JsonResponse
+    private array $materiasTaller = [
+        '1304048', // TALLER DE TITULACION
+        '1302057', // TALLER
+        '1301054', // TALLER II
+        '1301170', // MODALIDADES DE TITULACION
+        '1302212', // TALLER DE TITULACION
+    ];
+
+    /**
+     * Todos los estudiantes inscritos en los talleres
+     */
+    public function index(): JsonResponse
     {
-        $request->validate([
-            'anio' => 'nullable|string|max:4',
-            'periodo' => 'nullable|string|max:1',
-            'plan' => 'nullable|string|max:10',
-            'materia' => 'nullable|string|max:10',
-            'grupo' => 'nullable|string|max:5',
-        ]);
-
-        $anio = $request->input('anio', '2026');
-        $periodo = $request->input('periodo', '1');
-        $plan = $request->input('plan');
-        $materia = $request->input('materia');
-        $grupo = $request->input('grupo');
-
-        $query = DB::table('grupos')
-            ->join('docentes', 'docentes.codigo', '=', 'grupos.docente')
-            ->join('kardex_ext', function ($join) {
-                $join->on('kardex_ext.anio', '=', 'grupos.anio')
-                    ->on('kardex_ext.periodo', '=', 'grupos.periodo')
-                    ->on('kardex_ext.plan', '=', 'grupos.plan')
-                    ->on('kardex_ext.materia', '=', 'grupos.materia')
-                    ->on('kardex_ext.grupo', '=', 'grupos.grupo');
+        $estudiantes = DB::connection('sqlsrv')
+            ->table('KARDEX_EXT')
+            ->join('GRUPOS', function ($join) {
+                $join->on('KARDEX_EXT.ANIO', '=', 'GRUPOS.ANIO')
+                    ->on('KARDEX_EXT.PERIODO', '=', 'GRUPOS.PERIODO')
+                    ->on('KARDEX_EXT.PLAN', '=', 'GRUPOS.PLAN')
+                    ->on('KARDEX_EXT.MATERIA', '=', 'GRUPOS.MATERIA')
+                    ->on('KARDEX_EXT.GRUPO', '=', 'GRUPOS.GRUPO');
             })
-            ->join('biograficos', 'biograficos.codigo', '=', 'kardex_ext.estudiante')
-            ->join('materias', function ($join) {
-                $join->on('materias.anio', '=', 'grupos.anio')
-                    ->on('materias.periodo', '=', 'grupos.periodo')
-                    ->on('materias.plan', '=', 'grupos.plan')
-                    ->on('materias.codigo', '=', 'grupos.materia');
+            ->join('BIOGRAFICOS', 'BIOGRAFICOS.CODIGO', '=', 'KARDEX_EXT.ESTUDIANTE')
+            ->leftJoin(
+                'BIOGRAFICOS_EXT',
+                'BIOGRAFICOS_EXT.ESTUDIANTE',
+                '=',
+                'BIOGRAFICOS.CODIGO'
+            )
+            ->join('DOCENTES', 'DOCENTES.CODIGO', '=', 'GRUPOS.DOCENTE')
+            ->join('MATERIAS', function ($join) {
+                $join->on('GRUPOS.ANIO', '=', 'MATERIAS.ANIO')
+                    ->on('GRUPOS.PERIODO', '=', 'MATERIAS.PERIODO')
+                    ->on('GRUPOS.PLAN', '=', 'MATERIAS.PLAN')
+                    ->on('GRUPOS.MATERIA', '=', 'MATERIAS.CODIGO');
             })
             ->select([
-                'grupos.anio',
-                'grupos.periodo',
-                'grupos.plan',
-                DB::raw("docentes.codigo          AS codigo_docente"),
-                DB::raw("docentes.apellidos || ' ' || docentes.nombres AS docente"),
-                'materias.nivel',
-                'grupos.materia',
-                DB::raw("materias.nombre          AS nombre_materia"),
-                'grupos.grupo',
-                DB::raw("biograficos.codigo       AS codigo"),
-                DB::raw("biograficos.apellidos || ' ' || biograficos.nombres AS nom_estudiante"),
+                'GRUPOS.ANIO',
+                'GRUPOS.PERIODO',
+                'GRUPOS.PLAN',
+                'GRUPOS.MATERIA',
+                'MATERIAS.NOMBRE as MATERIA_NOMBRE',
+                'GRUPOS.GRUPO',
+
+                'BIOGRAFICOS.CODIGO as CODIGO_ESTUDIANTE',
+
+                DB::raw("
+        BIOGRAFICOS.APELLIDOS + ' ' +
+        BIOGRAFICOS.NOMBRES as ESTUDIANTE
+    "),
+
+                'DOCENTES.CODIGO as CODIGO_DOCENTE',
+
+                DB::raw("
+        DOCENTES.APELLIDOS + ' ' +
+        DOCENTES.NOMBRES as DOCENTE
+    "),
+
+                DB::raw("
+        ISNULL(
+            NULLIF(BIOGRAFICOS_EXT.DIR_CELULAR,''),
+            'Sin teléfono'
+        ) as CELULAR
+    "),
+
+                DB::raw("
+        ISNULL(
+            NULLIF(BIOGRAFICOS_EXT.DIR_E_MAIL,''),
+            'Sin correo'
+        ) as CORREO
+    "),
+
+                'KARDEX_EXT.NOTA_FINAL'
             ])
-            // Filtros fijos de "talleres"
-            ->whereNull('kardex_ext.cancelado')
-            ->where('grupos.primario', 'Y')
-            ->where('grupos.tipo', 'N')
-            ->whereIn('kardex_ext.tipo_examen', ['N', 'E'])
-            // Filtro de materia por nombre (solo talleres)
-            ->where(DB::raw('UPPER(materias.nombre)'), 'LIKE', '%TALLER%')
-            // Parámetros dinámicos
-            ->where('kardex_ext.anio', $anio)
-            ->where('kardex_ext.periodo', $periodo);
+            ->where('KARDEX_EXT.ANIO', self::ANIO_ACTUAL)
+            ->where('KARDEX_EXT.PERIODO', self::PERIODO_ACTUAL)
+            ->whereNull('KARDEX_EXT.CANCELADO')
+            ->whereIn('KARDEX_EXT.MATERIA', $this->materiasTaller)
+            ->whereIn('KARDEX_EXT.TIPO_EXAMEN', ['N', 'E'])
+            ->orderBy('GRUPOS.PLAN')
+            ->orderBy('GRUPOS.MATERIA')
+            ->orderBy('ESTUDIANTE')
+            ->get();
 
-        if ($plan) {
-            $query->where('grupos.plan', $plan);
-        }
-
-        if ($materia) {
-            $query->where('grupos.materia', $materia);
-        }
-
-        if ($grupo) {
-            $query->where('grupos.grupo', $grupo);
-        }
-
-        $query->orderBy('grupos.materia')
-            ->orderBy('grupos.grupo')
-            ->orderBy(DB::raw("biograficos.apellidos || ' ' || biograficos.nombres"));
-
-        $estudiantes = $query->get();
-
-        return response()->json($estudiantes);
+        return response()->json([
+            'success' => true,
+            'total' => $estudiantes->count(),
+            'data' => $estudiantes
+        ]);
     }
 
     /**
-     * GET /api/talleres/materias
+     * Estudiantes de una materia específica
      *
-     * Devuelve las materias de tipo TALLER para un año/periodo/plan.
-     * Query params: anio, periodo, plan
+     * Ejemplo:
+     * /api/talleres/1301054
      */
-    public function materias(Request $request): JsonResponse
+    public function materia(string $materia): JsonResponse
     {
-        $anio = $request->input('anio', '2026');
-        $periodo = $request->input('periodo', '1');
-        $plan = $request->input('plan');
-
-        $query = DB::table('materias')
-            ->select('materias.codigo', 'materias.nombre', 'materias.nivel', 'materias.plan')
-            ->where('materias.anio', $anio)
-            ->where('materias.periodo', $periodo)
-            ->where(DB::raw('UPPER(materias.nombre)'), 'LIKE', '%TALLER%')
-            ->orderBy('materias.nombre');
-
-        if ($plan) {
-            $query->where('materias.plan', $plan);
-        }
-
-        return response()->json($query->get());
-    }
-
-    /**
-     * GET /api/talleres/grupos
-     *
-     * Devuelve los grupos disponibles para un plan + materia.
-     * Query params: anio, periodo, plan, materia
-     */
-    public function grupos(Request $request): JsonResponse
-    {
-        $anio = $request->input('anio', '2026');
-        $periodo = $request->input('periodo', '1');
-        $plan = $request->input('plan');
-        $materia = $request->input('materia');
-
-        $query = DB::table('grupos')
-            ->select(
-                'grupos.grupo',
-                'grupos.materia',
-                'grupos.plan',
-                DB::raw("docentes.apellidos || ' ' || docentes.nombres AS docente")
+        $estudiantes = DB::connection('sqlsrv')
+            ->table('KARDEX_EXT')
+            ->join('GRUPOS', function ($join) {
+                $join->on('KARDEX_EXT.ANIO', '=', 'GRUPOS.ANIO')
+                    ->on('KARDEX_EXT.PERIODO', '=', 'GRUPOS.PERIODO')
+                    ->on('KARDEX_EXT.PLAN', '=', 'GRUPOS.PLAN')
+                    ->on('KARDEX_EXT.MATERIA', '=', 'GRUPOS.MATERIA')
+                    ->on('KARDEX_EXT.GRUPO', '=', 'GRUPOS.GRUPO');
+            })
+            ->join('BIOGRAFICOS', 'BIOGRAFICOS.CODIGO', '=', 'KARDEX_EXT.ESTUDIANTE')
+            ->leftJoin(
+                'BIOGRAFICOS_EXT',
+                'BIOGRAFICOS_EXT.ESTUDIANTE',
+                '=',
+                'BIOGRAFICOS.CODIGO'
             )
-            ->join('docentes', 'docentes.codigo', '=', 'grupos.docente')
-            ->where('grupos.anio', $anio)
-            ->where('grupos.periodo', $periodo)
-            ->where('grupos.primario', 'Y')
-            ->where('grupos.tipo', 'N')
-            ->orderBy('grupos.grupo');
+            ->join('DOCENTES', 'DOCENTES.CODIGO', '=', 'GRUPOS.DOCENTE')
+            ->join('MATERIAS', function ($join) {
+                $join->on('GRUPOS.ANIO', '=', 'MATERIAS.ANIO')
+                    ->on('GRUPOS.PERIODO', '=', 'MATERIAS.PERIODO')
+                    ->on('GRUPOS.PLAN', '=', 'MATERIAS.PLAN')
+                    ->on('GRUPOS.MATERIA', '=', 'MATERIAS.CODIGO');
+            })
+            ->select([
+                'GRUPOS.ANIO',
+                'GRUPOS.PERIODO',
+                'GRUPOS.PLAN',
+                'GRUPOS.MATERIA',
+                'MATERIAS.NOMBRE as MATERIA_NOMBRE',
+                'GRUPOS.GRUPO',
 
-        if ($plan)
-            $query->where('grupos.plan', $plan);
-        if ($materia)
-            $query->where('grupos.materia', $materia);
+                'BIOGRAFICOS.CODIGO as CODIGO_ESTUDIANTE',
 
-        return response()->json($query->get());
-    }
+                DB::raw("
+        BIOGRAFICOS.APELLIDOS + ' ' +
+        BIOGRAFICOS.NOMBRES as ESTUDIANTE
+    "),
 
-    /**
-     * GET /api/estudiantes/{codigo}/contacto
-     */
-    public function contacto(string $codigo): JsonResponse
-    {
-        $contacto = DB::table('biograficos')
-            ->select(
-                'codigo',
-                DB::raw("apellidos || ' ' || nombres AS nombre"),
-                'email',
-                'celular'
-            )
-            ->where('codigo', $codigo)
-            ->first();
+                'DOCENTES.CODIGO as CODIGO_DOCENTE',
 
-        if (!$contacto) {
-            return response()->json(['mensaje' => 'Estudiante no encontrado'], 404);
-        }
+                DB::raw("
+        DOCENTES.APELLIDOS + ' ' +
+        DOCENTES.NOMBRES as DOCENTE
+    "),
 
-        return response()->json($contacto);
+                DB::raw("
+        ISNULL(
+            NULLIF(BIOGRAFICOS_EXT.DIR_CELULAR,''),
+            'Sin teléfono'
+        ) as CELULAR
+    "),
+
+                DB::raw("
+        ISNULL(
+            NULLIF(BIOGRAFICOS_EXT.DIR_E_MAIL,''),
+            'Sin correo'
+        ) as CORREO
+    "),
+
+                'KARDEX_EXT.NOTA_FINAL'
+            ])
+            ->where('KARDEX_EXT.ANIO', self::ANIO_ACTUAL)
+            ->where('KARDEX_EXT.PERIODO', self::PERIODO_ACTUAL)
+            ->whereNull('KARDEX_EXT.CANCELADO')
+            ->where('KARDEX_EXT.MATERIA', $materia)
+            ->whereIn('KARDEX_EXT.TIPO_EXAMEN', ['N', 'E'])
+            ->orderBy('ESTUDIANTE')
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'materia' => $materia,
+            'total' => $estudiantes->count(),
+            'data' => $estudiantes
+        ]);
     }
 }

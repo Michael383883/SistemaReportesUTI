@@ -138,6 +138,22 @@ class DatabaseController extends Controller
         return $str;
     }
 
+
+    private function checkConnection(string $connection): array
+    {
+        try {
+            DB::connection($connection)->getPdo();
+            $connected = true;
+        } catch (\Throwable $e) {
+            $connected = false;
+        }
+
+        return [
+            'connected' => $connected,
+            'host' => config("database.connections.$connection.host"),
+            'database' => config("database.connections.$connection.database"),
+        ];
+    }
     // public function migrate(Request $request): JsonResponse
 
     // {

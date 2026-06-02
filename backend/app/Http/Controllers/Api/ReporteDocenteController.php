@@ -11,144 +11,28 @@ class ReporteDocenteController extends Controller
 {
     // public function materiasDictadas(Request $request)
 
-
-    // {
-    //     $request->validate([
-    //         'docente' => 'required|numeric',
-    //         'anio' => 'nullable|numeric',
-    //     ]);
-
-    //     $docente = $request->docente;
-    //     $anio = $request->anio;
-
-    //     $docenteInfo = DB::connection('pgsql')->selectOne("
-    //         SELECT codigo, nombres, apellidos 
-    //         FROM docentes
-    //         WHERE codigo = ?
-    //     ", [$docente]);
-
-    //     if (!$docenteInfo) {
-    //         return response()->json([
-    //             'success' => false,
-    //             'message' => 'Docente no encontrado'
-    //         ], 404);
-    //     }
-
-    //     $filtroAnio = $anio ? "AND g.anio = :anio" : "";
-
-    //     $materias = DB::connection('pgsql')->select("
-    //         SELECT
-    //             ROW_NUMBER() OVER (
-    //                 ORDER BY
-    //                     g.anio,
-    //                     CASE 
-    //                         WHEN g.periodo = '1' THEN 1
-    //                         WHEN g.periodo = '4' THEN 2
-    //                         WHEN g.periodo = '2' THEN 3
-    //                         WHEN g.periodo = '3' THEN 4
-    //                         ELSE 5
-    //                     END,
-    //                     g.grupo ASC,
-    //                     g.materia,
-    //                     g.plan
-    //             ) AS nro,
-
-    //             g.anio::TEXT || '/' ||
-    //             CASE 
-    //                 WHEN g.periodo = '3' THEN '3 - Verano'
-    //                 WHEN g.periodo = '4' THEN '4 - Invierno'
-    //                 ELSE g.periodo
-    //             END AS gestion,
-
-    //             CASE 
-    //                 WHEN p.nombre ILIKE '%ADMINISTRACION%' THEN 'ADM'
-    //                 WHEN p.nombre ILIKE '%COMERCIAL%'      THEN 'COM'
-    //                 WHEN p.nombre ILIKE '%FINANCIERA%'     THEN 'FIN'
-    //                 WHEN p.nombre ILIKE '%ECONOMIA%'       THEN 'ECO'
-    //                 WHEN p.nombre ILIKE '%CONTADURIA%'     THEN 'CON'
-    //                 ELSE LEFT(p.nombre, 3)
-    //             END AS plan,
-
-    //             g.materia::TEXT || ' ' || COALESCE(m.nombre, 'SIN NOMBRE') AS materia,
-
-    //             CASE 
-    //                 WHEN g.grupo > '30' AND g.periodo IN ('3','4') THEN 'COMPARTIDO'
-    //                 ELSE ''
-    //             END AS compartido,
-
-    //             g.grupo     AS grp,
-    //             g.resolucion,
-    //             g.designacion
-
-    //         FROM grupos g
-
-    //         INNER JOIN docentes d 
-    //             ON d.codigo = g.docente
-
-    //         INNER JOIN materias m 
-    //             ON  m.codigo  = g.materia
-    //             AND m.anio    = g.anio
-    //             AND m.periodo = g.periodo
-    //             AND m.plan    = g.plan
-
-    //         LEFT JOIN planes p
-    //             ON  p.codigo = g.plan
-    //             AND p.anio   = g.anio
-
-    //         WHERE d.codigo = :docente
-    //           AND g.primario = 'Y'
-    //           AND g.tipo = 'N'
-    //           {$filtroAnio}
-
-    //         ORDER BY
-    //             g.anio,
-    //             CASE 
-    //                 WHEN g.periodo = '1' THEN 1
-    //                 WHEN g.periodo = '4' THEN 2
-    //                 WHEN g.periodo = '2' THEN 3
-    //                 WHEN g.periodo = '3' THEN 4
-    //                 ELSE 5
-    //             END ASC,
-    //             g.grupo ASC,
-    //             g.materia,
-    //             g.plan
-    //     ", array_filter([
-    //             'docente' => $docente,
-    //             'anio' => $anio,
-    //         ]));
-
-    //     return response()->json([
-    //         'success' => true,
-    //         'docente' => [
-    //             'codigo' => $docenteInfo->codigo,
-    //             'nombre' => trim($docenteInfo->apellidos . ' ' . $docenteInfo->nombres),
-    //         ],
-    //         'anio_filtro' => $anio ?? 'todos',
-    //         'total' => count($materias),
-    //         'materias' => $materias,
-    //     ]);
-    // }
-
-
-
     public function materiasDictadas(Request $request)
     {
         $request->validate([
             'docente' => 'required|numeric',
             'anio' => 'nullable|numeric',
-            'materia' => 'nullable|string|max:7',   // AÑADIR
-            'grupo' => 'nullable|string|max:2',   // AÑADIR
+            'materia' => 'nullable|string|max:7',
+            'grupo' => 'nullable|string|max:2',
         ]);
 
         $docente = $request->docente;
         $anio = $request->anio;
-        $materia = $request->materia;   // AÑADIR
-        $grupo = $request->grupo;     // AÑADIR
+        $materia = $request->materia;
+        $grupo = $request->grupo;
 
-        $docenteInfo = DB::connection('pgsql')->selectOne("
-        SELECT codigo, nombres, apellidos 
-        FROM docentes
-        WHERE codigo = ?
+        // CONSULTAR DOCENTE
+        $docenteInfo = DB::connection('sqlsrv')->selectOne("
+        SELECT 
+            CODIGO,
+            NOMBRES,
+            APELLIDOS
+        FROM DOCENTES
+        WHERE CODIGO = ?
     ", [$docente]);
 
         if (!$docenteInfo) {
@@ -158,110 +42,140 @@ class ReporteDocenteController extends Controller
             ], 404);
         }
 
-        // AÑADIR los filtros opcionales
-        $filtroAnio = $anio ? "AND g.anio    = :anio" : "";
-        $filtroMateria = $materia ? "AND g.materia = :materia" : "";
-        $filtroGrupo = $grupo ? "AND g.grupo   = :grupo" : "";
+        // FILTROS OPCIONALES
+        $filtroAnio = $anio ? "AND GRUPOS.ANIO = :anio" : "";
+        $filtroMateria = $materia ? "AND GRUPOS.MATERIA = :materia" : "";
+        $filtroGrupo = $grupo ? "AND GRUPOS.GRUPO = :grupo" : "";
 
-        $materias = DB::connection('pgsql')->select("
+        $materias = DB::connection('sqlsrv')->select("
+
         SELECT
             ROW_NUMBER() OVER (
-                ORDER BY
-                    g.anio,
-                    CASE 
-                        WHEN g.periodo = '1' THEN 1
-                        WHEN g.periodo = '4' THEN 2
-                        WHEN g.periodo = '2' THEN 3
-                        WHEN g.periodo = '3' THEN 4
+                ORDER BY 
+                    GRUPOS.ANIO,
+
+                    CASE
+                        WHEN GRUPOS.PERIODO = '1' THEN 1
+                        WHEN GRUPOS.PERIODO = '4' THEN 2
+                        WHEN GRUPOS.PERIODO = '2' THEN 3
+                        WHEN GRUPOS.PERIODO = '3' THEN 4
                         ELSE 5
                     END,
-                    g.grupo ASC,
-                    g.materia,
-                    g.plan
+
+                    GRUPOS.GRUPO ASC,
+                    GRUPOS.MATERIA,
+                    GRUPOS.[PLAN]
             ) AS nro,
 
-            g.anio::TEXT || '/' ||
-            CASE 
-                WHEN g.periodo = '3' THEN '3 - Verano'
-                WHEN g.periodo = '4' THEN '4 - Invierno'
-                ELSE g.periodo
+            DOCENTES.CODIGO,
+
+            (DOCENTES.APELLIDOS + ' ' + DOCENTES.NOMBRES) AS docente,
+
+            CONVERT(VARCHAR(4), GRUPOS.ANIO) + '/' +
+
+            CASE
+                WHEN GRUPOS.PERIODO = '3' THEN '3 - Verano'
+                WHEN GRUPOS.PERIODO = '4' THEN '4 - Invierno'
+                ELSE GRUPOS.PERIODO
             END AS gestion,
 
-            CASE 
-                WHEN p.nombre ILIKE '%ADMINISTRACION%' THEN 'ADM'
-                WHEN p.nombre ILIKE '%COMERCIAL%'      THEN 'COM'
-                WHEN p.nombre ILIKE '%FINANCIERA%'     THEN 'FIN'
-                WHEN p.nombre ILIKE '%ECONOMIA%'       THEN 'ECO'
-                WHEN p.nombre ILIKE '%CONTADURIA%'     THEN 'CON'
-                ELSE LEFT(p.nombre, 3)
-            END AS plan,
+            CASE
+                WHEN [PLANES].NOMBRE LIKE '%ADMINISTRACION%' THEN 'ADM'
+                WHEN [PLANES].NOMBRE LIKE '%COMERCIAL%' THEN 'COM'
+                WHEN [PLANES].NOMBRE LIKE '%FINANCIERA%' THEN 'FIN'
+                WHEN [PLANES].NOMBRE LIKE '%ECONOMIA%' THEN 'ECO'
+                WHEN [PLANES].NOMBRE LIKE '%CONTADURIA%' THEN 'CON'
+                ELSE LEFT([PLANES].NOMBRE, 3)
+            END AS plan_abrev,
 
-            g.materia::TEXT || ' ' || COALESCE(m.nombre, 'SIN NOMBRE') AS materia,
+            GRUPOS.MATERIA + ' ' + ISNULL(MATERIAS.NOMBRE, 'SIN NOMBRE') AS materia,
 
-            CASE 
-                WHEN g.grupo > '30' AND g.periodo IN ('3','4') THEN 'COMPARTIDO'
+            CASE
+                WHEN GRUPOS.GRUPO > '30'
+                     AND GRUPOS.PERIODO IN ('3','4')
+                THEN 'COMPARTIDO'
                 ELSE ''
             END AS compartido,
 
-            g.grupo     AS grp,
-            g.resolucion,
-            g.designacion
+            GRUPOS.GRUPO AS grp,
+            GRUPOS.RESOLUCION,
+            GRUPOS.DESIGNACION,
+            GRUPOS.TIEMPO,
+            GRUPOS.ANIO,
+            GRUPOS.PERIODO,
+            GRUPOS.[PLAN]
 
-        FROM grupos g
+        FROM GRUPOS
 
-        INNER JOIN docentes d 
-            ON d.codigo = g.docente
+        INNER JOIN DOCENTES
+            ON DOCENTES.CODIGO = GRUPOS.DOCENTE
 
-        INNER JOIN materias m 
-            ON  m.codigo  = g.materia
-            AND m.anio    = g.anio
-            AND m.periodo = g.periodo
-            AND m.plan    = g.plan
+        INNER JOIN MATERIAS
+            ON MATERIAS.CODIGO = GRUPOS.MATERIA
+            AND MATERIAS.ANIO = GRUPOS.ANIO
+            AND MATERIAS.PERIODO = GRUPOS.PERIODO
+            AND MATERIAS.[PLAN] = GRUPOS.[PLAN]
 
-        LEFT JOIN planes p
-            ON  p.codigo = g.plan
-            AND p.anio   = g.anio
+        LEFT JOIN [PLANES]
+            ON [PLANES].CODIGO = GRUPOS.[PLAN]
+            AND [PLANES].ANIO = GRUPOS.ANIO
 
-        WHERE d.codigo = :docente
-          AND g.primario = 'Y'
-          AND g.tipo = 'N'
+        WHERE DOCENTES.CODIGO = :docente
+          AND GRUPOS.PRIMARIO = 'Y'
+          AND GRUPOS.TIPO = 'N'
+
+          AND (
+                CONVERT(VARCHAR(4), GRUPOS.ANIO)
+                + '-' +
+                GRUPOS.PERIODO
+              ) NOT IN ('2026-1')
+
           {$filtroAnio}
           {$filtroMateria}
           {$filtroGrupo}
 
         ORDER BY
-            g.anio,
-            CASE 
-                WHEN g.periodo = '1' THEN 1
-                WHEN g.periodo = '4' THEN 2
-                WHEN g.periodo = '2' THEN 3
-                WHEN g.periodo = '3' THEN 4
+            GRUPOS.ANIO,
+
+            CASE
+                WHEN GRUPOS.PERIODO = '1' THEN 1
+                WHEN GRUPOS.PERIODO = '4' THEN 2
+                WHEN GRUPOS.PERIODO = '2' THEN 3
+                WHEN GRUPOS.PERIODO = '3' THEN 4
                 ELSE 5
             END ASC,
-            g.grupo ASC,
-            g.materia,
-            g.plan
+
+            GRUPOS.GRUPO ASC,
+            GRUPOS.MATERIA,
+            GRUPOS.[PLAN]
+
     ", array_filter([
                 'docente' => $docente,
                 'anio' => $anio,
-                'materia' => $materia,   // AÑADIR
-                'grupo' => $grupo,     // AÑADIR
-            ]));
+                'materia' => $materia,
+                'grupo' => $grupo,
+            ], fn($value) => !is_null($value)));
 
         return response()->json([
             'success' => true,
+
             'docente' => [
-                'codigo' => $docenteInfo->codigo,
-                'nombre' => trim($docenteInfo->apellidos . ' ' . $docenteInfo->nombres),
+                'codigo' => $docenteInfo->CODIGO,
+                'nombre' => trim(
+                    $docenteInfo->APELLIDOS . ' ' .
+                    $docenteInfo->NOMBRES
+                ),
             ],
+
             'anio_filtro' => $anio ?? 'todos',
-            'materia_filtro' => $materia ?? 'todas',   // opcional, para debug
-            'grupo_filtro' => $grupo ?? 'todos',   // opcional, para debug
+            'materia_filtro' => $materia ?? 'todas',
+            'grupo_filtro' => $grupo ?? 'todos',
+
             'total' => count($materias),
+
             'materias' => $materias,
         ]);
     }
-
 
     /**
      * POST /api/reporte-horario
@@ -273,93 +187,116 @@ class ReporteDocenteController extends Controller
     public function horario(Request $request): JsonResponse
     {
         // ─── 1. Gestión activa ────────────────────────────────────────────
-        // Ajusta aquí si tienes una tabla de configuración para leer anio/periodo
-        $anio = 2024;
+        $anio = 2026;
         $periodo = 1;
 
         // ─── 2. Filtro opcional por docente ──────────────────────────────
         $docenteFiltro = $request->input('docente'); // null = todos
 
-        // ─── 3. Consulta principal ────────────────────────────────────────
+        // ─── 3. Consulta SQL Server 2022 ─────────────────────────────────
         $sql = "
-            WITH params AS (
-                SELECT :anio AS anio, :periodo AS periodo
-            )
-            SELECT
-                h.anio,
-                h.periodo,
-                g.plan,
-                CASE g.plan
-                    WHEN '059801' THEN 'ECO'
-                    WHEN '109401' THEN 'ADM'
-                    WHEN '089801' THEN 'CCP'
-                    WHEN '125091' THEN 'COM'
-                    WHEN '126091' THEN 'FIN'
-                    ELSE 'NN'
-                END AS carrera,
-                m.nivel,
-                h.docente,
-                d.apellidos,
-                d.nombres,
-                g.materia,
-                m.nombre,
-                h.tipo,
+        SELECT
+            HORARIOS2.ANIO,
+            HORARIOS2.PERIODO,
+            GRUPOS.[PLAN],
+
+            CASE GRUPOS.[PLAN]
+                WHEN '059801' THEN 'ECO'
+                WHEN '109401' THEN 'ADM'
+                WHEN '089801' THEN 'CCP'
+                WHEN '125091' THEN 'COM'
+                WHEN '126091' THEN 'FIN'
+                ELSE 'NN'
+            END AS CARRERA,
+
+            MATERIAS.NIVEL,
+            HORARIOS2.DOCENTE,
+            DOCENTES.APELLIDOS,
+            DOCENTES.NOMBRES,
+            GRUPOS.MATERIA,
+            MATERIAS.NOMBRE,
+            HORARIOS2.TIPO,
+
+            CASE
+                WHEN [HORARIOS2].[TIPO] = 'C' THEN ''
+                WHEN [HORARIOS2].[TIPO] = 'P' THEN '[AUX]'
+                ELSE 'N'
+            END AS TIPO2,
+
+            GRUPOS.GRUPO,
+
+            SUM(
                 CASE
-                    WHEN h.tipo = 'C' THEN ''
-                    WHEN h.tipo = 'P' THEN '[AUX]'
-                    ELSE 'N'
-                END AS tipo2,
-                g.grupo,
-                SUM(
-                    CASE
-                        WHEN h.hora > 0 AND h.grupo = 'NN' THEN 8
-                        ELSE 2
-                    END
-                ) AS carga_horaria,
-                gc.comp,
-                gc.compartido,
-                gc.orden
+                    WHEN [HORARIOS2].[HORA] > 0
+                         AND [HORARIOS2].[GRUPO] = 'NN'
+                    THEN 8
+                    ELSE 2
+                END
+            ) AS CARGA_HORARIA,
 
-            FROM horarios2 h
-            INNER JOIN grupos g
-                ON  h.anio::text    = g.anio::text
-                AND h.periodo::text = g.periodo::text
-                AND h.materia::text = g.materia::text
-                AND h.grupo::text   = g.grupo::text
-                AND h.docente::text = g.docente::text
-            INNER JOIN materias m
-                ON  g.anio::text    = m.anio::text
-                AND g.periodo::text = m.periodo::text
-                AND g.plan::text    = m.plan::text
-                AND g.materia::text = m.codigo::text
-            INNER JOIN docentes d
-                ON  h.docente::text = d.codigo::text
-            LEFT OUTER JOIN grupos_compartidos gc
-                ON  g.plan::text     = gc.plan::text
-                AND g.materia::text  = gc.materia::text
-                AND g.grupo::text    = gc.grupo::text
-                AND g.primario::text = gc.primario::text
+            GRUPOS_COMPARTIDOS.COMP,
+            GRUPOS_COMPARTIDOS.COMPARTIDO,
+            GRUPOS_COMPARTIDOS.ORDEN
 
-            WHERE h.anio::text    = (SELECT anio::text    FROM params)
-              AND h.periodo::text = (SELECT periodo::text FROM params)
-              AND h.tipo          IN ('C')
-              AND g.plan::text    IN ('109401', '125091', '089801', '126091', '059801')
-              AND g.tipo          = 'N'
-              AND g.primario      = 'Y'
-              AND h.hora::integer NOT IN (730,900,1030,1200,1330,1500,1630,1800,1930,2100)
-              " . ($docenteFiltro ? "AND h.docente::text = :docente" : "") . "
+        FROM HORARIOS2
 
-            GROUP BY
-                h.anio, h.periodo, g.plan, m.nivel,
-                h.docente, d.apellidos, d.nombres,
-                g.materia, m.nombre, h.tipo, g.grupo,
-                gc.comp, gc.compartido, gc.orden
+        INNER JOIN GRUPOS
+            ON  HORARIOS2.ANIO    = GRUPOS.ANIO
+            AND HORARIOS2.PERIODO = GRUPOS.PERIODO
+            AND HORARIOS2.MATERIA = GRUPOS.MATERIA
+            AND HORARIOS2.GRUPO   = GRUPOS.GRUPO
+            AND HORARIOS2.DOCENTE = GRUPOS.DOCENTE
 
-            ORDER BY
-                d.apellidos, d.nombres,
-                gc.orden, g.materia, g.grupo,
-                g.plan, gc.compartido
-        ";
+        INNER JOIN MATERIAS
+            ON  GRUPOS.ANIO    = MATERIAS.ANIO
+            AND GRUPOS.PERIODO = MATERIAS.PERIODO
+            AND GRUPOS.[PLAN]  = MATERIAS.[PLAN]
+            AND GRUPOS.MATERIA = MATERIAS.CODIGO
+
+        INNER JOIN DOCENTES
+            ON  HORARIOS2.DOCENTE = DOCENTES.CODIGO
+
+        LEFT OUTER JOIN GRUPOS_COMPARTIDOS
+            ON  GRUPOS.[PLAN]    = GRUPOS_COMPARTIDOS.[PLAN]
+            AND GRUPOS.MATERIA   = GRUPOS_COMPARTIDOS.MATERIA
+            AND GRUPOS.GRUPO     = GRUPOS_COMPARTIDOS.GRUPO
+            AND GRUPOS.PRIMARIO  = GRUPOS_COMPARTIDOS.PRIMARIO
+
+        WHERE
+            HORARIOS2.ANIO     = :anio
+            AND HORARIOS2.PERIODO  = :periodo
+            AND HORARIOS2.TIPO     IN ('C')
+            AND GRUPOS.[PLAN]      IN ('109401', '125091', '089801', '126091', '059801')
+            AND GRUPOS.TIPO        = 'N'
+            AND GRUPOS.PRIMARIO    IN ('Y')
+            AND HORARIOS2.HORA     NOT IN (730, 900, 1030, 1200, 1330, 1500, 1630, 1800, 1930, 2100)
+            " . ($docenteFiltro ? "AND HORARIOS2.DOCENTE = :docente" : "") . "
+
+        GROUP BY
+            HORARIOS2.ANIO,
+            HORARIOS2.PERIODO,
+            GRUPOS.[PLAN],
+            MATERIAS.NIVEL,
+            HORARIOS2.DOCENTE,
+            DOCENTES.APELLIDOS,
+            DOCENTES.NOMBRES,
+            GRUPOS.MATERIA,
+            MATERIAS.NOMBRE,
+            HORARIOS2.TIPO,
+            GRUPOS.GRUPO,
+            GRUPOS_COMPARTIDOS.COMP,
+            GRUPOS_COMPARTIDOS.COMPARTIDO,
+            GRUPOS_COMPARTIDOS.ORDEN
+
+        ORDER BY
+            DOCENTES.APELLIDOS,
+            DOCENTES.NOMBRES,
+            GRUPOS_COMPARTIDOS.ORDEN,
+            GRUPOS.MATERIA,
+            GRUPOS.GRUPO,
+            GRUPOS.[PLAN],
+            GRUPOS_COMPARTIDOS.COMPARTIDO
+    ";
 
         $bindings = [
             'anio' => $anio,
@@ -370,38 +307,37 @@ class ReporteDocenteController extends Controller
             $bindings['docente'] = (string) $docenteFiltro;
         }
 
-        $filas = DB::connection('pgsql')->select($sql, $bindings);
+        // Usar la conexión SQL Server (sqlsrv)
+        $filas = DB::connection('sqlsrv')->select($sql, $bindings);
 
         // ─── 4. Agrupar por docente ───────────────────────────────────────
-        // El front espera: { gestion, docentes: [{ codigo, apellidos, nombres, materias: [...] }] }
-
         $docentesMap = [];
 
         foreach ($filas as $fila) {
-            $codigo = $fila->docente;
+            $codigo = $fila->DOCENTE;
 
             if (!isset($docentesMap[$codigo])) {
                 $docentesMap[$codigo] = [
                     'codigo' => $codigo,
-                    'apellidos' => $fila->apellidos,
-                    'nombres' => $fila->nombres,
+                    'apellidos' => $fila->APELLIDOS,
+                    'nombres' => $fila->NOMBRES,
                     'materias' => [],
                 ];
             }
 
             $docentesMap[$codigo]['materias'][] = [
-                'plan' => $fila->plan,
-                'carrera' => $fila->carrera,
-                'nivel' => $fila->nivel,
-                'materia' => $fila->materia,
-                'nombre' => $fila->nombre,
-                'tipo' => $fila->tipo,
-                'tipo2' => $fila->tipo2,
-                'grupo' => $fila->grupo,
-                'carga_horaria' => (int) $fila->carga_horaria,
-                'comp' => $fila->comp,
-                'compartido' => $fila->compartido,
-                'orden' => $fila->orden,
+                'plan' => $fila->PLAN,
+                'carrera' => $fila->CARRERA,
+                'nivel' => $fila->NIVEL,
+                'materia' => $fila->MATERIA,
+                'nombre' => $fila->NOMBRE,
+                'tipo' => $fila->TIPO,
+                'tipo2' => $fila->TIPO2,
+                'grupo' => $fila->GRUPO,
+                'carga_horaria' => (int) $fila->CARGA_HORARIA,
+                'comp' => $fila->COMP,
+                'compartido' => $fila->COMPARTIDO,
+                'orden' => $fila->ORDEN,
             ];
         }
 
