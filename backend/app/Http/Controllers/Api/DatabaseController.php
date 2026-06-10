@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
+use App\Services\MigracionService; 
 use Illuminate\Http\Request;
 class DatabaseController extends Controller
 {
@@ -18,75 +19,110 @@ class DatabaseController extends Controller
             'sqlserver_2008' => $this->checkConnection('sqlsrv2'),
         ]);
     }
-
-    public function migrate(Request $request): JsonResponse
+    /**
+     * POST /api/database/migrate-all
+     */
+    public function migrateAll(): JsonResponse
     {
-        try {
-            $docentes = DB::connection('sqlsrv2')->table('DOCENTES')->get();
+        $tables = [
+            'BIOGRAFICOS',
+            'DOCENTES',
+            'DOCENTES_2',
+            'DOCENTES_TELEFONO',
+            'GRUPOS',
+            'GRUPOS_COMPARTIDOS',
+            'HORARIOS2',
+            'KARDEX_EXT',
+            'MATERIAS',
+            'NROINSMATGRPNE',
+            'PLANES',
+            'BIOGRAFICOS_EXT',
+        ];
 
-            if ($docentes->isEmpty()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'No se encontraron registros.',
-                    'total' => 0,
-                ], 404);
-            }
+        $resultados = MigracionService::copiarTablas($tables);
 
-            $insertados = 0;
-            $omitidos = 0;
-            $errores = [];
+        $exitosas = array_filter($resultados, fn($r) => $r['success']);
+        $fallidas = array_filter($resultados, fn($r) => !$r['success']);
 
-            foreach ($docentes as $docente) {
-                try {
-                    $codigo = (int) $docente->CODIGO;
-
-                    $existe = DB::connection('sqlsrv')
-                        ->table('DOCENTES')
-                        ->whereRaw('CODIGO = ?', [$codigo])
-                        ->exists();
-
-                    if ($existe) {
-                        $omitidos++;
-                        continue;
-                    }
-
-                    DB::connection('sqlsrv')->table('DOCENTES')->insert([
-                        'CODIGO' => $codigo,
-                        'CI' => $this->limpiarString($docente->CI, 'SIN_CI'),
-                        'NOMBRES' => $docente->NOMBRES,
-                        'APELLIDOS' => $docente->APELLIDOS,
-                        'FECHA_NAC' => $this->limpiarFecha($docente->FECHA_NAC),
-                        'SEXO' => $this->limpiarString($docente->SEXO, 'X'),
-                        'TITULO' => $docente->TITULO,
-                        'FECHA_NOMBRAMIENTO' => $this->limpiarFecha($docente->FECHA_NOMBRAMIENTO),
-                    ]);
-
-                    $insertados++;
-
-                } catch (\Exception $e) {
-                    $errores[] = [
-                        'CODIGO' => $docente->CODIGO,
-                        'error' => $e->getMessage(),
-                    ];
-                }
-            }
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Migración completada.',
-                'total' => $docentes->count(),
-                'insertados' => $insertados,
-                'omitidos' => $omitidos,
-                'errores' => $errores,
-            ]);
-
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Error general: ' . $e->getMessage(),
-            ], 500);
-        }
+        return response()->json([
+            'success' => count($fallidas) === 0,
+            'resumen' => [
+                'total' => count($resultados),
+                'exitosas' => count($exitosas),
+                'fallidas' => count($fallidas),
+            ],
+            'detalle' => $resultados,
+        ], count($fallidas) === 0 ? 200 : 207); // 207 = Multi-Status (parcial)
     }
+
+    // public function migrate(Request $request): JsonResponse
+    // {
+    //     try {
+    //         $docentes = DB::connection('sqlsrv2')->table('DOCENTES')->get();
+
+    //         if ($docentes->isEmpty()) {
+    //             return response()->json([
+    //                 'success' => false,
+    //                 'message' => 'No se encontraron registros.',
+    //                 'total' => 0,
+    //             ], 404);
+    //         }
+
+    //         $insertados = 0;
+    //         $omitidos = 0;
+    //         $errores = [];
+
+    //         foreach ($docentes as $docente) {
+    //             try {
+    //                 $codigo = (int) $docente->CODIGO;
+
+    //                 $existe = DB::connection('sqlsrv')
+    //                     ->table('DOCENTES')
+    //                     ->whereRaw('CODIGO = ?', [$codigo])
+    //                     ->exists();
+
+    //                 if ($existe) {
+    //                     $omitidos++;
+    //                     continue;
+    //                 }
+
+    //                 DB::connection('sqlsrv')->table('DOCENTES')->insert([
+    //                     'CODIGO' => $codigo,
+    //                     'CI' => $this->limpiarString($docente->CI, 'SIN_CI'),
+    //                     'NOMBRES' => $docente->NOMBRES,
+    //                     'APELLIDOS' => $docente->APELLIDOS,
+    //                     'FECHA_NAC' => $this->limpiarFecha($docente->FECHA_NAC),
+    //                     'SEXO' => $this->limpiarString($docente->SEXO, 'X'),
+    //                     'TITULO' => $docente->TITULO,
+    //                     'FECHA_NOMBRAMIENTO' => $this->limpiarFecha($docente->FECHA_NOMBRAMIENTO),
+    //                 ]);
+
+    //                 $insertados++;
+
+    //             } catch (\Exception $e) {
+    //                 $errores[] = [
+    //                     'CODIGO' => $docente->CODIGO,
+    //                     'error' => $e->getMessage(),
+    //                 ];
+    //             }
+    //         }
+
+    //         return response()->json([
+    //             'success' => true,
+    //             'message' => 'Migración completada.',
+    //             'total' => $docentes->count(),
+    //             'insertados' => $insertados,
+    //             'omitidos' => $omitidos,
+    //             'errores' => $errores,
+    //         ]);
+
+    //     } catch (\Exception $e) {
+    //         return response()->json([
+    //             'success' => false,
+    //             'message' => 'Error general: ' . $e->getMessage(),
+    //         ], 500);
+    //     }
+    // }
 
     // ─────────────────────────────────────────────
 // Convierte cualquier tipo de fecha a string

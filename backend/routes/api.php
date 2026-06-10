@@ -147,14 +147,49 @@ Route::post('/sync-table', [
 // Carga horaria docentes (Admin)
 
 
+// Route::prefix('admin/horarios')->group(function () {
+
+//     // Horario completo
+//     Route::get('/', [HorarioAdminController::class, 'index']);
+//     Route::get('/{docente}', [HorarioAdminController::class, 'show']);
+
+//     // Resumen
+//     Route::get('/resumen/listado', [HorarioAdminController::class, 'resumen']);
+//     Route::get('/resumen/docente/{docente}', [HorarioAdminController::class, 'resumenDocente']);
+
+// });
+
+
+// Route::prefix('admin/horarios')->group(function () {
+
+//     //  Primero las rutas específicas/estáticas
+//     Route::get('/resumen/listado', [HorarioAdminController::class, 'resumen']);
+//     Route::get('/resumen/docente/{docente}', [HorarioAdminController::class, 'resumenDocente']);
+
+//     // Después las dinámicas (van al final siempre)
+//     Route::get('/', [HorarioAdminController::class, 'index']);
+//     Route::get('/{docente}', [HorarioAdminController::class, 'show']);
+
+// });
+
 Route::prefix('admin/horarios')->group(function () {
 
-    // Horario completo
-    Route::get('/', [HorarioAdminController::class, 'index']);
-    Route::get('/{docente}', [HorarioAdminController::class, 'show']);
-
-    // Resumen
+    //  Primero las rutas específicas/estáticas
     Route::get('/resumen/listado', [HorarioAdminController::class, 'resumen']);
     Route::get('/resumen/docente/{docente}', [HorarioAdminController::class, 'resumenDocente']);
 
+    // ── Inscritos ──────────────────────────────────────────────────
+    Route::get('/inscritos/listado', [HorarioAdminController::class, 'listaInscritos']);
+    Route::get('/inscritos/docente/{docente}', [HorarioAdminController::class, 'listaInscritosDocente']);
+
+    // Después las dinámicas (van al final siempre)
+    Route::get('/', [HorarioAdminController::class, 'index']);
+    Route::get('/{docente}', [HorarioAdminController::class, 'show']);
+
+
+
 });
+
+
+Route::post('database/migrate-all', [DatabaseController::class, 'migrateAll']);
+
