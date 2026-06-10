@@ -1,3 +1,4 @@
+version: '3.8'
 services:
   sqlserver-db:
     image: mcr.microsoft.com/mssql/server:2022-latest
@@ -11,6 +12,7 @@ services:
       - "1433:1433"
     volumes:
       - ./data/sqlserver:/var/opt/mssql/data
+      - ./openssl_legacy.cnf:/etc/ssl/openssl.cnf:ro
     networks:
       - app-network
     healthcheck:
