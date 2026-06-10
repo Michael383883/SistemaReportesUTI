@@ -25,13 +25,18 @@ RUN pecl install sqlsrv pdo_sqlsrv && \
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www/backend
-
 COPY . .
 
-RUN composer install --no-dev --optimize-autoloader && \
+# Build sin conexión a BD real
+RUN DB_CONNECTION=sqlite \
+    DB_DATABASE=/tmp/fake.db \
+    APP_KEY=base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA= \
+    composer install --no-dev --optimize-autoloader && \
     chown -R www-data:www-data /var/www/backend && \
     chmod -R 775 storage bootstrap/cache
 
-EXPOSE 8000
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
-CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]
+EXPOSE 8000
+CMD ["/entrypoint.sh"]
