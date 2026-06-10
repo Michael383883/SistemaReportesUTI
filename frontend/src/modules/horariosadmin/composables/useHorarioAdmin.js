@@ -11,10 +11,9 @@ export function useHorarioAdmin() {
     const loading = ref(false)
     const error = ref(null)
 
-    const anio = ref(new Date().getFullYear())
-    const periodo = ref(1)
+    // ← Ya NO hay anio ni periodo aquí
 
-    async function cargarTodos() {
+    async function cargarTodos(anio, periodo) {   // ← recibe como parámetro
         loading.value = true
         error.value = null
 
@@ -22,33 +21,27 @@ export function useHorarioAdmin() {
             const response = await axios.get(
                 `${API_BASE}/api/admin/horarios`,
                 {
-                    params: {
-                        anio: anio.value,
-                        periodo: periodo.value,
-                    },
+                    params: { anio, periodo },
                 }
             )
 
             const datos = response?.data?.data
+            docentes.value = Array.isArray(datos) ? datos : []
 
-            docentes.value = Array.isArray(datos)
-                ? datos
-                : []
+            if (docentes.value.length === 0) {
+                error.value = `Horarios no disponibles para la gestión ${anio} período ${periodo}`
+            }
 
         } catch (e) {
             console.error('Error cargarTodos:', e)
-
             docentes.value = []
-
-            error.value =
-                e?.response?.data?.message ||
-                'Error al cargar horarios'
+            error.value = e?.response?.data?.message || 'Error al cargar horarios'
         } finally {
             loading.value = false
         }
     }
 
-    async function cargarDocente(codigoDocente) {
+    async function cargarDocente(codigoDocente, anio, periodo) {  // ← recibe como parámetro
         loading.value = true
         error.value = null
         docenteSeleccionado.value = null
@@ -57,10 +50,7 @@ export function useHorarioAdmin() {
             const response = await axios.get(
                 `${API_BASE}/api/admin/horarios/${codigoDocente}`,
                 {
-                    params: {
-                        anio: anio.value,
-                        periodo: periodo.value,
-                    },
+                    params: { anio, periodo },
                 }
             )
 
@@ -72,17 +62,14 @@ export function useHorarioAdmin() {
             } else {
                 docenteSeleccionado.value = null
                 docentes.value = []
+                error.value = `No se encontraron horarios para el docente en la gestión ${anio} período ${periodo}`
             }
 
         } catch (e) {
             console.error('Error cargarDocente:', e)
-
             docentes.value = []
             docenteSeleccionado.value = null
-
-            error.value =
-                e?.response?.data?.message ||
-                'Docente no encontrado'
+            error.value = e?.response?.data?.message || 'Docente no encontrado'
         } finally {
             loading.value = false
         }
@@ -185,8 +172,6 @@ export function useHorarioAdmin() {
         docenteSeleccionado,
         loading,
         error,
-        anio,
-        periodo,
         cargarTodos,
         cargarDocente,
         colorCarrera,

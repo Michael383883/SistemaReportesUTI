@@ -258,6 +258,13 @@ const menuSections = [
         label: 'Reportes',
         icon: BarChart2,
       },
+
+      {
+        to: '/inscritos',
+        label: 'Inscritos',
+        icon: BarChart2,
+      },
+
        // NUEVO MENÚ
       {
         label: 'Horario',

@@ -11,6 +11,7 @@ import { reporteHorarioRoutes } from '@/modules/reporte-horario/routes'
 import { secretariaRoutes } from '@/modules/secretaria/routes'
 import { secretariaTalleresRoutes } from '@/modules/secretaria_talleres/routes'
 import { reporteHorarioRoutesadmin } from '@/modules/horariosadmin/routes'
+import { inscritosRoutes } from '@/modules/inscritos/routes'
 
 const routes = [
   ...authRoutes,
@@ -33,6 +34,7 @@ const routes = [
       ...secretariaRoutes,
       ...secretariaTalleresRoutes,
       ...reporteHorarioRoutesadmin,
+      ...inscritosRoutes,
     ],
   },
   {

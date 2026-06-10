@@ -1,39 +1,17 @@
 <template>
   <div class="min-h-screen bg-slate-100 pb-12">
     <!-- HEADER -->
-    <div
-      class="bg-gradient-to-r from-slate-800 to-blue-700 px-8 py-5 flex flex-col md:flex-row justify-between items-center shadow-lg"
-    >
-      <div class="flex items-center gap-4">
-        <span
-          class="bg-white/15 border-2 border-white/40 text-white text-2xl font-black px-4 py-2 rounded-lg tracking-wider"
-        >
-          FCE
-        </span>
-        <div>
-          <span class="block text-[11px] text-white/70">
-            Universidad Mayor de San Simón
-          </span>
-          <span class="block text-sm font-bold text-white">
-            Facultad de Ciencias Económicas
-          </span>
-        </div>
-      </div>
-
-      <div class="text-right mt-4 md:mt-0">
-        <h1 class="text-white text-2xl font-extrabold">
-          Resumen Carga Horaria
-        </h1>
-        <span class="text-xs text-white/70">
-          Resumen por materia · Gestión {{ anio }}/{{ periodo }}
-        </span>
-      </div>
+    <div class="bg-gradient-to-r from-slate-800 to-blue-700 px-8 py-3 flex justify-between items-center shadow-lg">
+      <h1 class="text-white text-xl font-extrabold tracking-tight">
+        Resumen Carga Horaria
+      </h1>
+      <span class="text-xs text-white/70">
+        Resumen por materia · Gestión {{ anio }}/{{ periodo }}
+      </span>
     </div>
 
     <!-- FILTROS -->
-    <div
-      class="bg-white border-b border-slate-200 px-8 py-4 flex flex-wrap gap-4 items-end"
-    >
+    <div class="bg-white border-b border-slate-200 px-8 py-2.5 flex flex-wrap gap-3 items-end">
       <!-- Año -->
       <div class="flex flex-col gap-1">
         <label class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
@@ -44,7 +22,7 @@
           type="number"
           min="2020"
           max="2030"
-          class="w-24 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:border-blue-600 focus:outline-none"
+          class="w-24 border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:border-blue-600 focus:outline-none"
         />
       </div>
 
@@ -55,10 +33,12 @@
         </label>
         <select
           v-model.number="periodo"
-          class="w-24 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:border-blue-600 focus:outline-none"
+          class="w-24 border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:border-blue-600 focus:outline-none"
         >
-          <option :value="1">1/{{ anio }}</option>
-          <option :value="2">2/{{ anio }}</option>
+          <option :value="1">1</option>
+          <option :value="2">2</option>
+          <option :value="3">3</option>
+          <option :value="4">4</option>
         </select>
       </div>
 
@@ -73,19 +53,19 @@
             type="text"
             placeholder="Código o apellidos..."
             @keyup.enter="buscarDocente"
-            class="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:border-blue-600 focus:outline-none"
+            class="flex-1 border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:border-blue-600 focus:outline-none"
           />
           <button
             @click="buscarDocente"
             :disabled="loading"
-            class="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg font-semibold text-sm"
+            class="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-4 py-1.5 rounded-lg font-semibold text-sm"
           >
             {{ loading ? '⏳' : '🔍 Buscar' }}
           </button>
           <button
-            @click="cargarTodos"
+            @click="verTodos"
             :disabled="loading"
-            class="bg-slate-100 border border-slate-200 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-lg font-semibold text-sm"
+            class="bg-slate-100 border border-slate-200 hover:bg-slate-200 text-slate-700 px-4 py-1.5 rounded-lg font-semibold text-sm"
           >
             Ver todos
           </button>
@@ -98,7 +78,7 @@
         <button
           @click="generarPDF"
           :disabled="loading || docentes.length === 0"
-          class="bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white px-5 py-2 rounded-lg font-semibold text-sm"
+          class="bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white px-5 py-1.5 rounded-lg font-semibold text-sm"
         >
           📄 Generar PDF
         </button>
@@ -118,9 +98,7 @@
       v-if="loading"
       class="flex flex-col items-center gap-3 py-20 text-slate-500"
     >
-      <div
-        class="w-10 h-10 border-4 border-slate-200 border-t-blue-600 rounded-full animate-spin"
-      />
+      <div class="w-10 h-10 border-4 border-slate-200 border-t-blue-600 rounded-full animate-spin" />
       <span>Cargando resumen...</span>
     </div>
 
@@ -134,60 +112,16 @@
     </div>
 
     <!-- CONTENIDO -->
-    <div
-      v-else
-      id="reporte-imprimible"
-      class="px-8 py-5"
-    >
+    <div v-else id="reporte-imprimible" class="px-8 py-4">
+
       <!-- CABECERA REPORTE -->
-      <div
-        class="bg-white border border-slate-200 rounded-xl p-5 flex justify-between mb-4"
-      >
-        <div>
-          <p class="font-extrabold text-slate-800">
-            UNIVERSIDAD MAYOR DE SAN SIMÓN
-          </p>
-          <p class="text-sm text-slate-600">
-            FACULTAD DE CIENCIAS ECONÓMICAS
-          </p>
-          <p class="text-lg font-black text-slate-800 mt-2">
-            CARGA HORARIA DOCENTES — RESUMEN
-          </p>
-          <p class="text-sm text-slate-500">
-            Gestión Académica {{ periodo }}/{{ anio }}
-          </p>
-        </div>
-        <div class="text-right">
-          <p class="text-sm text-slate-500">
-            Generado: {{ fechaActual }}
-          </p>
-          <p class="text-sm text-slate-500">
-            Total docentes: {{ docentes.length }}
-          </p>
-        </div>
+      <div class="bg-white border border-slate-200 rounded-lg px-5 py-2.5 flex justify-between items-center mb-3 text-sm text-slate-500">
+        <span>Generado: <strong class="text-slate-700">{{ fechaActual }}</strong></span>
+        <span class="text-slate-300 mx-2">|</span>
+        <span>Total docentes: <strong class="text-slate-700">{{ docentes.length }}</strong></span>
       </div>
 
-      <!-- LEYENDA -->
-      <div class="flex flex-wrap gap-2 mb-4">
-        <span
-          v-for="(c, k) in COLORES"
-          :key="k"
-          class="px-3 py-1 rounded-full text-xs font-bold"
-          :style="{
-            background: c.bg,
-            color: c.text,
-            border: `1px solid ${c.border}`
-          }"
-        >
-          {{ k }}
-        </span>
-        <span class="text-slate-300">|</span>
-        <span
-          class="px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300"
-        >
-          🟡 Grupo compartido
-        </span>
-      </div>
+      
 
       <!-- CARDS -->
       <ResumenDocenteCard
@@ -197,11 +131,8 @@
       />
 
       <!-- FOOTER -->
-      <div
-        class="text-center text-slate-400 text-xs mt-8 pt-4 border-t border-slate-200"
-      >
-        Procesado UTI – Facultad de Ciencias Económicas · La carga horaria
-        incluye Grupos Compartidos.
+      <div class="text-center text-slate-400 text-xs mt-8 pt-4 border-t border-slate-200">
+        Procesado UTI – Facultad de Ciencias Económicas · La carga horaria incluye Grupos Compartidos.
       </div>
     </div>
   </div>
@@ -212,13 +143,14 @@ import { ref, computed } from 'vue'
 import ResumenDocenteCard from '../components/ResumenDocenteCard.vue'
 import { useHorarioResumen } from '../composables/useHorarioResumen'
 import { generarPDFResumen } from '../composables/useGenerarPDFResumen'
+import { usePeriodoActual } from '../composables/usePeriodoActual'
+
+const { anio, periodo } = usePeriodoActual()
 
 const {
   docentes,
   loading,
   error,
-  anio,
-  periodo,
   cargarTodos,
   cargarDocente,
 } = useHorarioResumen()
@@ -240,16 +172,20 @@ const fechaActual = computed(() =>
   })
 )
 
+async function verTodos() {
+  await cargarTodos(anio.value, periodo.value)
+}
+
 async function buscarDocente() {
   if (!busqueda.value.trim()) {
-    await cargarTodos()
+    await cargarTodos(anio.value, periodo.value)
     return
   }
   const input = busqueda.value.trim()
   if (/^\d+$/.test(input)) {
-    await cargarDocente(input)
+    await cargarDocente(input, anio.value, periodo.value)
   } else {
-    await cargarTodos()
+    await cargarTodos(anio.value, periodo.value)
     docentes.value = docentes.value.filter(d =>
       `${d.apellidos} ${d.nombres}`.toLowerCase().includes(input.toLowerCase())
     )

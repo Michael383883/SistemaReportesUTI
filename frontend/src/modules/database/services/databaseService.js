@@ -9,18 +9,8 @@ export const databaseService = {
         return data
     },
 
-
-    async migrate() {
-        const payload = {
-            migraciones: [
-                {
-                    origen: "Docentes",
-                    destino: "docentes"
-                }
-            ]
-        }
-
-        const { data } = await axios.post(`${BASE}/api/database/migrate`, payload)
+    async migrateAll() {
+        const { data } = await axios.post(`${BASE}/api/database/migrate-all`)
         return data
     }
 }

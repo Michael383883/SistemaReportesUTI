@@ -11,10 +11,7 @@ export function useHorarioResumen() {
     const loading = ref(false)
     const error = ref(null)
 
-    const anio = ref(new Date().getFullYear())
-    const periodo = ref(1)
-
-    async function cargarTodos() {
+    async function cargarTodos(anio, periodo) {
         loading.value = true
         error.value = null
 
@@ -23,27 +20,34 @@ export function useHorarioResumen() {
                 `${API_BASE}/api/admin/horarios/resumen/listado`,
                 {
                     params: {
-                        anio: anio.value,
-                        periodo: periodo.value,
-                    },
+                        anio,
+                        periodo,
+                    }
                 }
             )
 
             const datos = response?.data?.data
-            docentes.value = Array.isArray(datos) ? datos : []
+
+            docentes.value = Array.isArray(datos)
+                ? datos
+                : []
+
+            if (docentes.value.length === 0) {
+                error.value = `Horarios no disponibles para la gestión ${anio} período ${periodo}`
+            }
 
         } catch (e) {
-            console.error('Error cargarTodos resumen:', e)
             docentes.value = []
+
             error.value =
                 e?.response?.data?.message ||
-                'Error al cargar resumen de horarios'
+                'Error al cargar resumen'
         } finally {
             loading.value = false
         }
     }
 
-    async function cargarDocente(codigoDocente) {
+    async function cargarDocente(codigoDocente, anio, periodo) {
         loading.value = true
         error.value = null
         docenteSeleccionado.value = null
@@ -53,9 +57,9 @@ export function useHorarioResumen() {
                 `${API_BASE}/api/admin/horarios/resumen/docente/${codigoDocente}`,
                 {
                     params: {
-                        anio: anio.value,
-                        periodo: periodo.value,
-                    },
+                        anio,
+                        periodo,
+                    }
                 }
             )
 
@@ -67,12 +71,13 @@ export function useHorarioResumen() {
             } else {
                 docenteSeleccionado.value = null
                 docentes.value = []
+                error.value = `No se encontraron horarios para el docente en la gestión ${anio} período ${periodo}`
             }
 
         } catch (e) {
-            console.error('Error cargarDocente resumen:', e)
             docentes.value = []
             docenteSeleccionado.value = null
+
             error.value =
                 e?.response?.data?.message ||
                 'Docente no encontrado'
@@ -99,8 +104,6 @@ export function useHorarioResumen() {
         docenteSeleccionado,
         loading,
         error,
-        anio,
-        periodo,
         cargarTodos,
         cargarDocente,
         colorCarrera,
