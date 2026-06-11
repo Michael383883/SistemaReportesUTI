@@ -11,7 +11,7 @@ RUN curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | \
     https://packages.microsoft.com/debian/12/prod bookworm main" \
     > /etc/apt/sources.list.d/mssql-release.list && \
     apt-get update && \
-    ACCEPT_EULA=Y apt-get install -y msodbcsql18 unixodbc-dev && \
+    ACCEPT_EULA=Y apt-get install -y msodbcsql17 unixodbc-dev && \
     rm -rf /var/lib/apt/lists/*
 # Extensiones PHP
 RUN pecl install sqlsrv pdo_sqlsrv && \
@@ -29,8 +29,9 @@ RUN DB_CONNECTION=sqlite \
     chmod -R 775 storage bootstrap/cache
 # Fix TLS para SQL Server 2008
 COPY openssl-fix.cnf /usr/lib/ssl/openssl-fix.cnf
-RUN cat /usr/lib/ssl/openssl-fix.cnf >> /usr/lib/ssl/openssl.cnf && \
-    sed -i '/\[openssl_init\]/a ssl_conf = ssl_sect' /usr/lib/ssl/openssl.cnf
+
+RUN cp /usr/lib/ssl/openssl.cnf /usr/lib/ssl/openssl.cnf.bak && \
+    cat /usr/lib/ssl/openssl-fix.cnf >> /usr/lib/ssl/openssl.cnf
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 EXPOSE 8000
