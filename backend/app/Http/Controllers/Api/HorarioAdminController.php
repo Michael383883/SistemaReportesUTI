@@ -301,6 +301,153 @@ class HorarioAdminController extends Controller
      * Lista de inscritos por docente, agrupados por carrera.
      * Muestra inscritos por PLAN dentro de cada docente, con total final.
      */
+    // public function listaInscritos(Request $request)
+    // {
+    //     $anio = (int) $request->query('anio', date('Y'));
+    //     $periodo = (int) $request->query('periodo', 1);
+    //     $docente = $request->query('docente');
+
+    //     $docenteFilter = $docente ? "AND DOCENTES.CODIGO = :docente" : "";
+
+    //     $bindings = [
+    //         'anio' => $anio,
+    //         'periodo' => $periodo,
+    //     ];
+
+    //     if ($docente) {
+    //         $bindings['docente'] = $docente;
+    //     }
+
+    //     $sql = "
+    //     SELECT
+    //         GRUPOS.ANIO,
+    //         GRUPOS.PERIODO,
+    //         GRUPOS.[PLAN],
+
+    //         CASE GRUPOS.[PLAN]
+    //             WHEN '059801' THEN 'ECO'
+    //             WHEN '109401' THEN 'ADM'
+    //             WHEN '089801' THEN 'CCP'
+    //             WHEN '125091' THEN 'COM'
+    //             WHEN '126091' THEN 'FIN'
+    //             ELSE 'NN'
+    //         END AS CARRERA,
+
+    //         DOCENTES.CODIGO   AS COD_DOCENTE,
+    //         DOCENTES.APELLIDOS,
+    //         DOCENTES.NOMBRES,
+
+    //         BIOGRAFICOS.CODIGO        AS COD_ESTUDIANTE,
+    //         BIOGRAFICOS.APELLIDOS + ' ' + BIOGRAFICOS.NOMBRES AS NOM_ESTUDIANTE
+
+    //     FROM DOCENTES
+
+    //     INNER JOIN GRUPOS
+    //         ON DOCENTES.CODIGO = GRUPOS.DOCENTE
+
+    //     INNER JOIN KARDEX_EXT
+    //         ON KARDEX_EXT.ANIO     = GRUPOS.ANIO
+    //         AND KARDEX_EXT.PERIODO = GRUPOS.PERIODO
+    //         AND KARDEX_EXT.[PLAN]  = GRUPOS.[PLAN]
+    //         AND KARDEX_EXT.MATERIA = GRUPOS.MATERIA
+    //         AND KARDEX_EXT.GRUPO   = GRUPOS.GRUPO
+
+    //     INNER JOIN BIOGRAFICOS
+    //         ON BIOGRAFICOS.CODIGO = KARDEX_EXT.ESTUDIANTE
+
+    //     INNER JOIN MATERIAS
+    //         ON GRUPOS.ANIO      = MATERIAS.ANIO
+    //         AND GRUPOS.PERIODO  = MATERIAS.PERIODO
+    //         AND GRUPOS.[PLAN]   = MATERIAS.[PLAN]
+    //         AND GRUPOS.MATERIA  = MATERIAS.CODIGO
+
+    //     WHERE GRUPOS.ANIO            = :anio
+    //       AND GRUPOS.PERIODO         = :periodo
+    //       AND KARDEX_EXT.CANCELADO   IS NULL
+    //       AND KARDEX_EXT.TIPO_EXAMEN IN ('N', 'E')
+    //       AND GRUPOS.[PLAN]          IN ('109401','125091','089801','126091','059801')
+    //       AND GRUPOS.PRIMARIO        = 'Y'
+    //       AND GRUPOS.TIPO            = 'N'
+    //       $docenteFilter
+
+    //     ORDER BY
+    //         DOCENTES.APELLIDOS,
+    //         DOCENTES.NOMBRES,
+    //         GRUPOS.[PLAN],
+    //         BIOGRAFICOS.APELLIDOS,
+    //         BIOGRAFICOS.NOMBRES
+    // ";
+
+    //     $data = collect(DB::select($sql, $bindings));
+
+    //     // Agrupar por docente → carrera → lista de inscritos
+    //     $grouped = $data
+    //         ->groupBy('COD_DOCENTE')
+    //         ->map(function ($rowsDocente) {
+
+    //             $first = $rowsDocente->first();
+
+    //             // Agrupar las filas del docente por carrera (PLAN)
+    //             $porCarrera = $rowsDocente
+    //                 ->groupBy('PLAN')
+    //                 ->map(function ($rowsCarrera) {
+
+    //                 $firstCarrera = $rowsCarrera->first();
+
+    //                 return [
+    //                     'plan' => $firstCarrera->PLAN,
+    //                     'carrera' => $firstCarrera->CARRERA,
+    //                     'inscritos' => $rowsCarrera->map(fn($r) => [
+    //                         'codigo' => $r->COD_ESTUDIANTE,
+    //                         'nombre' => $r->NOM_ESTUDIANTE,
+    //                     ])->values(),
+    //                     // Total inscritos de esta carrera (suma simple)
+    //                     'subtotal' => $rowsCarrera->count(),
+    //                 ];
+    //             })
+    //                 ->values();
+
+    //             return [
+    //                 'cod_docente' => $first->COD_DOCENTE,
+    //                 'apellidos' => $first->APELLIDOS,
+    //                 'nombres' => $first->NOMBRES,
+    //                 'carreras' => $porCarrera,
+    //                 // Total general del docente (suma simple de todas las carreras)
+    //                 'total_inscritos' => $rowsDocente->count(),
+    //             ];
+    //         })
+    //         ->values();
+
+    //     return response()->json([
+    //         'anio' => $anio,
+    //         'periodo' => $periodo,
+    //         'total_docentes' => $grouped->count(),
+    //         'data' => $grouped,
+    //     ]);
+    // }
+
+    // /**
+    //  * Lista inscritos de un docente específico.
+    //  */
+    // public function listaInscritosDocente(Request $request, $docente)
+    // {
+    //     return $this->listaInscritos(
+    //         $request->merge(['docente' => $docente])
+    //     );
+    // }
+
+
+    /**
+     * Lista de inscritos por docente, agrupados por carrera y materia.
+     * Muestra inscritos por PLAN → MATERIA dentro de cada docente, con total final.
+     */
+
+
+
+    /**
+     * Lista de inscritos por docente, agrupados por carrera y materia.
+     * Optimizado para evitar memory exhaustion - agrupamiento en SQL.
+     */
     public function listaInscritos(Request $request)
     {
         $anio = (int) $request->query('anio', date('Y'));
@@ -318,49 +465,21 @@ class HorarioAdminController extends Controller
             $bindings['docente'] = $docente;
         }
 
-        $sql = "
-        SELECT
-            GRUPOS.ANIO,
-            GRUPOS.PERIODO,
-            GRUPOS.[PLAN],
-
-            CASE GRUPOS.[PLAN]
-                WHEN '059801' THEN 'ECO'
-                WHEN '109401' THEN 'ADM'
-                WHEN '089801' THEN 'CCP'
-                WHEN '125091' THEN 'COM'
-                WHEN '126091' THEN 'FIN'
-                ELSE 'NN'
-            END AS CARRERA,
-
+        // ── 1. Docentes involucrados ──────────────────────────────────────────
+        $sqlDocentes = "
+        SELECT DISTINCT
             DOCENTES.CODIGO   AS COD_DOCENTE,
             DOCENTES.APELLIDOS,
-            DOCENTES.NOMBRES,
-
-            BIOGRAFICOS.CODIGO        AS COD_ESTUDIANTE,
-            BIOGRAFICOS.APELLIDOS + ' ' + BIOGRAFICOS.NOMBRES AS NOM_ESTUDIANTE
-
+            DOCENTES.NOMBRES
         FROM DOCENTES
-
         INNER JOIN GRUPOS
             ON DOCENTES.CODIGO = GRUPOS.DOCENTE
-
         INNER JOIN KARDEX_EXT
             ON KARDEX_EXT.ANIO     = GRUPOS.ANIO
             AND KARDEX_EXT.PERIODO = GRUPOS.PERIODO
             AND KARDEX_EXT.[PLAN]  = GRUPOS.[PLAN]
             AND KARDEX_EXT.MATERIA = GRUPOS.MATERIA
             AND KARDEX_EXT.GRUPO   = GRUPOS.GRUPO
-
-        INNER JOIN BIOGRAFICOS
-            ON BIOGRAFICOS.CODIGO = KARDEX_EXT.ESTUDIANTE
-
-        INNER JOIN MATERIAS
-            ON GRUPOS.ANIO      = MATERIAS.ANIO
-            AND GRUPOS.PERIODO  = MATERIAS.PERIODO
-            AND GRUPOS.[PLAN]   = MATERIAS.[PLAN]
-            AND GRUPOS.MATERIA  = MATERIAS.CODIGO
-
         WHERE GRUPOS.ANIO            = :anio
           AND GRUPOS.PERIODO         = :periodo
           AND KARDEX_EXT.CANCELADO   IS NULL
@@ -369,60 +488,186 @@ class HorarioAdminController extends Controller
           AND GRUPOS.PRIMARIO        = 'Y'
           AND GRUPOS.TIPO            = 'N'
           $docenteFilter
+        ORDER BY DOCENTES.APELLIDOS, DOCENTES.NOMBRES
+    ";
 
-        ORDER BY
-            DOCENTES.APELLIDOS,
-            DOCENTES.NOMBRES,
+        $docentes = DB::select($sqlDocentes, $bindings);
+
+        // ── 2. Materias por docente (conteo de inscritos) ─────────────────────
+        $sqlMaterias = "
+        SELECT
+            DOCENTES.CODIGO AS COD_DOCENTE,
             GRUPOS.[PLAN],
+            CASE GRUPOS.[PLAN]
+                WHEN '059801' THEN 'ECO'
+                WHEN '109401' THEN 'ADM'
+                WHEN '089801' THEN 'CCP'
+                WHEN '125091' THEN 'COM'
+                WHEN '126091' THEN 'FIN'
+                ELSE 'NN'
+            END AS CARRERA,
+            MATERIAS.CODIGO  AS COD_MATERIA,
+            MATERIAS.NOMBRE  AS NOM_MATERIA,
+            GRUPOS.GRUPO,
+            COUNT(KARDEX_EXT.ESTUDIANTE) AS SUBTOTAL
+        FROM DOCENTES
+        INNER JOIN GRUPOS
+            ON DOCENTES.CODIGO = GRUPOS.DOCENTE
+        INNER JOIN KARDEX_EXT
+            ON KARDEX_EXT.ANIO     = GRUPOS.ANIO
+            AND KARDEX_EXT.PERIODO = GRUPOS.PERIODO
+            AND KARDEX_EXT.[PLAN]  = GRUPOS.[PLAN]
+            AND KARDEX_EXT.MATERIA = GRUPOS.MATERIA
+            AND KARDEX_EXT.GRUPO   = GRUPOS.GRUPO
+        INNER JOIN MATERIAS
+            ON GRUPOS.ANIO     = MATERIAS.ANIO
+            AND GRUPOS.PERIODO = MATERIAS.PERIODO
+            AND GRUPOS.[PLAN]  = MATERIAS.[PLAN]
+            AND GRUPOS.MATERIA = MATERIAS.CODIGO
+        WHERE GRUPOS.ANIO            = :anio
+          AND GRUPOS.PERIODO         = :periodo
+          AND KARDEX_EXT.CANCELADO   IS NULL
+          AND KARDEX_EXT.TIPO_EXAMEN IN ('N', 'E')
+          AND GRUPOS.[PLAN]          IN ('109401','125091','089801','126091','059801')
+          AND GRUPOS.PRIMARIO        = 'Y'
+          AND GRUPOS.TIPO            = 'N'
+          $docenteFilter
+        GROUP BY
+            DOCENTES.CODIGO,
+            GRUPOS.[PLAN],
+            MATERIAS.CODIGO,
+            MATERIAS.NOMBRE,
+            GRUPOS.GRUPO
+        ORDER BY
+            DOCENTES.CODIGO,
+            GRUPOS.[PLAN],
+            MATERIAS.NOMBRE
+    ";
+
+        $materias = DB::select($sqlMaterias, $bindings);
+
+        // ── 3. Inscritos por materia ──────────────────────────────────────────
+        $sqlInscritos = "
+        SELECT
+            DOCENTES.CODIGO  AS COD_DOCENTE,
+            GRUPOS.[PLAN],
+            MATERIAS.CODIGO  AS COD_MATERIA,
+            GRUPOS.GRUPO,
+            BIOGRAFICOS.CODIGO                               AS COD_ESTUDIANTE,
+            BIOGRAFICOS.APELLIDOS + ' ' + BIOGRAFICOS.NOMBRES AS NOM_ESTUDIANTE
+        FROM DOCENTES
+        INNER JOIN GRUPOS
+            ON DOCENTES.CODIGO = GRUPOS.DOCENTE
+        INNER JOIN KARDEX_EXT
+            ON KARDEX_EXT.ANIO     = GRUPOS.ANIO
+            AND KARDEX_EXT.PERIODO = GRUPOS.PERIODO
+            AND KARDEX_EXT.[PLAN]  = GRUPOS.[PLAN]
+            AND KARDEX_EXT.MATERIA = GRUPOS.MATERIA
+            AND KARDEX_EXT.GRUPO   = GRUPOS.GRUPO
+        INNER JOIN BIOGRAFICOS
+            ON BIOGRAFICOS.CODIGO = KARDEX_EXT.ESTUDIANTE
+        INNER JOIN MATERIAS
+            ON GRUPOS.ANIO     = MATERIAS.ANIO
+            AND GRUPOS.PERIODO = MATERIAS.PERIODO
+            AND GRUPOS.[PLAN]  = MATERIAS.[PLAN]
+            AND GRUPOS.MATERIA = MATERIAS.CODIGO
+        WHERE GRUPOS.ANIO            = :anio
+          AND GRUPOS.PERIODO         = :periodo
+          AND KARDEX_EXT.CANCELADO   IS NULL
+          AND KARDEX_EXT.TIPO_EXAMEN IN ('N', 'E')
+          AND GRUPOS.[PLAN]          IN ('109401','125091','089801','126091','059801')
+          AND GRUPOS.PRIMARIO        = 'Y'
+          AND GRUPOS.TIPO            = 'N'
+          $docenteFilter
+        ORDER BY
+            DOCENTES.CODIGO,
+            GRUPOS.[PLAN],
+            MATERIAS.CODIGO,
             BIOGRAFICOS.APELLIDOS,
             BIOGRAFICOS.NOMBRES
     ";
 
-        $data = collect(DB::select($sql, $bindings));
+        $inscritos = DB::select($sqlInscritos, $bindings);
 
-        // Agrupar por docente → carrera → lista de inscritos
-        $grouped = $data
-            ->groupBy('COD_DOCENTE')
-            ->map(function ($rowsDocente) {
+        // ── 4. Armar estructura en PHP con colecciones pequeñas ───────────────
 
-                $first = $rowsDocente->first();
+        // Indexar inscritos por clave compuesta para acceso O(1)
+        $inscritosMap = [];
+        foreach ($inscritos as $ins) {
+            $key = "{$ins->COD_DOCENTE}|{$ins->PLAN}|{$ins->COD_MATERIA}|{$ins->GRUPO}";
+            $inscritosMap[$key][] = [
+                'codigo' => $ins->COD_ESTUDIANTE,
+                'nombre' => $ins->NOM_ESTUDIANTE,
+            ];
+        }
+        unset($inscritos); // liberar memoria
 
-                // Agrupar las filas del docente por carrera (PLAN)
-                $porCarrera = $rowsDocente
-                    ->groupBy('PLAN')
-                    ->map(function ($rowsCarrera) {
+        // Indexar materias por docente
+        $materiasMap = [];
+        foreach ($materias as $mat) {
+            $materiasMap[$mat->COD_DOCENTE][] = $mat;
+        }
+        unset($materias); // liberar memoria
 
-                    $firstCarrera = $rowsCarrera->first();
+        // Construir respuesta final
+        $data = [];
+        foreach ($docentes as $doc) {
+            $codDoc = $doc->COD_DOCENTE;
+            $carreras = [];
+            $totalDocente = 0;
 
-                    return [
-                        'plan' => $firstCarrera->PLAN,
-                        'carrera' => $firstCarrera->CARRERA,
-                        'inscritos' => $rowsCarrera->map(fn($r) => [
-                            'codigo' => $r->COD_ESTUDIANTE,
-                            'nombre' => $r->NOM_ESTUDIANTE,
-                        ])->values(),
-                        // Total inscritos de esta carrera (suma simple)
-                        'subtotal' => $rowsCarrera->count(),
+            // Agrupar materias del docente por plan/carrera
+            $porPlan = [];
+            foreach (($materiasMap[$codDoc] ?? []) as $mat) {
+                $porPlan[$mat->PLAN][] = $mat;
+            }
+
+            foreach ($porPlan as $plan => $mats) {
+                $materiasArr = [];
+                $subtotalCarrera = 0;
+
+                foreach ($mats as $mat) {
+                    $key = "{$codDoc}|{$mat->PLAN}|{$mat->COD_MATERIA}|{$mat->GRUPO}";
+                    $lista = $inscritosMap[$key] ?? [];
+                    $subtotal = count($lista);
+
+                    $materiasArr[] = [
+                        'cod_materia' => $mat->COD_MATERIA,
+                        'nom_materia' => $mat->NOM_MATERIA,
+                        'grupo' => $mat->GRUPO,
+                        'inscritos' => $lista,
+                        'subtotal' => $subtotal,
                     ];
-                })
-                    ->values();
 
-                return [
-                    'cod_docente' => $first->COD_DOCENTE,
-                    'apellidos' => $first->APELLIDOS,
-                    'nombres' => $first->NOMBRES,
-                    'carreras' => $porCarrera,
-                    // Total general del docente (suma simple de todas las carreras)
-                    'total_inscritos' => $rowsDocente->count(),
+                    $subtotalCarrera += $subtotal;
+                }
+
+                $carreras[] = [
+                    'plan' => $plan,
+                    'carrera' => $mats[0]->CARRERA,
+                    'materias' => $materiasArr,
+                    'subtotal' => $subtotalCarrera,
                 ];
-            })
-            ->values();
+
+                $totalDocente += $subtotalCarrera;
+            }
+
+            $data[] = [
+                'cod_docente' => $codDoc,
+                'apellidos' => $doc->APELLIDOS,
+                'nombres' => $doc->NOMBRES,
+                'carreras' => $carreras,
+                'total_inscritos' => $totalDocente,
+            ];
+        }
+
+        unset($inscritosMap, $materiasMap, $docentes);
 
         return response()->json([
             'anio' => $anio,
             'periodo' => $periodo,
-            'total_docentes' => $grouped->count(),
-            'data' => $grouped,
+            'total_docentes' => count($data),
+            'data' => $data,
         ]);
     }
 
@@ -435,4 +680,6 @@ class HorarioAdminController extends Controller
             $request->merge(['docente' => $docente])
         );
     }
+
+
 }
