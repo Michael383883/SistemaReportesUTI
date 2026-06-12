@@ -13,13 +13,21 @@
           </span>
           <button
             @click="exportarExcel"
-            class="flex items-center gap-2 bg-white border border-slate-300 text-slate-600 text-sm font-medium px-4 py-2 rounded-lg hover:bg-slate-50 transition-colors"
-          >
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
-            </svg>
-            Exportar
-          </button>
+            class="flex items-center gap-2 px-4 py-2 bg-slate-600 text-white rounded-lg shadow-md hover:bg-green-600 transition-colors duration-300"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="w-5 h-5"
+                fill="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  d="M19 2H8c-1.1 0-2 .9-2 2v4H5c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM9.5 17l1.8-3-1.7-3h1.8l.8 1.7.8-1.7h1.8l-1.7 3 1.8 3h-1.8l-.9-1.8-.9 1.8H9.5z"
+                />
+              </svg>
+
+              <span>Exportar a Excel</span>
+            </button>
         </div>
       </div>
     </div>
@@ -333,6 +341,7 @@ import DocenteDetalleModal from '@/shared/components/docentes/DocenteDetalleModa
 import HorarioRapidoModal from '@/shared/components/docentes/HorarioRapidoModal.vue'
 import { docentesService } from '@/shared/services/docentesService'
 import { useDocentesRecientes } from '@/shared/composables/useDocentesRecientes'
+import * as XLSX from 'xlsx'
 
 const cargando = ref(false)
 const docentes = ref([])
@@ -361,27 +370,26 @@ onMounted(async () => {
   await cargarDocentes()
 })
 
+
 async function cargarDocentes() {
   cargando.value = true
   try {
-    // Cargar docentes y sus horarios en paralelo
     const [docentesData, horariosData] = await Promise.all([
       docentesService.getAll(),
       docentesService.getAllHorarios()
     ])
-    
-    // Mapear horarios a docentes
+
     const horariosMap = new Map()
     if (Array.isArray(horariosData)) {
       horariosData.forEach(h => {
         horariosMap.set(String(h.docente), h)
       })
     }
-    
-    // Enriquecer datos de docentes con horarios
-    docentes.value = docentesData.map(docente => {
-      const horario = horariosMap.get(String(docente.docente))
-      if (horario) {
+
+    docentes.value = docentesData
+      .filter(docente => horariosMap.has(String(docente.docente)))
+      .map(docente => {
+        const horario = horariosMap.get(String(docente.docente))
         return {
           ...docente,
           horario_cargado: true,
@@ -390,12 +398,9 @@ async function cargarDocentes() {
           materias: horario.materias || [],
           horario_completo: horario
         }
-      }
-      return docente
-    })
+      })
   } catch (e) {
     console.error('Error cargando docentes:', e)
-    // Si falla, cargar solo docentes básicos
     try {
       docentes.value = await docentesService.getAll()
     } catch (e2) {
@@ -405,6 +410,7 @@ async function cargarDocentes() {
     cargando.value = false
   }
 }
+
 
 const unidades = computed(() => {
   const u = new Set(docentes.value.map(d => d.unidad).filter(Boolean))
@@ -492,8 +498,38 @@ function limpiarFiltros() {
   filtroGrado.value = ''
 }
 
+// Reemplaza la función exportarExcel:
 function exportarExcel() {
-  alert('Exportando a Excel...')
+  const datos = docentesFiltrados.value.map(d => ({
+    'Nombre': formatNombre(d.nombre_docente),
+    'C.I.': d.ci || '',
+    'Grado Académico': d.grado_academico || '',
+    'Email': d.email || d.email_institucional || '',
+    'Celular': d.celular_1 || '',
+    'Teléfono Fijo': d.fijo_1 || '',
+    'Materias Asignadas': d.total_materias || 0,
+    'Carga Horaria (h)': d.horas_total || 0,
+  }))
+
+  const hoja = XLSX.utils.json_to_sheet(datos)
+
+  // Ancho de columnas
+  hoja['!cols'] = [
+    { wch: 30 }, // Nombre
+    { wch: 12 }, // CI
+    { wch: 18 }, // Grado
+    { wch: 30 }, // Email
+    { wch: 15 }, // Celular
+    { wch: 15 }, // Fijo
+    { wch: 20 }, // Materias
+    { wch: 18 }, // Carga
+  ]
+
+  const libro = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(libro, hoja, 'Docentes')
+
+  const fecha = new Date().toISOString().slice(0, 10)
+  XLSX.writeFile(libro, `docentes_${fecha}.xlsx`)
 }
 
 // Helpers

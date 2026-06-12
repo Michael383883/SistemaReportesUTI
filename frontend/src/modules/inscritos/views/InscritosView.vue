@@ -1,4 +1,3 @@
-
 <template>
   <div class="max-w-7xl mx-auto px-4 sm:px-6 py-8 pb-16 font-sans">
 
@@ -23,7 +22,7 @@
           </p>
         </div>
 
-        <!-- Filtros -->
+        <!-- Filtros + Botones -->
         <div class="flex flex-wrap items-end gap-3">
           <div class="flex flex-col gap-1">
             <label class="text-[10px] font-bold uppercase tracking-widest text-slate-400">Año</label>
@@ -45,6 +44,8 @@
               <option :value="2">2° Semestre</option>
             </select>
           </div>
+
+          <!-- Buscar -->
           <button
             @click="cargar"
             :disabled="loading"
@@ -54,33 +55,60 @@
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
               <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
             </svg>
+            <svg v-else class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z"/>
+            </svg>
             <span>{{ loading ? 'Cargando…' : 'Buscar' }}</span>
           </button>
+
+          <!-- Separador vertical -->
+          <div v-if="data.length" class="h-9 w-px bg-slate-200 hidden sm:block"></div>
+
+          <!-- Botones PDF (solo visibles cuando hay datos) -->
+          <template v-if="data.length">
+            <!-- PDF Lista completa -->
+            <button
+              @click="handleListaCompleta"
+              :disabled="generandoLista"
+              title="PDF con la lista completa de estudiantes por docente"
+              class="h-9 px-4 bg-red-600 hover:bg-red-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg transition-colors flex items-center gap-2 shadow-sm"
+            >
+              <svg v-if="generandoLista" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+              </svg>
+              <svg v-else class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 13h6M9 17h4"/>
+              </svg>
+              <span class="hidden sm:inline">{{ generandoLista ? 'Generando…' : 'PDF Lista' }}</span>
+              <span class="sm:hidden">Lista</span>
+            </button>
+
+            <!-- PDF Solo totales -->
+            <button
+              @click="handleResumenTotales"
+              :disabled="generandoResumen"
+              title="PDF con solo totales y cantidades por docente"
+              class="h-9 px-4 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg transition-colors flex items-center gap-2 shadow-sm"
+            >
+              <svg v-if="generandoResumen" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+              </svg>
+              <svg v-else class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M9 17v-2m3 2v-4m3 4v-6M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+              </svg>
+              <span class="hidden sm:inline">{{ generandoResumen ? 'Generando…' : 'PDF Totales' }}</span>
+              <span class="sm:hidden">Totales</span>
+            </button>
+          </template>
         </div>
       </div>
     </div>
 
-    <!-- ── Resumen rápido (ranking visual) ───────────────── -->
-    <div v-if="data.length" class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
-      <div class="bg-white border border-slate-200 rounded-xl px-4 py-3 shadow-sm">
-        <p class="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Docentes</p>
-        <p class="text-2xl font-extrabold text-slate-800">{{ data.length }}</p>
-      </div>
-      <div class="bg-white border border-slate-200 rounded-xl px-4 py-3 shadow-sm">
-        <p class="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Total Inscritos</p>
-        <p class="text-2xl font-extrabold text-blue-600">{{ totalGlobal }}</p>
-      </div>
-      <div class="bg-white border border-slate-200 rounded-xl px-4 py-3 shadow-sm">
-        <p class="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Mayor Carga</p>
-        <p class="text-2xl font-extrabold text-emerald-600">{{ maxInscritos }}</p>
-        <p class="text-[11px] text-slate-400 truncate">{{ docenteMax }}</p>
-      </div>
-      <div class="bg-white border border-slate-200 rounded-xl px-4 py-3 shadow-sm">
-        <p class="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Promedio</p>
-        <p class="text-2xl font-extrabold text-slate-700">{{ promedio }}</p>
-        <p class="text-[11px] text-slate-400">insc. por docente</p>
-      </div>
-    </div>
 
     <!-- ── Estado vacío ───────────────────────────────────── -->
     <div
@@ -123,8 +151,15 @@
 import { ref, computed, onMounted } from 'vue'
 import DocenteInscritosCard from '../components/DocenteInscritosCard.vue'
 import { useInscritos } from '../composables/useInscritos'
+import { useReporteInscritos } from '../composables/useReporteInscritos'
 
 const { data, loading, error, meta, fetchInscritos } = useInscritos()
+const {
+  generandoLista,
+  generandoResumen,
+  exportarListaCompleta,
+  exportarResumenTotales,
+} = useReporteInscritos()
 
 const filtros = ref({
   anio: new Date().getFullYear(),
@@ -134,22 +169,27 @@ const filtros = ref({
 const totalGlobal = computed(() =>
   data.value.reduce((s, d) => s + (d.total_inscritos ?? 0), 0)
 )
-
 const maxInscritos = computed(() =>
   data.value.length ? Math.max(...data.value.map(d => d.total_inscritos ?? 0)) : 0
 )
-
 const docenteMax = computed(() => {
   const d = data.value.find(d => d.total_inscritos === maxInscritos.value)
   return d ? `${d.apellidos}, ${d.nombres}` : ''
 })
-
 const promedio = computed(() =>
   data.value.length ? Math.round(totalGlobal.value / data.value.length) : 0
 )
 
 async function cargar() {
   await fetchInscritos(filtros.value.anio, filtros.value.periodo)
+}
+
+function handleListaCompleta() {
+  exportarListaCompleta(data.value, filtros.value.anio, filtros.value.periodo)
+}
+
+function handleResumenTotales() {
+  exportarResumenTotales(data.value, filtros.value.anio, filtros.value.periodo)
 }
 
 onMounted(() => cargar())
