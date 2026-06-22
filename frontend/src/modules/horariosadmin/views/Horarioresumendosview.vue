@@ -1,7 +1,7 @@
 <template>
   <div class="min-h-screen bg-slate-100 pb-12">
     <!-- HEADER -->
-    <div class="flex items-start justify-between mb-3">
+     <div class="flex items-start justify-between mb-3">
       <h1 class="text-xl font-bold text-black-400 tracking-tight m-0 mb-0.5">
         Reportes de horarios resumen
       </h1>
@@ -95,6 +95,7 @@
       <div class="flex flex-col">
         <label class="text-[0.68rem] invisible">PDF</label>
         <button
+          type="button"
           @click="generarPDF"
           :disabled="loading || docentes.length === 0"
           class="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold
@@ -148,7 +149,7 @@
       </div>
 
       <!-- CARDS -->
-      <ResumenDocenteCard
+      <ResumenDocenteCardDos
         v-for="doc in docentes"
         :key="doc.docente"
         :docente="doc"
@@ -156,17 +157,19 @@
 
       <!-- FOOTER -->
       <div class="text-center text-slate-400 text-xs mt-8 pt-4 border-t border-slate-200">
-        Procesado UTI – Facultad de Ciencias Económicas · La carga horaria incluye Grupos Compartidos.
+        Procesado UTI – Facultad de Ciencias Económicas · Los inscritos incluyen ambos grupos de materias compartidas.
       </div>
     </div>
   </div>
 </template>
 
+
 <script setup>
 import { ref, computed } from 'vue'
-import ResumenDocenteCard from '../components/ResumenDocenteCard.vue'
+import ResumenDocenteCardDos from '../components/Resumendocentecarddos.vue'
 import { useHorarioResumen } from '../composables/useHorarioResumen'
-import { generarPDFResumen } from '../composables/useGenerarPDFResumen'
+
+import { generarPDFResumenDos  } from '../composables/usepdf2prueba'
 import { usePeriodoActual } from '../composables/usePeriodoActual'
 
 const { anio, periodo } = usePeriodoActual()
@@ -180,14 +183,6 @@ const {
 } = useHorarioResumen()
 
 const busqueda = ref('')
-
-const COLORES = {
-  ADM: { bg: '#dbeafe', text: '#1e40af', border: '#93c5fd' },
-  ECO: { bg: '#dcfce7', text: '#166534', border: '#86efac' },
-  CCP: { bg: '#fef9c3', text: '#854d0e', border: '#fde047' },
-  COM: { bg: '#fce7f3', text: '#9d174d', border: '#f9a8d4' },
-  FIN: { bg: '#ede9fe', text: '#5b21b6', border: '#c4b5fd' },
-}
 
 const fechaActual = computed(() =>
   new Date().toLocaleString('es-BO', {
@@ -215,8 +210,34 @@ async function buscarDocente() {
     )
   }
 }
-
 async function generarPDF() {
-  generarPDFResumen(docentes.value, { anio: anio.value, periodo: periodo.value })
+  console.log('1. Click detectado, docentes:', docentes.value.length)
+
+  try {
+    const resultado = generarPDFResumenDos(
+      docentes.value,
+      { anio: anio.value, periodo: periodo.value }
+    )
+    console.log('2. Resultado de generarPDFResumenDos:', resultado)
+
+    const { url, filename } = resultado
+
+    if (!url) {
+      console.error('❌ No se generó URL del blob')
+      return
+    }
+
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    console.log('3. Click de descarga disparado')
+
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
+  } catch (err) {
+    console.error('❌ ERROR generando PDF:', err)
+  }
 }
 </script>

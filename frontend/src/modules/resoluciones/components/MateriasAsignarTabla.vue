@@ -11,8 +11,7 @@
             <th class="text-left px-4 py-3 text-[0.68rem] font-semibold tracking-widest uppercase text-slate-400 w-28">Compartido</th>
             <th class="text-left px-4 py-3 text-[0.68rem] font-semibold tracking-widest uppercase text-slate-400 w-14">GRP</th>
             <th class="text-left px-4 py-3 text-[0.68rem] font-semibold tracking-widest uppercase text-slate-400">Resolución</th>
-            <th class="text-left px-4 py-3 text-[0.68rem] font-semibold tracking-widest uppercase text-slate-400">Designación</th>
-            <th class="text-left px-4 py-3 text-[0.68rem] font-semibold tracking-widest uppercase text-slate-400 w-28">Documento</th>
+            <th class="text-center px-4 py-3 text-[0.68rem] font-semibold tracking-widest uppercase text-slate-400 w-24">Asignar</th>
           </tr>
         </thead>
         <tbody>
@@ -20,7 +19,10 @@
             v-for="(m, i) in materias"
             :key="m.nro"
             class="border-b border-slate-700/60 transition-colors hover:bg-white/[0.025]"
-            :class="i % 2 === 0 ? 'bg-transparent' : 'bg-slate-900/20'"
+            :class="[
+              i % 2 === 0 ? 'bg-transparent' : 'bg-slate-900/20',
+              estaMarcada(m) ? 'bg-amber-500/[0.06]' : ''
+            ]"
           >
             <!-- Nº -->
             <td class="px-4 py-3 text-slate-500 font-medium text-[13px] tabular-nums">{{ m.nro }}</td>
@@ -58,64 +60,29 @@
             <!-- GRP -->
             <td class="px-4 py-3 tabular-nums text-slate-300 font-semibold text-xs">{{ m.grp }}</td>
 
-            <!-- Resolución -->
+            <!-- Resolución (existente, ya designada) -->
             <td class="px-4 py-3">
               <span v-if="m.resolucion" class="text-xs text-emerald-400 font-medium">{{ m.resolucion }}</span>
               <span v-else class="text-slate-600 text-xs">—</span>
             </td>
 
-            <!-- Designación -->
-            <td class="px-4 py-3 max-w-xs">
-              <span v-if="m.designacion"
-                    class="text-xs text-slate-400 leading-relaxed line-clamp-2"
-                    :title="m.designacion">
-                {{ m.designacion }}
-              </span>
-              <span v-else class="text-slate-600 text-xs">—</span>
-            </td>
-
-            <!-- Documento PDF -->
-            <td class="px-4 py-3">
-              <template v-if="m.resolucion && m.designacion">
-                <div class="flex items-center gap-1.5">
-
-                  <!-- Botón Ver -->
-                  <button
-                    :disabled="loadingPdf[m.nro]"
-                    @click="handleVer(m)"
-                    class="inline-flex items-center gap-1 px-2 py-1 rounded text-[0.68rem] font-medium transition-colors
-                           bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 disabled:opacity-40 disabled:cursor-not-allowed"
-                    title="Ver PDF"
-                  >
-                    <svg v-if="loadingPdf[m.nro]"
-                         class="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
-                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                    </svg>
-                    <svg v-else class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                      <circle cx="12" cy="12" r="3"/>
-                    </svg>
-                    Ver
-                  </button>
-
-                  <!-- Botón Descargar -->
-                  <button
-                    :disabled="loadingPdf[m.nro]"
-                    @click="handleDescargar(m)"
-                    class="inline-flex items-center gap-1 px-2 py-1 rounded text-[0.68rem] font-medium transition-colors
-                           bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 disabled:opacity-40 disabled:cursor-not-allowed"
-                    title="Descargar PDF"
-                  >
-                    <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
-                    </svg>
-                    PDF
-                  </button>
-
-                </div>
-              </template>
-              <span v-else class="text-slate-600 text-xs">—</span>
+            <!-- Asignar (checkbox) -->
+            <td class="px-4 py-3 text-center">
+              <button
+                type="button"
+                :disabled="!resolucionActiva"
+                :title="checkTitle(m)"
+                class="inline-flex items-center justify-center w-7 h-7 rounded-lg border transition-all duration-150
+                       disabled:opacity-30 disabled:cursor-not-allowed"
+                :class="estaMarcada(m)
+                  ? 'bg-amber-500 border-amber-500 text-slate-900'
+                  : 'bg-transparent border-slate-600 text-transparent hover:border-amber-500/60'"
+                @click="$emit('toggle', m)"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+              </button>
             </td>
 
           </tr>
@@ -131,33 +98,26 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import { useReporte } from '../composables/useReporte'
-
-defineProps({
+const props = defineProps({
   materias: { type: Array, default: () => [] },
+  resolucionActiva: { type: Object, default: null },
+  marcadasKeys: { type: Array, default: () => [] }, // keys ya marcadas globalmente (de este u otro docente)
+  docenteCod: { type: [Number, String], default: null },
 })
 
-const { verPdfResolucion } = useReporte()
+defineEmits(['toggle'])
 
-const loadingPdf = ref({})
-
-async function handleVer(m) {
-  loadingPdf.value[m.nro] = true
-  try {
-    await verPdfResolucion(m.resolucion, false)
-  } finally {
-    loadingPdf.value[m.nro] = false
-  }
+function keyDe(m) {
+  return `${props.docenteCod}__${m.plan}__${m.materia}__${m.grp}__${m.gestion}`
 }
 
-async function handleDescargar(m) {
-  loadingPdf.value[m.nro] = true
-  try {
-    await verPdfResolucion(m.resolucion, true)
-  } finally {
-    loadingPdf.value[m.nro] = false
-  }
+function estaMarcada(m) {
+  return props.marcadasKeys.includes(keyDe(m))
+}
+
+function checkTitle(m) {
+  if (!props.resolucionActiva) return 'Seleccioná primero una resolución'
+  return estaMarcada(m) ? 'Quitar asignación' : 'Asignar resolución a esta materia'
 }
 
 const tipoGestion = (gestion) => {

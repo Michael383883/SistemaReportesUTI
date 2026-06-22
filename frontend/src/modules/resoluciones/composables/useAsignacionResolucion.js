@@ -1,0 +1,130 @@
+import { ref, computed } from 'vue'
+import { useResolucion } from './useResolucion'
+
+/**
+ * Orquesta el flujo de "Asignar resolución a materias":
+ *  1. Se elige una resolución (queda fija una vez hay materias marcadas).
+ *  2. Se marcan materias del reporte de uno o varios docentes (click en check).
+ *  3. Se guardan todas como detalles de esa resolución (guardarDetalles bulk).
+ *
+ * Reutiliza useResolucion.js para el guardado real contra el backend.
+ */
+export function useAsignacionResolucion() {
+    const {
+        loading: guardando,
+        error: errorGuardado,
+        guardarDetalles,
+        aplicarEnGrupos,
+    } = useResolucion()
+
+    // ─── Resolución activa ──────────────────────────────────────────
+    const resolucionActiva = ref(null) // { idResolucion, nroResolucion, anio, periodo, ... }
+
+    // ─── Materias marcadas (acumula entre distintos docentes) ───────
+    // Cada item: { key, docente: {...}, cod_docente, cod_plan, cod_materia, grupo, tipo, gestion, materiaLabel }
+    const materiasMarcadas = ref([])
+
+    const resolucionBloqueada = computed(() => materiasMarcadas.value.length > 0)
+
+    function generarKey(docenteCod, materia) {
+        return `${docenteCod}__${materia.plan}__${materia.materia}__${materia.grp}__${materia.gestion}`
+    }
+
+    // El reporte trae "materia" como "1301134 CALCULO I" (código + nombre).
+    // El backend solo acepta el código (máx. 10 caracteres), así que extraemos
+    // únicamente la parte numérica/alfanumérica antes del primer espacio.
+    function extraerCodMateria(materiaRaw) {
+        if (!materiaRaw) return ''
+        return String(materiaRaw).trim().split(/\s+/)[0]
+    }
+
+    function seleccionarResolucion(resolucion) {
+        if (resolucionBloqueada.value) return false
+        resolucionActiva.value = resolucion
+        return true
+    }
+
+    function limpiarResolucion() {
+        if (resolucionBloqueada.value) return false
+        resolucionActiva.value = null
+        return true
+    }
+
+    function estaMarcada(docenteCod, materia) {
+        const key = generarKey(docenteCod, materia)
+        return materiasMarcadas.value.some(m => m.key === key)
+    }
+
+    function toggleMateria(docente, materia) {
+        if (!resolucionActiva.value) return
+
+        const docenteCod = docente.cod_docente ?? docente.CODIGO ?? docente.codigo
+        const key = generarKey(docenteCod, materia)
+        const idx = materiasMarcadas.value.findIndex(m => m.key === key)
+
+        if (idx !== -1) {
+            materiasMarcadas.value.splice(idx, 1)
+            return
+        }
+
+        materiasMarcadas.value.push({
+            key,
+            docente,
+            cod_docente: Number(docenteCod),
+            cod_plan: materia.plan,
+            cod_materia: extraerCodMateria(materia.materia),
+            grupo: materia.grp || null,
+            tipo: 'N',
+            gestion: materia.gestion,
+            observacion: materia.compartido ? 'COMPARTIDO' : null,
+            materiaLabel: materia.materia,
+        })
+    }
+
+    function quitarMateria(key) {
+        materiasMarcadas.value = materiasMarcadas.value.filter(m => m.key !== key)
+    }
+
+    function limpiarTodo() {
+        materiasMarcadas.value = []
+        resolucionActiva.value = null
+    }
+
+    async function confirmarAsignacion() {
+        if (!resolucionActiva.value) throw new Error('Selecciona una resolución antes de continuar.')
+        if (materiasMarcadas.value.length === 0) throw new Error('Marca al menos una materia para asignar.')
+
+        const idResolucion = resolucionActiva.value.idResolucion ?? resolucionActiva.value.id_resolucion
+
+        const detalles = materiasMarcadas.value.map(m => ({
+            cod_docente: m.cod_docente,
+            cod_plan: m.cod_plan,
+            cod_materia: m.cod_materia,
+            grupo: m.grupo,
+            tipo: m.tipo,
+            observacion: m.observacion,
+        }))
+
+        const resultado = await guardarDetalles(idResolucion, detalles)
+        return { idResolucion, resultado }
+    }
+
+    return {
+        // estado
+        resolucionActiva,
+        materiasMarcadas,
+        resolucionBloqueada,
+        guardando,
+        errorGuardado,
+
+        // acciones
+        seleccionarResolucion,
+        limpiarResolucion,
+        estaMarcada,
+        toggleMateria,
+        quitarMateria,
+        limpiarTodo,
+        confirmarAsignacion,
+        aplicarEnGrupos,
+    }
+}

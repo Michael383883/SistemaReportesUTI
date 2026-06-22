@@ -46,7 +46,7 @@
           ref="inputRef"
           v-model="searchQuery"
           type="text"
-          placeholder="Buscar por nombre o código..."
+          placeholder="Buscar por nombre o código SIS..."
           autocomplete="off"
           class="flex-1 bg-transparent border-none outline-none text-slate-100 text-sm py-2.5 min-w-0 placeholder-slate-500"
           @focus="onFocus"

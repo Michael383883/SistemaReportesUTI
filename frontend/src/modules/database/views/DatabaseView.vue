@@ -1,7 +1,7 @@
 <template>
-  <div class="flex flex-col gap-5 p-8 max-w-2xl">
+  <div class="flex flex-col gap-5 p-1 max-w-2xl">
 
-    <!-- Header -->
+    <!-- Header (sin cambios) -->
     <div>
       <h1 class="text-2xl font-bold text-gray-900 mb-0.5">
         Configuración de bases de datos
@@ -12,47 +12,51 @@
     </div>
 
     <!-- Estado de conexiones -->
-    <div class="bg-white border border-gray-200 rounded-xl p-6 flex flex-col gap-4">
-      <span class="text-xs font-bold tracking-widest text-gray-400 uppercase">
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-6 flex flex-col gap-4">
+      <span class="text-[0.68rem] font-semibold text-slate-500 uppercase tracking-widest">
         Estado de conexiones
       </span>
 
       <!-- SQL SERVER 2022 -->
       <div class="flex items-center gap-3.5">
-        <div class="w-10 h-10 rounded-lg flex items-center justify-center font-extrabold text-xs shrink-0 bg-blue-100 text-blue-700">
+        <div class="w-10 h-10 rounded-lg flex items-center justify-center font-extrabold text-xs shrink-0 bg-blue-500/15 text-blue-300">
           22
         </div>
         <div class="flex flex-col flex-1 gap-0.5">
-          <strong class="text-sm text-gray-900">SQL Server 2022</strong>
-          <small class="text-xs text-gray-400 font-mono">
+          <strong class="text-[13px] text-slate-200 font-medium">SQL Server 2022</strong>
+          <small class="text-[11px] text-slate-500 font-mono">
             {{ status.sqlserver_2022?.host }} · {{ status.sqlserver_2022?.database }}
           </small>
         </div>
         <span
-          class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap"
-          :class="status.sqlserver_2022?.connected ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'"
+          class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold whitespace-nowrap"
+          :class="status.sqlserver_2022?.connected
+            ? 'bg-emerald-500/15 text-emerald-400'
+            : 'bg-red-500/15 text-red-400'"
         >
           <i class="inline-block w-1.5 h-1.5 rounded-full bg-current"></i>
           {{ status.sqlserver_2022?.connected ? 'Conectado' : 'Sin conexión' }}
         </span>
       </div>
 
-      <hr class="border-gray-100" />
+      <hr class="border-slate-700/60" />
 
       <!-- SQL SERVER 2008 -->
       <div class="flex items-center gap-3.5">
-        <div class="w-10 h-10 rounded-lg flex items-center justify-center font-extrabold text-xs shrink-0 bg-pink-100 text-pink-700">
+        <div class="w-10 h-10 rounded-lg flex items-center justify-center font-extrabold text-xs shrink-0 bg-pink-500/15 text-pink-300">
           08
         </div>
         <div class="flex flex-col flex-1 gap-0.5">
-          <strong class="text-sm text-gray-900">SQL Server 2008</strong>
-          <small class="text-xs text-gray-400 font-mono">
+          <strong class="text-[13px] text-slate-200 font-medium">SQL Server 2008</strong>
+          <small class="text-[11px] text-slate-500 font-mono">
             {{ status.sqlserver_2008?.host }} · {{ status.sqlserver_2008?.database }}
           </small>
         </div>
         <span
-          class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap"
-          :class="status.sqlserver_2008?.connected ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'"
+          class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold whitespace-nowrap"
+          :class="status.sqlserver_2008?.connected
+            ? 'bg-emerald-500/15 text-emerald-400'
+            : 'bg-red-500/15 text-red-400'"
         >
           <i class="inline-block w-1.5 h-1.5 rounded-full bg-current"></i>
           {{ status.sqlserver_2008?.connected ? 'Conectado' : 'Sin conexión' }}
@@ -61,45 +65,47 @@
     </div>
 
     <!-- Migración -->
-    <div class="bg-white border border-gray-200 rounded-xl p-6 flex flex-col gap-4">
-      <span class="text-xs font-bold tracking-widest text-gray-400 uppercase">
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-6 flex flex-col gap-4">
+      <span class="text-[0.68rem] font-semibold text-slate-500 uppercase tracking-widest">
         Migración de datos
       </span>
 
       <!-- ALERTA sin conexión -->
       <div
         v-if="!status.sqlserver_2008?.connected"
-        class="flex items-start gap-2 p-3 rounded-lg bg-yellow-50 border border-yellow-200 text-yellow-800 text-sm"
+        class="flex items-start gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[12px]"
       >
-        <span>⚠</span>
-        <p class="m-0">
+        <span class="shrink-0">⚠</span>
+        <p class="m-0 leading-relaxed">
           SQL Server 2008 no tiene conexión activa.
           Verificá la configuración antes de iniciar la migración.
         </p>
       </div>
 
       <!-- DESCRIPCIÓN -->
-      <p class="text-sm text-gray-500 leading-relaxed">
+      <p class="text-[13px] text-slate-400 leading-relaxed">
         Transfiere todas las tablas y registros desde SQL Server 2008
         hacia SQL Server 2022 sin eliminar datos del origen.
       </p>
 
       <!-- FLUJO -->
       <div class="flex items-center gap-3">
-        <div class="flex flex-1 items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm font-semibold text-gray-800">
+        <div class="flex flex-1 items-center gap-2 bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-[13px] font-medium text-slate-300">
           🗄 SQL Server 2008
-          <em class="font-normal text-gray-400 text-xs ml-1 not-italic">origen</em>
+          <em class="font-normal text-slate-500 text-[11px] ml-1 not-italic">origen</em>
         </div>
-        <span class="text-gray-400 text-lg">→</span>
-        <div class="flex flex-1 items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm font-semibold text-gray-800">
+        <span class="text-slate-500 text-lg">→</span>
+        <div class="flex flex-1 items-center gap-2 bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2.5 text-[13px] font-medium text-slate-300">
           🗄 SQL Server 2022
-          <em class="font-normal text-gray-400 text-xs ml-1 not-italic">destino</em>
+          <em class="font-normal text-slate-500 text-[11px] ml-1 not-italic">destino</em>
         </div>
       </div>
 
       <!-- BOTÓN -->
       <button
-        class="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-semibold transition-colors bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed"
+        class="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-[13px] font-medium transition-colors
+               bg-indigo-600 text-white hover:bg-indigo-700
+               disabled:bg-slate-700/60 disabled:text-slate-500 disabled:cursor-not-allowed"
         :disabled="!status.sqlserver_2008?.connected || !status.sqlserver_2022?.connected || migrating"
         @click="handleMigrate"
       >
@@ -108,16 +114,16 @@
         {{ migrating ? 'Migrando datos...' : 'Migrar SQL Server 2008 → SQL Server 2022' }}
       </button>
 
-      <p class="text-xs text-gray-400 text-center">
+      <p class="text-[11px] text-slate-500 text-center">
         El proceso puede tardar varios minutos dependiendo del volumen de datos.
       </p>
 
       <!-- RESULTADO -->
       <div
         v-if="migrationResult"
-        class="flex flex-col gap-2 p-4 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm"
+        class="flex flex-col gap-2 p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[13px]"
       >
-        <p class="font-semibold m-0">
+        <p class="font-medium m-0">
           ✓ Migración completada —
           {{ migrationResult.resumen.exitosas }}/{{ migrationResult.resumen.total }} tablas migradas
         </p>
@@ -125,12 +131,12 @@
           <li
             v-for="item in migrationResult.detalle"
             :key="item.tabla"
-            class="flex items-center gap-2 text-xs"
-            :class="item.success ? 'text-emerald-700' : 'text-red-500'"
+            class="flex items-center gap-2 text-[11px]"
+            :class="item.success ? 'text-emerald-400' : 'text-red-400'"
           >
             <span>{{ item.success ? '✓' : '✗' }}</span>
             <span class="font-mono font-semibold">{{ item.tabla }}</span>
-            <span class="text-gray-400">— {{ item.message }}</span>
+            <span class="text-slate-500">— {{ item.message }}</span>
           </li>
         </ul>
       </div>
@@ -138,7 +144,7 @@
       <!-- ERROR -->
       <div
         v-if="migrationError"
-        class="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm"
+        class="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-[12px]"
       >
         ✗ {{ migrationError }}
       </div>

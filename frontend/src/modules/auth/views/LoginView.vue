@@ -14,18 +14,43 @@
 
       <!-- Logo -->
       <div class="flex flex-col items-center mb-7">
-        <div class="w-[72px] h-[72px] bg-[#081F33] border-[3px] border-[#D28B45] rounded-full flex flex-col items-center justify-center mb-3">
-          <span class="text-white font-bold text-[20px] leading-none">U</span>
-          <span class="text-red-500 font-bold text-[10px] tracking-widest leading-none">FCE</span>
-          <span class="text-[#D28B45] text-[7px] leading-none">UMSS</span>
-        </div>
 
-        <h1 class="text-center text-[15px] font-medium text-[#081F33] leading-tight">
-          UTI-FCE · Sistema de Reportes
+        <!-- Logo real (PNG por ahora) -->
+        <img
+          :src="logo"
+          alt="SIA-UTI"
+          class="h-[128px] w-auto mb-3"
+        />
+
+        <h1
+          class="text-center text-[28px] font-extrabold leading-none"
+          style="font-family:'Montserrat','Poppins','Segoe UI',sans-serif; letter-spacing:-0.03em;"
+        >
+          <span class="text-[#081F33]">SIA-</span><span class="text-red-500">UTI</span>
         </h1>
 
-        <p class="text-[11px] text-gray-400 mt-1">
-          Unidad de Tecnologías de Información
+     <!-- Línea separadora punteada (ancho completo) -->
+<!-- Línea con puntos en los extremos -->
+          <div class="w-full my-2 flex items-center gap-2">
+            <span
+              class="rounded-full flex-shrink-0"
+              style="width: 6px; height: 6px; background-color: #081F33;"
+            ></span>
+
+            <span
+              class="flex-1"
+              style="border-top: 1.5px solid #081F33; opacity: 0.6;"
+            ></span>
+
+            <span
+              class="rounded-full flex-shrink-0"
+              style="width: 6px; height: 6px; background-color: #081F33;"
+            ></span>
+          </div>
+
+
+        <p class="text-[10.5px] text-gray-400 font-semibold tracking-widest uppercase">
+          Sistema de Información Académica
         </p>
       </div>
 
@@ -159,6 +184,9 @@ import { reactive, ref } from 'vue'
 import { useAuthStore } from '../store/authStore'
 import { useAuth } from '../composables/useAuth'
 import { AlertCircle, Loader2 } from 'lucide-vue-next'
+
+// Logo SIA-UTI (PNG por ahora; cuando tengas el SVG solo cambia la extensión del import)
+import logo from '@/assets/img/SIA-UTI-logo.svg'
 
 const authStore = useAuthStore()
 const { login } = useAuth()

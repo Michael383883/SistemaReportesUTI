@@ -25,8 +25,16 @@ export function generarPDF(reporte, opts = {}) {
 
     const COLOR_BLACK = [0, 0, 0]
     const COLOR_GRAY_BG = [218, 218, 218]
-    const COLOR_GRAY_LN = [170, 170, 170]
-    const COLOR_ALT_ROW = [246, 246, 246]
+    const COLOR_ROW_LINE = [170, 170, 170]   // líneas horizontales de fila
+
+    // ── Mapa de códigos de plan ──────────────────────────────────────────────────
+    const PLAN_MAP = {
+        '089801': 'CON',
+        '109401': 'ADM',
+        '125091': 'COM',
+        '126091': 'FIN',
+        '059801': 'ECO',
+    }
 
     // ════════════════════════════════════════════════════════════════════════════
     // Encabezado institucional — se repite en cada página
@@ -34,17 +42,17 @@ export function generarPDF(reporte, opts = {}) {
     function drawHeader() {
         // ── Institución izquierda ────────────────────────────────────────────────
         doc.setFont('helvetica', 'bold')
-        doc.setFontSize(7.5)
+        doc.setFontSize(5.5)
         doc.setTextColor(...COLOR_BLACK)
-        doc.text('UNIVERSIDAD MAYOR DE SAN SIMON', MARGIN_L, 10)
-        doc.text('FACULTAD DE CIENCIAS ECONOMICAS', MARGIN_L, 14)
+        doc.text('UNIVERSIDAD MAYOR DE SAN SIMON', MARGIN_L, 6)
+        doc.text('FACULTAD DE CIENCIAS ECONOMICAS', MARGIN_L, 8)
 
-        // ── Título centrado (mismo bloque vertical) ──────────────────────────────
+        // ── Título centrado ──────────────────────────────────────────────────────
         doc.setFontSize(11)
         doc.text('MATERIAS DICTADAS DE UN DOCENTE', PAGE_W / 2, 12, { align: 'center' })
 
         // ── Línea divisoria ──────────────────────────────────────────────────────
-        doc.setDrawColor(...COLOR_GRAY_LN)
+        doc.setDrawColor(...COLOR_ROW_LINE)
         doc.setLineWidth(0.3)
         doc.line(MARGIN_L, 17, PAGE_W - MARGIN_R, 17)
 
@@ -71,11 +79,11 @@ export function generarPDF(reporte, opts = {}) {
         return docenteY + 3
     }
 
+    doc.setProperties({ title: 'Materias dictadas de un docente' })
+
     const startY = drawHeader()
 
     // ── Columnas ──────────────────────────────────────────────────────────────────
-    // Ancho útil portrait ~191.9 mm
-    // Distribución (mm): 6 + 22 + 8 + 52 + 20 + 8 + 22 + auto(~53.9) = ~191.9
     const columnas = [
         { header: 'Nº', dataKey: 'nro' },
         { header: 'GESTIÓN', dataKey: 'gestion' },
@@ -90,7 +98,7 @@ export function generarPDF(reporte, opts = {}) {
     const filas = (reporte.materias || []).map((m) => ({
         nro: m.nro,
         gestion: formatGestion(m.gestion),
-        plan: m.plan || '',
+        plan: PLAN_MAP[m.plan] || m.plan || '',
         materia: m.materia || '',
         compartido: m.compartido ? 'COMPARTIDO' : '',
         grp: m.grp || '',
@@ -108,20 +116,21 @@ export function generarPDF(reporte, opts = {}) {
 
         styles: {
             font: 'helvetica',
-            fontSize: 6.2,                          // ← reducido
+            fontSize: 6.2,
             cellPadding: { top: 1.2, bottom: 1.2, left: 1.5, right: 1.5 },
             textColor: COLOR_BLACK,
-            lineColor: COLOR_GRAY_LN,
-            lineWidth: 0.2,
+            lineColor: COLOR_ROW_LINE,
+            lineWidth: 0,
             overflow: 'linebreak',
             valign: 'middle',
+            fillColor: false,
         },
 
         headStyles: {
             fillColor: COLOR_GRAY_BG,
             textColor: COLOR_BLACK,
             fontStyle: 'bold',
-            fontSize: 6.2,                           // ← reducido
+            fontSize: 6.2,
             halign: 'center',
             valign: 'middle',
             lineColor: [130, 130, 130],
@@ -129,32 +138,39 @@ export function generarPDF(reporte, opts = {}) {
         },
 
         alternateRowStyles: {
-            fillColor: COLOR_ALT_ROW,
+            fillColor: false,
         },
 
         columnStyles: {
-            0: { cellWidth: 6, halign: 'center' },  // Nº
-            1: { cellWidth: 22 },  // Gestión  — "2021/4 - Invierno" 1 línea
-            2: { cellWidth: 8, halign: 'center' },  // Plan     — ajusta "ADM/COM/FIN"
-            3: { cellWidth: 52 },  // Materia  — texto largo
-            4: { cellWidth: 20, halign: 'center' },  // Compartido
-            5: { cellWidth: 8, halign: 'center' },  // GRP
-            6: { cellWidth: 22 },  // Resolución
-            7: { cellWidth: 'auto' },  // Designación (~53.9 mm)
+            0: { cellWidth: 10, halign: 'center' },  // Nº — cabe hasta 3 dígitos
+            1: { cellWidth: 22 },
+            2: { cellWidth: 12, halign: 'center' },  // PLAN — ancho suficiente para 1 línea
+            3: { cellWidth: 50 },
+            4: { cellWidth: 20, halign: 'center' },
+            5: { cellWidth: 8, halign: 'center' },
+            6: { cellWidth: 22 },
+            7: { cellWidth: 'auto' },
+        },
+
+        // ── Solo líneas horizontales entre filas, sin verticales ──────────────
+        didDrawCell(data) {
+            if (data.section !== 'body') return
+
+            // Dibuja una sola vez por fila (en la última columna)
+            const isLastCol = data.column.index === data.table.columns.length - 1
+            if (!isLastCol) return
+
+            const { y, height } = data.cell
+
+            doc.setDrawColor(...COLOR_ROW_LINE)
+            doc.setLineWidth(0.2)
+
+            // Línea horizontal inferior de cada fila
+            doc.line(MARGIN_L, y + height, MARGIN_L + CONTENT_W, y + height)
         },
 
         didParseCell(data) {
-            // COMPARTIDO en negrita
-            if (
-                data.section === 'body' &&
-                data.column.index === 4 &&
-                data.cell.raw === 'COMPARTIDO'
-            ) {
-                data.cell.styles.textColor = COLOR_BLACK
-                data.cell.styles.fontStyle = 'bold'
-                data.cell.styles.fontSize = 5.8
-            }
-            // Materia y Designación: fuente ligeramente más pequeña para acomodar texto
+            // Materia y Designación: fuente ligeramente menor
             if (data.section === 'body' && (data.column.index === 3 || data.column.index === 7)) {
                 data.cell.styles.fontSize = 6.0
             }
@@ -165,12 +181,10 @@ export function generarPDF(reporte, opts = {}) {
         },
 
         didDrawPage() {
-            const pageCount = doc.internal.getNumberOfPages()
             const pageNum = doc.internal.getCurrentPageInfo().pageNumber
             const footerY = PAGE_H - 5
 
-            // Línea sobre pie
-            doc.setDrawColor(...COLOR_GRAY_LN)
+            doc.setDrawColor(...COLOR_ROW_LINE)
             doc.setLineWidth(0.2)
             doc.line(MARGIN_L, footerY - 3.5, PAGE_W - MARGIN_R, footerY - 3.5)
 
@@ -179,7 +193,13 @@ export function generarPDF(reporte, opts = {}) {
             doc.setTextColor(90, 90, 90)
 
             doc.text('Procesado UTi - Facultad de Ciencias Económicas', MARGIN_L, footerY)
-            doc.text(`Página ${pageNum} de ${pageCount}`, PAGE_W / 2, footerY, { align: 'center' })
+
+            doc.text(
+                `Página ${pageNum} de {totalPages}`,
+                PAGE_W / 2,
+                footerY,
+                { align: 'center' },
+            )
 
             const ahora = new Date().toLocaleString('es-BO', {
                 dateStyle: 'short',
@@ -188,6 +208,10 @@ export function generarPDF(reporte, opts = {}) {
             doc.text(ahora, PAGE_W - MARGIN_R, footerY, { align: 'right' })
         },
     })
+
+    if (typeof doc.putTotalPages === 'function') {
+        doc.putTotalPages('{totalPages}')
+    }
 
     // ── Acción ────────────────────────────────────────────────────────────────────
     const codigoDoc = reporte.docente?.codigo || 'doc'

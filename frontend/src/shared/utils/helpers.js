@@ -1,8 +1,8 @@
 export const ROLES = {
-  admin: { label: 'Administrador', badgeClass: 'bg-[#eef2ff] text-navy' },
-  secretaria: { label: 'Secretaría', badgeClass: 'bg-[#fff8ee] text-[#8B5E20]' },
-  secretaria_talleres: { label: 'Secretaría Talleres', badgeClass: 'bg-[#e0f2fe] text-[#0369a1]' },
-  uti: { label: 'UTI', badgeClass: 'bg-red-50 text-red-700' },
+  admin: { label: 'Administrador', badgeClass: 'text-indigo-300' },
+  secretaria: { label: 'Secretaría', badgeClass: 'text-amber-300' },
+  secretaria_talleres: { label: 'Secretaría Talleres', badgeClass: 'text-sky-300' },
+  uti: { label: 'UTI', badgeClass: 'text-red-300' }
 }
 
 export function getRoleLabel(role) {

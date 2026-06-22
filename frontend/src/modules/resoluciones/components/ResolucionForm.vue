@@ -1,262 +1,129 @@
 <template>
-  <div class="bg-white rounded-xl border border-gray-200">
-
-    <!-- Header -->
-    <div class="px-6 py-4 border-b border-gray-100">
-      <h2 class="text-base font-semibold text-gray-800">Datos de la Resolución</h2>
-      <p class="text-xs text-gray-400 mt-0.5">Verifica o corrige los datos extraídos automáticamente del PDF</p>
-    </div>
-
+  <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
     <div class="p-6 space-y-5">
 
-      <!-- Número de resolución -->
       <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1.5">
-          Número de Resolución
-          <span class="text-red-500 ml-0.5">*</span>
-        </label>
-        <div class="relative">
-          <div class="absolute inset-y-0 left-3 flex items-center pointer-events-none">
-            <svg class="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
-            </svg>
-          </div>
-          <input
-            v-model="form.numero"
-            type="text"
-            maxlength="50"
-            placeholder="Ej: RR Nº 34/2026"
-            class="w-full pl-9 pr-4 py-2.5 text-sm border rounded-lg transition-colors outline-none"
-            :class="errors.numero
-              ? 'border-red-300 bg-red-50 focus:border-red-400 focus:ring-2 focus:ring-red-100'
-              : 'border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-100'"
-            @input="errors.numero = ''"
-          />
-        </div>
-        <p v-if="errors.numero" class="text-xs text-red-500 mt-1">{{ errors.numero }}</p>
-        <p v-else class="text-xs text-gray-400 mt-1">Formato sugerido: RR Nº 034/2026 · máx. 50 caracteres</p>
-      </div>
-
-      <!-- Descripción -->
-      <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1.5">
-          Descripción / Vigencia
-          <span class="text-red-500 ml-0.5">*</span>
-        </label>
-        <textarea
-          v-model="form.descripcion"
-          rows="3"
-          maxlength="200"
-          placeholder="Ej: Designación de materias acéfalas del 27 de febrero al 07 de julio de 2026..."
-          class="w-full px-4 py-2.5 text-sm border rounded-lg resize-none transition-colors outline-none"
-          :class="errors.descripcion
-            ? 'border-red-300 bg-red-50 focus:border-red-400 focus:ring-2 focus:ring-red-100'
-            : 'border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-100'"
-          @input="errors.descripcion = ''"
+        <label class="block text-[13px] font-medium text-gray-700 mb-1.5">Número de resolución *</label>
+        <input
+          v-model="numero"
+          type="text"
+          placeholder="Ej: 123/2026"
+          class="w-full px-3.5 py-2.5 text-[14px] border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-100"
+          :class="errores.numero ? 'border-red-300' : 'border-gray-200 focus:border-blue-400'"
         />
-        <div class="flex justify-between mt-1">
-          <p v-if="errors.descripcion" class="text-xs text-red-500">{{ errors.descripcion }}</p>
-          <p v-else class="text-xs text-gray-400">Descripción del alcance o vigencia de la resolución</p>
-          <!-- contador: rojo cuando llega al límite -->
-          <span
-            class="text-xs ml-auto"
-            :class="form.descripcion.length >= 190 ? 'text-red-400 font-medium' : 'text-gray-400'"
-          >
-            {{ form.descripcion.length }}/200
-          </span>
-        </div>
+        <p v-if="errores.numero" class="text-[11px] text-red-500 mt-1">{{ errores.numero }}</p>
       </div>
 
-      <!-- Año -->
       <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1.5">
-          Año de la Resolución
-          <span class="text-red-500 ml-0.5">*</span>
-        </label>
-        <div class="relative">
-          <div class="absolute inset-y-0 left-3 flex items-center pointer-events-none">
-            <svg class="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-          </div>
+        <label class="block text-[13px] font-medium text-gray-700 mb-1.5">Descripción</label>
+        <textarea
+          v-model="descripcion"
+          rows="3"
+          placeholder="Descripción breve (opcional)"
+          class="w-full px-3.5 py-2.5 text-[14px] border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 resize-none"
+        ></textarea>
+      </div>
+
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-[13px] font-medium text-gray-700 mb-1.5">Año *</label>
           <input
-            v-model.number="form.anio"
+            v-model.number="anio"
             type="number"
-            min="1900"
-            :max="currentYear"
-            placeholder="Ej: 2026"
-            class="w-full pl-9 pr-4 py-2.5 text-sm border rounded-lg outline-none transition-colors"
-            :class="errors.anio
-              ? 'border-red-300 bg-red-50 focus:border-red-400 focus:ring-2 focus:ring-red-100'
-              : 'border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-100'"
-            @input="errors.anio = ''"
+            :placeholder="String(anioActual)"
+            class="w-full px-3.5 py-2.5 text-[14px] border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-100"
+            :class="errores.anio ? 'border-red-300' : 'border-gray-200 focus:border-blue-400'"
           />
+          <p v-if="errores.anio" class="text-[11px] text-red-500 mt-1">{{ errores.anio }}</p>
         </div>
-        <p v-if="errors.anio" class="text-xs text-red-500 mt-1">{{ errors.anio }}</p>
-      </div>
-
-      <!-- Periodo — select en lugar de number para garantizar string "1" o "2" -->
-      <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1.5">
-          Periodo de la Resolución
-          <span class="text-red-500 ml-0.5">*</span>
-        </label>
-        <div class="relative">
-          <div class="absolute inset-y-0 left-3 flex items-center pointer-events-none">
-            <svg class="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-          </div>
-          <!-- SELECT: garantiza que se mande "1" o "2" como string, nunca un número largo -->
+        <div>
+          <label class="block text-[13px] font-medium text-gray-700 mb-1.5">Periodo *</label>
           <select
-            v-model="form.periodo"
-            class="w-full pl-9 pr-4 py-2.5 text-sm border rounded-lg outline-none transition-colors appearance-none bg-white"
-            :class="errors.periodo
-              ? 'border-red-300 bg-red-50 focus:border-red-400 focus:ring-2 focus:ring-red-100'
-              : 'border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-100'"
-            @change="errors.periodo = ''"
+            v-model.number="periodo"
+            class="w-full px-3.5 py-2.5 text-[14px] border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-100"
+            :class="errores.periodo ? 'border-red-300' : 'border-gray-200 focus:border-blue-400'"
           >
-            <option value="" disabled>Selecciona el periodo</option>
-            <option value="1">1 — Primer periodo</option>
-            <option value="2">2 — Segundo periodo</option>
+            <option :value="null" disabled>Selecciona...</option>
+            <option :value="1">Periodo 1</option>
+            <option :value="2">Periodo 2</option>
           </select>
-          <!-- Flecha del select -->
-          <div class="absolute inset-y-0 right-3 flex items-center pointer-events-none">
-            <svg class="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <polyline points="6 9 12 15 18 9"/>
-            </svg>
-          </div>
+          <p v-if="errores.periodo" class="text-[11px] text-red-500 mt-1">{{ errores.periodo }}</p>
         </div>
-        <p v-if="errors.periodo" class="text-xs text-red-500 mt-1">{{ errors.periodo }}</p>
-        <p v-else class="text-xs text-gray-400 mt-1">Primer o segundo semestre/periodo académico</p>
       </div>
-
-      <!-- Info -->
-      <div class="flex items-start gap-2 p-3 bg-blue-50 border border-blue-100 rounded-lg">
-        <svg class="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-          <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
-        </svg>
-        <p class="text-xs text-blue-700">
-          Verifica que la información sea correcta antes de continuar. Al presionar <strong>Continuar</strong> se guardará el PDF en el servidor.
-        </p>
-      </div>
-
     </div>
 
-    <!-- Acciones -->
-    <div class="flex items-center justify-between px-6 py-4 border-t border-gray-100 bg-gray-50">
+    <div class="flex items-center justify-between px-6 py-3 bg-gray-50 gap-3 flex-wrap">
       <button
+        type="button"
         @click="$emit('back')"
-        :disabled="saving"
-        class="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 transition-colors disabled:opacity-40"
+        class="inline-flex items-center gap-1.5 px-3 py-2 text-[13px] font-medium text-gray-500 hover:text-gray-700 transition-colors"
       >
-        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
         </svg>
         Volver
       </button>
 
-      <button
-        @click="submitForm"
-        :disabled="saving"
-        class="flex items-center gap-2 px-5 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors"
-      >
-        <!-- Spinner mientras guarda -->
-        <svg v-if="saving" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-        </svg>
-        <span>{{ saving ? 'Guardando…' : 'Continuar' }}</span>
-        <svg v-if="!saving" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-        </svg>
-      </button>
+      <div class="flex items-center gap-3">
+        <button
+          type="button"
+          :disabled="saving"
+          @click="enviar('guardar')"
+          class="px-5 py-2 text-[14px] font-medium rounded-lg border border-blue-600 text-blue-600 hover:bg-blue-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {{ saving && accion === 'guardar' ? 'Guardando...' : 'Guardar resolución' }}
+        </button>
+        <button
+          type="button"
+          :disabled="saving"
+          @click="enviar('guardar-asignar')"
+          class="px-5 py-2 text-[14px] font-medium rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {{ saving && accion === 'guardar-asignar' ? 'Guardando...' : 'Guardar y asignar docentes' }}
+        </button>
+      </div>
     </div>
-
   </div>
 </template>
 
 <script setup>
-import { reactive, watch, computed } from 'vue'
+import { ref } from 'vue'
 
 const props = defineProps({
-  initialNumero:      { type: String,  default: '' },
-  initialDescripcion: { type: String,  default: '' },
-  initialAnio:        { type: Number,  default: null },
-  initialPeriodo:     { type: [Number, String], default: '' },
-  saving:             { type: Boolean, default: false },   // ← spinner externo
+  initialNumero:      { type: String, default: '' },
+  initialDescripcion: { type: String, default: '' },
+  initialAnio:        { type: [String, Number], default: null },
+  initialPeriodo:      { type: [String, Number], default: null },
+  saving:              { type: Boolean, default: false },
 })
 
-const emit = defineEmits(['submit', 'back'])
+const emit = defineEmits(['guardar', 'guardar-asignar', 'back'])
 
-// Año máximo permitido
-const currentYear = computed(() => new Date().getFullYear())
+const anioActual = new Date().getFullYear()
 
-const form = reactive({
-  numero:      props.initialNumero,
-  descripcion: props.initialDescripcion,
-  anio:        props.initialAnio,
-  // Periodo siempre como string para que el select funcione
-  periodo:     props.initialPeriodo ? String(props.initialPeriodo) : '',
-})
+const numero      = ref(props.initialNumero || '')
+const descripcion = ref(props.initialDescripcion || '')
+const anio         = ref(props.initialAnio || anioActual)
+const periodo      = ref(props.initialPeriodo || null)
+const accion       = ref(null)
+const errores      = ref({})
 
-const errors = reactive({
-  numero:      '',
-  descripcion: '',
-  anio:        '',
-  periodo:     '',
-})
+function validar() {
+  errores.value = {}
+  if (!numero.value.trim()) errores.value.numero = 'El número de resolución es obligatorio.'
+  if (!anio.value) errores.value.anio = 'El año es obligatorio.'
+  if (!periodo.value) errores.value.periodo = 'Selecciona un periodo.'
+  return Object.keys(errores.value).length === 0
+}
 
-watch(() => props.initialNumero,      val => { form.numero      = val })
-watch(() => props.initialDescripcion, val => { form.descripcion = val })
-watch(() => props.initialAnio,        val => { form.anio        = val })
-watch(() => props.initialPeriodo,     val => { form.periodo     = val ? String(val) : '' })
-
-function submitForm() {
-  // Reset errores
-  Object.keys(errors).forEach(k => errors[k] = '')
-
-  let valid = true
-
-  if (!form.numero.trim()) {
-    errors.numero = 'El número de resolución es requerido.'
-    valid = false
-  } else if (form.numero.trim().length > 50) {
-    errors.numero = 'Máximo 50 caracteres.'
-    valid = false
-  }
-
-  if (!form.descripcion.trim()) {
-    errors.descripcion = 'La descripción es requerida.'
-    valid = false
-  } else if (form.descripcion.length > 200) {
-    errors.descripcion = 'Máximo 200 caracteres.'
-    valid = false
-  }
-
-  if (!form.anio) {
-    errors.anio = 'El año es requerido.'
-    valid = false
-  } else if (form.anio < 1900 || form.anio > currentYear.value) {
-    errors.anio = `El año debe estar entre 1900 y ${currentYear.value}.`
-    valid = false
-  }
-
-  if (!form.periodo) {
-    errors.periodo = 'El periodo es requerido.'
-    valid = false
-  }
-
-  if (!valid) return
-
-  emit('submit', {
-    numero:      form.numero.trim(),
-    descripcion: form.descripcion.trim(),
-    anio:        form.anio,
-    periodo:     form.periodo,   // string "1" o "2" — correcto para el backend
+function enviar(tipo) {
+  if (!validar()) return
+  accion.value = tipo
+  emit(tipo, {
+    numero: numero.value.trim(),
+    descripcion: descripcion.value.trim(),
+    anio: anio.value,
+    periodo: periodo.value,
   })
 }
 </script>

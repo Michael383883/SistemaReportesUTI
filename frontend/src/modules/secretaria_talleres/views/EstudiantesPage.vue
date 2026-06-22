@@ -4,6 +4,8 @@
     <!-- ===== HEADER ===== -->
     <div class="bg-white border-b border-slate-200 px-6 py-5">
       <div class="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+
+        <!-- Título -->
         <div>
           <h1 class="text-xl font-bold text-slate-800 tracking-tight">
             Estudiantes en Talleres
@@ -12,12 +14,57 @@
             Gestión · Período {{ filtros.periodo }} / {{ filtros.anio }}
           </p>
         </div>
-        <!-- Badge total -->
-        <div class="inline-flex items-center gap-2 rounded-full bg-blue-50 px-4 py-1.5 text-blue-700 text-sm font-semibold border border-blue-100">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m9-4a4 4 0 11-8 0 4 4 0 018 0zm6 4a2 2 0 11-4 0 2 2 0 014 0zM5 16a2 2 0 11-4 0 2 2 0 014 0z" />
-          </svg>
-          {{ estudiantesFiltrados.length }} estudiante{{ estudiantesFiltrados.length !== 1 ? 's' : '' }}
+
+        <!-- Zona derecha: badge + botones exportación -->
+        <div class="flex flex-wrap items-center gap-2">
+
+          <!-- Badge total -->
+          <div class="inline-flex items-center gap-2 rounded-full bg-blue-50 px-4 py-1.5 text-blue-700 text-sm font-semibold border border-blue-100">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m9-4a4 4 0 11-8 0 4 4 0 018 0zm6 4a2 2 0 11-4 0 2 2 0 014 0zM5 16a2 2 0 11-4 0 2 2 0 014 0z" />
+            </svg>
+            {{ estudiantesFiltrados.length }} estudiante{{ estudiantesFiltrados.length !== 1 ? 's' : '' }}
+          </div>
+
+          <!-- Botón Excel Normal -->
+          <button
+            @click="exportarNormal"
+            :disabled="!estudiantesFiltrados.length"
+            title="Exportar lista básica a Excel"
+            class="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 hover:bg-emerald-100 active:bg-emerald-200 border border-emerald-200 text-emerald-700 text-sm font-semibold px-4 py-1.5 transition disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3 10h18M3 14h18M10 3v18M6 3h12a1 1 0 011 1v16a1 1 0 01-1 1H6a1 1 0 01-1-1V4a1 1 0 011-1z" />
+            </svg>
+            Excel
+          </button>
+
+          <!-- Botón Excel Detalle + Contacto -->
+          <button
+            @click="exportarDetalle"
+            :disabled="!estudiantesFiltrados.length"
+            title="Exportar lista detallada con datos de contacto"
+            class="inline-flex items-center gap-1.5 rounded-full bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-sm font-semibold px-4 py-1.5 transition shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            Excel + Contacto
+          </button>
+
+          <!-- Botón Reporte PDF -->
+          <button
+            @click="generarReporte"
+            :disabled="!estudiantesFiltrados.length"
+            title="Generar reporte PDF de alumnos inscritos por materia"
+            class="inline-flex items-center gap-1.5 rounded-full bg-slate-700 hover:bg-slate-800 active:bg-slate-900 text-white text-sm font-semibold px-4 py-1.5 transition shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            Reporte PDF
+          </button>
+
         </div>
       </div>
     </div>
@@ -71,25 +118,18 @@
           </select>
         </div>
 
-
+        <!-- Filtro Grupo -->
         <div class="relative">
-  <select
-    v-model="filtros.grupo"
-    class="w-full pl-3 pr-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50"
-  >
-    <option value="">
-      Todos los grupos
-    </option>
-
-    <option
-      v-for="g in gruposDisponibles"
-      :key="g"
-      :value="g"
-    >
-      Grupo {{ g }}
-    </option>
-  </select>
-</div>
+          <select
+            v-model="filtros.grupo"
+            class="w-full pl-3 pr-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition appearance-none cursor-pointer"
+          >
+            <option value="">Todos los grupos</option>
+            <option v-for="g in gruposDisponibles" :key="g" :value="g">
+              Grupo {{ g }}
+            </option>
+          </select>
+        </div>
 
         <!-- Botón limpiar filtros -->
         <button
@@ -101,6 +141,7 @@
           </svg>
           Limpiar filtros
         </button>
+
       </div>
 
       <!-- Pills de filtros activos -->
@@ -143,13 +184,14 @@
         <p class="text-sm mt-1">Intenta ajustar los filtros de búsqueda.</p>
       </div>
 
-      <!-- Tabla segmentada por materia -->
+      <!-- Tablas segmentadas por materia/grupo -->
       <div v-else class="space-y-8">
         <div
           v-for="(item, key) in gruposPorMateria"
-         :key="key"
+          :key="key"
           class="bg-white rounded-2xl shadow-sm ring-1 ring-slate-200 overflow-hidden"
         >
+
           <!-- Header del grupo -->
           <div class="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-blue-700 to-blue-500">
             <div class="flex items-center gap-3">
@@ -161,9 +203,7 @@
               <div>
                 <h2 class="text-white font-bold text-base">{{ item.materia }}</h2>
                 <p class="text-blue-100 text-xs">Grupo {{ item.grupo }}</p>
-              <p class="text-blue-100 text-xs">
-  Docente: {{ item.docente }}
-</p>
+                <p class="text-blue-100 text-xs">Docente: {{ item.docente }}</p>
               </div>
             </div>
             <span class="rounded-full bg-white/20 text-white text-xs font-semibold px-3 py-1">
@@ -186,7 +226,6 @@
               <thead>
                 <tr class="bg-slate-50 border-b border-slate-100">
                   <th class="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-6 py-3 w-10">#</th>
-                
                   <th class="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Nombre del Estudiante</th>
                   <th class="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Carrera</th>
                   <th class="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Grupo</th>
@@ -202,23 +241,18 @@
                   <!-- N° -->
                   <td class="px-6 py-3 text-slate-400 text-xs">{{ idx + 1 }}</td>
 
-                  <!-- Código -->
-                  
-
                   <!-- Nombre -->
                   <td class="px-4 py-3">
                     <div class="flex items-center gap-2.5">
-                      
-                      <!-- DESPUÉS -->
-                        <div
-                          class="h-7 w-7 rounded-full bg-blue-100 text-blue-500 flex items-center justify-center shrink-0"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M12 3L1 9l11 6 9-4.91V17h2V9L12 3z"/>
-                            <path d="M5 13.18v4L12 21l7-3.82v-4L12 17l-7-3.82z"/>
-                          </svg>
-                        </div>
-                      <span class="text-slate-800 font-medium">{{ est.nom_estudiante }}</span>
+                      <div class="h-7 w-7 rounded-full bg-blue-100 text-blue-500 flex items-center justify-center shrink-0">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M12 3L1 9l11 6 9-4.91V17h2V9L12 3z"/>
+                          <path d="M5 13.18v4L12 21l7-3.82v-4L12 17l-7-3.82z"/>
+                        </svg>
+                      </div>
+                     <span class="text-slate-800 font-medium">{{ est.nom_estudiante }}</span>
+                      <span class="text-slate-500"> - </span>
+                      <span class="text-slate-800 font-medium">{{ est.codigo }}</span>
                     </div>
                   </td>
 
@@ -252,6 +286,7 @@
               </tbody>
             </table>
           </div>
+
         </div>
       </div>
     </div>
@@ -269,83 +304,109 @@
 
 <script setup>
 defineOptions({ name: 'EstudiantesPage' })
-import {
-  ref,
-  reactive,
-  computed,
-  onMounted,
-  watch
-} from 'vue'
 
-import estudiantesService, {
-  PLANES
-} from '../services/estudiantesService'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
 
+import estudiantesService, { PLANES } from '../services/estudiantesService'
 import ContactoEstudianteCard from '../components/ContactoEstudianteCard.vue'
+import { exportarExcelNormal, exportarExcelDetalle } from '../services/exportExcelService'
+import { generarReporteInscritos } from '../services/reporteInscritosService'
 
 // ─────────────────────────────────────────────
 // Estado
 // ─────────────────────────────────────────────
-const cargando = ref(false)
-const estudiantes = ref([])
-const materias = ref([])
+const cargando               = ref(false)
+const estudiantes            = ref([])
+const materias               = ref([])
+const modalVisible           = ref(false)
+const estudianteSeleccionado = ref({})
+const contactoData           = ref(null)
 
 const filtros = reactive({
-  anio: 2026,
-  periodo: 1,
+  anio:     2026,
+  periodo:  1,
   busqueda: '',
-  plan: '',
-  materia: '',
-  grupo: ''
+  plan:     '',
+  materia:  '',
+  grupo:    '',
 })
-
-const gruposDisponibles = computed(() => {
-
-  let datos = estudiantes.value
-
-  if (filtros.materia) {
-    datos = datos.filter(
-      e => e.materia === filtros.materia
-    )
-  }
-
-  return [
-    ...new Set(
-      datos.map(e => e.grupo)
-    )
-  ].sort()
-
-})
-const modalVisible = ref(false)
-const estudianteSeleccionado = ref({})
-const contactoData = ref(null)
 
 // ─────────────────────────────────────────────
-// Cargar estudiantes desde API
+// Computed
+// ─────────────────────────────────────────────
+const gruposDisponibles = computed(() => {
+  let datos = estudiantes.value
+  if (filtros.materia) {
+    datos = datos.filter(e => e.materia === filtros.materia)
+  }
+  return [...new Set(datos.map(e => e.grupo))].sort()
+})
+
+const estudiantesFiltrados = computed(() => {
+  const texto = filtros.busqueda.toLowerCase().trim()
+  return estudiantes.value.filter(est => {
+    const matchGrupo    = !filtros.grupo    || est.grupo === filtros.grupo
+    const matchBusqueda = !texto
+      || est.nom_estudiante?.toLowerCase().includes(texto)
+      || String(est.cod_estudiante).includes(texto)
+    return matchGrupo && matchBusqueda
+  })
+})
+
+const gruposPorMateria = computed(() => {
+  return estudiantesFiltrados.value.reduce((acc, est) => {
+    const key = `${est.materia}_${est.grupo}`
+    if (!acc[key]) {
+      acc[key] = {
+        materia:       est.nom_materia,
+        codigoMateria: est.materia,
+        grupo:         est.grupo,
+        docente:       est.docente,
+        estudiantes:   [],
+      }
+    }
+    acc[key].estudiantes.push(est)
+    return acc
+  }, {})
+})
+
+const filtrosActivos = computed(() => {
+  const activos = []
+  if (filtros.plan) {
+    activos.push({ key: 'plan', label: abreviarPlan(filtros.plan) })
+  }
+  if (filtros.materia) {
+    const m = materias.value.find(m => m.codigo === filtros.materia)
+    activos.push({ key: 'materia', label: m?.nombre || filtros.materia })
+  }
+  if (filtros.busqueda) {
+    activos.push({ key: 'busqueda', label: `"${filtros.busqueda}"` })
+  }
+  return activos
+})
+
+// ─────────────────────────────────────────────
+// Carga de datos
 // ─────────────────────────────────────────────
 const cargarEstudiantes = async () => {
   cargando.value = true
-
   try {
     const resultado = await estudiantesService.getInscritos({
-      plan: filtros.plan || null,
-      materia: filtros.materia || null
+      plan:    filtros.plan    || null,
+      materia: filtros.materia || null,
     })
-
     estudiantes.value = resultado.data || []
 
     const materiasMap = new Map()
-
     estudiantes.value.forEach(est => {
       if (!materiasMap.has(est.materia)) {
         materiasMap.set(est.materia, {
           codigo: est.materia,
           nombre: est.nom_materia,
-          nivel: est.nivel
+          nivel:  est.nivel,
         })
       }
     })
-
     materias.value = [...materiasMap.values()]
   } catch (error) {
     console.error('Error cargando estudiantes:', error)
@@ -354,107 +415,12 @@ const cargarEstudiantes = async () => {
   }
 }
 
-onMounted(() => {
-  cargarEstudiantes()
-})
+onMounted(() => cargarEstudiantes())
 
-// ─────────────────────────────────────────────
-// Recargar cuando cambien filtros servidor
-// ─────────────────────────────────────────────
 watch(
   () => [filtros.plan, filtros.materia],
-  () => {
-    cargarEstudiantes()
-  }
+  () => cargarEstudiantes(),
 )
-
-// ─────────────────────────────────────────────
-// Filtro local por búsqueda
-// ─────────────────────────────────────────────
-const estudiantesFiltrados = computed(() => {
-
-  const texto = filtros.busqueda
-    .toLowerCase()
-    .trim()
-
-  return estudiantes.value.filter(est => {
-
-    const matchGrupo =
-      !filtros.grupo ||
-      est.grupo === filtros.grupo
-
-    const matchBusqueda =
-      !texto ||
-      est.nom_estudiante?.toLowerCase().includes(texto) ||
-      String(est.cod_estudiante).includes(texto)
-
-    return matchGrupo && matchBusqueda
-  })
-
-})
-
-// ─────────────────────────────────────────────
-// Agrupar por materia
-// ─────────────────────────────────────────────
-const gruposPorMateria = computed(() => {
-
-  return estudiantesFiltrados.value.reduce((acc, est) => {
-
-    const key = `${est.materia}_${est.grupo}`
-
-    if (!acc[key]) {
-
-      acc[key] = {
-        materia: est.nom_materia,
-        codigoMateria: est.materia,
-        grupo: est.grupo,
-        docente: est.docente,
-        estudiantes: []
-      }
-
-    }
-
-    acc[key].estudiantes.push(est)
-
-    return acc
-
-  }, {})
-
-})
-
-// ─────────────────────────────────────────────
-// Pills filtros
-// ─────────────────────────────────────────────
-const filtrosActivos = computed(() => {
-  const activos = []
-
-  if (filtros.plan) {
-    activos.push({
-      key: 'plan',
-      label: abreviarPlan(filtros.plan)
-    })
-  }
-
-  if (filtros.materia) {
-    const materia = materias.value.find(
-      m => m.codigo === filtros.materia
-    )
-
-    activos.push({
-      key: 'materia',
-      label: materia?.nombre || filtros.materia
-    })
-  }
-
-  if (filtros.busqueda) {
-    activos.push({
-      key: 'busqueda',
-      label: `"${filtros.busqueda}"`
-    })
-  }
-
-  return activos
-})
 
 // ─────────────────────────────────────────────
 // Helpers UI
@@ -464,51 +430,68 @@ const ABREVS = {
   '125091': 'Ing. Comercial',
   '089801': 'Cont. Pública',
   '126091': 'Ing. Financiera',
-  '059801': 'Economía'
+  '059801': 'Economía',
 }
-
-const abreviarPlan = plan =>
-  ABREVS[plan] || plan
 
 const COLORES = {
   '109401': 'bg-blue-100 text-blue-700',
   '125091': 'bg-emerald-100 text-emerald-700',
   '089801': 'bg-orange-100 text-orange-700',
   '126091': 'bg-violet-100 text-violet-700',
-  '059801': 'bg-rose-100 text-rose-700'
+  '059801': 'bg-rose-100 text-rose-700',
 }
 
-const colorPlan = plan =>
-  COLORES[plan] ||
-  'bg-slate-100 text-slate-700'
+const abreviarPlan = plan => ABREVS[plan] || plan
+const colorPlan    = plan => COLORES[plan] || 'bg-slate-100 text-slate-700'
 
 // ─────────────────────────────────────────────
-// Acciones
+// Acciones – filtros
 // ─────────────────────────────────────────────
 const limpiarFiltros = () => {
   filtros.busqueda = ''
-  filtros.plan = ''
-  filtros.materia = ''
-  filtros.grupo = ''
+  filtros.plan     = ''
+  filtros.materia  = ''
+  filtros.grupo    = ''
 }
 
 const quitarFiltro = key => {
   filtros[key] = ''
 }
 
-const verContacto = (est) => {
-
+// ─────────────────────────────────────────────
+// Acciones – modal contacto
+// ─────────────────────────────────────────────
+const verContacto = est => {
   estudianteSeleccionado.value = est
-
-  contactoData.value = {
-    email: est.correo,
-    celular: est.celular
-  }
-
+  contactoData.value = { email: est.correo, celular: est.celular }
   modalVisible.value = true
 }
 
 const cerrarModal = () => {
   modalVisible.value = false
+}
+
+// ─────────────────────────────────────────────
+// Acciones – exportación
+// ─────────────────────────────────────────────
+const exportarNormal = () => {
+  exportarExcelNormal(estudiantesFiltrados.value, {
+    anio:    filtros.anio,
+    periodo: filtros.periodo,
+  })
+}
+
+const exportarDetalle = () => {
+  exportarExcelDetalle(estudiantesFiltrados.value, {
+    anio:    filtros.anio,
+    periodo: filtros.periodo,
+  })
+}
+
+const generarReporte = () => {
+  generarReporteInscritos(estudiantesFiltrados.value, {
+    anio:    filtros.anio,
+    periodo: filtros.periodo,
+  })
 }
 </script>

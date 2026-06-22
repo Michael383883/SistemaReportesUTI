@@ -3,7 +3,7 @@
 
     <!-- Header -->
     <div class="mb-8">
-      <h1 class="text-[20px] font-semibold text-gray-900">Resoluciones</h1>
+      <h1 class="text-[20px] font-semibold text-gray-900">Digitalizar Resoluciones</h1>
       <p class="text-[13px] text-gray-400 mt-1">Carga y procesamiento de resoluciones en PDF</p>
     </div>
 
@@ -166,21 +166,47 @@
     </div>
 
     <!-- ══════════════════════════════════════════════ -->
-    <!-- PASO 1: Formulario + POST /resoluciones        -->
+    <!-- PASO 1: Formulario + Guardar / Guardar+Asignar -->
     <!-- ══════════════════════════════════════════════ -->
     <div v-if="currentStep === 1">
+
+      <!-- Mensaje de éxito (solo "Guardar resolución") -->
+      <div
+        v-if="successMessage"
+        class="bg-white rounded-xl border border-gray-200 p-10 text-center"
+      >
+        <div class="w-14 h-14 mx-auto rounded-full bg-green-50 flex items-center justify-center mb-4">
+          <svg class="w-7 h-7 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+          </svg>
+        </div>
+        <p class="text-[15px] font-semibold text-gray-900">{{ successMessage }}</p>
+        <p class="text-[13px] text-gray-400 mt-1">
+          Resolución <strong>{{ formNumero }}</strong> registrada correctamente (ID: {{ resolucion.resolucionId.value }}).
+        </p>
+        <button
+          @click="resetAll"
+          class="mt-6 inline-flex items-center gap-2 px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-[14px] font-medium rounded-lg transition-colors"
+        >
+          Registrar otra resolución
+        </button>
+      </div>
+
+      <!-- Formulario -->
       <ResolucionForm
+        v-else
         :initial-numero="formNumero"
         :initial-descripcion="formDescripcion"
         :initial-anio="formAnio"
         :initial-periodo="formPeriodo"
         :saving="resolucion.loading.value"
-        @submit="onFormSubmit"
+        @guardar="onGuardar"
+        @guardar-asignar="onGuardarYAsignar"
         @back="currentStep = 0"
       />
 
       <div
-        v-if="resolucion.error.value"
+        v-if="resolucion.error.value && !successMessage"
         class="mt-4 flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-[12px]"
       >
         <svg class="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
@@ -188,53 +214,6 @@
         </svg>
         {{ resolucion.error.value }}
       </div>
-    </div>
-
-    <!-- ══════════════════════════════════════════════ -->
-    <!-- PASO 2: Materias + POST /detalles/bulk         -->
-    <!-- ══════════════════════════════════════════════ -->
-    <div v-if="currentStep === 2">
-
-      <!-- Banner resolución guardada -->
-      <div class="mb-4 flex items-center gap-2 px-4 py-2.5 bg-blue-50 border border-blue-100 rounded-lg text-blue-700 text-[12px] font-medium">
-        <svg class="w-4 h-4 flex-shrink-0 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
-          <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-        </svg>
-        Resolución <strong class="mx-1">{{ formNumero }}</strong> guardada (ID: {{ resolucion.resolucionId.value }}).
-        Ahora agrega las materias acéfalas.
-      </div>
-
-      <TablasForm
-        :saving="resolucion.loading.value"
-        @submit="onTablasSubmit"
-        @back="currentStep = 1"
-      />
-
-      <div
-        v-if="resolucion.error.value"
-        class="mt-4 flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-[12px]"
-      >
-        <svg class="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-          <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
-        </svg>
-        {{ resolucion.error.value }}
-      </div>
-    </div>
-
-    <!-- ══════════════════════════════════════════════ -->
-    <!-- PASO 3: Preview guardado + Terminar            -->
-    <!-- ══════════════════════════════════════════════ -->
-    <div v-if="currentStep === 3">
-      <PreviewResult
-        :resolucion="resolucion.resolucionGuardada.value"
-        :detalles="resolucion.detallesGuardados.value"
-        :loading="resolucion.loading.value"
-        :error="resolucion.error.value"
-        :resolucion-id="resolucion.resolucionId.value"
-        :aplicar-en-grupos="resolucion.aplicarEnGrupos"
-        @terminar="() => {}"
-        @finalizar="resetAll"
-      />
     </div>
 
   </div>
@@ -242,15 +221,15 @@
 
 <script setup>
 import { ref } from 'vue'
+import { useRouter } from 'vue-router'
 import CamaraCaptura  from '../components/CamaraCaptura.vue'
 import ResolucionForm from '../components/ResolucionForm.vue'
-import TablasForm     from '../components/TablasForm.vue'
-import PreviewResult  from '../components/PreviewResult.vue'
 import { useResolucion } from '../composables/useResolucion'
 
+const router = useRouter()
 const resolucion = useResolucion()
 
-const steps       = ['Subir PDF', 'Datos', 'Materias', 'Resultado']
+const steps       = ['Subir PDF', 'Datos']
 const currentStep = ref(0)
 
 const isDragging      = ref(false)
@@ -263,6 +242,7 @@ const formNumero      = ref('')
 const formDescripcion = ref('')
 const formAnio        = ref(null)
 const formPeriodo     = ref(null)
+const successMessage  = ref('')
 
 function limpiarArchivo() {
   archivo.value     = null
@@ -301,7 +281,8 @@ function onPdfListo(file) {
   currentStep.value = 1
 }
 
-async function onFormSubmit({ numero, descripcion, anio, periodo }) {
+// Botón "Guardar resolución"
+async function onGuardar({ numero, descripcion, anio, periodo }) {
   formNumero.value      = numero
   formDescripcion.value = descripcion
   formAnio.value        = anio
@@ -309,17 +290,22 @@ async function onFormSubmit({ numero, descripcion, anio, periodo }) {
 
   try {
     await resolucion.guardarResolucion({ numero, descripcion, anio, periodo, archivo: archivo.value })
-    currentStep.value = 2
+    successMessage.value = 'Resolución guardada exitosamente'
   } catch {
     // error visible en resolucion.error.value
   }
 }
 
-async function onTablasSubmit(detalles) {
+// Botón "Guardar y asignar docentes"
+async function onGuardarYAsignar({ numero, descripcion, anio, periodo }) {
+  formNumero.value      = numero
+  formDescripcion.value = descripcion
+  formAnio.value        = anio
+  formPeriodo.value     = periodo
+
   try {
-    await resolucion.guardarDetalles(resolucion.resolucionId.value, detalles)
-    await resolucion.cargarResolucionCompleta(resolucion.resolucionId.value)
-    currentStep.value = 3
+    const idResolucion = await resolucion.guardarResolucion({ numero, descripcion, anio, periodo, archivo: archivo.value })
+    router.push({ name: 'resoluciones-asignar', query: { resolucion: idResolucion } })
   } catch {
     // error visible en resolucion.error.value
   }
@@ -336,5 +322,6 @@ function resetAll() {
   formDescripcion.value = ''
   formAnio.value        = null
   formPeriodo.value     = null
+  successMessage.value  = ''
 }
 </script>

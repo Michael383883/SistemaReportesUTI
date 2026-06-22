@@ -41,6 +41,7 @@ app.use(router)
 // Restaurar sesión antes de montar la app
 import { useAuthStore } from '@/modules/auth/store/authStore'
 
+
 const authStore = useAuthStore()
 
 authStore.fetchMe().finally(() => {

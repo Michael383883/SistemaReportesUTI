@@ -1,7 +1,7 @@
 export const docentesRoutes = [
     {
-        path: '/docentes',
-        name: 'docentes',
+        path: '/reportes/docentes',
+        name: 'Materias Dictadas',
         component: () => import('./views/DocentesView.vue'),
         //meta: { requiresAuth: true, roles: ['Administrador', 'Secretaria'] },
     },
