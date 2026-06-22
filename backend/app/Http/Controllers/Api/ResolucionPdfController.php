@@ -90,46 +90,30 @@ class ResolucionPdfController extends Controller
             }
 
             // ===============================
-            // LEER PDF Y CONVERTIR A HEX
-            // ===============================
-            $contenidoPdf = file_get_contents($archivo->getRealPath());
-            $hexPdf = '0x' . bin2hex($contenidoPdf);
+// GUARDAR PDF EN STORAGE
+// ===============================
+            $carpeta = 'resoluciones/' . $request->anio;
+
+            // Nombre limpio: RR-001-2026.pdf  (sin espacios ni caracteres raros)
+            $nombreArchivo = preg_replace('/[^A-Za-z0-9\-_\.]/', '-', $archivo->getClientOriginalName());
+
+            $rutaArchivo = $archivo->storeAs($carpeta, $nombreArchivo, 'public');
+            // $rutaArchivo queda como: "resoluciones/2026/RR-001-2026.pdf"
 
             // ===============================
-            // INSERT SQL SERVER VARBINARY(MAX)
-            // ===============================
-            $sql = "
-                INSERT INTO RESOLUCIONES_PDF (
-                    NRO_RESOLUCION,
-                    DESCRIPCION,
-                    ANIO,
-                    PERIODO,
-                    ARCHIVO_PDF,
-                    NOMBRE_ARCHIVO,
-                    TAMANIO_KB,
-                    SUBIDO_POR,
-                    FECHA_SUBIDA
-                )
-                VALUES (
-                    ?, ?, ?, ?,
-                    CONVERT(VARBINARY(MAX), ?, 1),
-                    ?, ?, ?, GETDATE()
-                )
-            ";
-
-            $pdo = DB::connection()->getPdo();
-            $stmt = $pdo->prepare($sql);
-
-            $stmt->bindValue(1, $request->nro_resolucion);
-            $stmt->bindValue(2, $request->descripcion);
-            $stmt->bindValue(3, (int) $request->anio);
-            $stmt->bindValue(4, $request->periodo);
-            $stmt->bindValue(5, $hexPdf);   // hex string, sin PARAM_LOB
-            $stmt->bindValue(6, $archivo->getClientOriginalName());
-            $stmt->bindValue(7, round($archivo->getSize() / 1024));
-            $stmt->bindValue(8, $request->subido_por);
-
-            $stmt->execute();
+// INSERT NORMAL (sin binario)
+// ===============================
+            DB::table('RESOLUCIONES_PDF')->insert([
+                'NRO_RESOLUCION' => $request->nro_resolucion,
+                'DESCRIPCION' => $request->descripcion,
+                'ANIO' => (int) $request->anio,
+                'PERIODO' => $request->periodo,
+                'RUTA_ARCHIVO' => $rutaArchivo,          // ← la ruta relativa
+                'NOMBRE_ARCHIVO' => $archivo->getClientOriginalName(),
+                'TAMANIO_KB' => round($archivo->getSize() / 1024),
+                'SUBIDO_POR' => $request->subido_por,
+                'FECHA_SUBIDA' => now(),
+            ]);
 
             // ===============================
             // OBTENER ID INSERTADO
@@ -181,6 +165,7 @@ class ResolucionPdfController extends Controller
                 'id_resolucion' => $idResolucion,
                 'archivo' => $archivo->getClientOriginalName(),
                 'peso_kb' => round($archivo->getSize() / 1024),
+                'url' => asset('storage/' . $rutaArchivo), // ← URL accesible
                 'detalles_insertados' => $detallesInsertados
             ], 201);
 
@@ -219,30 +204,36 @@ class ResolucionPdfController extends Controller
         }
     }
 
-    // GET /resoluciones/{id}/pdf
-    public function descargar($id)
+    // GET /resoluciones/{id}/pdf            -> abre el PDF en el navegador (ver)
+    // GET /resoluciones/{id}/pdf?modo=descargar -> fuerza la descarga del archivo
+    // GET /resoluciones/{id}/pdf            -> abre el PDF en el navegador
+// GET /resoluciones/{id}/pdf?modo=descargar -> fuerza la descarga
+    public function descargar(Request $request, $id)
     {
         $pdf = ResolucionPdf::select(
             'ID_RESOLUCION',
             'NOMBRE_ARCHIVO',
-            'ARCHIVO_PDF'
+            'RUTA_ARCHIVO'          // ← ya no pedimos ARCHIVO_PDF
         )->findOrFail($id);
 
-        $contenido = $pdf->ARCHIVO_PDF;
-
-        // SQL Server puede devolver stream o string
-        if (is_resource($contenido)) {
-            $contenido = stream_get_contents($contenido);
+        // Verificar que el archivo exista en storage
+        if (!\Storage::disk('public')->exists($pdf->RUTA_ARCHIVO)) {
+            return response()->json([
+                'ok' => false,
+                'error' => 'Archivo no encontrado en storage'
+            ], 404);
         }
+
+        $contenido = \Storage::disk('public')->get($pdf->RUTA_ARCHIVO);
+        $disposicion = $request->query('modo') === 'descargar' ? 'attachment' : 'inline';
 
         return response($contenido)
             ->header('Content-Type', 'application/pdf')
             ->header(
                 'Content-Disposition',
-                'inline; filename="' . $pdf->NOMBRE_ARCHIVO . '"'
+                $disposicion . '; filename="' . $pdf->NOMBRE_ARCHIVO . '"'
             );
     }
-
     // GET /resoluciones/por-numero?nro=RR-1/2026
     public function porNumero(Request $request)
     {

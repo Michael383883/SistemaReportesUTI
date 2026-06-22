@@ -9,6 +9,31 @@ use Illuminate\Support\Facades\DB;
 
 class ResolucionDetalleController extends Controller
 {
+    // GET /resoluciones/listado
+    // Lista las 10 resoluciones (PDF) más recientes, una fila por archivo.
+    // No se une con RESOLUCION_DETALLE: esa tabla puede tener varias filas
+    // por resolución (un docente/materia por fila) y eso duplicaba los
+    // resultados. Aquí solo nos interesa el archivo, no a quién está
+    // enlazado.
+    public function listado()
+    {
+        $listado = DB::table('RESOLUCIONES_PDF as rp')
+            ->select(
+                'rp.ID_RESOLUCION',
+                'rp.NRO_RESOLUCION',
+                'rp.DESCRIPCION',
+                'rp.ANIO',
+                'rp.PERIODO',
+                'rp.NOMBRE_ARCHIVO',
+                'rp.FECHA_SUBIDA'
+            )
+            ->orderBy('rp.FECHA_SUBIDA', 'desc')
+            ->limit(10)
+            ->get();
+
+        return response()->json($listado);
+    }
+
     // GET /resoluciones/{id}/detalles
     public function index($id_resolucion)
     {
@@ -100,7 +125,6 @@ class ResolucionDetalleController extends Controller
         ], 201);
     }
 
-    // PUT /resoluciones/{id}/aplicar
     // PUT /resoluciones/{id}/aplicar
     public function aplicarEnGrupos($id)
     {

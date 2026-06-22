@@ -9,7 +9,7 @@ return new class extends Migration {
 
     public function up(): void
     {
-        
+
         DB::statement('
             CREATE TABLE RESOLUCIONES_PDF (
                 ID_RESOLUCION  INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
@@ -17,7 +17,7 @@ return new class extends Migration {
                 DESCRIPCION    NVARCHAR(200)     NULL,
                 ANIO           INT               NOT NULL,
                 PERIODO        NVARCHAR(2)       NOT NULL,
-                ARCHIVO_PDF    VARBINARY(MAX)    NOT NULL,
+                RUTA_ARCHIVO   NVARCHAR(500)     NOT NULL,   -- ← reemplaza ARCHIVO_PDF VARBINARY
                 NOMBRE_ARCHIVO NVARCHAR(200)     NOT NULL,
                 TAMANIO_KB     INT               NULL,
                 FECHA_SUBIDA   DATETIME2         NOT NULL DEFAULT GETDATE(),

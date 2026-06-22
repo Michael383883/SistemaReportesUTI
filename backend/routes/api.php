@@ -18,7 +18,9 @@ use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\HorarioAdminController;
 
 use App\Http\Controllers\Api\MigracionController;
+use App\Http\Controllers\Api\DashboardAdminController;
 
+use App\Http\Controllers\Api\EstudianteInscritoController;
 
 // Auth (público)
 Route::prefix('auth')->group(function () {
@@ -40,12 +42,19 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
 
+
+
 });
 
 //dbconection
 Route::prefix('database')->group(function () {
     Route::get('status', [DatabaseController::class, 'status']);
     Route::post('migrate', [DatabaseController::class, 'migrate']);
+});
+
+//DASBOARD ADMIN 
+Route::prefix('admin/dashboard')->group(function () {
+    Route::get('/kpis', [DashboardAdminController::class, 'kpis']);
 });
 
 //
@@ -63,7 +72,12 @@ Route::post('/database/incremental-migrate', [DatabaseController::class, 'increm
 
 Route::get('/reporte-horario', [ReporteDocenteController::class, 'horario']);
 
+
+//
+Route::get('/resoluciones/listado', [ResolucionDetalleController::class, 'listado']);
 // Resoluciones
+
+
 Route::get('/resoluciones', [ResolucionPdfController::class, 'index']);
 Route::get('/resoluciones/por-numero', [ResolucionPdfController::class, 'porNumero']);
 Route::get('/resoluciones/{id}', [ResolucionPdfController::class, 'show']);
@@ -193,3 +207,6 @@ Route::prefix('admin/horarios')->group(function () {
 
 Route::post('database/migrate-all', [DatabaseController::class, 'migrateAll']);
 
+
+
+Route::get('/estudiantes-inscritos', [EstudianteInscritoController::class, 'index']);

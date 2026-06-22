@@ -15,7 +15,7 @@ class ResolucionPdf extends Model
         'DESCRIPCION',
         'ANIO',
         'PERIODO',
-        'ARCHIVO_PDF',
+        'RUTA_ARCHIVO',
         'NOMBRE_ARCHIVO',
         'TAMANIO_KB',
         'FECHA_SUBIDA',

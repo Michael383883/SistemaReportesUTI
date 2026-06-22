@@ -25,10 +25,10 @@ class DashboardTalleresController extends Controller
             return response()->json([
                 'success' => true,
                 'data' => [
-                    'estudiantes'  => $this->getEstudiantesKPIs($gestion),
-                    'docentes'     => $this->getDocentesKPIs($gestion),
-                    'talleres'     => $this->getTalleresKPIs($gestion),
-                    'alertas'      => $this->getAlertas($gestion),
+                    'estudiantes' => $this->getEstudiantesKPIs($gestion),
+                    'docentes' => $this->getDocentesKPIs($gestion),
+                    'talleres' => $this->getTalleresKPIs($gestion),
+                    'alertas' => $this->getAlertas($gestion),
                 ]
             ]);
 
@@ -47,25 +47,25 @@ class DashboardTalleresController extends Controller
 
     private function getEstudiantesKPIs(array $gestion): array
     {
-        $anio    = $gestion['anio'];
+        $anio = $gestion['anio'];
         $periodo = $gestion['periodo'];
 
         // Total inscritos en talleres
         $total = DB::table('kardex_ext')
             ->join('grupos', function ($j) {
-                $j->on('grupos.anio',    '=', 'kardex_ext.anio')
-                  ->on('grupos.periodo', '=', 'kardex_ext.periodo')
-                  ->on('grupos.plan',    '=', 'kardex_ext.plan')
-                  ->on('grupos.materia', '=', 'kardex_ext.materia')
-                  ->on('grupos.grupo',   '=', 'kardex_ext.grupo');
+                $j->on('grupos.anio', '=', 'kardex_ext.anio')
+                    ->on('grupos.periodo', '=', 'kardex_ext.periodo')
+                    ->on('grupos.plan', '=', 'kardex_ext.plan')
+                    ->on('grupos.materia', '=', 'kardex_ext.materia')
+                    ->on('grupos.grupo', '=', 'kardex_ext.grupo');
             })
             ->join('materias', function ($j) {
-                $j->on('materias.anio',    '=', 'grupos.anio')
-                  ->on('materias.periodo', '=', 'grupos.periodo')
-                  ->on('materias.plan',    '=', 'grupos.plan')
-                  ->on('materias.codigo',  '=', 'grupos.materia');
+                $j->on('materias.anio', '=', 'grupos.anio')
+                    ->on('materias.periodo', '=', 'grupos.periodo')
+                    ->on('materias.plan', '=', 'grupos.plan')
+                    ->on('materias.codigo', '=', 'grupos.materia');
             })
-            ->where('kardex_ext.anio',    $anio)
+            ->where('kardex_ext.anio', $anio)
             ->where('kardex_ext.periodo', $periodo)
             ->whereNull('kardex_ext.cancelado')
             ->where('grupos.primario', 'Y')
@@ -78,19 +78,19 @@ class DashboardTalleresController extends Controller
         // Por taller (nombre materia → cantidad estudiantes)
         $porTaller = DB::table('kardex_ext')
             ->join('grupos', function ($j) {
-                $j->on('grupos.anio',    '=', 'kardex_ext.anio')
-                  ->on('grupos.periodo', '=', 'kardex_ext.periodo')
-                  ->on('grupos.plan',    '=', 'kardex_ext.plan')
-                  ->on('grupos.materia', '=', 'kardex_ext.materia')
-                  ->on('grupos.grupo',   '=', 'kardex_ext.grupo');
+                $j->on('grupos.anio', '=', 'kardex_ext.anio')
+                    ->on('grupos.periodo', '=', 'kardex_ext.periodo')
+                    ->on('grupos.plan', '=', 'kardex_ext.plan')
+                    ->on('grupos.materia', '=', 'kardex_ext.materia')
+                    ->on('grupos.grupo', '=', 'kardex_ext.grupo');
             })
             ->join('materias', function ($j) {
-                $j->on('materias.anio',    '=', 'grupos.anio')
-                  ->on('materias.periodo', '=', 'grupos.periodo')
-                  ->on('materias.plan',    '=', 'grupos.plan')
-                  ->on('materias.codigo',  '=', 'grupos.materia');
+                $j->on('materias.anio', '=', 'grupos.anio')
+                    ->on('materias.periodo', '=', 'grupos.periodo')
+                    ->on('materias.plan', '=', 'grupos.plan')
+                    ->on('materias.codigo', '=', 'grupos.materia');
             })
-            ->where('kardex_ext.anio',    $anio)
+            ->where('kardex_ext.anio', $anio)
             ->where('kardex_ext.periodo', $periodo)
             ->whereNull('kardex_ext.cancelado')
             ->where('grupos.primario', 'Y')
@@ -107,19 +107,19 @@ class DashboardTalleresController extends Controller
         $coloresNivel = ['#6366f1', '#8b5cf6', '#a78bfa', '#c4b5fd'];
         $porNivel = DB::table('kardex_ext')
             ->join('grupos', function ($j) {
-                $j->on('grupos.anio',    '=', 'kardex_ext.anio')
-                  ->on('grupos.periodo', '=', 'kardex_ext.periodo')
-                  ->on('grupos.plan',    '=', 'kardex_ext.plan')
-                  ->on('grupos.materia', '=', 'kardex_ext.materia')
-                  ->on('grupos.grupo',   '=', 'kardex_ext.grupo');
+                $j->on('grupos.anio', '=', 'kardex_ext.anio')
+                    ->on('grupos.periodo', '=', 'kardex_ext.periodo')
+                    ->on('grupos.plan', '=', 'kardex_ext.plan')
+                    ->on('grupos.materia', '=', 'kardex_ext.materia')
+                    ->on('grupos.grupo', '=', 'kardex_ext.grupo');
             })
             ->join('materias', function ($j) {
-                $j->on('materias.anio',    '=', 'grupos.anio')
-                  ->on('materias.periodo', '=', 'grupos.periodo')
-                  ->on('materias.plan',    '=', 'grupos.plan')
-                  ->on('materias.codigo',  '=', 'grupos.materia');
+                $j->on('materias.anio', '=', 'grupos.anio')
+                    ->on('materias.periodo', '=', 'grupos.periodo')
+                    ->on('materias.plan', '=', 'grupos.plan')
+                    ->on('materias.codigo', '=', 'grupos.materia');
             })
-            ->where('kardex_ext.anio',    $anio)
+            ->where('kardex_ext.anio', $anio)
             ->where('kardex_ext.periodo', $periodo)
             ->whereNull('kardex_ext.cancelado')
             ->where('grupos.primario', 'Y')
@@ -133,9 +133,9 @@ class DashboardTalleresController extends Controller
             ->values()
             ->map(function ($r, $i) use ($coloresNivel) {
                 return [
-                    'nivel'    => 'Nivel ' . $r->nivel,
+                    'nivel' => 'Nivel ' . $r->nivel,
                     'cantidad' => (int) $r->cantidad,
-                    'color'    => $coloresNivel[$i % count($coloresNivel)],
+                    'color' => $coloresNivel[$i % count($coloresNivel)],
                 ];
             });
 
@@ -143,19 +143,19 @@ class DashboardTalleresController extends Controller
         $recientes = DB::table('kardex_ext')
             ->join('biograficos', 'biograficos.codigo', '=', 'kardex_ext.estudiante')
             ->join('grupos', function ($j) {
-                $j->on('grupos.anio',    '=', 'kardex_ext.anio')
-                  ->on('grupos.periodo', '=', 'kardex_ext.periodo')
-                  ->on('grupos.plan',    '=', 'kardex_ext.plan')
-                  ->on('grupos.materia', '=', 'kardex_ext.materia')
-                  ->on('grupos.grupo',   '=', 'kardex_ext.grupo');
+                $j->on('grupos.anio', '=', 'kardex_ext.anio')
+                    ->on('grupos.periodo', '=', 'kardex_ext.periodo')
+                    ->on('grupos.plan', '=', 'kardex_ext.plan')
+                    ->on('grupos.materia', '=', 'kardex_ext.materia')
+                    ->on('grupos.grupo', '=', 'kardex_ext.grupo');
             })
             ->join('materias', function ($j) {
-                $j->on('materias.anio',    '=', 'grupos.anio')
-                  ->on('materias.periodo', '=', 'grupos.periodo')
-                  ->on('materias.plan',    '=', 'grupos.plan')
-                  ->on('materias.codigo',  '=', 'grupos.materia');
+                $j->on('materias.anio', '=', 'grupos.anio')
+                    ->on('materias.periodo', '=', 'grupos.periodo')
+                    ->on('materias.plan', '=', 'grupos.plan')
+                    ->on('materias.codigo', '=', 'grupos.materia');
             })
-            ->where('kardex_ext.anio',    $anio)
+            ->where('kardex_ext.anio', $anio)
             ->where('kardex_ext.periodo', $periodo)
             ->whereNull('kardex_ext.cancelado')
             ->where('grupos.primario', 'Y')
@@ -176,15 +176,15 @@ class DashboardTalleresController extends Controller
                 'codigo' => $r->codigo,
                 'nombre' => $r->nombre,
                 'taller' => $r->taller,
-                'nivel'  => $r->nivel,
-                'fecha'  => $r->fecha ? substr($r->fecha, 0, 10) : date('Y-m-d'),
+                'nivel' => $r->nivel,
+                'fecha' => $r->fecha ? substr($r->fecha, 0, 10) : date('Y-m-d'),
             ]);
 
         return [
-            'total'     => $total,
+            'total' => $total,
             'inscritos' => $total,
             'porTaller' => $porTaller,
-            'porNivel'  => $porNivel,
+            'porNivel' => $porNivel,
             'recientes' => $recientes,
         ];
     }
@@ -195,19 +195,19 @@ class DashboardTalleresController extends Controller
 
     private function getDocentesKPIs(array $gestion): array
     {
-        $anio    = $gestion['anio'];
+        $anio = $gestion['anio'];
         $periodo = $gestion['periodo'];
 
         // Base: docentes que dictan talleres en este período
         $docentes = DB::table('grupos')
             ->join('docentes', 'docentes.codigo', '=', 'grupos.docente')
             ->join('materias', function ($j) {
-                $j->on('materias.anio',    '=', 'grupos.anio')
-                  ->on('materias.periodo', '=', 'grupos.periodo')
-                  ->on('materias.plan',    '=', 'grupos.plan')
-                  ->on('materias.codigo',  '=', 'grupos.materia');
+                $j->on('materias.anio', '=', 'grupos.anio')
+                    ->on('materias.periodo', '=', 'grupos.periodo')
+                    ->on('materias.plan', '=', 'grupos.plan')
+                    ->on('materias.codigo', '=', 'grupos.materia');
             })
-            ->where('grupos.anio',    $anio)
+            ->where('grupos.anio', $anio)
             ->where('grupos.periodo', $periodo)
             ->where('grupos.primario', 'Y')
             ->where('grupos.tipo', 'N')
@@ -220,9 +220,9 @@ class DashboardTalleresController extends Controller
             )
             ->get();
 
-        $total         = $docentes->unique('codigo')->count();
-        $activos       = $docentes->where('horas', '>', 0)->unique('codigo')->count();
-        $sinCarga      = $total - $activos;
+        $total = $docentes->unique('codigo')->count();
+        $activos = $docentes->where('horas', '>', 0)->unique('codigo')->count();
+        $sinCarga = $total - $activos;
         $horasPromedio = $total > 0
             ? round($docentes->unique('codigo')->avg('horas'), 1)
             : 0;
@@ -231,12 +231,12 @@ class DashboardTalleresController extends Controller
         $porTaller = DB::table('grupos')
             ->join('docentes', 'docentes.codigo', '=', 'grupos.docente')
             ->join('materias', function ($j) {
-                $j->on('materias.anio',    '=', 'grupos.anio')
-                  ->on('materias.periodo', '=', 'grupos.periodo')
-                  ->on('materias.plan',    '=', 'grupos.plan')
-                  ->on('materias.codigo',  '=', 'grupos.materia');
+                $j->on('materias.anio', '=', 'grupos.anio')
+                    ->on('materias.periodo', '=', 'grupos.periodo')
+                    ->on('materias.plan', '=', 'grupos.plan')
+                    ->on('materias.codigo', '=', 'grupos.materia');
             })
-            ->where('grupos.anio',    $anio)
+            ->where('grupos.anio', $anio)
             ->where('grupos.periodo', $periodo)
             ->where('grupos.primario', 'Y')
             ->where('grupos.tipo', 'N')
@@ -250,15 +250,15 @@ class DashboardTalleresController extends Controller
             ->orderBy('materias.nombre')
             ->get()
             ->map(fn($r) => [
-                'taller'  => $r->taller,
+                'taller' => $r->taller,
                 'docente' => $r->docente,
-                'horas'   => (int) $r->horas,
+                'horas' => (int) $r->horas,
             ]);
 
         // Distribución de carga horaria
         $cargaHoraria = [
-            ['rango' => '0h',     'cantidad' => $sinCarga, 'color' => '#ef4444'],
-            ['rango' => '1-10h',  'cantidad' => $docentes->where('horas', '>=', 1)->where('horas', '<=', 10)->unique('codigo')->count(), 'color' => '#f59e0b'],
+            ['rango' => '0h', 'cantidad' => $sinCarga, 'color' => '#ef4444'],
+            ['rango' => '1-10h', 'cantidad' => $docentes->where('horas', '>=', 1)->where('horas', '<=', 10)->unique('codigo')->count(), 'color' => '#f59e0b'],
             ['rango' => '11-20h', 'cantidad' => $docentes->where('horas', '>=', 11)->where('horas', '<=', 20)->unique('codigo')->count(), 'color' => '#10b981'],
             ['rango' => '21-30h', 'cantidad' => $docentes->where('horas', '>=', 21)->where('horas', '<=', 30)->unique('codigo')->count(), 'color' => '#0d9488'],
         ];
@@ -267,12 +267,12 @@ class DashboardTalleresController extends Controller
         $recientes = DB::table('grupos')
             ->join('docentes', 'docentes.codigo', '=', 'grupos.docente')
             ->join('materias', function ($j) {
-                $j->on('materias.anio',    '=', 'grupos.anio')
-                  ->on('materias.periodo', '=', 'grupos.periodo')
-                  ->on('materias.plan',    '=', 'grupos.plan')
-                  ->on('materias.codigo',  '=', 'grupos.materia');
+                $j->on('materias.anio', '=', 'grupos.anio')
+                    ->on('materias.periodo', '=', 'grupos.periodo')
+                    ->on('materias.plan', '=', 'grupos.plan')
+                    ->on('materias.codigo', '=', 'grupos.materia');
             })
-            ->where('grupos.anio',    $anio)
+            ->where('grupos.anio', $anio)
             ->where('grupos.periodo', $periodo)
             ->where('grupos.primario', 'Y')
             ->where('grupos.tipo', 'N')
@@ -291,20 +291,20 @@ class DashboardTalleresController extends Controller
             ->map(fn($r) => [
                 'codigo' => $r->codigo,
                 'nombre' => $r->nombre,
-                'grado'  => $r->grado,
+                'grado' => $r->grado,
                 'taller' => $r->taller,
-                'horas'  => (int) $r->horas,
-                'fecha'  => $r->fecha ? substr($r->fecha, 0, 10) : date('Y-m-d'),
+                'horas' => (int) $r->horas,
+                'fecha' => $r->fecha ? substr($r->fecha, 0, 10) : date('Y-m-d'),
             ]);
 
         return [
-            'total'        => $total,
-            'activos'      => $activos,
-            'sinCarga'     => $sinCarga,
+            'total' => $total,
+            'activos' => $activos,
+            'sinCarga' => $sinCarga,
             'horasPromedio' => $horasPromedio,
-            'porTaller'    => $porTaller,
+            'porTaller' => $porTaller,
             'cargaHoraria' => $cargaHoraria,
-            'recientes'    => $recientes,
+            'recientes' => $recientes,
         ];
     }
 
@@ -314,11 +314,11 @@ class DashboardTalleresController extends Controller
 
     private function getTalleresKPIs(array $gestion): array
     {
-        $anio    = $gestion['anio'];
+        $anio = $gestion['anio'];
         $periodo = $gestion['periodo'];
 
         $total = DB::table('materias')
-            ->where('anio',    $anio)
+            ->where('anio', $anio)
             ->where('periodo', $periodo)
             ->where(DB::raw('UPPER(nombre)'), 'LIKE', '%TALLER%')
             ->distinct('codigo')
@@ -327,9 +327,9 @@ class DashboardTalleresController extends Controller
         $porPlan = DB::table('materias')
             ->join('planes', function ($j) {
                 $j->on('planes.codigo', '=', 'materias.plan')
-                  ->on('planes.anio',   '=', 'materias.anio');
+                    ->on('planes.anio', '=', 'materias.anio');
             })
-            ->where('materias.anio',    $anio)
+            ->where('materias.anio', $anio)
             ->where('materias.periodo', $periodo)
             ->where(DB::raw('UPPER(materias.nombre)'), 'LIKE', '%TALLER%')
             ->select('materias.plan', DB::raw('COUNT(DISTINCT materias.codigo) as cantidad'))
@@ -337,12 +337,12 @@ class DashboardTalleresController extends Controller
             ->orderByDesc('cantidad')
             ->get()
             ->map(fn($r) => [
-                'plan'     => $r->plan,
+                'plan' => $r->plan,
                 'cantidad' => (int) $r->cantidad,
             ]);
 
         return [
-            'total'   => $total,
+            'total' => $total,
             'activos' => $total,
             'porPlan' => $porPlan,
         ];
@@ -355,16 +355,16 @@ class DashboardTalleresController extends Controller
     private function getAlertas(array $gestion): array
     {
         $alertas = [];
-        $id      = 1;
+        $id = 1;
 
         // Docentes sin carga en talleres
         $docentesKPIs = $this->getDocentesKPIs($gestion);
         if ($docentesKPIs['sinCarga'] > 0) {
             $alertas[] = [
-                'id'      => $id++,
-                'tipo'    => 'warning',
+                'id' => $id++,
+                'tipo' => 'warning',
                 'mensaje' => "{$docentesKPIs['sinCarga']} docentes sin carga horaria asignada en talleres",
-                'accion'  => '/secretaria-talleres/docentes?estado=sin-carga',
+                'accion' => '/secretaria-talleres/docentes?estado=sin-carga',
             ];
         }
 
@@ -372,12 +372,12 @@ class DashboardTalleresController extends Controller
         $talleresSinEst = DB::table('materias')
             ->leftJoin('kardex_ext', function ($j) use ($gestion) {
                 $j->on('kardex_ext.materia', '=', 'materias.codigo')
-                  ->on('kardex_ext.anio',    '=', 'materias.anio')
-                  ->on('kardex_ext.periodo', '=', 'materias.periodo')
-                  ->on('kardex_ext.plan',    '=', 'materias.plan')
-                  ->whereNull('kardex_ext.cancelado');
+                    ->on('kardex_ext.anio', '=', 'materias.anio')
+                    ->on('kardex_ext.periodo', '=', 'materias.periodo')
+                    ->on('kardex_ext.plan', '=', 'materias.plan')
+                    ->whereNull('kardex_ext.cancelado');
             })
-            ->where('materias.anio',    $gestion['anio'])
+            ->where('materias.anio', $gestion['anio'])
             ->where('materias.periodo', $gestion['periodo'])
             ->where(DB::raw('UPPER(materias.nombre)'), 'LIKE', '%TALLER%')
             ->select('materias.codigo', DB::raw('COUNT(kardex_ext.estudiante) as total_est'))
@@ -387,19 +387,19 @@ class DashboardTalleresController extends Controller
 
         if ($talleresSinEst > 0) {
             $alertas[] = [
-                'id'      => $id++,
-                'tipo'    => 'warning',
+                'id' => $id++,
+                'tipo' => 'warning',
                 'mensaje' => "{$talleresSinEst} talleres sin estudiantes inscritos este período",
-                'accion'  => '/secretaria-talleres/talleres',
+                'accion' => '/secretaria-talleres/talleres',
             ];
         }
 
         // Info: período actual
         $alertas[] = [
-            'id'      => $id++,
-            'tipo'    => 'info',
+            'id' => $id++,
+            'tipo' => 'info',
             'mensaje' => "Período {$gestion['anio']}-{$gestion['periodo']} en curso",
-            'accion'  => null,
+            'accion' => null,
         ];
 
         return $alertas;
@@ -417,7 +417,7 @@ class DashboardTalleresController extends Controller
     {
         // Ejemplo: leer de tabla configuracion o usar valor fijo
         return [
-            'anio'    => '2026',
+            'anio' => '2026',
             'periodo' => '1',
         ];
     }
