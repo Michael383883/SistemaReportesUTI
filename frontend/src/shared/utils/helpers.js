@@ -1,3 +1,4 @@
+//shared/utils/helpers.js
 export const ROLES = {
   admin: { label: 'Administrador', badgeClass: 'text-indigo-300' },
   secretaria: { label: 'Secretaría', badgeClass: 'text-amber-300' },

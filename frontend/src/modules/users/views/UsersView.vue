@@ -70,7 +70,7 @@
             >
               <td class="px-4 py-3 text-slate-200 font-medium">{{ u.name }}</td>
               <td class="px-4 py-3 text-slate-400">{{ u.email }}</td>
-              
+              <td class="px-4 py-3 text-slate-400">{{ getRoleLabel(u.role) }}</td>
               <td class="px-4 py-3">
                 <span
                   class="px-2 py-0.5 rounded text-[0.68rem] font-semibold"
