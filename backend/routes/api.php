@@ -138,12 +138,12 @@ Route::get('/estudiantes/{codigo}/contacto', [TallerEstudiantesController::class
     ->name('estudiantes.contacto');
 
 
-Route::prefix('secretaria-talleres')->group(function () {
+// Route::prefix('secretaria-talleres')->group(function () {
 
-    // Dashboard KPIs
-    Route::get('/dashboard/kpis', [DashboardTalleresController::class, 'kpis']);
+//     // Dashboard KPIs
+//     Route::get('/dashboard/kpis', [DashboardTalleresController::class, 'kpis']);
 
-});
+// });
 
 
 
