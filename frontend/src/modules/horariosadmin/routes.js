@@ -22,7 +22,7 @@ export const reporteHorarioRoutesadmin = [
     {
         path: 'reporte-horario-resumen-dos',
         name: 'reporte-horario-resumen-dos',
-        component: () => import('./views/HorarioResumenDosView.vue'),
+        component: () => import('./views/Horarioresumendosview.vue'),
         meta: {
             requiresAuth: true,
             roles: ['admin'],
