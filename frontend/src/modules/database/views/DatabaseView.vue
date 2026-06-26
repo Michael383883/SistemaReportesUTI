@@ -36,57 +36,26 @@
                  focus-visible:ring-1 focus-visible:ring-slate-400 rounded
                  disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
+          <RefreshCw
             class="w-3.5 h-3.5 transition-transform"
             :class="loadingStatus ? 'animate-spin' : ''"
-            fill="none" viewBox="0 0 24 24" stroke="currentColor"
             aria-hidden="true"
-          >
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-              d="M4 4v5h.582m15.356 2A8.001 8.001 0
-                 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003
-                 8.003 0 01-15.357-2m15.357 2H15" />
-          </svg>
+          />
           Actualizar
         </button>
       </div>
 
-      <!-- Grid 2 columnas en sm+ -->
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
 
-        <!-- SQL Server 2022 -->
+        <!-- SQL Server 2008 — origen -->
         <div class="flex flex-col gap-3 bg-slate-900/50 border border-slate-700/60 rounded-lg p-4">
           <div class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-lg flex items-center justify-center
-                        font-extrabold text-xs shrink-0 bg-blue-500/15 text-blue-300">
-              22
-            </div>
-            <div class="flex flex-col flex-1 min-w-0">
-              <strong class="text-[13px] text-slate-200 font-medium">SQL Server 2022</strong>
-              <small class="text-[11px] text-slate-500 font-mono truncate">
-                {{ status.sqlserver_2022.host }} · {{ status.sqlserver_2022.database }}
-              </small>
-            </div>
-          </div>
-          <span
-            class="self-start inline-flex items-center gap-1.5 px-3 py-1
-                   rounded-full text-[11px] font-semibold"
-            :class="status.sqlserver_2022.connected
-              ? 'bg-emerald-500/15 text-emerald-400'
-              : 'bg-red-500/15 text-red-400'"
-          >
-            <i class="inline-block w-1.5 h-1.5 rounded-full bg-current" aria-hidden="true" />
-            {{ status.sqlserver_2022.connected ? 'Conectado' : 'Sin conexión' }}
-          </span>
-        </div>
-
-        <!-- SQL Server 2008 -->
-        <div class="flex flex-col gap-3 bg-slate-900/50 border border-slate-700/60 rounded-lg p-4">
-          <div class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-lg flex items-center justify-center
-                        font-extrabold text-xs shrink-0 bg-pink-500/15 text-pink-300">
-              08
+            <!-- Icono DB + versión -->
+            <div class="w-11 h-11 rounded-lg flex flex-col items-center justify-center gap-0.5
+                        shrink-0 bg-pink-500/15 text-pink-300"
+                 aria-hidden="true">
+              <Database class="w-4 h-4" />
+              <span class="text-[9px] font-bold leading-none tracking-tight">2008</span>
             </div>
             <div class="flex flex-col flex-1 min-w-0">
               <strong class="text-[13px] text-slate-200 font-medium">SQL Server 2008</strong>
@@ -104,6 +73,35 @@
           >
             <i class="inline-block w-1.5 h-1.5 rounded-full bg-current" aria-hidden="true" />
             {{ status.sqlserver_2008.connected ? 'Conectado' : 'Sin conexión' }}
+          </span>
+        </div>
+
+        <!-- SQL Server 2022 — destino -->
+        <div class="flex flex-col gap-3 bg-slate-900/50 border border-slate-700/60 rounded-lg p-4">
+          <div class="flex items-center gap-3">
+            <!-- Icono DB + versión -->
+            <div class="w-11 h-11 rounded-lg flex flex-col items-center justify-center gap-0.5
+                        shrink-0 bg-blue-500/15 text-blue-300"
+                 aria-hidden="true">
+              <Database class="w-4 h-4" />
+              <span class="text-[9px] font-bold leading-none tracking-tight">2022</span>
+            </div>
+            <div class="flex flex-col flex-1 min-w-0">
+              <strong class="text-[13px] text-slate-200 font-medium">SQL Server 2022</strong>
+              <small class="text-[11px] text-slate-500 font-mono truncate">
+                {{ status.sqlserver_2022.host }} · {{ status.sqlserver_2022.database }}
+              </small>
+            </div>
+          </div>
+          <span
+            class="self-start inline-flex items-center gap-1.5 px-3 py-1
+                   rounded-full text-[11px] font-semibold"
+            :class="status.sqlserver_2022.connected
+              ? 'bg-emerald-500/15 text-emerald-400'
+              : 'bg-red-500/15 text-red-400'"
+          >
+            <i class="inline-block w-1.5 h-1.5 rounded-full bg-current" aria-hidden="true" />
+            {{ status.sqlserver_2022.connected ? 'Conectado' : 'Sin conexión' }}
           </span>
         </div>
 
@@ -136,7 +134,7 @@
                  bg-amber-500/10 border border-amber-500/20
                  text-amber-400 text-[12px]"
         >
-          <span class="shrink-0" aria-hidden="true">⚠</span>
+          <AlertTriangle class="w-4 h-4 shrink-0" aria-hidden="true" />
           <p class="m-0 leading-relaxed">
             <template v-if="!status.sqlserver_2008.connected && !status.sqlserver_2022.connected">
               Ninguna base de datos tiene conexión activa.
@@ -160,16 +158,22 @@
 
       <!-- Flujo visual: grid 3 columnas -->
       <div class="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
-        <div class="flex flex-col gap-1 bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-3">
+        <div class="flex flex-col gap-1.5 bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-3">
           <span class="text-[10px] text-slate-500 uppercase tracking-widest font-semibold">Origen</span>
-          <span class="text-[13px] font-medium text-slate-300">🗄 SQL Server 2008</span>
+          <span class="flex items-center gap-2 text-[13px] font-medium text-slate-300">
+            <Database class="w-4 h-4 text-pink-400 shrink-0" aria-hidden="true" />
+            SQL Server 2008
+          </span>
         </div>
 
-        <span class="text-slate-500 text-lg text-center leading-none" aria-hidden="true">→</span>
+        <ArrowRight class="w-4 h-4 text-slate-500 shrink-0" aria-hidden="true" />
 
-        <div class="flex flex-col gap-1 bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-3">
+        <div class="flex flex-col gap-1.5 bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-3">
           <span class="text-[10px] text-slate-500 uppercase tracking-widest font-semibold">Destino</span>
-          <span class="text-[13px] font-medium text-slate-300">🗄 SQL Server 2022</span>
+          <span class="flex items-center gap-2 text-[13px] font-medium text-slate-300">
+            <Database class="w-4 h-4 text-blue-400 shrink-0" aria-hidden="true" />
+            SQL Server 2022
+          </span>
         </div>
       </div>
 
@@ -196,7 +200,7 @@
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
           <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
         </svg>
-        <span v-else aria-hidden="true">↩</span>
+        <ArrowRight v-else class="w-4 h-4 shrink-0" aria-hidden="true" />
         {{ migrating ? 'Migrando datos...' : 'Migrar SQL Server 2008 → SQL Server 2022' }}
       </button>
 
@@ -218,8 +222,9 @@
           class="flex flex-col gap-2 p-4 rounded-lg
                  bg-emerald-500/10 border border-emerald-500/20 text-[13px]"
         >
-          <p class="font-medium m-0 text-emerald-400">
-            ✓ Migración completada —
+          <p class="font-medium m-0 text-emerald-400 flex items-center gap-2">
+            <CheckCircle2 class="w-4 h-4 shrink-0" aria-hidden="true" />
+            Migración completada —
             {{ migrationResult.resumen.exitosas }}/{{ migrationResult.resumen.total }} tablas migradas
           </p>
           <ul class="flex flex-col gap-1 mt-1 list-none p-0 m-0">
@@ -229,7 +234,8 @@
               class="flex items-center gap-2 text-[11px]"
               :class="item.success ? 'text-emerald-400' : 'text-red-400'"
             >
-              <span aria-hidden="true">{{ item.success ? '✓' : '✗' }}</span>
+              <CheckCircle2 v-if="item.success" class="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+              <XCircle      v-else              class="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
               <span class="font-mono font-semibold">{{ item.tabla }}</span>
               <span class="text-slate-500">— {{ item.message }}</span>
             </li>
@@ -248,10 +254,11 @@
           v-if="migrationError"
           role="alert"
           aria-live="assertive"
-          class="p-3 rounded-lg bg-red-500/10 border border-red-500/20
+          class="flex items-center gap-2 p-3 rounded-lg bg-red-500/10 border border-red-500/20
                  text-red-400 text-[12px]"
         >
-          <span aria-hidden="true">✗</span> {{ migrationError }}
+          <XCircle class="w-4 h-4 shrink-0" aria-hidden="true" />
+          <span>{{ migrationError }}</span>
         </div>
       </transition>
 
@@ -261,6 +268,14 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import {
+  Database,
+  AlertTriangle,
+  ArrowRight,
+  CheckCircle2,
+  XCircle,
+  RefreshCw,
+} from 'lucide-vue-next'
 import { databaseService } from '../services/databaseService'
 
 // ── Estado inicial ────────────────────────────────────────────────────────────
