@@ -17,13 +17,21 @@
     <div v-if="fase === 'resultado'" class="space-y-5">
       <div class="rounded-xl border border-slate-700 bg-slate-800 overflow-hidden">
         <div class="px-6 py-4 border-b border-slate-700 flex items-center gap-3">
-          <div class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-emerald-500/15">
-            <svg class="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+          <div
+            class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
+            :class="gruposActualizados.length > 0 ? 'bg-emerald-500/15' : 'bg-amber-500/15'"
+          >
+            <svg v-if="gruposActualizados.length > 0" class="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
               <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+            </svg>
+            <svg v-else class="w-4 h-4 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
             </svg>
           </div>
           <div>
-            <h2 class="text-sm font-medium text-slate-100 m-0">Resolución asignada y aplicada en grupos</h2>
+            <h2 class="text-sm font-medium text-slate-100 m-0">
+              {{ gruposActualizados.length > 0 ? 'Resolución asignada y aplicada en grupos' : 'Resolución asignada, pero no se aplicó en grupos' }}
+            </h2>
             <p class="text-xs text-slate-400 m-0 mt-0.5">
               {{ ultimasAsignadas.length }} materia{{ ultimasAsignadas.length !== 1 ? 's' : '' }} vinculada{{ ultimasAsignadas.length !== 1 ? 's' : '' }} a {{ resolucionAsignadaNro }}
               · {{ gruposActualizados.length }} registro{{ gruposActualizados.length !== 1 ? 's' : '' }} actualizados en grupos
@@ -51,6 +59,7 @@
                   <th class="px-4 py-2.5 text-left text-[0.68rem] font-semibold tracking-widest uppercase text-slate-400">Grupo</th>
                   <th class="px-4 py-2.5 text-left text-[0.68rem] font-semibold tracking-widest uppercase text-slate-400">Docente</th>
                   <th class="px-4 py-2.5 text-left text-[0.68rem] font-semibold tracking-widest uppercase text-slate-400">Tipo</th>
+                  <th class="px-4 py-2.5 text-left text-[0.68rem] font-semibold tracking-widest uppercase text-slate-400">Tipo de ingreso</th>
                   <th class="px-4 py-2.5 text-left text-[0.68rem] font-semibold tracking-widest uppercase text-slate-400">Resolución</th>
                   <th class="px-4 py-2.5 text-left text-[0.68rem] font-semibold tracking-widest uppercase text-slate-400">Designación</th>
                 </tr>
@@ -64,6 +73,7 @@
                   <td class="px-4 py-2.5 text-slate-400">{{ g.grupo }}</td>
                   <td class="px-4 py-2.5 text-slate-300 font-mono">{{ g.docente }}</td>
                   <td class="px-4 py-2.5 text-slate-400">{{ g.tipo }}</td>
+                  <td class="px-4 py-2.5 text-sky-400">{{ g.tipoIngreso || '—' }}</td>
                   <td class="px-4 py-2.5 text-amber-400 font-medium">{{ g.resolucion }}</td>
                   <td class="px-4 py-2.5 text-slate-400 max-w-xs truncate" :title="g.designacion">{{ g.designacion }}</td>
                 </tr>
@@ -71,11 +81,52 @@
             </table>
           </div>
 
-          <div v-else class="flex flex-col items-center gap-2 py-10 text-slate-500">
-            <svg class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-              <path d="M9 17v-2m3 2v-4m3 4v-6M3 3h18"/>
-            </svg>
-            <p class="text-xs">No se encontraron grupos coincidentes para actualizar.</p>
+          <div v-else class="px-6 py-6">
+            <div class="flex items-start gap-3 px-4 py-3.5 rounded-lg bg-amber-500/10 border border-amber-500/20">
+              <svg class="w-5 h-5 text-amber-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+              </svg>
+              <div>
+                <p class="text-xs font-semibold text-amber-300 m-0">
+                  La resolución se guardó, pero no se actualizó ningún registro en grupos
+                </p>
+                <p class="text-xs text-slate-400 m-0 mt-1 leading-relaxed">
+                  Las {{ ultimasAsignadas.length }} materia{{ ultimasAsignadas.length !== 1 ? 's' : '' }} qued{{ ultimasAsignadas.length !== 1 ? 'aron' : 'ó' }} vinculada{{ ultimasAsignadas.length !== 1 ? 's' : '' }} a
+                  <span class="font-medium text-slate-300">{{ resolucionAsignadaNro }}</span>, pero en la tabla de grupos no existe
+                  ningún registro con ese mismo año y periodo para esa combinación de docente, plan, materia y grupo.
+                  Esto suele pasar cuando la materia marcada corresponde a una gestión distinta a la de la resolución.
+                </p>
+              </div>
+            </div>
+
+            <!-- Detalle de lo que se intentó vincular, para que el usuario pueda revisar qué falló -->
+            <div v-if="ultimasAsignadas.length > 0" class="mt-4 overflow-x-auto rounded-lg border border-slate-700">
+              <table class="w-full text-xs">
+                <thead>
+                  <tr class="bg-slate-900/40 border-b border-slate-700">
+                    <th class="px-3 py-2 text-left text-[0.65rem] font-semibold tracking-widest uppercase text-slate-500">Docente</th>
+                    <th class="px-3 py-2 text-left text-[0.65rem] font-semibold tracking-widest uppercase text-slate-500">Plan</th>
+                    <th class="px-3 py-2 text-left text-[0.65rem] font-semibold tracking-widest uppercase text-slate-500">Materia</th>
+                    <th class="px-3 py-2 text-left text-[0.65rem] font-semibold tracking-widest uppercase text-slate-500">Grupo</th>
+                    <th class="px-3 py-2 text-left text-[0.65rem] font-semibold tracking-widest uppercase text-slate-500">Gestión marcada</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-700/60">
+                  <tr v-for="(m, i) in ultimasAsignadas" :key="i">
+                    <td class="px-3 py-2 text-slate-300 font-mono">{{ m.cod_docente }}</td>
+                    <td class="px-3 py-2 text-slate-400 font-mono">{{ m.cod_plan }}</td>
+                    <td class="px-3 py-2 text-slate-400 font-mono">{{ m.cod_materia }}</td>
+                    <td class="px-3 py-2 text-slate-400">{{ m.grupo ?? '—' }}</td>
+                    <td class="px-3 py-2 text-red-400 font-medium">{{ m.gestion ?? '—' }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <p class="text-[0.68rem] text-slate-500 mt-3 mb-0">
+              Revisá en la tabla de grupos si existe un registro para este docente/materia/grupo con el mismo año y periodo que la resolución
+              ({{ resolucionAnioPeriodoLabel }}). Si la materia corresponde a otra gestión, puede que necesites otra resolución o corregir el dato en grupos.
+            </p>
           </div>
         </div>
 
@@ -145,6 +196,18 @@
 
           <!-- Filtros por año y gestión -->
           <div class="flex items-center gap-2">
+            <span
+              v-if="resolucionActiva && (filtroAnio || filtroGestion)"
+              class="text-[0.65rem] text-amber-400/80 flex items-center gap-1"
+              title="Filtro aplicado automáticamente según el periodo de la resolución seleccionada"
+            >
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+              </svg>
+              según resolución
+            </span>
+
             <select
               v-model="filtroAnio"
               class="bg-slate-800 border border-slate-700 text-slate-300 text-xs rounded-lg px-2.5 py-1.5
@@ -215,7 +278,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import DocenteSearch from '../../docentes/components/DocenteSearch.vue'
 import { useDocentes } from '../../docentes/composables/useDocentes'
 import { useReporte } from '../../reportes/composables/useReporte'
@@ -333,22 +396,87 @@ const materiasFiltradas = computed(() => {
   })
 })
 
+// ─── Auto-filtro por año/periodo de la resolución activa ─────────
+// Cuando se elige una resolución, si tiene anio/periodo definidos y
+// alguno de esos valores existe entre las opciones disponibles del
+// docente actual, se preseleccionan los filtros automáticamente.
+// Es solo un valor por defecto: el usuario puede cambiarlo después.
+watch(resolucionActiva, (nueva) => {
+  if (!nueva) return
+
+  const anioResolucion = String(nueva.anio ?? '').trim()
+  const periodoResolucion = String(nueva.periodo ?? '').trim()
+
+  if (anioResolucion && aniosDisponibles.value.includes(anioResolucion)) {
+    filtroAnio.value = anioResolucion
+  }
+  if (periodoResolucion && gestionesDisponibles.value.includes(periodoResolucion)) {
+    filtroGestion.value = periodoResolucion
+  }
+})
+
+// También se aplica si el docente se selecciona/cambia después de
+// ya haber elegido la resolución (el orden de los pasos es libre).
+watch(materiasDelReporte, () => {
+  if (!resolucionActiva.value) return
+
+  const anioResolucion = String(resolucionActiva.value.anio ?? '').trim()
+  const periodoResolucion = String(resolucionActiva.value.periodo ?? '').trim()
+
+  if (anioResolucion && aniosDisponibles.value.includes(anioResolucion) && !filtroAnio.value) {
+    filtroAnio.value = anioResolucion
+  }
+  if (periodoResolucion && gestionesDisponibles.value.includes(periodoResolucion) && !filtroGestion.value) {
+    filtroGestion.value = periodoResolucion
+  }
+})
+
 // ─── Fase final ────────────────────────────────────────────────────
 const fase = ref('formulario') // 'formulario' | 'resultado'
 const ultimasAsignadas = ref([])
 const resolucionAsignadaNro = ref('')
+const resolucionAsignadaAnio = ref('')
+const resolucionAsignadaPeriodo = ref('')
 const gruposActualizados = ref([])
+
+const resolucionAnioPeriodoLabel = computed(() => {
+  if (!resolucionAsignadaAnio.value && !resolucionAsignadaPeriodo.value) return '—'
+  return `${resolucionAsignadaAnio.value || '—'} / ${resolucionAsignadaPeriodo.value || '—'}`
+})
+
+// El controller aplicarEnGrupos usa DB::select() crudo (sin pasar por
+// mapKeys/toCamel), así que la respuesta viene con las columnas tal
+// cual están en SQL Server: ANIO, PERIODO, PLAN, MATERIA, GRUPO,
+// DOCENTE, TIPO, RESOLUCION, DESIGNACION (todo en MAYÚSCULAS).
+// Normalizamos a minúsculas acá para que el template sea simple
+// y no dependa del casing exacto que devuelva el backend.
+function normalizarGrupo(g) {
+  return {
+    anio: g.anio ?? g.ANIO ?? '',
+    periodo: g.periodo ?? g.PERIODO ?? '',
+    plan: g.plan ?? g.PLAN ?? '',
+    materia: g.materia ?? g.MATERIA ?? '',
+    grupo: g.grupo ?? g.GRUPO ?? '',
+    docente: g.docente ?? g.DOCENTE ?? '',
+    tipo: g.tipo ?? g.TIPO ?? '',
+    tipoIngreso: g.tipoIngreso ?? g.tipo_ingreso ?? g.TIPO_INGRESO ?? '',
+    resolucion: g.resolucion ?? g.RESOLUCION ?? '',
+    designacion: g.designacion ?? g.DESIGNACION ?? '',
+  }
+}
 
 async function handleTerminar() {
   errorLocal.value = ''
   try {
     resolucionAsignadaNro.value = resolucionActiva.value?.nroResolucion ?? ''
+    resolucionAsignadaAnio.value = resolucionActiva.value?.anio ?? ''
+    resolucionAsignadaPeriodo.value = resolucionActiva.value?.periodo ?? ''
     ultimasAsignadas.value = [...materiasMarcadas.value]
 
     const { idResolucion } = await confirmarAsignacion()
     const resultado = await aplicarEnGrupos(idResolucion)
 
-    gruposActualizados.value = resultado?.grupos ?? []
+    gruposActualizados.value = (resultado?.grupos ?? []).map(normalizarGrupo)
 
     fase.value = 'resultado'
   } catch (e) {

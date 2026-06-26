@@ -1,3 +1,4 @@
+<!-- composables/ResolucionSearchPicker -->
 <template>
   <div class="relative rounded-xl border border-slate-700 bg-slate-800 overflow-hidden">
     <!-- Header -->

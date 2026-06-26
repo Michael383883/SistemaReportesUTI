@@ -6,6 +6,8 @@ import { useResolucion } from './useResolucion'
  *  1. Se elige una resolución (queda fija una vez hay materias marcadas).
  *  2. Se marcan materias del reporte de uno o varios docentes (click en check).
  *  3. Se guardan todas como detalles de esa resolución (guardarDetalles bulk).
+ *  4. Se aplica en grupos SOLO lo recién guardado (usando los ids_detalle
+ *     devueltos por guardarDetalles), no todo el historial de la resolución.
  *
  * Reutiliza useResolucion.js para el guardado real contra el backend.
  */
@@ -14,7 +16,7 @@ export function useAsignacionResolucion() {
         loading: guardando,
         error: errorGuardado,
         guardarDetalles,
-        aplicarEnGrupos,
+        aplicarEnGrupos: aplicarEnGruposBase,
     } = useResolucion()
 
     // ─── Resolución activa ──────────────────────────────────────────
@@ -91,6 +93,10 @@ export function useAsignacionResolucion() {
         resolucionActiva.value = null
     }
 
+    // Guarda los ID_DETALLE devueltos por el último guardarDetalles(),
+    // para que aplicarEnGrupos() sepa filtrar solo por lo recién insertado.
+    const ultimosIdsDetalle = ref([])
+
     async function confirmarAsignacion() {
         if (!resolucionActiva.value) throw new Error('Selecciona una resolución antes de continuar.')
         if (materiasMarcadas.value.length === 0) throw new Error('Marca al menos una materia para asignar.')
@@ -108,7 +114,19 @@ export function useAsignacionResolucion() {
         }))
 
         const resultado = await guardarDetalles(idResolucion, detalles)
-        return { idResolucion, resultado }
+
+        // El backend devuelve "ids_detalle": los IDs recién insertados.
+        // Los guardamos para que aplicarEnGrupos() filtre solo por ellos.
+        ultimosIdsDetalle.value = resultado?.ids_detalle ?? []
+
+        return { idResolucion, resultado, idsDetalle: ultimosIdsDetalle.value }
+    }
+
+    // Wrapper: siempre pasa los IDs de la última asignación, así el
+    // componente que llama no tiene que acordarse de hacerlo manualmente.
+    async function aplicarEnGrupos(idResolucion, idsDetalle = null) {
+        const ids = idsDetalle ?? ultimosIdsDetalle.value
+        return aplicarEnGruposBase(idResolucion, ids)
     }
 
     return {

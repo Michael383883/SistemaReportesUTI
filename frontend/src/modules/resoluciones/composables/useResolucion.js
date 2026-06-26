@@ -101,6 +101,13 @@ export function useResolucion() {
 
     // ─────────────────────────────────────────────────────────────
     // 2. POST /api/resoluciones/{id}/detalles/bulk
+    //
+    // El backend ahora devuelve también "ids_detalle": los ID_DETALLE
+    // recién insertados. Hay que conservarlos y pasarlos a
+    // aplicarEnGrupos() para que esa operación afecte solo lo que se
+    // acaba de guardar en ESTA sesión, no todo el historial de detalles
+    // que pueda tener acumulados la misma resolución de sesiones
+    // anteriores (otros docentes/materias asignados en otro momento).
     // ─────────────────────────────────────────────────────────────
     async function guardarDetalles(idResolucion, detalles) {
         loading.value = true
@@ -113,6 +120,7 @@ export function useResolucion() {
                 { headers: { ...authHeaders() } }
             )
 
+            // data.ids_detalle: array de IDs insertados en este request.
             return data
 
         } catch (e) {
@@ -163,15 +171,22 @@ export function useResolucion() {
 
     // ─────────────────────────────────────────────────────────────
     // 4. POST /api/resoluciones/{id}/aplicar-grupos
+    //
+    // idsDetalle (opcional pero MUY recomendado): array de ID_DETALLE
+    // recién insertados (lo que devuelve guardarDetalles().ids_detalle).
+    // Si se pasa, el backend solo aplica/reporta sobre esos detalles
+    // puntuales. Si se omite, cae al comportamiento antiguo (aplica
+    // sobre TODO el historial de la resolución) — solo por compatibilidad,
+    // no debería usarse así desde el flujo normal de asignación.
     // ─────────────────────────────────────────────────────────────
-    async function aplicarEnGrupos(idResolucion) {
+    async function aplicarEnGrupos(idResolucion, idsDetalle = []) {
         loading.value = true
         error.value = ''
 
         try {
             const { data } = await axios.post(
                 `${API_BASE}/api/resoluciones/${idResolucion}/aplicar-grupos`,
-                {},
+                { ids_detalle: idsDetalle },
                 { headers: { ...authHeaders() } }
             )
 
