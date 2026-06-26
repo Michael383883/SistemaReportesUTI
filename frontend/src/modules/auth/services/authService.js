@@ -4,21 +4,20 @@ export const authService = {
   async login(credentials) {
     const { data } = await api.post('/api/auth/login', credentials)
 
-    console.log('Respuesta completa del login:', data)
-    console.log('Token recibido:', data.token)
-
+    // El store es quien persiste el token — authService no debería duplicarlo.
+    // Se mantiene solo como fallback por si algún interceptor lo necesita antes
+    // de que el store haya terminado de procesar la respuesta.
     if (data.token) {
       localStorage.setItem('token', data.token)
-      localStorage.setItem('user', JSON.stringify(data.user))
     }
 
     return data
   },
 
   async logout() {
+    // FIX: NO borrar el token aquí — axios lo necesita en el header para
+    // que el backend acepte la request. El store limpia localStorage en _clearSession().
     await api.post('/api/auth/logout')
-    localStorage.removeItem('token')
-    localStorage.removeItem('user')
   },
 
   async me() {

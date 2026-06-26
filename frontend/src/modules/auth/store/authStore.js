@@ -3,17 +3,7 @@ import { ref, computed } from 'vue'
 import { authService } from '../services/authService'
 import router from '@/router'
 
-// ─── Clasificador de errores ──────────────────────────────────────────────────
-//
-// Jerarquía de diagnóstico:
-//   1. Sin respuesta      → servidor caído / CORS / sin red
-//   2. 401 / 403          → credenciales o sesión inválidas
-//   3. 422 / 400          → datos mal formados
-//   4. 5xx                → fallo interno del servidor
-//   5. Cualquier otro     → mensaje genérico o del backend
-
 function classifyAuthError(err) {
-    // Sin respuesta HTTP → el servidor no llegó a contestar
     if (!err.response) {
         if (err.code === 'ERR_NETWORK' || err.message === 'Network Error') {
             return 'No se puede conectar al servidor. Verifica que el servicio esté activo.'
@@ -35,8 +25,6 @@ function classifyAuthError(err) {
     return data?.message ?? 'Ocurrió un error inesperado.'
 }
 
-// ─── Store ────────────────────────────────────────────────────────────────────
-
 export const useAuthStore = defineStore('auth', () => {
     const user = ref(null)
     const token = ref(localStorage.getItem('token') ?? null)
@@ -49,35 +37,38 @@ export const useAuthStore = defineStore('auth', () => {
     const isSecretaria = computed(() => userRole.value === 'secretaria')
     const isUTI = computed(() => userRole.value === 'uti')
 
-    // ── Login ──────────────────────────────────────────────────────────────────
     async function login(credentials) {
         loading.value = true
         error.value = null
-
         try {
             const data = await authService.login(credentials)
             token.value = data.token
             user.value = data.user
             localStorage.setItem('token', data.token)
         } catch (err) {
-            error.value = classifyAuthError(err)   // ← mensaje preciso según el tipo de fallo
+            error.value = classifyAuthError(err)
             throw err
         } finally {
             loading.value = false
         }
     }
 
-    // ── Logout ─────────────────────────────────────────────────────────────────
     async function logout() {
+        // FIX: primero llamar al backend (el token aún está vigente),
+        // luego limpiar sesión y redirigir.
+        // Si el backend falla (401, red caída, etc.) igual se limpia localmente.
         try {
             await authService.logout()
+        } catch {
+            // silencioso — el 401 significa que el token ya no era válido,
+            // pero la sesión local se limpia igual.
         } finally {
             _clearSession()
-            router.push({ name: 'login' })
+            // FIX: usar path en lugar de name — la ruta no tiene name definido
+            router.push('/login')
         }
     }
 
-    // ── Fetch usuario autenticado ──────────────────────────────────────────────
     async function fetchMe() {
         if (!token.value) return
         try {
@@ -88,7 +79,6 @@ export const useAuthStore = defineStore('auth', () => {
         }
     }
 
-    // ── Utilidades ─────────────────────────────────────────────────────────────
     function clearError() {
         error.value = null
     }
@@ -97,6 +87,7 @@ export const useAuthStore = defineStore('auth', () => {
         user.value = null
         token.value = null
         localStorage.removeItem('token')
+        localStorage.removeItem('user')
     }
 
     return {
