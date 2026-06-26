@@ -1,5 +1,5 @@
 <template>
-  <div class="flex flex-col h-screen" style="background:#f4f6f9;">
+  <div class="flex flex-col h-screen" style="background:var(--bg); color:var(--text);">
 
     <!-- ═══════════════ TOPBAR ═══════════════ -->
     <header
@@ -74,6 +74,7 @@
 
           <div style="padding:6px 0;">
             <button
+              v-if="authStore.userRole === 'admin'"
               @click="goTo('/perfil')"
               class="flex items-center gap-3 w-full"
               style="padding:9px 14px; background:none; border:none; cursor:pointer; font-size:13.5px; color:#2d3748; text-align:left; transition:background 0.12s;"
@@ -104,15 +105,7 @@
               </div>
             </button>
 
-            <button
-              @click="goTo('/actualizar-perfil')"
-              class="flex items-center gap-3 w-full"
-              style="padding:9px 14px; background:none; border:none; cursor:pointer; font-size:13.5px; color:#2d3748; text-align:left; transition:background 0.12s;"
-              @mouseover="e => e.currentTarget.style.background='#f7f8fa'"
-              @mouseleave="e => e.currentTarget.style.background='none'"
-            >
-              <Save style="width:16px; height:16px; color:#6b7280; flex-shrink:0;" /> Actualizar perfil
-            </button>
+            
           </div>
 
           <div style="border-top:1px solid #f0f0f0; padding:6px 0 4px;">
@@ -370,12 +363,13 @@
 </template>
 
 <script setup>
-import { computed, ref, reactive, onMounted, onUnmounted, nextTick } from 'vue'
+import { computed, reactive, ref, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 
 import { useAuthStore } from '@/modules/auth/store/authStore'
 import { getRoleLabel } from '@/shared/utils/helpers'
 import { useNotify } from '@/shared/composables/useNotify'
+import { useDarkMode } from '@/composables/useDarkMode'
 
 // Logo SIA-UTI (guardado en src/assets/img/)
 import logo from '@/assets/img/SIA-UTI-logo.svg'
@@ -397,8 +391,8 @@ const notify    = useNotify()
 const sidebarOpen  = ref(true)
 const openSubmenus = reactive({})
 const profileOpen  = ref(false)
-const darkMode     = ref(false)
 const profileRef   = ref(null)
+const { darkMode, toggleDarkMode } = useDarkMode()
 
 // ── Flyout state para modo colapsado ──
 const flyoutOpen     = reactive({})
@@ -433,7 +427,6 @@ function getFlyoutTop(label) {
 }
 
 function toggleSubmenu(label) { openSubmenus[label] = !openSubmenus[label] }
-function toggleDarkMode()     { darkMode.value = !darkMode.value }
 function goTo(path)           { profileOpen.value = false; router.push(path) }
 
 function handleClickOutside(e) {
@@ -457,13 +450,13 @@ const menuSections = [
     roles: ['admin'],
     items: [
       { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-      { to: '/inscritos',  label: 'Inscritos',  icon: ClipboardCheck  },
+      
 
       {
         label: 'Reportes', icon: BarChart2,
         children: [
           { to: '/reportes/docentes',      label: 'Materias Dictadas'      },
-          { to: '/reportes/exportaciones', label: 'Exportaciones'          },
+          { to: '/reportes/edicion-tipo-ingreso', label: 'Gestión de Modalidad'          },
         ],
       },
 
@@ -484,6 +477,8 @@ const menuSections = [
           { to: '/reporte-horario-resumen-dos', label: 'Horario Resumen Dos' },
         ],
       },
+
+      { to: '/inscritos',  label: 'Inscritos',  icon: ClipboardCheck  },
 
       {
         label: 'Administración', icon: Settings,

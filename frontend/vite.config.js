@@ -12,5 +12,17 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, './src')
     }
-  }
+  },
+  test: {
+    environment: 'jsdom',
+    globals: true,
+    setupFiles: 'tests/setup.ts',
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json'],
+      all: true,
+      include: ['src/**/*.{js,ts,vue}'],
+      exclude: ['node_modules', 'tests'],
+    },
+  },
 })

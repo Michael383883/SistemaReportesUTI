@@ -22,7 +22,13 @@ const routes = [
     children: [
       {
         path: '',
-        redirect: '/dashboard', // ← simple fallback, beforeEach maneja el rol
+        redirect: () => {
+          const authStore = useAuthStore()
+          const role = authStore.userRole
+          if (role === 'secretaria' || role === 'uti') return '/secretaria/dashboard'
+          if (role === 'secretaria_talleres') return '/secretariaTalleres/dashboard'
+          return '/dashboard'
+        },
       },
       ...dashboardRoutes,
       ...usersRoutes,
@@ -69,14 +75,14 @@ router.beforeEach(async (to, _from) => {
 
   if (to.path === '/') {
     const role = authStore.userRole
-    if (role === 'secretaria') return { path: '/secretaria/dashboard' }
+    if (role === 'secretaria' || role === 'uti') return { path: '/secretaria/dashboard' }
     if (role === 'secretaria_talleres') return { path: '/secretariaTalleres/dashboard' }
     return { path: '/dashboard' }
   }
 
   if (isGuest && token) {
     const role = authStore.userRole
-    if (role === 'secretaria') return { path: '/secretaria/dashboard' }
+    if (role === 'secretaria' || role === 'uti') return { path: '/secretaria/dashboard' }
     if (role === 'secretaria_talleres') return { path: '/secretariaTalleres/dashboard' }
     return { path: '/dashboard' }
   }
@@ -84,7 +90,7 @@ router.beforeEach(async (to, _from) => {
   if (requiredRoles?.length > 0) {
     const userRole = authStore.userRole
     if (!userRole || !requiredRoles.includes(userRole)) {
-      if (userRole === 'secretaria') return { path: '/secretaria/dashboard' }
+      if (userRole === 'secretaria' || userRole === 'uti') return { path: '/secretaria/dashboard' }
       if (userRole === 'secretaria_talleres') return { path: '/secretariaTalleres/dashboard' }
       return { path: '/dashboard' }
     }

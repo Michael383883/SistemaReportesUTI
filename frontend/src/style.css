@@ -5,3 +5,88 @@
   --color-navy-dark: #061220;
   --color-gold: #c9a84c;
 }
+
+:root {
+  color-scheme: light;
+  --bg: #f4f6f9;
+  --surface: #ffffff;
+  --text: #1f2937;
+  --muted: #6b7280;
+  --border: rgba(15, 23, 42, 0.08);
+  --hover: rgba(15, 23, 42, 0.04);
+}
+
+html.dark {
+  color-scheme: dark;
+  --bg: #020617;
+  --surface: #0f172a;
+  --text: #f8fafc;
+  --muted: #cbd5e1;
+  --border: rgba(255, 255, 255, 0.12);
+  --hover: rgba(255, 255, 255, 0.08);
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+}
+
+html.dark body {
+  background: var(--bg);
+  color: var(--text);
+}
+
+html.dark .bg-white,
+html.dark .bg-slate-50,
+html.dark .bg-slate-100,
+html.dark .bg-slate-200,
+html.dark .bg-slate-300,
+html.dark .bg-slate-400,
+html.dark .bg-gray-50,
+html.dark .bg-zinc-50 {
+  background-color: var(--surface) !important;
+}
+
+html.dark .text-slate-900,
+html.dark .text-slate-800,
+html.dark .text-slate-700,
+html.dark .text-black,
+html.dark .text-gray-900,
+html.dark .text-gray-800,
+html.dark .text-gray-700 {
+  color: var(--text) !important;
+}
+
+html.dark .border-slate-100,
+html.dark .border-slate-200,
+html.dark .border-slate-300,
+html.dark .border-gray-200,
+html.dark .border-white,
+html.dark .border-black {
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+html.dark [style*="background:#ffffff"],
+html.dark [style*="background:#fff"],
+html.dark [style*="border:1px solid #f0f0f0"],
+html.dark [style*="border-top:1px solid #f0f0f0"],
+html.dark [style*="background:#f7f8fa"],
+html.dark [style*="background:#ffffff; border-radius:10px;"] {
+  background-color: var(--surface) !important;
+}
+
+html.dark [style*="color:#081F33"],
+html.dark [style*="color:#2d3748"],
+html.dark [style*="color:#000"],
+html.dark [style*="color:#000000"],
+html.dark [style*="color:rgba(15,23,42,0.55)"] {
+  color: var(--text) !important;
+}
+
+html.dark [style*="box-shadow:0 8px 24px rgba(0,0,0,0.15)"],
+html.dark [style*="box-shadow:0 1px 3px rgba(0,0,0,0.2)"],
+html.dark [style*="border:1px solid rgba(0,0,0,0.08)"] {
+  box-shadow: none !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
