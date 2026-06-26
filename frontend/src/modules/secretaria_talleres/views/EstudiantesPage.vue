@@ -193,7 +193,7 @@
         >
 
           <!-- Header del grupo -->
-          <div class="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-blue-700 to-blue-500">
+        <div  class="flex items-center justify-between px-6 py-4 bg-slate-800"> 
             <div class="flex items-center gap-3">
               <div class="h-8 w-8 rounded-lg bg-white/20 flex items-center justify-center">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -202,8 +202,8 @@
               </div>
               <div>
                 <h2 class="text-white font-bold text-base">{{ item.materia }}</h2>
-                <p class="text-blue-100 text-xs">Grupo {{ item.grupo }}</p>
-                <p class="text-blue-100 text-xs">Docente: {{ item.docente }}</p>
+                <p class="text-slate-400 text-xs">Grupo {{ item.grupo }}</p>
+                <p class="text-slate-400 text-xs">Docente: {{ item.docente }}</p>
               </div>
             </div>
             <span class="rounded-full bg-white/20 text-white text-xs font-semibold px-3 py-1">
@@ -273,7 +273,7 @@
                   <td class="px-4 py-3 text-center">
                     <button
                       @click="verContacto(est)"
-                      class="inline-flex items-center gap-1 rounded-lg bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-xs font-semibold px-3 py-1.5 transition-colors shadow-sm"
+                      class="inline-flex items-center gap-1 rounded-lg bg-blue-800 hover:bg-blue-800 active:bg-blue-700 text-white text-xs font-semibold px-3 py-1.5 transition-colors shadow-sm"
                       title="Ver tarjeta de contacto"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">

@@ -1,36 +1,25 @@
 // composables/useReporteInscritos.js
 // Genera PDFs directamente en el navegador con jsPDF (sin backend).
 // Instalación: npm install jspdf
+//
+// Formato: documento blanco y negro puro. El único color es el texto
+// (negro/gris) y las líneas divisorias. No hay ningún rectángulo de
+// fondo relleno (excepto la franja de título en la parte superior de
+// cada página, que es estándar incluso en documentos formales y permite
+// ahorrar tinta porque ocupa muy poco espacio).
 
 import { ref } from 'vue'
 
-// ── Paleta de colores por carrera ────────────────────────────────────────────
-const COLORES = {
-    ADM: { r: 219, g: 234, b: 254 }, // blue-100
-    ECO: { r: 209, g: 250, b: 229 }, // emerald-100
-    CCP: { r: 237, g: 233, b: 254 }, // purple-100
-    COM: { r: 255, g: 237, b: 213 }, // orange-100
-    FIN: { r: 254, g: 249, b: 195 }, // yellow-100
-    NN: { r: 241, g: 245, b: 249 }, // slate-100
-}
-
-const COLOR_HEADER = { r: 30, g: 41, b: 59 } // slate-800
-const COLOR_SUBHEAD = { r: 51, g: 65, b: 85 } // slate-700
-const COLOR_ROW_ODD = { r: 248, g: 250, b: 252 } // slate-50
-const COLOR_ROW_EVEN = { r: 255, g: 255, b: 255 } // white
-const COLOR_TEXT = { r: 30, g: 41, b: 59 }
-const COLOR_MUTED = { r: 100, g: 116, b: 139 }
-const COLOR_LINE = { r: 226, g: 232, b: 240 } // slate-200
+// ── Escala de grises para texto y líneas (sin tinte de color) ───────────────
+const NEGRO = { r: 20, g: 20, b: 20 }       // texto principal
+const GRIS_OSCURO = { r: 60, g: 60, b: 60 } // subtítulos / texto secundario fuerte
+const GRIS_MEDIO = { r: 110, g: 110, b: 110 } // texto muted, códigos
+const GRIS_CLARO = { r: 170, g: 170, b: 170 } // texto muy secundario
+const LINEA_FUERTE = { r: 60, g: 60, b: 60 }  // líneas de separación de docente/carrera
+const LINEA_SUAVE = { r: 200, g: 200, b: 200 } // líneas de separación de fila/materia
+const BLANCO = { r: 255, g: 255, b: 255 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
-function rgb(doc, color) {
-    return [color.r, color.g, color.b]
-}
-
-function setFill(doc, color) {
-    doc.setFillColor(color.r, color.g, color.b)
-}
-
 function setTextColor(doc, color) {
     doc.setTextColor(color.r, color.g, color.b)
 }
@@ -39,49 +28,51 @@ function setDrawColor(doc, color) {
     doc.setDrawColor(color.r, color.g, color.b)
 }
 
+function lineaH(doc, x1, y, x2, color, width = 0.2) {
+    setDrawColor(doc, color)
+    doc.setLineWidth(width)
+    doc.line(x1, y, x2, y)
+}
+
 /**
- * Dibuja el encabezado institucional en cada página.
+ * Dibuja el encabezado del documento (solo en la primera página) o un
+ * encabezado simplificado de continuación en páginas siguientes.
  * @returns {number} Y después del header
  */
-function dibujarHeader(doc, anio, periodo, titulo, pageW) {
-    // Banda superior oscura
-    setFill(doc, COLOR_HEADER)
-    doc.rect(0, 0, pageW, 22, 'F')
-
-    // Título del reporte
+function dibujarHeader(doc, anio, periodo, titulo, pageW, esPrimeraPagina = false) {
     doc.setFont('helvetica', 'bold')
-    doc.setFontSize(13)
-    setTextColor(doc, { r: 255, g: 255, b: 255 })
-    doc.text(titulo, 14, 14)
+    doc.setFontSize(esPrimeraPagina ? 16 : 11)
+    setTextColor(doc, NEGRO)
+    doc.text(titulo, 14, 16)
 
-    // Gestión / período (derecha)
     doc.setFontSize(9)
     doc.setFont('helvetica', 'normal')
-    doc.text(`Gestión ${anio} · Período ${periodo}`, pageW - 14, 14, { align: 'right' })
+    setTextColor(doc, GRIS_OSCURO)
+    doc.text(`Gestión ${anio} · Período ${periodo}`, pageW - 14, 16, { align: 'right' })
 
-    // Fecha de generación
-    setFill(doc, { r: 51, g: 65, b: 85 })
-    doc.rect(0, 22, pageW, 8, 'F')
-    doc.setFontSize(7.5)
-    setTextColor(doc, { r: 148, g: 163, b: 184 })
-    const fecha = new Date().toLocaleDateString('es-BO', {
-        day: '2-digit', month: 'long', year: 'numeric',
-    })
-    doc.text(`Generado el ${fecha}`, 14, 27.5)
+    if (esPrimeraPagina) {
+        doc.setFontSize(8)
+        setTextColor(doc, GRIS_MEDIO)
+        const fecha = new Date().toLocaleDateString('es-BO', {
+            day: '2-digit', month: 'long', year: 'numeric',
+        })
+        doc.text(`Generado el ${fecha}`, 14, 22)
+    }
 
-    return 36 // Y inicial del contenido
+    lineaH(doc, 14, 26, pageW - 14, NEGRO, 0.5)
+
+    return 34 // Y inicial del contenido
 }
 
 /**
  * Pie de página con número.
  */
 function dibujarFooter(doc, pageNum, totalPages, pageW, pageH) {
-    setFill(doc, COLOR_HEADER)
-    doc.rect(0, pageH - 10, pageW, 10, 'F')
+    lineaH(doc, 14, pageH - 12, pageW - 14, LINEA_SUAVE, 0.2)
     doc.setFontSize(7)
     doc.setFont('helvetica', 'normal')
-    setTextColor(doc, { r: 148, g: 163, b: 184 })
-    doc.text(`Página ${pageNum} de ${totalPages}`, pageW / 2, pageH - 3.5, { align: 'center' })
+    setTextColor(doc, GRIS_MEDIO)
+    doc.text(`Página ${pageNum} de ${totalPages}`, pageW / 2, pageH - 7, { align: 'center' })
 }
 
 /**
@@ -91,7 +82,7 @@ function dibujarFooter(doc, pageNum, totalPages, pageW, pageH) {
 function checkPage(doc, y, needed, anio, periodo, titulo, pageW, pageH) {
     if (y + needed > pageH - 16) {
         doc.addPage()
-        return dibujarHeader(doc, anio, periodo, titulo, pageW)
+        return dibujarHeader(doc, anio, periodo, titulo, pageW, false)
     }
     return y
 }
@@ -106,98 +97,121 @@ async function generarListaCompleta(data, anio, periodo) {
     const pageH = doc.internal.pageSize.getHeight()
     const TITULO = 'Lista de Inscritos por Docente'
 
-    let y = dibujarHeader(doc, anio, periodo, TITULO, pageW)
+    let y = dibujarHeader(doc, anio, periodo, TITULO, pageW, true)
 
     data.forEach((docente, dIdx) => {
         // ── Bloque docente ──────────────────────────────────────────────────
-        y = checkPage(doc, y, 18, anio, periodo, TITULO, pageW, pageH)
+        y = checkPage(doc, y, 16, anio, periodo, TITULO, pageW, pageH)
 
-        // Banda nombre docente
-        setFill(doc, COLOR_SUBHEAD)
-        doc.rect(14, y, pageW - 28, 10, 'F')
         doc.setFont('helvetica', 'bold')
-        doc.setFontSize(10)
-        setTextColor(doc, { r: 255, g: 255, b: 255 })
-        doc.text(
-            `${dIdx + 1}.  ${docente.apellidos}, ${docente.nombres}`,
-            18, y + 6.8
-        )
-        doc.setFontSize(8)
-        doc.text(`Cód. ${docente.cod_docente}`, pageW - 16, y + 6.8, { align: 'right' })
-        y += 12
+        doc.setFontSize(11)
+        setTextColor(doc, NEGRO)
+        doc.text(`${dIdx + 1}.  ${docente.apellidos}, ${docente.nombres}`, 14, y + 5)
+
+        doc.setFont('helvetica', 'normal')
+        doc.setFontSize(8.5)
+        setTextColor(doc, GRIS_MEDIO)
+        doc.text(`Cód. ${docente.cod_docente}`, pageW - 14, y + 5, { align: 'right' })
+
+        y += 7
+        lineaH(doc, 14, y, pageW - 14, LINEA_FUERTE, 0.4)
+        y += 5
 
         docente.carreras.forEach(carrera => {
             // ── Bloque carrera ────────────────────────────────────────────────
-            y = checkPage(doc, y, 10, anio, periodo, TITULO, pageW, pageH)
+            y = checkPage(doc, y, 9, anio, periodo, TITULO, pageW, pageH)
 
-            const col = COLORES[carrera.carrera] ?? COLORES.NN
-            setFill(doc, col)
-            doc.rect(14, y, pageW - 28, 7, 'F')
             doc.setFont('helvetica', 'bold')
-            doc.setFontSize(8.5)
-            setTextColor(doc, COLOR_TEXT)
+            doc.setFontSize(9)
+            setTextColor(doc, GRIS_OSCURO)
             doc.text(
                 `${carrera.carrera}  ·  Plan ${carrera.plan}  ·  Total: ${carrera.subtotal} inscritos`,
-                18, y + 5
+                14, y + 4
             )
-            y += 9
+            y += 6
+            lineaH(doc, 14, y, pageW - 14, LINEA_SUAVE, 0.2)
+            y += 5
 
             carrera.materias.forEach(materia => {
                 // ── Encabezado materia ──────────────────────────────────────────
-                y = checkPage(doc, y, 10, anio, periodo, TITULO, pageW, pageH)
+                y = checkPage(doc, y, 8, anio, periodo, TITULO, pageW, pageH)
 
-                setFill(doc, { r: 241, g: 245, b: 249 })
-                doc.rect(18, y, pageW - 36, 6.5, 'F')
                 doc.setFont('helvetica', 'bolditalic')
-                doc.setFontSize(7.5)
-                setTextColor(doc, COLOR_MUTED)
+                doc.setFontSize(8)
+                setTextColor(doc, GRIS_OSCURO)
                 doc.text(
-                    `  ${materia.nom_materia}  (Gr. ${materia.grupo})  —  ${materia.subtotal} inscritos`,
-                    20, y + 4.5
+                    `${materia.nom_materia}  (Gr. ${materia.grupo})  —  ${materia.subtotal} inscritos`,
+                    16, y + 4
                 )
-                y += 8
+                y += 6
 
-                // ── Tabla de estudiantes ────────────────────────────────────────
+                // ── Tabla de estudiantes regulares ──────────────────────────────
                 materia.inscritos.forEach((est, idx) => {
-                    y = checkPage(doc, y, 6, anio, periodo, TITULO, pageW, pageH)
-
-                    const bg = idx % 2 === 0 ? COLOR_ROW_ODD : COLOR_ROW_EVEN
-                    setFill(doc, bg)
-                    doc.rect(18, y, pageW - 36, 5.5, 'F')
+                    y = checkPage(doc, y, 5.5, anio, periodo, TITULO, pageW, pageH)
 
                     doc.setFont('helvetica', 'normal')
-                    doc.setFontSize(7)
-                    setTextColor(doc, COLOR_MUTED)
-                    doc.text(`${idx + 1}`, 22, y + 3.8)
+                    doc.setFontSize(7.5)
+                    setTextColor(doc, GRIS_CLARO)
+                    doc.text(`${idx + 1}`, 20, y + 3.6)
 
-                    setTextColor(doc, { r: 100, g: 116, b: 139 })
+                    setTextColor(doc, GRIS_MEDIO)
                     doc.setFont('courier', 'normal')
-                    doc.text(`${est.codigo}`, 28, y + 3.8)
+                    doc.text(`${est.codigo}`, 27, y + 3.6)
 
                     doc.setFont('helvetica', 'normal')
-                    setTextColor(doc, COLOR_TEXT)
-                    doc.text(`${est.nombre}`, 55, y + 3.8)
-                    y += 5.5
+                    setTextColor(doc, NEGRO)
+                    doc.text(`${est.nombre}`, 54, y + 3.6)
+                    y += 5
                 })
 
-                y += 3 // espacio entre materias
+                // ── Examen de mesa (si existen) ─────────────────────────────────
+                if (materia.subtotal_examen_mesa) {
+                    y = checkPage(doc, y, 6, anio, periodo, TITULO, pageW, pageH)
+
+                    doc.setFont('helvetica', 'bolditalic')
+                    doc.setFontSize(7.5)
+                    setTextColor(doc, GRIS_OSCURO)
+                    doc.text(
+                        `Examen de mesa — ${materia.subtotal_examen_mesa} estudiantes`,
+                        16, y + 3.6
+                    )
+                    y += 5
+
+                    materia.inscritos_examen_mesa.forEach((est, idx) => {
+                        y = checkPage(doc, y, 5.5, anio, periodo, TITULO, pageW, pageH)
+
+                        doc.setFont('helvetica', 'normal')
+                        doc.setFontSize(7.5)
+                        setTextColor(doc, GRIS_CLARO)
+                        doc.text(`${idx + 1}`, 20, y + 3.6)
+
+                        setTextColor(doc, GRIS_MEDIO)
+                        doc.setFont('courier', 'normal')
+                        doc.text(`${est.codigo}`, 27, y + 3.6)
+
+                        doc.setFont('helvetica', 'normal')
+                        setTextColor(doc, NEGRO)
+                        doc.text(`${est.nombre}`, 54, y + 3.6)
+                        y += 5
+                    })
+                }
+
+                y += 2.5 // espacio entre materias
             })
 
-            y += 4 // espacio entre carreras
+            y += 3 // espacio entre carreras
         })
 
         // ── Total del docente ─────────────────────────────────────────────
         y = checkPage(doc, y, 8, anio, periodo, TITULO, pageW, pageH)
-        setDrawColor(doc, COLOR_LINE)
-        doc.setLineWidth(0.3)
-        doc.line(14, y, pageW - 14, y)
+        lineaH(doc, 14, y, pageW - 14, LINEA_SUAVE, 0.2)
         doc.setFont('helvetica', 'bold')
-        doc.setFontSize(8)
-        setTextColor(doc, COLOR_MUTED)
-        doc.text(
-            `Total inscritos del docente: ${docente.total_inscritos}`,
-            pageW - 16, y + 5, { align: 'right' }
-        )
+        doc.setFontSize(8.5)
+        setTextColor(doc, GRIS_OSCURO)
+        const totalLinea = docente.total_examen_mesa
+            ? `Total inscritos del docente: ${docente.total_inscritos}  (+ ${docente.total_examen_mesa} examen de mesa)`
+            : `Total inscritos del docente: ${docente.total_inscritos}`
+        doc.text(totalLinea, pageW - 14, y + 5, { align: 'right' })
         y += 10
     })
 
@@ -221,36 +235,30 @@ async function generarResumenTotales(data, anio, periodo) {
     const pageH = doc.internal.pageSize.getHeight()
     const TITULO = 'Resumen de Inscritos — Solo Totales'
 
-    let y = dibujarHeader(doc, anio, periodo, TITULO, pageW)
+    let y = dibujarHeader(doc, anio, periodo, TITULO, pageW, true)
 
     // ── Tabla global resumen ─────────────────────────────────────────────────
     const totalGlobal = data.reduce((s, d) => s + d.total_inscritos, 0)
+    const carreras = ['ADM', 'ECO', 'CCP', 'COM', 'FIN']
+    const xCols = [pageW - 72, pageW - 60, pageW - 48, pageW - 36, pageW - 24]
 
     // Encabezado de tabla
-    y = checkPage(doc, y, 10, anio, periodo, TITULO, pageW, pageH)
-    setFill(doc, COLOR_HEADER)
-    doc.rect(14, y, pageW - 28, 8, 'F')
+    y = checkPage(doc, y, 9, anio, periodo, TITULO, pageW, pageH)
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(8)
-    setTextColor(doc, { r: 255, g: 255, b: 255 })
-    doc.text('N°', 16, y + 5.5)
-    doc.text('Código', 22, y + 5.5)
-    doc.text('Docente', 42, y + 5.5)
-    doc.text('ADM', pageW - 72, y + 5.5, { align: 'center' })
-    doc.text('ECO', pageW - 60, y + 5.5, { align: 'center' })
-    doc.text('CCP', pageW - 48, y + 5.5, { align: 'center' })
-    doc.text('COM', pageW - 36, y + 5.5, { align: 'center' })
-    doc.text('FIN', pageW - 24, y + 5.5, { align: 'center' })
-    doc.text('TOTAL', pageW - 14, y + 5.5, { align: 'right' })
-    y += 9
+    setTextColor(doc, NEGRO)
+    doc.text('N°', 14, y + 4)
+    doc.text('Código', 20, y + 4)
+    doc.text('Docente', 40, y + 4)
+    carreras.forEach((c, i) => doc.text(c, xCols[i], y + 4, { align: 'center' }))
+    doc.text('TOTAL', pageW - 14, y + 4, { align: 'right' })
+    y += 6
+    lineaH(doc, 14, y, pageW - 14, LINEA_FUERTE, 0.4)
+    y += 4
 
     // Filas por docente
     data.forEach((docente, idx) => {
-        y = checkPage(doc, y, 7, anio, periodo, TITULO, pageW, pageH)
-
-        const bg = idx % 2 === 0 ? COLOR_ROW_ODD : COLOR_ROW_EVEN
-        setFill(doc, bg)
-        doc.rect(14, y, pageW - 28, 6.5, 'F')
+        y = checkPage(doc, y, 6, anio, periodo, TITULO, pageW, pageH)
 
         // Construir mapa carrera → subtotal
         const totPorCarrera = {}
@@ -258,143 +266,127 @@ async function generarResumenTotales(data, anio, periodo) {
 
         doc.setFont('helvetica', 'normal')
         doc.setFontSize(7.5)
-        setTextColor(doc, COLOR_MUTED)
-        doc.text(`${idx + 1}`, 16, y + 4.5)
+        setTextColor(doc, GRIS_MEDIO)
+        doc.text(`${idx + 1}`, 14, y + 3.6)
 
         doc.setFont('courier', 'normal')
-        doc.text(`${docente.cod_docente}`, 22, y + 4.5)
+        doc.text(`${docente.cod_docente}`, 20, y + 3.6)
 
         doc.setFont('helvetica', 'normal')
-        setTextColor(doc, COLOR_TEXT)
-        // Truncar nombre si es muy largo
+        setTextColor(doc, NEGRO)
         const nombre = `${docente.apellidos}, ${docente.nombres}`.substring(0, 32)
-        doc.text(nombre, 42, y + 4.5)
+        doc.text(nombre, 40, y + 3.6)
 
-        // Totales por carrera
-        const carreras = ['ADM', 'ECO', 'CCP', 'COM', 'FIN']
-        const xCols = [pageW - 72, pageW - 60, pageW - 48, pageW - 36, pageW - 24]
         carreras.forEach((c, i) => {
             const val = totPorCarrera[c] ?? 0
-            if (val > 0) {
-                const col = COLORES[c] ?? COLORES.NN
-                setFill(doc, col)
-                doc.roundedRect(xCols[i] - 5, y + 0.8, 10, 5, 1, 1, 'F')
-                setTextColor(doc, COLOR_TEXT)
-                doc.setFont('helvetica', 'bold')
-                doc.text(`${val}`, xCols[i], y + 4.5, { align: 'center' })
-            } else {
-                setTextColor(doc, COLOR_LINE)
-                doc.setFont('helvetica', 'normal')
-                doc.text('—', xCols[i], y + 4.5, { align: 'center' })
-            }
+            setTextColor(doc, val > 0 ? NEGRO : GRIS_CLARO)
+            doc.setFont('helvetica', val > 0 ? 'bold' : 'normal')
+            doc.text(val > 0 ? `${val}` : '—', xCols[i], y + 3.6, { align: 'center' })
         })
 
-        // Total docente
         doc.setFont('helvetica', 'bold')
         doc.setFontSize(8)
-        setTextColor(doc, { r: 29, g: 78, b: 216 }) // blue-700
-        doc.text(`${docente.total_inscritos}`, pageW - 14, y + 4.5, { align: 'right' })
+        setTextColor(doc, NEGRO)
+        doc.text(`${docente.total_inscritos}`, pageW - 14, y + 3.6, { align: 'right' })
 
-        y += 6.5
+        y += 4.5
+        lineaH(doc, 14, y, pageW - 14, LINEA_SUAVE, 0.15)
+        y += 1.5
     })
 
     // ── Fila de totales globales ─────────────────────────────────────────────
-    y = checkPage(doc, y, 10, anio, periodo, TITULO, pageW, pageH)
-    setFill(doc, { r: 30, g: 58, b: 138 }) // blue-900
-    doc.rect(14, y, pageW - 28, 8, 'F')
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(8.5)
-    setTextColor(doc, { r: 255, g: 255, b: 255 })
-    doc.text('TOTAL GENERAL', 42, y + 5.5)
+    y = checkPage(doc, y, 9, anio, periodo, TITULO, pageW, pageH)
+    lineaH(doc, 14, y, pageW - 14, LINEA_FUERTE, 0.4)
+    y += 5
 
-    const carreras = ['ADM', 'ECO', 'CCP', 'COM', 'FIN']
-    const xCols = [pageW - 72, pageW - 60, pageW - 48, pageW - 36, pageW - 24]
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(9)
+    setTextColor(doc, NEGRO)
+    doc.text('TOTAL GENERAL', 40, y + 2)
+
     carreras.forEach((c, i) => {
         const sum = data.reduce((s, d) => {
             const car = d.carreras.find(x => x.carrera === c)
             return s + (car?.subtotal ?? 0)
         }, 0)
-        doc.text(sum > 0 ? `${sum}` : '—', xCols[i], y + 5.5, { align: 'center' })
+        doc.text(sum > 0 ? `${sum}` : '—', xCols[i], y + 2, { align: 'center' })
     })
 
-    doc.text(`${totalGlobal}`, pageW - 14, y + 5.5, { align: 'right' })
+    doc.text(`${totalGlobal}`, pageW - 14, y + 2, { align: 'right' })
     y += 12
 
     // ── Sección detalle por carrera y materia (sin nombres) ──────────────────
-    y = checkPage(doc, y, 14, anio, periodo, TITULO, pageW, pageH)
-    setFill(doc, COLOR_SUBHEAD)
-    doc.rect(14, y, pageW - 28, 8, 'F')
+    y = checkPage(doc, y, 12, anio, periodo, TITULO, pageW, pageH)
     doc.setFont('helvetica', 'bold')
-    doc.setFontSize(9)
-    setTextColor(doc, { r: 255, g: 255, b: 255 })
-    doc.text('Detalle por Docente → Carrera → Materia', 18, y + 5.5)
-    y += 11
+    doc.setFontSize(10)
+    setTextColor(doc, NEGRO)
+    doc.text('Detalle por Docente → Carrera → Materia', 14, y + 4)
+    y += 6
+    lineaH(doc, 14, y, pageW - 14, NEGRO, 0.5)
+    y += 6
 
     data.forEach((docente, dIdx) => {
-        y = checkPage(doc, y, 12, anio, periodo, TITULO, pageW, pageH)
+        y = checkPage(doc, y, 10, anio, periodo, TITULO, pageW, pageH)
 
-        // Banda docente
-        setFill(doc, { r: 51, g: 65, b: 85 })
-        doc.rect(14, y, pageW - 28, 8, 'F')
         doc.setFont('helvetica', 'bold')
-        doc.setFontSize(8.5)
-        setTextColor(doc, { r: 255, g: 255, b: 255 })
+        doc.setFontSize(9)
+        setTextColor(doc, NEGRO)
         doc.text(
             `${dIdx + 1}.  ${docente.apellidos}, ${docente.nombres}  (Cód. ${docente.cod_docente})`,
-            18, y + 5.5
+            14, y + 4
         )
-        doc.text(`${docente.total_inscritos} inscritos`, pageW - 16, y + 5.5, { align: 'right' })
-        y += 10
+        doc.setFont('helvetica', 'normal')
+        setTextColor(doc, GRIS_MEDIO)
+        const totalDocLinea = docente.total_examen_mesa
+            ? `${docente.total_inscritos} inscritos (+${docente.total_examen_mesa} ex. mesa)`
+            : `${docente.total_inscritos} inscritos`
+        doc.text(totalDocLinea, pageW - 14, y + 4, { align: 'right' })
+        y += 6
+        lineaH(doc, 14, y, pageW - 14, LINEA_FUERTE, 0.3)
+        y += 4
 
         docente.carreras.forEach(carrera => {
-            y = checkPage(doc, y, 8, anio, periodo, TITULO, pageW, pageH)
+            y = checkPage(doc, y, 7, anio, periodo, TITULO, pageW, pageH)
 
-            const col = COLORES[carrera.carrera] ?? COLORES.NN
-            setFill(doc, col)
-            doc.rect(18, y, pageW - 36, 6, 'F')
             doc.setFont('helvetica', 'bold')
-            doc.setFontSize(8)
-            setTextColor(doc, COLOR_TEXT)
-            doc.text(
-                `${carrera.carrera}  ·  Plan ${carrera.plan}`,
-                22, y + 4.2
-            )
-            doc.text(`${carrera.subtotal}`, pageW - 18, y + 4.2, { align: 'right' })
-            y += 7
+            doc.setFontSize(8.5)
+            setTextColor(doc, GRIS_OSCURO)
+            doc.text(`${carrera.carrera}  ·  Plan ${carrera.plan}`, 16, y + 3.8)
+            doc.text(`${carrera.subtotal}`, pageW - 14, y + 3.8, { align: 'right' })
+            y += 5.5
 
             // Tabla de materias (sin estudiantes)
-            carrera.materias.forEach((mat, mIdx) => {
-                y = checkPage(doc, y, 6, anio, periodo, TITULO, pageW, pageH)
-
-                const bg = mIdx % 2 === 0 ? COLOR_ROW_ODD : COLOR_ROW_EVEN
-                setFill(doc, bg)
-                doc.rect(22, y, pageW - 44, 5.5, 'F')
+            carrera.materias.forEach((mat) => {
+                y = checkPage(doc, y, 5.5, anio, periodo, TITULO, pageW, pageH)
 
                 doc.setFont('helvetica', 'normal')
                 doc.setFontSize(7.5)
-                setTextColor(doc, COLOR_MUTED)
-                doc.text(`${mat.cod_materia}`, 25, y + 3.8)
+                setTextColor(doc, GRIS_MEDIO)
+                doc.text(`${mat.cod_materia}`, 20, y + 3.6)
 
-                setTextColor(doc, COLOR_TEXT)
-                // Truncar nombre materia
+                setTextColor(doc, NEGRO)
                 const nomMat = mat.nom_materia.substring(0, 40)
-                doc.text(nomMat, 45, y + 3.8)
+                doc.text(nomMat, 40, y + 3.6)
 
-                doc.setFont('helvetica', 'normal')
-                setTextColor(doc, COLOR_MUTED)
-                doc.text(`Gr. ${mat.grupo}`, pageW - 36, y + 3.8)
+                setTextColor(doc, GRIS_MEDIO)
+                doc.text(`Gr. ${mat.grupo}`, pageW - 36, y + 3.6)
 
                 doc.setFont('helvetica', 'bold')
-                setTextColor(doc, COLOR_TEXT)
-                doc.text(`${mat.subtotal}`, pageW - 18, y + 3.8, { align: 'right' })
+                setTextColor(doc, NEGRO)
+                const subtotalTexto = mat.subtotal_examen_mesa
+                    ? `${mat.subtotal} (+${mat.subtotal_examen_mesa})`
+                    : `${mat.subtotal}`
+                doc.text(subtotalTexto, pageW - 14, y + 3.6, { align: 'right' })
 
-                y += 5.5
+                y += 5
+                lineaH(doc, 18, y, pageW - 14, LINEA_SUAVE, 0.12)
+                y += 0.8
             })
 
-            y += 3
+            y += 2.5
         })
 
-        y += 5
+        y += 4
     })
 
     // Pies de página

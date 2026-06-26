@@ -4,7 +4,7 @@
     <!-- Header de página -->
     <div class="flex items-start justify-between mb-7">
       <div>
-        <h1 class="text-2xl font-bold text-slate-100 tracking-tight m-0 mb-1">Reporte de Docente</h1>
+        <h1 class="text-2xl font-bold text-black tracking-tight m-0 mb-1">Reporte de Docente</h1>
         <p class="text-xs text-slate-400 m-0">Materias dictadas registradas en el SISS a partir de 2001</p>
       </div>
     </div>

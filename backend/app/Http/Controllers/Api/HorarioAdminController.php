@@ -473,6 +473,27 @@ class HorarioAdminController extends Controller
             $bindings['docente'] = $docente;
         }
 
+        // Filtro reutilizable: el grupo debe tener al menos una hora de clase (TIPO='C')
+        // en un horario válido (excluyendo las horas de "NN" tipo 730, 900, etc.)
+        // Esto excluye grupos "Por Designar" (sin docente/horario real asignado),
+        // igual que ya hace resumen().
+        $horarioValidoExists = "
+            EXISTS (
+                SELECT 1
+                FROM HORARIOS2 H
+                WHERE H.ANIO = GRUPOS.ANIO
+                  AND H.PERIODO = GRUPOS.PERIODO
+                  AND H.MATERIA = GRUPOS.MATERIA
+                  AND H.GRUPO = GRUPOS.GRUPO
+                  AND H.DOCENTE = GRUPOS.DOCENTE
+                  AND H.TIPO = 'C'
+                  AND H.HORA NOT IN (
+                      730,900,1030,1200,1330,
+                      1500,1630,1800,1930,2100
+                  )
+            )
+        ";
+
         // ── 1. Docentes involucrados ──────────────────────────────────────────
         $sqlDocentes = "
         SELECT DISTINCT
@@ -495,13 +516,16 @@ class HorarioAdminController extends Controller
           AND GRUPOS.[PLAN]          IN ('109401','125091','089801','126091','059801')
           AND GRUPOS.PRIMARIO        = 'Y'
           AND GRUPOS.TIPO            = 'N'
+          AND $horarioValidoExists
           $docenteFilter
         ORDER BY DOCENTES.APELLIDOS, DOCENTES.NOMBRES
     ";
 
         $docentes = DB::select($sqlDocentes, $bindings);
 
-        // ── 2. Materias por docente (conteo de inscritos) ─────────────────────
+        // ── 2. Materias por docente (conteo de inscritos, separado regular/especial) ──
+        // TIPO_EXAMEN = 'N' -> alumno regular (cursa el semestre normal)
+        // TIPO_EXAMEN = 'E' -> examen de mesa (caso especial, no inscripción regular)
         $sqlMaterias = "
         SELECT
             DOCENTES.CODIGO AS COD_DOCENTE,
@@ -517,7 +541,8 @@ class HorarioAdminController extends Controller
             MATERIAS.CODIGO  AS COD_MATERIA,
             MATERIAS.NOMBRE  AS NOM_MATERIA,
             GRUPOS.GRUPO,
-            COUNT(KARDEX_EXT.ESTUDIANTE) AS SUBTOTAL
+            SUM(CASE WHEN KARDEX_EXT.TIPO_EXAMEN = 'N' THEN 1 ELSE 0 END) AS SUBTOTAL_REGULAR,
+            SUM(CASE WHEN KARDEX_EXT.TIPO_EXAMEN = 'E' THEN 1 ELSE 0 END) AS SUBTOTAL_ESPECIAL
         FROM DOCENTES
         INNER JOIN GRUPOS
             ON DOCENTES.CODIGO = GRUPOS.DOCENTE
@@ -539,6 +564,7 @@ class HorarioAdminController extends Controller
           AND GRUPOS.[PLAN]          IN ('109401','125091','089801','126091','059801')
           AND GRUPOS.PRIMARIO        = 'Y'
           AND GRUPOS.TIPO            = 'N'
+          AND $horarioValidoExists
           $docenteFilter
         GROUP BY
             DOCENTES.CODIGO,
@@ -561,6 +587,7 @@ class HorarioAdminController extends Controller
             GRUPOS.[PLAN],
             MATERIAS.CODIGO  AS COD_MATERIA,
             GRUPOS.GRUPO,
+            KARDEX_EXT.TIPO_EXAMEN,
             BIOGRAFICOS.CODIGO                               AS COD_ESTUDIANTE,
             BIOGRAFICOS.APELLIDOS + ' ' + BIOGRAFICOS.NOMBRES AS NOM_ESTUDIANTE
         FROM DOCENTES
@@ -586,6 +613,7 @@ class HorarioAdminController extends Controller
           AND GRUPOS.[PLAN]          IN ('109401','125091','089801','126091','059801')
           AND GRUPOS.PRIMARIO        = 'Y'
           AND GRUPOS.TIPO            = 'N'
+          AND $horarioValidoExists
           $docenteFilter
         ORDER BY
             DOCENTES.CODIGO,
@@ -599,11 +627,12 @@ class HorarioAdminController extends Controller
 
         // ── 4. Armar estructura en PHP con colecciones pequeñas ───────────────
 
-        // Indexar inscritos por clave compuesta para acceso O(1)
+        // Indexar inscritos por clave compuesta para acceso O(1), separando regular/especial
         $inscritosMap = [];
         foreach ($inscritos as $ins) {
             $key = "{$ins->COD_DOCENTE}|{$ins->PLAN}|{$ins->COD_MATERIA}|{$ins->GRUPO}";
-            $inscritosMap[$key][] = [
+            $bucket = $ins->TIPO_EXAMEN === 'E' ? 'especiales' : 'regulares';
+            $inscritosMap[$key][$bucket][] = [
                 'codigo' => $ins->COD_ESTUDIANTE,
                 'nombre' => $ins->NOM_ESTUDIANTE,
             ];
@@ -622,7 +651,8 @@ class HorarioAdminController extends Controller
         foreach ($docentes as $doc) {
             $codDoc = $doc->COD_DOCENTE;
             $carreras = [];
-            $totalDocente = 0;
+            $totalDocente = 0; // solo regulares, para que cuadre con "Resumen"
+            $totalEspecialesDocente = 0;
 
             // Agrupar materias del docente por plan/carrera
             $porPlan = [];
@@ -632,22 +662,26 @@ class HorarioAdminController extends Controller
 
             foreach ($porPlan as $plan => $mats) {
                 $materiasArr = [];
-                $subtotalCarrera = 0;
+                $subtotalCarrera = 0; // solo regulares
+                $subtotalCarreraEspeciales = 0;
 
                 foreach ($mats as $mat) {
                     $key = "{$codDoc}|{$mat->PLAN}|{$mat->COD_MATERIA}|{$mat->GRUPO}";
-                    $lista = $inscritosMap[$key] ?? [];
-                    $subtotal = count($lista);
+                    $listaRegulares = $inscritosMap[$key]['regulares'] ?? [];
+                    $listaEspeciales = $inscritosMap[$key]['especiales'] ?? [];
 
                     $materiasArr[] = [
                         'cod_materia' => $mat->COD_MATERIA,
                         'nom_materia' => $mat->NOM_MATERIA,
                         'grupo' => $mat->GRUPO,
-                        'inscritos' => $lista,
-                        'subtotal' => $subtotal,
+                        'inscritos' => $listaRegulares,
+                        'subtotal' => count($listaRegulares),
+                        'inscritos_examen_mesa' => $listaEspeciales,
+                        'subtotal_examen_mesa' => count($listaEspeciales),
                     ];
 
-                    $subtotalCarrera += $subtotal;
+                    $subtotalCarrera += count($listaRegulares);
+                    $subtotalCarreraEspeciales += count($listaEspeciales);
                 }
 
                 $carreras[] = [
@@ -655,9 +689,11 @@ class HorarioAdminController extends Controller
                     'carrera' => $mats[0]->CARRERA,
                     'materias' => $materiasArr,
                     'subtotal' => $subtotalCarrera,
+                    'subtotal_examen_mesa' => $subtotalCarreraEspeciales,
                 ];
 
                 $totalDocente += $subtotalCarrera;
+                $totalEspecialesDocente += $subtotalCarreraEspeciales;
             }
 
             $data[] = [
@@ -665,7 +701,8 @@ class HorarioAdminController extends Controller
                 'apellidos' => $doc->APELLIDOS,
                 'nombres' => $doc->NOMBRES,
                 'carreras' => $carreras,
-                'total_inscritos' => $totalDocente,
+                'total_inscritos' => $totalDocente, // regulares, cuadra con Resumen
+                'total_examen_mesa' => $totalEspecialesDocente,
             ];
         }
 
@@ -678,7 +715,6 @@ class HorarioAdminController extends Controller
             'data' => $data,
         ]);
     }
-
     /**
      * Lista inscritos de un docente específico.
      */

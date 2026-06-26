@@ -101,6 +101,7 @@ class ReporteDocenteController extends Controller
             GRUPOS.RESOLUCION,
             GRUPOS.DESIGNACION,
             GRUPOS.TIEMPO,
+            GRUPOS.TIPO_INGRESO, 
             GRUPOS.ANIO,
             GRUPOS.PERIODO,
             GRUPOS.[PLAN]

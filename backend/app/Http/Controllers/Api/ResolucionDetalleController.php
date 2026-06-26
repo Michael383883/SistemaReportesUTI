@@ -50,6 +50,7 @@ class ResolucionDetalleController extends Controller
                 'rd.COD_MATERIA',
                 'rd.GRUPO',
                 'rd.TIPO',
+                'rd.TIPO_INGRESO',   // ← agregar esto
                 'rd.OBSERVACION'
             )
             ->orderBy('d.APELLIDOS')
@@ -102,6 +103,7 @@ class ResolucionDetalleController extends Controller
             'detalles.*.cod_materia' => 'required|string|max:10',
             'detalles.*.grupo' => 'nullable|string|max:5',
             'detalles.*.tipo' => 'nullable|string|max:2',
+            'detalles.*.tipo_ingreso'  => 'nullable|string|max:30',  // ← nuevo
             'detalles.*.observacion' => 'nullable|string|max:200',
         ]);
 
@@ -113,6 +115,7 @@ class ResolucionDetalleController extends Controller
                 'COD_MATERIA' => $item['cod_materia'],
                 'GRUPO' => $item['grupo'] ?? null,
                 'TIPO' => $item['tipo'] ?? null,
+                'TIPO_INGRESO'  => $item['tipo_ingreso'] ?? null,  // ← nuevo
                 'OBSERVACION' => $item['observacion'] ?? null,
             ];
         });
@@ -133,7 +136,8 @@ class ResolucionDetalleController extends Controller
     UPDATE g
     SET
         g.RESOLUCION  = rp.NRO_RESOLUCION,
-        g.DESIGNACION = rp.DESCRIPCION
+        g.DESIGNACION = rp.DESCRIPCION,
+        g.TIPO_INGRESO = dr.TIPO_INGRESO    
     FROM GRUPOS g
     JOIN RESOLUCION_DETALLE dr
         ON  g.DOCENTE                          = dr.COD_DOCENTE

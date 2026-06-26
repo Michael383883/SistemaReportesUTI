@@ -4,14 +4,22 @@
     <!-- ── Cabecera del docente ──────────────────────────── -->
     <div class="flex items-center gap-3 px-5 py-4 bg-gradient-to-r from-slate-800 to-slate-700 text-white">
       <div class="flex-1 min-w-0">
-        <span class="text-xs text-white/60 tracking-wide uppercase block">Cód. {{ docente.cod_docente }}</span>
+       
         <h2 class="font-bold text-base truncate leading-tight mt-0.5">
-          {{ docente.apellidos }}, {{ docente.nombres }}
+          {{ docente.apellidos }} {{ docente.nombres }}
         </h2>
+        <span class="text-xs text-white/60 tracking-wide uppercase block">Cód. {{ docente.cod_docente }}</span>
       </div>
       <div class="flex flex-col items-center bg-white/10 rounded-xl px-4 py-2 shrink-0">
         <span class="text-2xl font-extrabold leading-none">{{ docente.total_inscritos }}</span>
         <span class="text-[10px] uppercase tracking-widest text-white/70 mt-0.5">inscritos</span>
+      </div>
+      <div
+        v-if="docente.total_examen_mesa"
+        class="flex flex-col items-center bg-amber-400/20 rounded-xl px-4 py-2 shrink-0"
+      >
+        <span class="text-2xl font-extrabold leading-none text-amber-200">{{ docente.total_examen_mesa }}</span>
+        <span class="text-[10px] uppercase tracking-widest text-amber-200/80 mt-0.5">ex. mesa</span>
       </div>
     </div>
 
@@ -37,6 +45,13 @@
           >
             {{ carrera.subtotal }}
           </span>
+          <span
+            v-if="carrera.subtotal_examen_mesa"
+            class="text-[11px] font-bold text-amber-600 tabular-nums"
+            title="Examen de mesa"
+          >
+            +{{ carrera.subtotal_examen_mesa }}
+          </span>
         </div>
 
         <!-- ── Materias dentro de la carrera ─────────────── -->
@@ -59,12 +74,21 @@
                 </p>
               </div>
 
-              <!-- Contador inscritos de esta materia -->
+              <!-- Contador inscritos regulares de esta materia -->
               <span
                 class="text-sm font-extrabold tabular-nums shrink-0"
                 :class="colorClasses[carrera.carrera.toLowerCase()]?.num ?? 'text-slate-700'"
               >
                 {{ materia.subtotal }}
+              </span>
+
+              <!-- Contador examen de mesa (si tiene) -->
+              <span
+                v-if="materia.subtotal_examen_mesa"
+                class="text-[11px] font-bold text-amber-600 tabular-nums shrink-0"
+                title="Examen de mesa"
+              >
+                +{{ materia.subtotal_examen_mesa }}
               </span>
 
               <!-- Chevron -->
@@ -90,17 +114,42 @@
                 v-if="abiertos.has(carrera.plan + materia.cod_materia + materia.grupo)"
                 class="overflow-hidden bg-slate-50 border-b border-slate-100"
               >
+                <!-- Inscritos regulares -->
+                <p class="px-5 pt-2 pb-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                  Regulares ({{ materia.subtotal }})
+                </p>
                 <ul class="divide-y divide-slate-100 max-h-60 overflow-y-auto">
                   <li
                     v-for="(est, idx) in materia.inscritos"
-                    :key="est.codigo"
+                    :key="'r-' + est.codigo"
                     class="flex items-center gap-2 px-5 py-2 text-xs hover:bg-white"
                   >
                     <span class="text-slate-300 w-4 text-right shrink-0 tabular-nums">{{ idx + 1 }}</span>
                     <span class="font-mono text-slate-400 w-20 shrink-0">{{ est.codigo }}</span>
                     <span class="text-slate-700 font-medium truncate">{{ est.nombre }}</span>
                   </li>
+                  <li v-if="!materia.inscritos.length" class="px-5 py-2 text-xs text-slate-400 italic">
+                    Sin inscritos regulares
+                  </li>
                 </ul>
+
+                <!-- Examen de mesa -->
+                <template v-if="materia.subtotal_examen_mesa">
+                  <p class="px-5 pt-3 pb-1 text-[10px] font-bold uppercase tracking-wide text-amber-600 border-t border-slate-200 mt-1">
+                    Examen de mesa ({{ materia.subtotal_examen_mesa }})
+                  </p>
+                  <ul class="divide-y divide-slate-100 max-h-60 overflow-y-auto">
+                    <li
+                      v-for="(est, idx) in materia.inscritos_examen_mesa"
+                      :key="'e-' + est.codigo"
+                      class="flex items-center gap-2 px-5 py-2 text-xs hover:bg-white bg-amber-50/40"
+                    >
+                      <span class="text-slate-300 w-4 text-right shrink-0 tabular-nums">{{ idx + 1 }}</span>
+                      <span class="font-mono text-slate-400 w-20 shrink-0">{{ est.codigo }}</span>
+                      <span class="text-slate-700 font-medium truncate">{{ est.nombre }}</span>
+                    </li>
+                  </ul>
+                </template>
               </div>
             </Transition>
           </div>
@@ -125,6 +174,13 @@
         <span class="text-[10px] font-bold tracking-widest uppercase text-slate-400">Total</span>
         <span class="text-xl font-extrabold bg-blue-100 text-blue-800 px-4 py-0.5 rounded-full tabular-nums">
           {{ docente.total_inscritos }}
+        </span>
+        <span
+          v-if="docente.total_examen_mesa"
+          class="text-sm font-extrabold bg-amber-100 text-amber-700 px-3 py-0.5 rounded-full tabular-nums"
+          title="Examen de mesa"
+        >
+          +{{ docente.total_examen_mesa }}
         </span>
       </div>
     </div>

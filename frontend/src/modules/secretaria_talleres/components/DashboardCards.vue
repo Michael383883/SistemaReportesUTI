@@ -10,14 +10,14 @@
       <!-- Fondo decorativo -->
       <div
         class="absolute -top-4 -right-4 w-24 h-24 rounded-full opacity-10 group-hover:opacity-20 transition-opacity"
-        :style="{ backgroundColor: card.color }"
+        :style="{ backgroundColor: card.bgDecor }"
       />
 
       <div class="relative">
         <div class="flex items-start justify-between mb-3">
           <div
             class="w-12 h-12 rounded-xl flex items-center justify-center"
-            :style="{ backgroundColor: card.color + '20', color: card.color }"
+            :class="card.iconBoxClass"
           >
             <component :is="card.icon" class="w-6 h-6" />
           </div>
@@ -25,7 +25,7 @@
           <!-- Badge de categoría -->
           <span
             class="text-xs font-semibold px-2 py-1 rounded-full"
-            :style="{ backgroundColor: card.color + '15', color: card.color }"
+            :class="card.badgeClass"
           >
             {{ card.categoria }}
           </span>
@@ -47,7 +47,8 @@
         <div class="mt-3 h-1.5 bg-slate-100 rounded-full overflow-hidden">
           <div
             class="h-full rounded-full transition-all duration-700"
-            :style="{ width: card.percentage + '%', backgroundColor: card.color }"
+            :class="card.barClass"
+            :style="{ width: card.percentage + '%' }"
           />
         </div>
       </div>
@@ -57,7 +58,7 @@
 
 <script setup>
 import { computed } from 'vue'
-import { Users, GraduationCap, BookOpen, AlertCircle } from 'lucide-vue-next'
+import { Users, GraduationCap, BookOpen } from 'lucide-vue-next'
 
 const props = defineProps({
   kpis: { type: Object, default: () => ({}) },
@@ -66,19 +67,9 @@ const props = defineProps({
 
 defineEmits(['cardClick'])
 
-const totalEstudiantes = computed(() =>
-  props.kpis.estudiantes?.total ?? 0
-)
-
-const totalDocentes = computed(() =>
-  props.kpis.docentes?.total ?? 0
-)
-
-const totalTalleres = computed(() =>
-  props.kpis.talleres?.total ?? 0
-)
-
-
+const totalEstudiantes = computed(() => props.kpis.estudiantes?.total ?? 0)
+const totalDocentes    = computed(() => props.kpis.docentes?.total ?? 0)
+const totalTalleres    = computed(() => props.kpis.talleres?.total ?? 0)
 
 const cards = computed(() => [
   {
@@ -86,8 +77,12 @@ const cards = computed(() => [
     label: 'Estudiantes Inscritos',
     value: totalEstudiantes.value,
     icon: GraduationCap,
-    color: '#6366f1',
-    categoria: 'Estudiantes',
+    // indigo — coherente con blue-50/blue-700 del template
+    bgDecor:      '#1e1b4b',
+    iconBoxClass: 'bg-indigo-50 text-indigo-700',
+    badgeClass:   'bg-indigo-50 text-indigo-800',
+    barClass:     'bg-indigo-600',
+    categoria:    'Estudiantes',
     percentage: Math.min((totalEstudiantes.value / 600) * 100, 100)
   },
   {
@@ -95,8 +90,12 @@ const cards = computed(() => [
     label: 'Docentes Activos',
     value: totalDocentes.value,
     icon: Users,
-    color: '#0d9488',
-    categoria: 'Docentes',
+    // teal — igual al slate-800 header del template (tono frío oscuro)
+    bgDecor:      '#042f2e',
+    iconBoxClass: 'bg-teal-50 text-teal-700',
+    badgeClass:   'bg-teal-50 text-teal-800',
+    barClass:     'bg-teal-600',
+    categoria:    'Docentes',
     percentage: Math.min((totalDocentes.value / 40) * 100, 100)
   },
   {
@@ -104,8 +103,12 @@ const cards = computed(() => [
     label: 'Talleres Activos',
     value: totalTalleres.value,
     icon: BookOpen,
-    color: '#f59e0b',
-    categoria: 'Talleres',
+    // amber — igual al amber-100/amber-800 de compartidos en el template
+    bgDecor:      '#78350f',
+    iconBoxClass: 'bg-amber-50 text-amber-700',
+    badgeClass:   'bg-amber-50 text-amber-800',
+    barClass:     'bg-amber-500',
+    categoria:    'Talleres',
     percentage: Math.min((totalTalleres.value / 30) * 100, 100)
   }
 ])

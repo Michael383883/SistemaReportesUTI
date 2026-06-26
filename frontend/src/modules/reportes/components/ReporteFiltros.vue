@@ -153,24 +153,31 @@
         <div
           v-if="menuOpen"
           class="
-            absolute right-0 mt-1.5 w-48 rounded-xl
+            absolute right-0 mt-1.5 w-52 rounded-xl
             bg-slate-800 border border-slate-700
             shadow-2xl shadow-black/40 z-50 overflow-hidden
           "
         >
-          <button
-            v-for="opt in pdfOpciones"
-            :key="opt.action"
-            class="
-              w-full flex items-center gap-2.5 px-3.5 py-2.5
-              text-xs font-medium text-slate-300 hover:bg-white/[0.06] hover:text-slate-100
-              transition-colors duration-100 cursor-pointer border-none bg-transparent text-left
-            "
-            @click="onPDF(opt.action)"
-          >
-            <span class="text-slate-500" v-html="opt.icon"/>
-            {{ opt.label }}
-          </button>
+          <template v-for="opt in pdfOpciones" :key="opt.action">
+            <!-- Separador -->
+            <div
+              v-if="opt.action === 'divider'"
+              class="mx-3 my-1 border-t border-slate-700"
+            />
+            <!-- Opción normal -->
+            <button
+              v-else
+              class="
+                w-full flex items-center gap-2.5 px-3.5 py-2.5
+                text-xs font-medium text-slate-300 hover:bg-white/[0.06] hover:text-slate-100
+                transition-colors duration-100 cursor-pointer border-none bg-transparent text-left
+              "
+              @click="onPDF(opt.action)"
+            >
+              <span class="text-slate-500" v-html="opt.icon"/>
+              {{ opt.label }}
+            </button>
+          </template>
         </div>
       </Transition>
     </div>
@@ -180,6 +187,7 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
 import { generarPDF } from '../composables/useGenerarPDF'
+import { generarPDFConTipoIngreso } from '../composables/useGenerarPDFConTipoIngreso'
 
 const props = defineProps({
   anio:    { type: [Number, String], default: null },
@@ -196,7 +204,7 @@ const anioLocal    = ref(props.anio    || '')
 const materiaLocal = ref(props.materia || '')
 const grupoLocal   = ref(props.grupo   || '')
 
-// ── Menú PDF ─────────────────────────────────────────────────────────────────
+// ── Menú PDF ──────────────────────────────────────────────────────────────────
 const menuOpen   = ref(false)
 const pdfMenuRef = ref(null)
 
@@ -227,6 +235,37 @@ const pdfOpciones = [
                <rect x="6" y="14" width="12" height="8"/>
              </svg>`,
   },
+  // ── separador ───────────────────────────────────────────────────────────────
+  { action: 'divider' },
+  // ── con modalidad de ingreso ─────────────────────────────────────────────────
+  {
+    action: 'open-tipo-ingreso',
+    label:  'Ver con modalidad ingreso',
+    icon:   `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+               <polyline points="14 2 14 8 20 8"/>
+               <line x1="12" y1="18" x2="12" y2="12"/>
+               <line x1="9" y1="15" x2="15" y2="15"/>
+             </svg>`,
+  },
+  {
+    action: 'save-tipo-ingreso',
+    label:  'Descargar con modalidad',
+    icon:   `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+               <polyline points="7 10 12 15 17 10"/>
+               <line x1="12" y1="15" x2="12" y2="3"/>
+             </svg>`,
+  },
+  {
+    action: 'print-tipo-ingreso',
+    label:  'Imprimir con modalidad',
+    icon:   `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+               <polyline points="6 9 6 2 18 2 18 9"/>
+               <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+               <rect x="6" y="14" width="12" height="8"/>
+             </svg>`,
+  },
 ]
 
 const toggleMenu = () => { menuOpen.value = !menuOpen.value }
@@ -242,12 +281,19 @@ onUnmounted(() => document.removeEventListener('click', onClickOutside))
 const onPDF = (action) => {
   menuOpen.value = false
   if (!props.reporte) return
+
+  // Con modalidad de ingreso
+  if (action === 'open-tipo-ingreso')   return generarPDFConTipoIngreso(props.reporte, { action: 'open' })
+  if (action === 'save-tipo-ingreso')   return generarPDFConTipoIngreso(props.reporte, { action: 'save' })
+  if (action === 'print-tipo-ingreso')  return generarPDFConTipoIngreso(props.reporte, { action: 'print' })
+
+  // Normal
   generarPDF(props.reporte, { action })
 }
 
 // ── Acciones ──────────────────────────────────────────────────────────────────
 const onGenerar = () => {
-  const anio    = anioLocal.value    ? Number(anioLocal.value) : null
+  const anio    = anioLocal.value       ? Number(anioLocal.value) : null
   const materia = materiaLocal.value.trim() || null
   const grupo   = grupoLocal.value.trim()   || null
 

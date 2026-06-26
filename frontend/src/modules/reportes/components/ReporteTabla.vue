@@ -12,6 +12,7 @@
             <th class="text-left px-4 py-3 text-[0.68rem] font-semibold tracking-widest uppercase text-slate-400 w-14">GRP</th>
             <th class="text-left px-4 py-3 text-[0.68rem] font-semibold tracking-widest uppercase text-slate-400">Resolución</th>
             <th class="text-left px-4 py-3 text-[0.68rem] font-semibold tracking-widest uppercase text-slate-400">Designación</th>
+            <th class="text-left px-4 py-3 text-[0.68rem] font-semibold tracking-widest uppercase text-slate-400 w-28">Modalidad de ingreso</th>
             <th class="text-left px-4 py-3 text-[0.68rem] font-semibold tracking-widest uppercase text-slate-400 w-28">Documento</th>
           </tr>
         </thead>
@@ -70,6 +71,16 @@
                     class="text-xs text-slate-400 leading-relaxed line-clamp-2"
                     :title="m.designacion">
                 {{ m.designacion }}
+              </span>
+              <span v-else class="text-slate-600 text-xs">—</span>
+            </td>
+
+             <!-- Modalidad de ingreso -->
+            <td class="px-4 py-3 max-w-xs">
+              <span v-if="m.tipo_ingreso"
+                    class="text-xs text-slate-400 leading-relaxed line-clamp-2"
+                    :title="m.tipo_ingreso">
+                {{ m.tipo_ingreso }}
               </span>
               <span v-else class="text-slate-600 text-xs">—</span>
             </td>

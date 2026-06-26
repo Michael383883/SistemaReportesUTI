@@ -26,6 +26,7 @@
             <th class="px-4 py-2.5 text-left text-[0.68rem] font-semibold tracking-widest uppercase text-slate-400">Materia</th>
             <th class="px-4 py-2.5 text-left text-[0.68rem] font-semibold tracking-widest uppercase text-slate-400">Grupo</th>
             <th class="px-4 py-2.5 text-left text-[0.68rem] font-semibold tracking-widest uppercase text-slate-400">Observación</th>
+            <th class="text-center px-4 py-3 text-[0.68rem] font-semibold tracking-widest uppercase text-slate-400 w-24">Tipo de ingreso</th>
             <th class="px-4 py-2.5 text-center text-[0.68rem] font-semibold tracking-widest uppercase text-slate-400">Quitar</th>
           </tr>
         </thead>
@@ -43,6 +44,7 @@
               </span>
               <span v-else class="text-slate-600">—</span>
             </td>
+            <td class="px-4 py-2.5 text-slate-300 font-mono">{{ m.tipo_ingreso }}</td>
             <td class="px-4 py-2.5 text-center">
               <button type="button" class="text-slate-500 hover:text-red-400 transition-colors" title="Quitar" @click="$emit('quitar', m.key)">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">

@@ -7,7 +7,7 @@ export function useAuth() {
   const route = useRoute()
 
   async function login(credentials) {
-    await authStore.login(credentials)   // ← aquí ya se guarda user + role
+    await authStore.login(credentials)   
 
     // 1. Si venía con ?redirect= y es una ruta interna válida → respetarla
     const redirect = route.query?.redirect
@@ -20,7 +20,7 @@ export function useAuth() {
       secretaria: '/secretaria/dashboard',
       secretaria_talleres: '/secretariaTalleres/dashboard', 
       admin: '/dashboard',
-      uti: '/dashboard',          // ajusta si tienes ruta propia
+      uti: '/dashboard',          
     }
     const home = roleHome[authStore.userRole] ?? '/dashboard'
     router.push(home)

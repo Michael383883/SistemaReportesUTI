@@ -31,6 +31,7 @@ const normalizeMateria = (m) => {
     out.grp = m.grp ?? m.GRP ?? m.grupo ?? m.GRUPO ?? ''
     out.resolucion = m.resolucion ?? m.RESOLUCION ?? m.resolucion_num ?? m.RESOLUCION_NUM ?? ''
     out.designacion = m.designacion ?? m.DESIGNACION ?? ''
+    out.tipo_ingreso = m.tipo_ingreso ?? m.TIPO_INGRESO ?? ''
     return out
 }
 
@@ -96,7 +97,14 @@ export function useReporte() {
                 payload,
                 { headers: { Authorization: `Bearer ${token}` } }
             )
+            // ─── DEBUG ───────────────────────────────────────────
+            //console.log('📦 RAW response.data:', response.data)
+            //console.log('📋 Primera materia raw:', response.data?.materias?.[0] ?? response.data?.MATERIAS?.[0])
+            // ─────────────────────────────────────────────────────
+
             reporte.value = normalizeReporteResponse(response.data)
+
+          //  console.log('✅ Primera materia normalizada:', reporte.value?.materias?.[0])
         } catch (err) {
             error.value = err.response?.data?.message || 'Error al generar el reporte'
         } finally {

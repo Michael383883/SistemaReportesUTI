@@ -11,6 +11,7 @@
             <th class="text-left px-4 py-3 text-[0.68rem] font-semibold tracking-widest uppercase text-slate-400 w-28">Compartido</th>
             <th class="text-left px-4 py-3 text-[0.68rem] font-semibold tracking-widest uppercase text-slate-400 w-14">GRP</th>
             <th class="text-left px-4 py-3 text-[0.68rem] font-semibold tracking-widest uppercase text-slate-400">Resolución</th>
+            <th class="text-center px-4 py-3 text-[0.68rem] font-semibold tracking-widest uppercase text-slate-400 w-24">Tipo de ingreso</th>
             <th class="text-center px-4 py-3 text-[0.68rem] font-semibold tracking-widest uppercase text-slate-400 w-24">Asignar</th>
           </tr>
         </thead>
@@ -64,6 +65,21 @@
             <td class="px-4 py-3">
               <span v-if="m.resolucion" class="text-xs text-emerald-400 font-medium">{{ m.resolucion }}</span>
               <span v-else class="text-slate-600 text-xs">—</span>
+            </td>
+
+            <!-- Tipo de designacion-->
+            <td class="px-4 py-3">
+              <select
+                v-model="m.tipo_ingreso"
+                class="w-full rounded-lg border border-slate-700 bg-slate-800 text-slate-200 text-xs px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">-- Seleccionar --</option>
+                <option value="ACEFALIA">ACEFALIA</option>
+                <option value="TEMPORAL">TEMPORAL</option>
+                <option value="TITULAR">TITULAR</option>
+                <option value="EXAMEN SUFICIENCIA">EXAMEN SUFICIENCIA</option>
+                <option value="EXAMEN COMPETENCIA">EXAMEN COMPETENCIA</option>
+              </select>
             </td>
 
             <!-- Asignar (checkbox) -->

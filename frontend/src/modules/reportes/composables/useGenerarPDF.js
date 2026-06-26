@@ -93,6 +93,7 @@ export function generarPDF(reporte, opts = {}) {
         { header: 'GRP', dataKey: 'grp' },
         { header: 'RESOLUCIÓN', dataKey: 'resolucion' },
         { header: 'DESIGNACIÓN', dataKey: 'designacion' },
+        ...(reporte.__extraColumnas || []),
     ]
 
     const filas = (reporte.materias || []).map((m) => ({
@@ -104,6 +105,11 @@ export function generarPDF(reporte, opts = {}) {
         grp: m.grp || '',
         resolucion: m.resolucion || '',
         designacion: m.designacion || '',
+        // ── pasa cualquier campo extra que haya inyectado el hijo ──
+        ...(reporte.__extraColumnas || []).reduce((acc, col) => {
+            acc[col.dataKey] = m[col.dataKey] ?? ''
+            return acc
+        }, {}),
     }))
 
     // ── Tabla ─────────────────────────────────────────────────────────────────────
@@ -149,7 +155,8 @@ export function generarPDF(reporte, opts = {}) {
             4: { cellWidth: 20, halign: 'center' },
             5: { cellWidth: 8, halign: 'center' },
             6: { cellWidth: 22 },
-            7: { cellWidth: 'auto' },
+            7: { cellWidth: reporte.__extraColumnas?.length ? 30 : 'auto' },
+            8: { cellWidth: 22, halign: 'center' },
         },
 
         // ── Solo líneas horizontales entre filas, sin verticales ──────────────

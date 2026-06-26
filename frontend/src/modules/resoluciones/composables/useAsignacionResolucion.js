@@ -75,6 +75,7 @@ export function useAsignacionResolucion() {
             cod_materia: extraerCodMateria(materia.materia),
             grupo: materia.grp || null,
             tipo: 'N',
+            tipo_ingreso: materia.tipo_ingreso || null,   // ← nuevo
             gestion: materia.gestion,
             observacion: materia.compartido ? 'COMPARTIDO' : null,
             materiaLabel: materia.materia,
@@ -102,6 +103,7 @@ export function useAsignacionResolucion() {
             cod_materia: m.cod_materia,
             grupo: m.grupo,
             tipo: m.tipo,
+            tipo_ingreso: m.tipo_ingreso,   // ← nuevo
             observacion: m.observacion,
         }))
 
