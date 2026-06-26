@@ -1,10 +1,11 @@
 <template>
-  <div class="px-9 py-0 max-w-6xl00">
+  <div class="px-6 py-2 max-w-6xl00">
 
     <!-- Header de página -->
     <div class="flex items-start justify-between mb-7">
       <div>
-        <h1 class="text-2xl font-bold text-black tracking-tight m-0 mb-1">Reporte de Docente</h1>
+        <h1 class="text-2xl font-bold text-gray-900 mb-0.5"> 
+          Reporte de Docente</h1>
         <p class="text-xs text-slate-400 m-0">Materias dictadas registradas en el SISS a partir de 2001</p>
       </div>
     </div>

@@ -6,8 +6,8 @@ export const reportesRoutes = [
         //meta: { requiresAuth: true, roles: ['Administrador', 'Secretaria'] },
     },
     {
-        path: '/reportes/exportaciones',
-        name: 'reportes-exportacion',
-        component: () => import('./views/ExportacionesView.vue')
+        path: '/reportes/edicion-tipo-ingreso',
+        name: 'reportes-ediciontipoingreso',
+        component: () => import('./views/EdicionTipoIngreso.vue')
     },
 ]
