@@ -5,7 +5,7 @@
     <div class="bg-white border-b border-slate-200 px-6 py-5">
       <div class="flex items-center justify-between">
         <div>
-          <h1 class="text-2xl font-bold text-slate-800">Dashboard de Secretaría</h1>
+          <h1 class="text-2xl font-bold text-slate-800">{{ tituloDashboard }}</h1>
           <p class="text-sm text-slate-500 mt-1">Panel de control docente · {{ periodoActual }}</p>
         </div>
         <div class="flex items-center gap-3">
@@ -124,6 +124,7 @@ import { useRouter } from 'vue-router'
 import { RefreshCw, AlertTriangle, Info, AlertCircle, BellRing } from 'lucide-vue-next'
 import { Bar, Pie } from 'vue-chartjs'
 import { useDocentesRecientes } from '@/shared/composables/useDocentesRecientes'
+import { useAuth } from '../../auth/composables/useAuth'
 import {
   Chart as ChartJS,
   Title,
@@ -147,6 +148,12 @@ const chartView = ref('bar')
 const periodoActual = ref('Mayo 2026')
 const { recientes: docentesRecientes } = useDocentesRecientes()
 
+// Rol del usuario logueado, para distinguir secretaría / UTI
+const { userRole } = useAuth()
+
+const tituloDashboard = computed(() =>
+  userRole === 'uti' ? 'Dashboard Secretaría UTI' : 'Dashboard de Secretaría'
+)
 
 const chartDataCarga = computed(() => ({
   labels: kpis.value.cargaHoraria?.map(c => c.rango) || [],
