@@ -3,7 +3,8 @@
     <!-- Header -->
     <div class="flex items-start justify-between mb-5">
      <div class="flex items-start justify-between mb-3">
-      <h1 class="text-xl font-bold text-black-400 tracking-tight m-0 mb-0.5">
+      
+        <h1 class="text-2xl font-bold text-gray-900 mb-0.5"> 
         Gestion de usuarios
         <p class="text-[12px] text-slate-500 mt-0.5">Control de accesos por rol</p>
       </h1>
