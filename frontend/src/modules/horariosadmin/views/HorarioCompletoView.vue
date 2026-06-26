@@ -85,39 +85,48 @@
       </div>
 
       <!-- Botón PDF con menú desplegable -->
-      <div class="flex flex-col">
+      <div class="flex flex-col" ref="pdfDropdownRef">
         <label class="text-[0.68rem] invisible">PDF</label>
         <div class="relative">
-          <div class="inline-flex rounded-lg overflow-hidden border border-red-700/40 shadow-lg shadow-red-900/20">
+
+          <!-- Botón partido: acción principal + flecha -->
+          <div
+            class="inline-flex rounded-lg overflow-visible border border-red-700/40 shadow-lg shadow-red-900/20"
+            :class="(loadingPdf || docentes.length === 0) ? 'opacity-40 pointer-events-none' : ''"
+          >
+            <!-- Acción principal: descarga formato clásico -->
             <button
-              @click="generarPDFCompleto"
-              :disabled="loading || docentes.length === 0"
+              @click="generarPDFCompleto('descargar')"
               class="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold
                      bg-red-700 hover:bg-red-600 active:bg-red-800 text-white
-                     transition-all duration-150 border-none
-                     disabled:opacity-40 disabled:cursor-not-allowed"
+                     transition-all duration-150"
             >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                <polyline points="14 2 14 8 20 8"/>
+              <svg :class="loadingPdf ? 'animate-spin' : ''" width="15" height="15"
+                   viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <template v-if="loadingPdf">
+                  <circle cx="12" cy="12" r="9"/>
+                  <path d="M12 3a9 9 0 0 1 9 9" stroke-linecap="round"/>
+                </template>
+                <template v-else>
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                  <polyline points="14 2 14 8 20 8"/>
+                </template>
               </svg>
-              Generar PDF
+              {{ loadingPdf ? 'Generando...' : 'Generar PDF' }}
             </button>
+
+            <!-- Flecha para abrir menú -->
             <button
               @click.stop="mostrarMenuPdf = !mostrarMenuPdf"
-              :disabled="loading || docentes.length === 0"
-              class="inline-flex items-center px-2.5 py-2
-                     bg-red-800 hover:bg-red-700 text-white
-                     border-l border-red-900/50
-                     transition-all duration-150
-                     border-t-0 border-b-0 border-r-0
-                     disabled:opacity-40 disabled:cursor-not-allowed"
-              aria-label="Opciones de PDF"
+              class="px-2.5 py-2 bg-red-700 hover:bg-red-600 active:bg-red-800 text-white
+                     border-l border-red-600/60 transition-all duration-150"
+              aria-label="Más opciones de PDF"
             >
               <svg
-                width="13" height="13" viewBox="0 0 24 24" fill="none"
+                width="14" height="14" viewBox="0 0 24 24" fill="none"
                 stroke="currentColor" stroke-width="2.5"
-                :class="['transition-transform duration-200', mostrarMenuPdf ? 'rotate-180' : '']"
+                :style="mostrarMenuPdf ? 'transform:rotate(180deg)' : ''"
+                style="transition: transform 0.15s"
               >
                 <polyline points="6 9 12 15 18 9"/>
               </svg>
@@ -131,60 +140,111 @@
             @click="mostrarMenuPdf = false"
           />
 
-          <!-- Menú desplegable -->
+          <!-- Menú desplegable con 4 opciones -->
           <Transition
-            enter-active-class="transition ease-out duration-150"
-            enter-from-class="opacity-0 translate-y-1 scale-95"
-            enter-to-class="opacity-100 translate-y-0 scale-100"
-            leave-active-class="transition ease-in duration-100"
-            leave-from-class="opacity-100 translate-y-0 scale-100"
-            leave-to-class="opacity-0 translate-y-1 scale-95"
+            enter-active-class="transition-all duration-150 ease-out"
+            enter-from-class="opacity-0 scale-95 -translate-y-1"
+            enter-to-class="opacity-100 scale-100 translate-y-0"
+            leave-active-class="transition-all duration-100 ease-in"
+            leave-from-class="opacity-100 scale-100 translate-y-0"
+            leave-to-class="opacity-0 scale-95 -translate-y-1"
           >
             <div
               v-if="mostrarMenuPdf"
-              class="absolute right-0 mt-1.5 w-56 rounded-xl
-                     bg-slate-800 border border-slate-700
-                     shadow-2xl shadow-black/40 z-50 overflow-hidden"
+              class="absolute right-0 top-full mt-1.5 z-50
+                     bg-white border border-slate-200 rounded-xl
+                     shadow-xl overflow-hidden w-64"
             >
+              <!-- Encabezado: Formato clásico -->
+              <div class="px-4 pt-3 pb-1">
+                <p class="text-[0.65rem] font-semibold tracking-widest uppercase text-slate-400">
+                  Formato clásico
+                </p>
+              </div>
+
+              <!-- 1. Ver formato clásico -->
               <button
-                @click="generarPDFCompleto"
-                class="w-full flex items-center gap-2.5 px-3.5 py-2.5
-                       border-b border-slate-700
-                       text-xs font-medium text-slate-300
-                       hover:bg-white/[0.06] hover:text-slate-100
-                       transition-colors bg-transparent text-left
-                       border-t-0 border-r-0 border-l-0"
+                @click="generarPDFCompleto('ver'); mostrarMenuPdf = false"
+                class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700
+                       hover:bg-slate-50 transition-colors text-left"
               >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-slate-500 shrink-0">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                  <polyline points="14 2 14 8 20 8"/>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2" class="text-slate-400 shrink-0">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                  <circle cx="12" cy="12" r="3"/>
                 </svg>
-                <span class="flex flex-col">
-                  <span class="font-semibold">PDF Formato clásico</span>
-                  <span class="text-[11px] text-slate-500">Detalle de horarios por docente</span>
-                </span>
+                <div>
+                  <div class="font-medium leading-tight">Ver PDF</div>
+                  <div class="text-xs text-slate-400 mt-0.5">Abrir en nueva pestaña</div>
+                </div>
               </button>
+
+              <!-- 2. Descargar formato clásico -->
               <button
-                @click="generarPDFResumen"
-                class="w-full flex items-center gap-2.5 px-3.5 py-2.5
-                       text-xs font-medium text-slate-300
-                       hover:bg-white/[0.06] hover:text-slate-100
-                       transition-colors bg-transparent text-left border-none"
+                @click="generarPDFCompleto('descargar'); mostrarMenuPdf = false"
+                class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700
+                       hover:bg-slate-50 transition-colors text-left"
               >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-slate-500 shrink-0">
-                  <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/>
-                  <line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/>
-                  <line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2" class="text-slate-400 shrink-0">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                  <polyline points="7 10 12 15 17 10"/>
+                  <line x1="12" y1="15" x2="12" y2="3"/>
                 </svg>
-                <span class="flex flex-col">
-                  <span class="font-semibold">PDF Formato nuevo</span>
-                  <span class="text-[11px] text-slate-500">Reporte según vista actual</span>
-                </span>
+                <div>
+                  <div class="font-medium leading-tight">Descargar PDF</div>
+                  <div class="text-xs text-slate-400 mt-0.5">Guardar en tu equipo</div>
+                </div>
+              </button>
+
+              <div class="border-t border-slate-100 mx-4"/>
+
+              <!-- Encabezado: Formato nuevo -->
+              <div class="px-4 pt-3 pb-1">
+                <p class="text-[0.65rem] font-semibold tracking-widest uppercase text-slate-400">
+                  Formato nuevo
+                </p>
+              </div>
+
+              <!-- 3. Ver formato nuevo -->
+              <button
+                @click="generarPDFResumen('ver'); mostrarMenuPdf = false"
+                class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700
+                       hover:bg-slate-50 transition-colors text-left"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2" class="text-slate-400 shrink-0">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                  <circle cx="12" cy="12" r="3"/>
+                </svg>
+                <div>
+                  <div class="font-medium leading-tight">Ver PDF</div>
+                  <div class="text-xs text-slate-400 mt-0.5">Abrir en nueva pestaña</div>
+                </div>
+              </button>
+
+              <!-- 4. Descargar formato nuevo -->
+              <button
+                @click="generarPDFResumen('descargar'); mostrarMenuPdf = false"
+                class="w-full flex items-center gap-3 px-4 py-2.5 pb-3 text-sm text-slate-700
+                       hover:bg-slate-50 transition-colors text-left"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2" class="text-slate-400 shrink-0">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                  <polyline points="7 10 12 15 17 10"/>
+                  <line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+                <div>
+                  <div class="font-medium leading-tight">Descargar PDF</div>
+                  <div class="text-xs text-slate-400 mt-0.5">Guardar en tu equipo</div>
+                </div>
               </button>
             </div>
           </Transition>
         </div>
       </div>
+
     </div>
 
     <!-- ERROR -->
@@ -219,71 +279,12 @@
       </div>
     </div>
 
-    <!-- MODALES -->
-    <Teleport to="body">
-
-      <!-- Generando PDF -->
-      <div
-        v-if="generandoPdf"
-        class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50"
-      >
-        <div class="bg-white rounded-2xl p-8 shadow-2xl flex flex-col items-center gap-4 min-w-[320px]">
-          <div class="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
-          <h3 class="text-lg font-bold text-slate-800">Generando PDF...</h3>
-          <p class="text-sm text-slate-500 text-center">Procesando horarios de docentes</p>
-        </div>
-      </div>
-
-      <!-- PDF Generado -->
-      <div
-        v-if="pdfGenerado"
-        class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50"
-      >
-        <div class="bg-white rounded-2xl p-8 shadow-2xl flex flex-col items-center gap-4 min-w-[320px]">
-          <div class="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center text-5xl animate-bounce">✅</div>
-          <h3 class="text-lg font-bold text-green-700">PDF Generado</h3>
-          <p class="text-sm text-slate-500 text-center">El documento fue creado correctamente</p>
-        </div>
-      </div>
-
-      <!-- Vista previa PDF -->
-      <div
-        v-if="pdfPreviewUrl"
-        class="fixed inset-0 z-50 flex flex-col bg-black/70 backdrop-blur-sm"
-        @keydown.esc="cerrarPreview"
-        tabindex="-1"
-      >
-        <div class="flex items-center justify-between bg-slate-900 px-6 py-3 shrink-0">
-          <div class="flex items-center gap-3">
-            <span class="text-white font-bold text-sm">📄 Vista previa — {{ pdfFilename }}</span>
-            <span class="text-slate-400 text-xs">Gestión {{ anio }}/{{ periodo }} · {{ docentes.length }} docentes</span>
-          </div>
-          <div class="flex items-center gap-2">
-            <a
-              :href="pdfPreviewUrl"
-              :download="pdfFilename"
-              target="_blank"
-              class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-lg font-semibold text-sm flex items-center gap-1.5"
-            >
-              <span>⬇️</span> Descargar
-            </a>
-            <button
-              @click="cerrarPreview"
-              class="bg-slate-700 hover:bg-slate-600 text-white px-4 py-1.5 rounded-lg font-semibold text-sm"
-            >
-              ✕ Cerrar
-            </button>
-          </div>
-        </div>
-        <iframe :src="pdfPreviewUrl" class="flex-1 w-full border-0" type="application/pdf" />
-      </div>
-
-    </Teleport>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onUnmounted } from 'vue'
+
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import HorarioDocenteCard from '../components/HorarioDocenteCard.vue'
 import { useHorarioAdmin } from '../composables/useHorarioAdmin'
 import { generarPDFCargaHoraria } from '../composables/useGenerarPDFCargaHoraria'
@@ -292,28 +293,16 @@ import { usePeriodoActual } from '../composables/usePeriodoActual'
 
 const { anio, periodo } = usePeriodoActual()
 
-const generandoPdf = ref(false)
-const pdfGenerado = ref(false)
+const loadingPdf = ref(false)
 const mostrarMenuPdf = ref(false)
+const pdfDropdownRef = ref(null)
 
 const {
   docentes, loading, error,
-  cargarTodos, cargarDocente, colorCarrera,
+  cargarTodos, cargarDocente,
 } = useHorarioAdmin()
 
 const busqueda = ref('')
-
-// ── Estado del modal ──────────────────────────────────────────────────────────
-const pdfPreviewUrl = ref(null)
-const pdfFilename = ref('')
-
-const COLORES = {
-  ADM: { bg: '#dbeafe', text: '#1e40af', border: '#93c5fd' },
-  ECO: { bg: '#dcfce7', text: '#166534', border: '#86efac' },
-  CCP: { bg: '#fef9c3', text: '#854d0e', border: '#fde047' },
-  COM: { bg: '#fce7f3', text: '#9d174d', border: '#f9a8d4' },
-  FIN: { bg: '#ede9fe', text: '#5b21b6', border: '#c4b5fd' },
-}
 
 const fechaActual = computed(() =>
   new Date().toLocaleString('es-BO', {
@@ -321,6 +310,56 @@ const fechaActual = computed(() =>
     hour: '2-digit', minute: '2-digit',
   })
 )
+
+// Cierra el menú al hacer click fuera
+function onClickFuera(e) {
+  if (pdfDropdownRef.value && !pdfDropdownRef.value.contains(e.target)) {
+    mostrarMenuPdf.value = false
+  }
+}
+onMounted(() => document.addEventListener('click', onClickFuera))
+onBeforeUnmount(() => document.removeEventListener('click', onClickFuera))
+
+// ── Lógica central: ver en pestaña o descargar directamente ──────────────────
+async function ejecutarPDF(generador, modo = 'descargar') {
+  loadingPdf.value = true
+  mostrarMenuPdf.value = false
+  try {
+    const { url, filename } = generador()
+    if (modo === 'ver') {
+      window.open(url, '_blank')
+      setTimeout(() => URL.revokeObjectURL(url), 60_000)
+    } else {
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    }
+  } catch (err) {
+    console.error(err)
+  } finally {
+    loadingPdf.value = false
+  }
+}
+
+// Formato clásico (detalle completo)
+async function generarPDFCompleto(modo = 'descargar') {
+  await ejecutarPDF(
+    () => generarPDFCargaHoraria(docentes.value, { anio: anio.value, periodo: periodo.value }),
+    modo
+  )
+}
+
+// Formato nuevo (resumen por materia/grupo)
+async function generarPDFResumen(modo = 'descargar') {
+  await ejecutarPDF(
+    () => generarPDFResumenDos(docentes.value, { anio: anio.value, periodo: periodo.value }),
+    modo
+  )
+}
 
 async function buscarDocente() {
   if (!busqueda.value.trim()) {
@@ -342,70 +381,4 @@ async function verTodos() {
   await cargarTodos(anio.value, periodo.value)
 }
 
-// ── Generación de PDF ──────────────────────────────────────────────────────────
-// Helper común: muestra los estados de "generando" / "generado" y abre la
-// vista previa, sin importar qué generador de PDF se use.
-async function ejecutarGeneracionPDF(generador) {
-  generandoPdf.value = true
-  pdfGenerado.value = false
-
-  try {
-    // Simular espera visual mínima
-    await new Promise(resolve => setTimeout(resolve, 1000))
-
-    if (pdfPreviewUrl.value) {
-      URL.revokeObjectURL(pdfPreviewUrl.value)
-      pdfPreviewUrl.value = null
-    }
-
-    const { url, filename } = generador()
-
-    pdfPreviewUrl.value = url
-    pdfFilename.value = filename
-
-    generandoPdf.value = false
-    pdfGenerado.value = true
-
-    setTimeout(() => {
-      pdfGenerado.value = false
-    }, 3000)
-
-  } catch (error) {
-    generandoPdf.value = false
-    console.error(error)
-  }
-}
-
-// Opción 1: el PDF original (igual que antes)
-async function generarPDFCompleto() {
-  mostrarMenuPdf.value = false
-  await ejecutarGeneracionPDF(() =>
-    generarPDFCargaHoraria(docentes.value, {
-      anio: anio.value,
-      periodo: periodo.value,
-    })
-  )
-}
-
-// Opción 2: el nuevo PDF resumen (usePdfResumenDos)
-async function generarPDFResumen() {
-  mostrarMenuPdf.value = false
-  await ejecutarGeneracionPDF(() =>
-    generarPDFResumenDos(docentes.value, {
-      anio: anio.value,
-      periodo: periodo.value,
-    })
-  )
-}
-
-function cerrarPreview() {
-  URL.revokeObjectURL(pdfPreviewUrl.value)
-  pdfPreviewUrl.value = null
-  pdfFilename.value = ''
-}
-
-// Limpiar al desmontar el componente
-onUnmounted(() => {
-  if (pdfPreviewUrl.value) URL.revokeObjectURL(pdfPreviewUrl.value)
-})
 </script>

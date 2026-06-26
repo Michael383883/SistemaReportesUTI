@@ -67,11 +67,11 @@
 
         <tbody>
           <tr
-            v-for="(mat, i) in materiasAgrupadas"
-            :key="i"
-            class="border-b border-slate-100 hover:bg-slate-50"
-            :class="{ 'bg-amber-50': mat.compartido }"
-          >
+              v-for="(mat, i) in materiasAgrupadas"
+              :key="i"
+              class="border-b border-slate-100 hover:bg-slate-50"
+              :class="{ 'ring-1 ring-inset ring-amber-300': mat.compartido }"
+            >
             <!-- Plan + Nivel juntos como "ADM - F" en un solo badge -->
             <td class="px-2 py-1.5 text-center">
               <span
@@ -109,23 +109,22 @@
               class="py-1 px-1 align-middle"
             >
               <template v-if="mat.sesiones.filter(x => x.dia === dia).length > 0">
-                <div
-                  v-for="s in mat.sesiones.filter(x => x.dia === dia)"
-                  :key="`${s.horario}-${s.ambiente}`"
-                  class="rounded px-1.5 py-1 mb-0.5 border-l-4"
-                  :style="{
-                    background: colorCarrera(mat.carrera).bg,
-                    borderLeftColor: colorCarrera(mat.carrera).border
-                  }"
-                >
-                  <span class="block text-[10px] font-bold text-slate-800 whitespace-nowrap">
-                    {{ s.horario }}
-                  </span>
-                  <span class="block text-[9px] text-slate-500">
-                    {{ s.ambiente }}
-                  </span>
-                </div>
-              </template>
+  <div
+    v-for="s in mat.sesiones.filter(x => x.dia === dia)"
+    :key="`${s.horario}-${s.ambiente}`"
+    class="rounded px-1.5 py-1 mb-0.5 border-l-4 bg-white"
+    :style="{ borderLeftColor: colorCarrera(mat.carrera).border }"
+  >
+    <span class="block text-[10px] font-bold whitespace-nowrap text-slate-800 dark-color-carrera"
+      :style="{ '--carrera-color': colorCarrera(mat.carrera).border }">
+      {{ s.horario }}
+    </span>
+    <span class="block text-[9px] text-slate-500 dark-color-carrera"
+      :style="{ '--carrera-color': colorCarrera(mat.carrera).border }">
+      {{ s.ambiente }}
+    </span>
+  </div>
+</template>
               <template v-else>
                 <div class="h-8 rounded bg-slate-50 border border-dashed border-slate-200 min-w-[80px]" />
               </template>

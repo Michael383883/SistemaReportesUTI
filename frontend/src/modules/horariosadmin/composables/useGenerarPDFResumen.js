@@ -32,7 +32,16 @@ function planAAbreviacion(plan) {
     return s
 }
 
-export function generarPDFResumen(docentes = [], { anio, periodo } = {}) {
+/**
+ * @param {Array}  docentes  - Lista de docentes con sus materias
+ * @param {object} options
+ * @param {number|string} options.anio
+ * @param {number|string} options.periodo
+ * @param {'ver'|'descargar'} [options.modo='descargar']
+ *   'ver'       → abre el PDF en una nueva pestaña del navegador
+ *   'descargar' → descarga el archivo directamente (comportamiento anterior)
+ */
+export function generarPDFResumen(docentes = [], { anio, periodo, modo = 'descargar' } = {}) {
 
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' })
 
@@ -266,5 +275,23 @@ export function generarPDFResumen(docentes = [], { anio, periodo } = {}) {
 
     drawFooters()
 
-    doc.save(`ResumenCargaHoraria_${anio}_${periodo}.pdf`)
+    // ── Entrega del PDF según el modo ────────────────────────────────────────
+    const filename = `ResumenCargaHoraria_${anio}_${periodo}.pdf`
+
+    if (modo === 'ver') {
+        // Genera un Blob URL y lo abre en una nueva pestaña
+        const blob = doc.output('blob')
+        const url = URL.createObjectURL(blob)
+        const ventana = window.open(url, '_blank')
+        // Libera la URL del objeto cuando la pestaña ya la cargó
+        if (ventana) {
+            ventana.addEventListener('load', () => URL.revokeObjectURL(url), { once: true })
+        } else {
+            // Si el navegador bloqueó el popup, liberar igualmente después de un momento
+            setTimeout(() => URL.revokeObjectURL(url), 10_000)
+        }
+    } else {
+        // Modo 'descargar': comportamiento original
+        doc.save(filename)
+    }
 }

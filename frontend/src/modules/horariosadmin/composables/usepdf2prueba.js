@@ -103,8 +103,10 @@ function calcularTotal(fila) {
     return p + h
 }
 
-export function generarPDFResumenDos(docentes = [], { anio, periodo } = {}) {
-
+export function generarPDFResumenDos(
+    docentes = [],
+    { anio, periodo, modo = 'descargar' } = {}
+) {
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' })
 
     const PAGE_W = doc.internal.pageSize.getWidth()
@@ -317,7 +319,35 @@ export function generarPDFResumenDos(docentes = [], { anio, periodo } = {}) {
 
     drawFooters()
 
-    const blob = doc.output('blob')
-    const url = URL.createObjectURL(blob)
-    return { url, filename: `CargaHorariaResumen_${anio}_${periodo}.pdf` }
+    const filename = `CargaHorariaResumen_${anio}_${periodo}.pdf`
+
+    // Si es modo 'ver', abrir en nueva pestaña
+    if (modo === 'ver') {
+        const blob = doc.output('blob')
+        const url = URL.createObjectURL(blob)
+
+        const ventana = window.open(url, '_blank')
+
+        if (ventana) {
+            ventana.addEventListener(
+                'load',
+                () => URL.revokeObjectURL(url),
+                { once: true }
+            )
+        } else {
+            // Si el navegador bloquea la ventana emergente, descargar como fallback
+            const link = document.createElement('a')
+            link.href = url
+            link.download = filename
+            document.body.appendChild(link)
+            link.click()
+            document.body.removeChild(link)
+            setTimeout(() => URL.revokeObjectURL(url), 10000)
+        }
+
+        return
+    }
+
+    // Modo 'descargar' - descarga directa
+    doc.save(filename)
 }

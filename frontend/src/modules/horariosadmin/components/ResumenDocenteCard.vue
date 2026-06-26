@@ -62,7 +62,7 @@
             v-for="(mat, i) in docente.materias"
             :key="i"
             class="border-b border-slate-100 hover:bg-slate-50"
-            :class="{ 'bg-amber-50': mat.COMPARTIDO }"
+            :class="{ 'ring-1 ring-inset ring-amber-300': mat.COMPARTIDO }"
           >
             <!-- Plan + Nivel juntos como badge (igual al completo) -->
             <td class="px-2 py-1.5 text-center">
