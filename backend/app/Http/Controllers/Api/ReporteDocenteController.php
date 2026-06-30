@@ -9,19 +9,43 @@ use Illuminate\Http\JsonResponse;
 
 class ReporteDocenteController extends Controller
 {
-    // public function materiasDictadas(Request $request)
+    /**
+     * Convierte (anio, periodo) a un valor numérico ordenable.
+     * Orden académico real: 1 (anual/1) → 4 (invierno) → 2 → 3 (verano)
+     * Ej: 2016/1 → 20161 | 2016/4 → 20162 | 2016/2 → 20163 | 2016/3 → 20164
+     */
+    private function ordenTemporal(?int $anio, ?string $periodo): ?int
+    {
+        if (!$anio) return null;
+
+        $ordenPeriodo = match ($periodo) {
+            '1' => 1,
+            '4' => 2,
+            '2' => 3,
+            '3' => 4,
+            default => 1, // si no se especifica periodo, se toma desde el inicio del año
+        };
+
+        return ($anio * 10) + $ordenPeriodo;
+    }
 
     public function materiasDictadas(Request $request)
     {
         $request->validate([
             'docente' => 'required|numeric',
             'anio' => 'nullable|numeric',
-            'materia' => 'nullable|string|max:7',
+            'periodo' => 'nullable|string|in:1,2,3,4',
+            'anio_hasta' => 'nullable|numeric',
+            'periodo_hasta' => 'nullable|string|in:1,2,3,4',
+            'materia' => 'nullable|string|max:60',
             'grupo' => 'nullable|string|max:2',
         ]);
 
         $docente = $request->docente;
         $anio = $request->anio;
+        $periodo = $request->periodo;
+        $anioHasta = $request->anio_hasta;
+        $periodoHasta = $request->periodo_hasta;
         $materia = $request->materia;
         $grupo = $request->grupo;
 
@@ -42,10 +66,69 @@ class ReporteDocenteController extends Controller
             ], 404);
         }
 
-        // FILTROS OPCIONALES
-        $filtroAnio = $anio ? "AND GRUPOS.ANIO = :anio" : "";
-        $filtroMateria = $materia ? "AND GRUPOS.MATERIA = :materia" : "";
+        // ── Rango temporal (anio + periodo → anio_hasta + periodo_hasta) ──────
+        // Si solo viene anio (sin periodo y sin anio_hasta), se filtra el año completo.
+        $ordenDesde = null;
+        $ordenHasta = null;
+        $filtroSoloAnioExacto = false;
+
+        if ($anio && !$periodo && !$anioHasta) {
+            // Caso simple de siempre: un solo año, sin periodo ni rango
+            $filtroSoloAnioExacto = true;
+        } elseif ($anio) {
+            $ordenDesde = $this->ordenTemporal((int) $anio, $periodo);
+            $ordenHasta = $anioHasta
+                ? $this->ordenTemporal((int) $anioHasta, $periodoHasta ?? '3') // '3' = verano, último periodo del año
+                : $this->ordenTemporal((int) $anio, '3'); // si no hay anio_hasta, tope = fin del mismo año
+        }
+
+        // ── Materia: código exacto (numérico) o búsqueda por nombre ───────────
+        $materiaEsCodigo = $materia && preg_match('/^\d+$/', $materia);
+
+        // FILTROS OPCIONALES (SQL)
+        $filtroAnioExacto = $filtroSoloAnioExacto ? "AND GRUPOS.ANIO = :anio" : "";
+
+        $filtroRango = ($ordenDesde !== null)
+            ? "AND (
+                (GRUPOS.ANIO * 10 + CASE
+                    WHEN GRUPOS.PERIODO = '1' THEN 1
+                    WHEN GRUPOS.PERIODO = '4' THEN 2
+                    WHEN GRUPOS.PERIODO = '2' THEN 3
+                    WHEN GRUPOS.PERIODO = '3' THEN 4
+                    ELSE 1
+                END)
+                BETWEEN :orden_desde AND :orden_hasta
+            )"
+            : "";
+
+        $filtroMateria = "";
+        if ($materia) {
+            $filtroMateria = $materiaEsCodigo
+                ? "AND GRUPOS.MATERIA = :materia"
+                : "AND MATERIAS.NOMBRE LIKE :materia_like";
+        }
+
         $filtroGrupo = $grupo ? "AND GRUPOS.GRUPO = :grupo" : "";
+
+        $bindings = ['docente' => $docente];
+
+        if ($filtroSoloAnioExacto) {
+            $bindings['anio'] = $anio;
+        }
+        if ($ordenDesde !== null) {
+            $bindings['orden_desde'] = $ordenDesde;
+            $bindings['orden_hasta'] = $ordenHasta;
+        }
+        if ($materia) {
+            if ($materiaEsCodigo) {
+                $bindings['materia'] = $materia;
+            } else {
+                $bindings['materia_like'] = '%' . $materia . '%';
+            }
+        }
+        if ($grupo) {
+            $bindings['grupo'] = $grupo;
+        }
 
         $materias = DB::connection('sqlsrv')->select("
 
@@ -131,7 +214,8 @@ class ReporteDocenteController extends Controller
                 GRUPOS.PERIODO
               ) NOT IN ('2026-1')
 
-          {$filtroAnio}
+          {$filtroAnioExacto}
+          {$filtroRango}
           {$filtroMateria}
           {$filtroGrupo}
 
@@ -150,12 +234,7 @@ class ReporteDocenteController extends Controller
             GRUPOS.MATERIA,
             GRUPOS.[PLAN]
 
-    ", array_filter([
-                'docente' => $docente,
-                'anio' => $anio,
-                'materia' => $materia,
-                'grupo' => $grupo,
-            ], fn($value) => !is_null($value)));
+    ", $bindings);
 
         return response()->json([
             'success' => true,
@@ -169,6 +248,9 @@ class ReporteDocenteController extends Controller
             ],
 
             'anio_filtro' => $anio ?? 'todos',
+            'periodo_filtro' => $periodo ?? null,
+            'anio_hasta_filtro' => $anioHasta ?? null,
+            'periodo_hasta_filtro' => $periodoHasta ?? null,
             'materia_filtro' => $materia ?? 'todas',
             'grupo_filtro' => $grupo ?? 'todos',
 
@@ -177,6 +259,9 @@ class ReporteDocenteController extends Controller
             'materias' => $materias,
         ]);
     }
+
+    // ... horario() sin cambios
+
 
     /**
      * POST /api/reporte-horario

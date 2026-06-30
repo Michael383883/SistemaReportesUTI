@@ -25,8 +25,6 @@ class MigracionService
         'MATERIAS',
         'NROINSMATGRPNE',
         'PLANES',
-        'RESOLUCION_DETALLE',
-        'RESOLUCIONES_PDF',
         'BIOGRAFICOS_EXT'
 
     ];

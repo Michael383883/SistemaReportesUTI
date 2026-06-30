@@ -229,4 +229,101 @@ class ResolucionDetalleController extends Controller
             ], 500);
         }
     }
+
+    // PUT /resoluciones/{id}/quitar
+    //
+    // Es el inverso exacto de aplicarEnGrupos(): usa el mismo JOIN entre
+    // GRUPOS, RESOLUCION_DETALLE y RESOLUCIONES_PDF para encontrar las
+    // filas de GRUPOS que tienen escrita esta resolución, pero en vez de
+    // escribir RESOLUCION/DESIGNACION/TIPO_INGRESO las deja en NULL.
+    //
+    // No borra filas de GRUPOS (esa tabla representa grupos/materias que
+    // existen igual sin resolución asignada), solo limpia los campos que
+    // aplicarEnGrupos() había llenado.
+    //
+    // Acepta opcionalmente "ids_detalle" en el body, igual que
+    // aplicarEnGrupos: si viene, solo se limpian los GRUPOS que coinciden
+    // con esos ID_DETALLE puntuales (por ejemplo, los de una sesión de
+    // asignación específica). Si no viene, se limpian TODOS los grupos
+    // que tengan esta resolución aplicada (cualquier ID_DETALLE histórico
+    // de esa resolución).
+    public function quitarDeGrupos(Request $request, $id)
+    {
+        $idsDetalle = $request->input('ids_detalle', []);
+        $filtrarPorIds = is_array($idsDetalle) && count($idsDetalle) > 0;
+
+        try {
+            $placeholders = $filtrarPorIds
+                ? implode(',', array_fill(0, count($idsDetalle), '?'))
+                : null;
+
+            $filtroIdDetalleSql = $filtrarPorIds
+                ? "AND dr.ID_DETALLE IN ($placeholders)"
+                : '';
+
+            $paramsUpdate = $filtrarPorIds
+                ? array_merge([$id], $idsDetalle)
+                : [$id];
+
+            // Primero capturamos qué filas de GRUPOS se van a limpiar,
+            // para poder devolverlas en la respuesta (antes de que el
+            // UPDATE les borre los datos).
+            $paramsSelect = $paramsUpdate;
+
+            $gruposAfectados = DB::select("
+                SELECT
+                    g.ANIO, g.PERIODO, g.[PLAN], g.MATERIA, g.[GRUPO],
+                    g.DOCENTE, g.[TIPO], g.TIPO_INGRESO, g.RESOLUCION, g.DESIGNACION
+                FROM GRUPOS g
+                JOIN RESOLUCION_DETALLE dr
+                    ON  g.DOCENTE                          = dr.COD_DOCENTE
+                    AND g.[PLAN]  COLLATE Modern_Spanish_CI_AS = dr.COD_PLAN   COLLATE Modern_Spanish_CI_AS
+                    AND g.MATERIA COLLATE Modern_Spanish_CI_AS = dr.COD_MATERIA COLLATE Modern_Spanish_CI_AS
+                    AND g.[GRUPO] COLLATE Modern_Spanish_CI_AS = dr.[GRUPO]     COLLATE Modern_Spanish_CI_AS
+                    AND g.[TIPO]  COLLATE Modern_Spanish_CI_AS = dr.[TIPO]      COLLATE Modern_Spanish_CI_AS
+                JOIN RESOLUCIONES_PDF rp
+                    ON rp.ID_RESOLUCION = dr.ID_RESOLUCION
+                WHERE
+                    rp.ID_RESOLUCION = ?
+                    AND g.ANIO    = rp.ANIO
+                    AND g.PERIODO COLLATE Modern_Spanish_CI_AS = CAST(rp.PERIODO AS NVARCHAR(10)) COLLATE Modern_Spanish_CI_AS
+                    {$filtroIdDetalleSql}
+            ", $paramsSelect);
+
+            // Ahora sí, limpiamos los campos que había llenado aplicarEnGrupos.
+            $actualizados = DB::update("
+                UPDATE g
+                SET
+                    g.RESOLUCION   = NULL,
+                    g.DESIGNACION  = NULL,
+                    g.TIPO_INGRESO = NULL
+                FROM GRUPOS g
+                JOIN RESOLUCION_DETALLE dr
+                    ON  g.DOCENTE                          = dr.COD_DOCENTE
+                    AND g.[PLAN]  COLLATE Modern_Spanish_CI_AS = dr.COD_PLAN   COLLATE Modern_Spanish_CI_AS
+                    AND g.MATERIA COLLATE Modern_Spanish_CI_AS = dr.COD_MATERIA COLLATE Modern_Spanish_CI_AS
+                    AND g.[GRUPO] COLLATE Modern_Spanish_CI_AS = dr.[GRUPO]     COLLATE Modern_Spanish_CI_AS
+                    AND g.[TIPO]  COLLATE Modern_Spanish_CI_AS = dr.[TIPO]      COLLATE Modern_Spanish_CI_AS
+                JOIN RESOLUCIONES_PDF rp
+                    ON rp.ID_RESOLUCION = dr.ID_RESOLUCION
+                WHERE
+                    rp.ID_RESOLUCION = ?
+                    AND g.ANIO    = rp.ANIO
+                    AND g.PERIODO COLLATE Modern_Spanish_CI_AS = CAST(rp.PERIODO AS NVARCHAR(10)) COLLATE Modern_Spanish_CI_AS
+                    {$filtroIdDetalleSql}
+            ", $paramsUpdate);
+
+            return response()->json([
+                'ok' => true,
+                'filas_afectadas' => $actualizados,
+                'grupos' => $gruposAfectados, // estado ANTES de limpiar, para mostrar qué se quitó
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'ok' => false,
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
 }

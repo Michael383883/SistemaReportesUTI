@@ -234,6 +234,120 @@ class ResolucionPdfController extends Controller
                 $disposicion . '; filename="' . $pdf->NOMBRE_ARCHIVO . '"'
             );
     }
+
+    // DELETE /resoluciones/{id}
+    //
+    // Borra la resolución completa:
+    //   1) Todos los docentes/materias asignados en RESOLUCION_DETALLE
+    //      para esa resolución.
+    //   2) El registro en RESOLUCIONES_PDF.
+    //   3) El archivo PDF físico en storage.
+    // Los pasos 1 y 2 van en una transacción de BD: si algo falla, no
+    // queda nada a medio borrar. El archivo físico se borra después,
+    // ya que el storage no participa de la transacción de la BD.
+    public function destroy($id)
+    {
+        DB::beginTransaction();
+
+        try {
+            $resolucion = DB::table('RESOLUCIONES_PDF')
+                ->where('ID_RESOLUCION', $id)
+                ->first();
+
+            if (!$resolucion) {
+                DB::rollBack();
+
+                return response()->json([
+                    'ok' => false,
+                    'error' => 'Resolución no encontrada'
+                ], 404);
+            }
+
+            // 1) Limpiar en GRUPOS lo que aplicarEnGrupos() había escrito
+            //    para esta resolución (RESOLUCION, DESIGNACION, TIPO_INGRESO).
+            //    OJO: esto va ANTES de borrar RESOLUCION_DETALLE, porque el
+            //    JOIN necesita que esas filas todavía existan para poder
+            //    identificar qué filas de GRUPOS corresponden a esta
+            //    resolución. No se borran filas de GRUPOS, solo se limpian
+            //    esos 3 campos (el grupo/materia sigue existiendo).
+            $gruposLimpiados = DB::update("
+                UPDATE g
+                SET
+                    g.RESOLUCION   = NULL,
+                    g.DESIGNACION  = NULL,
+                    g.TIPO_INGRESO = NULL
+                FROM GRUPOS g
+                JOIN RESOLUCION_DETALLE dr
+                    ON  g.DOCENTE                          = dr.COD_DOCENTE
+                    AND g.[PLAN]  COLLATE Modern_Spanish_CI_AS = dr.COD_PLAN   COLLATE Modern_Spanish_CI_AS
+                    AND g.MATERIA COLLATE Modern_Spanish_CI_AS = dr.COD_MATERIA COLLATE Modern_Spanish_CI_AS
+                    AND g.[GRUPO] COLLATE Modern_Spanish_CI_AS = dr.[GRUPO]     COLLATE Modern_Spanish_CI_AS
+                    AND g.[TIPO]  COLLATE Modern_Spanish_CI_AS = dr.[TIPO]      COLLATE Modern_Spanish_CI_AS
+                JOIN RESOLUCIONES_PDF rp
+                    ON rp.ID_RESOLUCION = dr.ID_RESOLUCION
+                WHERE
+                    rp.ID_RESOLUCION = ?
+                    AND g.ANIO    = rp.ANIO
+                    AND g.PERIODO COLLATE Modern_Spanish_CI_AS = CAST(rp.PERIODO AS NVARCHAR(10)) COLLATE Modern_Spanish_CI_AS
+            ", [$id]);
+
+            // 2) Borrar docentes/materias asignados a esta resolución
+            $detallesBorrados = DB::table('RESOLUCION_DETALLE')
+                ->where('ID_RESOLUCION', $id)
+                ->delete();
+
+            // 3) Borrar el registro de la resolución
+            DB::table('RESOLUCIONES_PDF')
+                ->where('ID_RESOLUCION', $id)
+                ->delete();
+
+            DB::commit();
+
+            // 3) Borrar el archivo físico. Si esto falla no revertimos
+            //    el borrado en BD, solo lo dejamos registrado en el log
+            //    para limpieza manual posterior.
+            try {
+                if ($resolucion->RUTA_ARCHIVO && \Storage::disk('public')->exists($resolucion->RUTA_ARCHIVO)) {
+                    \Storage::disk('public')->delete($resolucion->RUTA_ARCHIVO);
+                }
+            } catch (\Throwable $eArchivo) {
+                \Log::warning('No se pudo borrar el archivo físico de la resolución', [
+                    'id' => $id,
+                    'ruta' => $resolucion->RUTA_ARCHIVO,
+                    'error' => $eArchivo->getMessage(),
+                ]);
+            }
+
+            return response()->json([
+                'ok' => true,
+                'mensaje' => 'Resolución, archivo, docentes asignados y datos en GRUPOS eliminados correctamente',
+                'detalles_eliminados' => $detallesBorrados,
+                'grupos_limpiados' => $gruposLimpiados,
+            ]);
+
+        } catch (\Throwable $e) {
+            DB::rollBack();
+
+            $mensajeSeguro = preg_replace(
+                '/[\x00-\x08\x0B\x0C\x0E-\x1F\x80-\xFF]/',
+                '?',
+                $e->getMessage()
+            );
+
+            \Log::error('Error al borrar ResolucionPdf', [
+                'id' => $id,
+                'mensaje' => $mensajeSeguro,
+                'linea' => $e->getLine(),
+                'archivo' => $e->getFile()
+            ]);
+
+            return response()->json([
+                'ok' => false,
+                'error' => $mensajeSeguro
+            ], 500);
+        }
+    }
+
     // GET /resoluciones/por-numero?nro=RR-1/2026
     public function porNumero(Request $request)
     {
