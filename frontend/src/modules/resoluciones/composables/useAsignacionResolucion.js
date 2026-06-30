@@ -83,7 +83,18 @@ export function useAsignacionResolucion() {
             materiaLabel: materia.materia,
         })
     }
-
+    // Sincroniza el tipo_ingreso de una materia YA marcada cuando el usuario
+    // cambia el <select> en la tabla después de haber hecho click en el check.
+    // Si la materia todavía no está marcada, no hace nada (toggleMateria ya
+    // la copiará con el valor correcto cuando se marque).
+    function actualizarTipoIngreso(docente, materia) {
+        const docenteCod = docente.cod_docente ?? docente.CODIGO ?? docente.codigo
+        const key = generarKey(docenteCod, materia)
+        const item = materiasMarcadas.value.find(m => m.key === key)
+        if (item) {
+            item.tipo_ingreso = materia.tipo_ingreso || null
+        }
+    }
     function quitarMateria(key) {
         materiasMarcadas.value = materiasMarcadas.value.filter(m => m.key !== key)
     }
@@ -142,6 +153,7 @@ export function useAsignacionResolucion() {
         limpiarResolucion,
         estaMarcada,
         toggleMateria,
+        actualizarTipoIngreso,
         quitarMateria,
         limpiarTodo,
         confirmarAsignacion,

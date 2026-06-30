@@ -46,10 +46,34 @@
             <option :value="null" disabled>Selecciona...</option>
             <option :value="1">Periodo 1</option>
             <option :value="2">Periodo 2</option>
+            <option :value="3">Periodo 3</option>
+            <option :value="4">Periodo 4</option>
           </select>
           <p v-if="errores.periodo" class="text-[11px] text-red-500 mt-1">{{ errores.periodo }}</p>
         </div>
       </div>
+
+      <!-- El PDF ya se seleccionó en el paso anterior; aquí solo se muestra como referencia -->
+      <div v-if="archivoNombre">
+        <label class="block text-[13px] font-medium text-gray-700 mb-1.5">Archivo PDF</label>
+        <div class="flex items-center gap-2 px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-lg">
+          <svg class="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+          </svg>
+          <span class="text-[13px] text-gray-600 truncate">{{ archivoNombre }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mensaje de error general (fallas del servidor, red, etc.) -->
+    <div
+      v-if="error"
+      class="mx-6 mb-2 px-3.5 py-2.5 text-[13px] text-red-700 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2"
+    >
+      <svg class="w-4 h-4 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"/>
+      </svg>
+      <span>{{ error }}</span>
     </div>
 
     <div class="flex items-center justify-between px-6 py-3 bg-gray-50 gap-3 flex-wrap">
@@ -95,6 +119,8 @@ const props = defineProps({
   initialAnio:        { type: [String, Number], default: null },
   initialPeriodo:      { type: [String, Number], default: null },
   saving:              { type: Boolean, default: false },
+  error:               { type: String, default: '' }, // mensaje de error proveniente del composable (fallas de red/servidor)
+  archivoNombre:       { type: String, default: '' }, // nombre del PDF ya seleccionado en el paso anterior (solo lectura)
 })
 
 const emit = defineEmits(['guardar', 'guardar-asignar', 'back'])
@@ -109,10 +135,12 @@ const accion       = ref(null)
 const errores      = ref({})
 
 function validar() {
-  errores.value = {}
+  errores.value = { ...errores.value, numero: '', anio: '', periodo: '' }
   if (!numero.value.trim()) errores.value.numero = 'El número de resolución es obligatorio.'
   if (!anio.value) errores.value.anio = 'El año es obligatorio.'
   if (!periodo.value) errores.value.periodo = 'Selecciona un periodo.'
+  // Limpia las claves vacías para que v-if deje de mostrarlas
+  Object.keys(errores.value).forEach(k => { if (!errores.value[k]) delete errores.value[k] })
   return Object.keys(errores.value).length === 0
 }
 

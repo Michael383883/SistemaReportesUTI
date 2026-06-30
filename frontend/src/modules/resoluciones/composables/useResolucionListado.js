@@ -1,4 +1,4 @@
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import axios from 'axios'
 
 const API_BASE = import.meta.env.VITE_API_URL
@@ -36,6 +36,7 @@ export function useResolucionListado() {
     const loading = ref(false)
     const error = ref('')
     const busqueda = ref('')
+    const anioSeleccionado = ref('') // '' = todos los años
 
     let debounceId = null
 
@@ -53,6 +54,12 @@ export function useResolucionListado() {
         if (Number.isNaN(d.getTime())) return fecha
         return d.toLocaleDateString('es-BO', { day: '2-digit', month: '2-digit', year: 'numeric' })
     }
+
+    // Lista de años disponibles en los datos cargados, para llenar el <select>
+    const aniosDisponibles = computed(() => {
+        const set = new Set(filas.value.map(f => String(f.anio)).filter(Boolean))
+        return Array.from(set).sort((a, b) => b - a) // años más recientes primero en el select
+    })
 
     async function cargarListado() {
         loading.value = true
@@ -76,16 +83,32 @@ export function useResolucionListado() {
                     ? data.data
                     : []
 
-            const filasMapeadas = mapKeys(lista)
+            let filasMapeadas = mapKeys(lista)
 
             // Filtro real del lado del cliente: aunque el backend devuelva
             // filas que no coinciden, acá solo se muestran las que sí
             // tienen el número buscado (sin importar mayúsculas/espacios).
-            filas.value = termino
-                ? filasMapeadas.filter(fila =>
+            if (termino) {
+                filasMapeadas = filasMapeadas.filter(fila =>
                     normalizar(fila.nroResolucion).includes(normalizar(termino))
                 )
-                : filasMapeadas
+            }
+
+            // Filtro por año (cliente)
+            if (anioSeleccionado.value) {
+                filasMapeadas = filasMapeadas.filter(
+                    fila => String(fila.anio) === String(anioSeleccionado.value)
+                )
+            }
+
+            // Orden ascendente (de menor a mayor) por ID de resolución.
+            // Si preferís ordenar por fecha de subida en vez de ID, cambiá
+            // la comparación a fechaSubida.
+            filasMapeadas = [...filasMapeadas].sort(
+                (a, b) => Number(a.idResolucion) - Number(b.idResolucion)
+            )
+
+            filas.value = filasMapeadas
 
         } catch (e) {
             error.value = e.response?.data?.message
@@ -105,10 +128,52 @@ export function useResolucionListado() {
         }, 400)
     }
 
+    function filtrarPorAnio(anio) {
+        anioSeleccionado.value = anio
+        cargarListado()
+    }
+
     function limpiarBusqueda() {
         if (debounceId) clearTimeout(debounceId)
         busqueda.value = ''
         cargarListado()
+    }
+
+    const eliminando = ref(false)
+    const errorEliminar = ref('')
+
+    // Borra la resolución en el backend: el controller se encarga de
+    // borrar también los docentes/materias asignados (RESOLUCION_DETALLE)
+    // y el archivo PDF físico. Acá solo refrescamos la lista al terminar.
+    async function eliminarResolucion(id) {
+        eliminando.value = true
+        errorEliminar.value = ''
+
+        try {
+            const { data } = await axios.delete(
+                `${API_BASE}/api/resoluciones/${id}`,
+                { headers: authHeaders() }
+            )
+
+            if (data?.ok === false) {
+                errorEliminar.value = data.error ?? 'No se pudo eliminar la resolución.'
+                return false
+            }
+
+            // Quitamos la fila de la lista local sin esperar otro fetch
+            filas.value = filas.value.filter(f => String(f.idResolucion) !== String(id))
+
+            return true
+
+        } catch (e) {
+            errorEliminar.value = e.response?.data?.error
+                ?? e.response?.data?.message
+                ?? e.message
+                ?? 'Error al eliminar la resolución.'
+            return false
+        } finally {
+            eliminando.value = false
+        }
     }
 
     return {
@@ -116,11 +181,17 @@ export function useResolucionListado() {
         loading,
         error,
         busqueda,
+        anioSeleccionado,
+        aniosDisponibles,
         urlVer,
         urlDescargar,
         formatearFecha,
         cargarListado,
         buscar,
+        filtrarPorAnio,
         limpiarBusqueda,
+        eliminando,
+        errorEliminar,
+        eliminarResolucion,
     }
 }

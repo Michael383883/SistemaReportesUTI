@@ -1,7 +1,7 @@
 // src/modules/secretaria/services/docentesService.js
 
-const API_BASE = 'http://localhost:8000/api'
-
+//const API_BASE = 'http://localhost:8000/api'
+const API_BASE = import.meta.env.VITE_API_URL || ''
 async function apiFetch(path, options = {}) {
     try {
         const url = `${API_BASE}${path}`
@@ -39,7 +39,7 @@ export const docentesService = {
         if (filtros.unidad) params.append('unidad', filtros.unidad)
 
         const query = params.toString()
-        return apiFetch(`/secretaria/docentes${query ? '?' + query : ''}`)
+        return apiFetch(`/api/secretaria/docentes${query ? '?' + query : ''}`)
     },
 
     /**
@@ -47,7 +47,7 @@ export const docentesService = {
      * GET /api/secretaria/docentes/{codigo}
      */
     async getById(codigo) {
-        return apiFetch(`/secretaria/docentes/${codigo}`)
+        return apiFetch(`/api/secretaria/docentes/${codigo}`)
     },
 
     /**
@@ -55,7 +55,7 @@ export const docentesService = {
      * GET /api/horarios/docentes/{codigo_docente}
      */
     async getHorario(codigo) {
-        const response = await apiFetch(`/horarios/docentes/${codigo}`)
+        const response = await apiFetch(`/api/horarios/docentes/${codigo}`)
 
         // Transformar la respuesta al formato que espera el frontend
         if (response && response.horarios) {
@@ -83,7 +83,7 @@ export const docentesService = {
      * GET /api/horarios/docentes
      */
     async getAllHorarios() {
-        const response = await apiFetch(`/horarios/docentes`)
+        const response = await apiFetch(`/api/horarios/docentes`)
 
         // Si es un array, transformar cada docente
         if (Array.isArray(response)) {

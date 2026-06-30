@@ -1,6 +1,8 @@
 /**
  * reporteInscritosService.js
  * Reporte PDF – Alumnos Inscritos en Talleres
+ * Estilo institucional UMSS (mismo formato que "Materias dictadas de un docente")
+ * Orientación: PORTRAIT – Letter 216 × 279 mm
  *
  * Requiere: jsPDF + jspdf-autotable
  *   npm install jspdf jspdf-autotable
@@ -9,18 +11,13 @@
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
 
-// ─── Constantes de diseño ────────────────────────────────────────────────────
+// ─── Constantes de diseño (sin colores, solo escala de grises) ───────────────
 
-const FONT = 'helvetica'
-
-const COLOR = {
-    negro: [0, 0, 0],
-    grisOscuro: [50, 50, 50],
-    grisMedio: [100, 100, 100],
-    grisSuave: [200, 200, 200],
-    blanco: [255, 255, 255],
-    fondoFila: [245, 245, 245],
-}
+const COLOR_BLACK = [0, 0, 0]
+const COLOR_GRAY_BG = [218, 218, 218]      // fondo de cabecera de tabla
+const COLOR_ROW_LINE = [170, 170, 170]     // líneas horizontales de fila
+const COLOR_TEXT_DESC = [40, 40, 40]
+const COLOR_TEXT_FOOTER = [90, 90, 90]
 
 const PLANES = {
     '109401': 'Lic. Administración de Empresas',
@@ -50,70 +47,6 @@ const horaActual = () => {
     return `${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
-// ─── Encabezado y pie (reutilizable en cada página) ─────────────────────────
-
-function dibujarEncabezado(doc, { anio, periodo, titulo, subtitulo }) {
-    const W = doc.internal.pageSize.getWidth()
-
-    // Línea superior
-    doc.setDrawColor(...COLOR.grisOscuro)
-    doc.setLineWidth(0.5)
-    doc.line(14, 12, W - 14, 12)
-
-    // Institución (izquierda)
-    doc.setFont(FONT, 'bold')
-    doc.setFontSize(8)
-    doc.setTextColor(...COLOR.grisOscuro)
-    doc.text('UNIVERSIDAD MAYOR DE SAN SIMÓN', 14, 18)
-    doc.setFont(FONT, 'normal')
-    doc.setFontSize(7)
-    doc.text('Facultad de Ciencias Económicas', 14, 22)
-
-    // Título central
-    doc.setFont(FONT, 'bold')
-    doc.setFontSize(11)
-    doc.setTextColor(...COLOR.negro)
-    doc.text(titulo, W / 2, 17, { align: 'center' })
-
-    doc.setFont(FONT, 'normal')
-    doc.setFontSize(8)
-    doc.setTextColor(...COLOR.grisMedio)
-    doc.text(subtitulo, W / 2, 22, { align: 'center' })
-
-    // Gestión (derecha)
-    doc.setFont(FONT, 'bold')
-    doc.setFontSize(8)
-    doc.setTextColor(...COLOR.grisOscuro)
-    doc.text(`Gestión ${periodo}/${anio}`, W - 14, 18, { align: 'right' })
-    doc.setFont(FONT, 'normal')
-    doc.setFontSize(7)
-    doc.setTextColor(...COLOR.grisMedio)
-    doc.text(`Generado: ${fechaLarga()} – ${horaActual()}`, W - 14, 22, { align: 'right' })
-
-    // Línea inferior del encabezado
-    doc.setDrawColor(...COLOR.grisSuave)
-    doc.setLineWidth(0.3)
-    doc.line(14, 25, W - 14, 25)
-}
-
-function dibujarPie(doc, totalPaginas) {
-    const W = doc.internal.pageSize.getWidth()
-    const H = doc.internal.pageSize.getHeight()
-    const pN = doc.internal.getCurrentPageInfo().pageNumber
-
-    doc.setDrawColor(...COLOR.grisSuave)
-    doc.setLineWidth(0.3)
-    doc.line(14, H - 12, W - 14, H - 12)
-
-    doc.setFont(FONT, 'normal')
-    doc.setFontSize(7)
-    doc.setTextColor(...COLOR.grisMedio)
-
-    doc.text('Procesado – Secretaría de Talleres · UMSS', 14, H - 8)
-    doc.text(`Página ${pN} de ${totalPaginas}`, W / 2, H - 8, { align: 'center' })
-    doc.text(fechaLarga(), W - 14, H - 8, { align: 'right' })
-}
-
 // ─── Función principal ───────────────────────────────────────────────────────
 
 /**
@@ -124,11 +57,20 @@ function dibujarPie(doc, totalPaginas) {
  * @param {Object} [opciones]
  * @param {string} [opciones.anio]
  * @param {string} [opciones.periodo]
+ * @param {string} [opciones.action]  – 'open' | 'save' | 'print'
  */
 export function generarReporteInscritos(estudiantes, opciones = {}) {
-    const { anio = '2026', periodo = '1' } = opciones
+    const { anio = '2026', periodo = '1', action = 'save' } = opciones
 
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' })
+
+    const PAGE_W = doc.internal.pageSize.getWidth()
+    const PAGE_H = doc.internal.pageSize.getHeight()
+    const MARGIN_L = 12
+    const MARGIN_R = 12
+    const CONTENT_W = PAGE_W - MARGIN_L - MARGIN_R
+
+    doc.setProperties({ title: 'Alumnos Inscritos en Talleres' })
 
     // ── Agrupar por materia + grupo ──────────────────────────────────────────
     const grupos = estudiantes.reduce((acc, est) => {
@@ -148,140 +90,292 @@ export function generarReporteInscritos(estudiantes, opciones = {}) {
 
     const gruposArr = Object.values(grupos)
 
-    // ── Portada / página de resumen ──────────────────────────────────────────
-    dibujarEncabezado(doc, {
-        anio,
-        periodo,
-        titulo: 'ALUMNOS INSCRITOS EN TALLERES',
-        subtitulo: 'Resumen General',
-    })
+    // ════════════════════════════════════════════════════════════════════════
+    // Encabezado institucional — distinto para portada y para páginas de tabla
+    // ════════════════════════════════════════════════════════════════════════
+    function drawHeader(subtituloMateria) {
+        // ── Institución izquierda ────────────────────────────────────────────
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(5.5)
+        doc.setTextColor(...COLOR_BLACK)
+        doc.text('UNIVERSIDAD MAYOR DE SAN SIMON', MARGIN_L, 6)
+        doc.text('FACULTAD DE CIENCIAS ECONOMICAS', MARGIN_L, 8)
 
-    const W = doc.internal.pageSize.getWidth()
-    let y = 35
+        // ── Gestión arriba a la derecha ──────────────────────────────────────
+        doc.setFontSize(5.5)
+        doc.text(`GESTION ${periodo}/${anio}`, PAGE_W - MARGIN_R, 6, { align: 'right' })
+        doc.setFont('helvetica', 'normal')
+        doc.text(`Generado: ${fechaLarga()} - ${horaActual()}`, PAGE_W - MARGIN_R, 8, { align: 'right' })
 
-    doc.setFont(FONT, 'bold')
-    doc.setFontSize(9)
-    doc.setTextColor(...COLOR.negro)
-    doc.text('Índice de Materias', 14, y)
+        // ── Título centrado ──────────────────────────────────────────────────
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(11)
+        doc.setTextColor(...COLOR_BLACK)
+        doc.text('ALUMNOS INSCRITOS EN TALLERES', PAGE_W / 2, 12, { align: 'center' })
+
+        // ── Línea divisoria ─────────────────────────────────────────────────
+        doc.setDrawColor(...COLOR_ROW_LINE)
+        doc.setLineWidth(0.3)
+        doc.line(MARGIN_L, 17, PAGE_W - MARGIN_R, 17)
+
+        // ── Descripción (6.5 pt) ────────────────────────────────────────────
+        doc.setFont('helvetica', 'normal')
+        doc.setFontSize(6.5)
+        doc.setTextColor(...COLOR_TEXT_DESC)
+        const descripcion =
+            'Listado de alumnos inscritos en los Talleres de la Facultad de Ciencias Económicas, ' +
+            'organizado por materia, grupo y docente responsable.'
+        const descLines = doc.splitTextToSize(descripcion, CONTENT_W)
+        doc.text(descLines, MARGIN_L, 21)
+
+        let y = 21 + descLines.length * 3.0 + 3
+
+        // ── Subtítulo de materia (solo en páginas de detalle) ───────────────
+        if (subtituloMateria) {
+            doc.setFont('helvetica', 'bold')
+            doc.setFontSize(8)
+            doc.setTextColor(...COLOR_BLACK)
+            doc.text(
+                `MATERIA: (${subtituloMateria.codigoMateria}) - ${subtituloMateria.materia}`,
+                MARGIN_L,
+                y,
+            )
+            y += 3.5
+            doc.setFont('helvetica', 'normal')
+            doc.setFontSize(7)
+            doc.setTextColor(...COLOR_TEXT_DESC)
+            doc.text(
+                `GRUPO: ${subtituloMateria.grupo}     DOCENTE: ${subtituloMateria.docente}     INSCRITOS: ${subtituloMateria.lista.length}`,
+                MARGIN_L,
+                y,
+            )
+            y += 3
+        }
+
+        return y
+    }
+
+    // ── Pie de página institucional (igual estilo que useGenerarPDF) ────────
+    function drawFooter() {
+        const pageNum = doc.internal.getCurrentPageInfo().pageNumber
+        const footerY = PAGE_H - 5
+
+        doc.setDrawColor(...COLOR_ROW_LINE)
+        doc.setLineWidth(0.2)
+        doc.line(MARGIN_L, footerY - 3.5, PAGE_W - MARGIN_R, footerY - 3.5)
+
+        doc.setFont('helvetica', 'normal')
+        doc.setFontSize(6)
+        doc.setTextColor(...COLOR_TEXT_FOOTER)
+
+        doc.text('Procesado - Secretaria de Talleres - UMSS', MARGIN_L, footerY)
+        doc.text(`Página ${pageNum} de {totalPages}`, PAGE_W / 2, footerY, { align: 'center' })
+        doc.text(fechaLarga(), PAGE_W - MARGIN_R, footerY, { align: 'right' })
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // Portada / página de resumen
+    // ════════════════════════════════════════════════════════════════════════
+    let y = drawHeader(null)
+    y += 3
+
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(8)
+    doc.setTextColor(...COLOR_BLACK)
+    doc.text('INDICE DE MATERIAS', MARGIN_L, y)
+    y += 2
+
+    doc.setDrawColor(...COLOR_ROW_LINE)
+    doc.setLineWidth(0.3)
+    doc.line(MARGIN_L, y, PAGE_W - MARGIN_R, y)
     y += 5
 
-    doc.setFont(FONT, 'normal')
-    doc.setFontSize(8)
-    doc.setTextColor(...COLOR.grisOscuro)
+    // ── Tabla-índice (misma estética: solo cabecera gris + líneas horizontales) ──
+    autoTable(doc, {
+        startY: y,
+        margin: { left: MARGIN_L, right: MARGIN_R },
+        tableWidth: CONTENT_W,
+        head: [['Nº', 'MATERIA', 'GRUPO', 'DOCENTE', 'INSCRITOS']],
+        body: gruposArr.map((g, i) => [
+            i + 1,
+            g.materia,
+            g.grupo,
+            g.docente,
+            g.lista.length,
+        ]),
 
-    gruposArr.forEach((g, i) => {
-        doc.text(
-            `${i + 1}.  ${g.materia}  ·  Grupo ${g.grupo}  ·  Docente: ${g.docente}  (${g.lista.length} inscritos)`,
-            18,
-            y,
-        )
-        y += 5
-        if (y > 250) { doc.addPage(); y = 35 }
+        styles: {
+            font: 'helvetica',
+            fontSize: 7,
+            cellPadding: { top: 1.5, bottom: 1.5, left: 1.5, right: 1.5 },
+            textColor: COLOR_BLACK,
+            lineColor: COLOR_ROW_LINE,
+            lineWidth: 0,
+            overflow: 'linebreak',
+            valign: 'middle',
+            fillColor: false,
+        },
+
+        headStyles: {
+            fillColor: COLOR_GRAY_BG,
+            textColor: COLOR_BLACK,
+            fontStyle: 'bold',
+            fontSize: 7,
+            halign: 'center',
+            valign: 'middle',
+            lineColor: [130, 130, 130],
+            lineWidth: 0.3,
+        },
+
+        alternateRowStyles: { fillColor: false },
+
+        columnStyles: {
+            0: { cellWidth: 10, halign: 'center' },
+            1: { cellWidth: 85 },
+            2: { cellWidth: 20, halign: 'center' },
+            3: { cellWidth: 50 },
+            4: { cellWidth: 'auto', halign: 'center' },
+        },
+
+        didDrawCell(data) {
+            if (data.section !== 'body') return
+            const isLastCol = data.column.index === data.table.columns.length - 1
+            if (!isLastCol) return
+            const { y: cy, height } = data.cell
+            doc.setDrawColor(...COLOR_ROW_LINE)
+            doc.setLineWidth(0.2)
+            doc.line(MARGIN_L, cy + height, MARGIN_L + CONTENT_W, cy + height)
+        },
+
+        didDrawPage: drawFooter,
     })
 
     // Total general
-    y += 3
-    doc.setDrawColor(...COLOR.grisSuave)
-    doc.line(14, y, W - 14, y)
-    y += 5
-    doc.setFont(FONT, 'bold')
+    let totalY = doc.lastAutoTable.finalY + 6
+    doc.setDrawColor(...COLOR_ROW_LINE)
+    doc.setLineWidth(0.3)
+    doc.line(MARGIN_L, totalY, PAGE_W - MARGIN_R, totalY)
+    totalY += 4
+    doc.setFont('helvetica', 'bold')
     doc.setFontSize(8)
-    doc.setTextColor(...COLOR.negro)
-    doc.text(`Total general de alumnos inscritos: ${estudiantes.length}`, 14, y)
+    doc.setTextColor(...COLOR_BLACK)
+    doc.text(`TOTAL GENERAL DE ALUMNOS INSCRITOS: ${estudiantes.length}`, MARGIN_L, totalY)
 
-    // ── Una tabla por materia/grupo ──────────────────────────────────────────
+    // ════════════════════════════════════════════════════════════════════════
+    // Una tabla por materia/grupo
+    // ════════════════════════════════════════════════════════════════════════
     gruposArr.forEach((g) => {
         doc.addPage()
+        const startY = drawHeader(g)
 
-        dibujarEncabezado(doc, {
-            anio,
-            periodo,
-            titulo: 'ALUMNOS INSCRITOS EN TALLERES',
-            subtitulo: g.materia,
-        })
-
-        // Sub-encabezado de la materia
-        let sy = 31
-        doc.setFont(FONT, 'bold')
-        doc.setFontSize(8)
-        doc.setTextColor(...COLOR.negro)
-        doc.text(`Materia: ${g.materia}  (${g.codigoMateria})`, 14, sy)
-        sy += 4
-        doc.setFont(FONT, 'normal')
-        doc.setFontSize(7.5)
-        doc.setTextColor(...COLOR.grisOscuro)
-        doc.text(`Grupo: ${g.grupo}     Docente: ${g.docente}     Inscritos: ${g.lista.length}`, 14, sy)
-        sy += 3
-
-        // Tabla de alumnos
         autoTable(doc, {
-            startY: sy + 2,
-            margin: { left: 14, right: 14 },
+            startY,
+            margin: { left: MARGIN_L, right: MARGIN_R },
+            tableWidth: CONTENT_W,
 
-            head: [[
-                { content: '#', styles: { halign: 'center', cellWidth: 8 } },
-                { content: 'Código', styles: { halign: 'center', cellWidth: 22 } },
-                { content: 'Nombre del Estudiante', cellWidth: 80 },
-                { content: 'Carrera', cellWidth: 55 },
-                { content: 'Grupo', styles: { halign: 'center', cellWidth: 15 } },
-            ]],
+            head: [['Nº', 'CÓDIGO', 'NOMBRE DEL ESTUDIANTE', 'CARRERA', 'GRUPO']],
 
             body: g.lista.map((est, i) => [
-                { content: i + 1, styles: { halign: 'center' } },
-                { content: est.cod_estudiante || est.codigo, styles: { halign: 'center' } },
+                i + 1,
+                est.cod_estudiante || est.codigo,
                 est.nom_estudiante,
                 nombrePlan(est.plan),
-                { content: est.grupo, styles: { halign: 'center' } },
+                est.grupo,
             ]),
 
-            // ── Estilos generales ──
             styles: {
-                font: FONT,
-                fontSize: 8,
-                cellPadding: 2.5,
-                textColor: COLOR.grisOscuro,
-                lineColor: COLOR.grisSuave,
-                lineWidth: 0.2,
+                font: 'helvetica',
+                fontSize: 7,
+                cellPadding: { top: 1.5, bottom: 1.5, left: 1.5, right: 1.5 },
+                textColor: COLOR_BLACK,
+                lineColor: COLOR_ROW_LINE,
+                lineWidth: 0,
+                overflow: 'linebreak',
+                valign: 'middle',
+                fillColor: false,
             },
 
             headStyles: {
-                fillColor: COLOR.grisOscuro,
-                textColor: COLOR.blanco,
+                fillColor: COLOR_GRAY_BG,
+                textColor: COLOR_BLACK,
                 fontStyle: 'bold',
-                fontSize: 8,
-                halign: 'left',
+                fontSize: 7,
+                halign: 'center',
+                valign: 'middle',
+                lineColor: [130, 130, 130],
+                lineWidth: 0.3,
             },
 
-            alternateRowStyles: {
-                fillColor: COLOR.fondoFila,
+            alternateRowStyles: { fillColor: false },
+
+            columnStyles: {
+                0: { cellWidth: 10, halign: 'center' },
+                1: { cellWidth: 22, halign: 'center' },
+                2: { cellWidth: 75 },
+                3: { cellWidth: 55 },
+                4: { cellWidth: 'auto', halign: 'center' },
             },
 
-            bodyStyles: {
-                fillColor: COLOR.blanco,
+            // Solo líneas horizontales, sin verticales (misma técnica que useGenerarPDF)
+            didDrawCell(data) {
+                if (data.section !== 'body') return
+                const isLastCol = data.column.index === data.table.columns.length - 1
+                if (!isLastCol) return
+                const { y: cy, height } = data.cell
+                doc.setDrawColor(...COLOR_ROW_LINE)
+                doc.setLineWidth(0.2)
+                doc.line(MARGIN_L, cy + height, MARGIN_L + CONTENT_W, cy + height)
             },
 
-            // Pie de firma al final de cada tabla
-            didDrawPage: () => { },
+            didAddPage() {
+                drawHeader(g)
+            },
+
+            didDrawPage: drawFooter,
         })
 
         // Línea de firma / validación
-        const finalY = doc.lastAutoTable.finalY + 10
-        if (finalY < 240) {
-            doc.setFont(FONT, 'normal')
+        const finalY = doc.lastAutoTable.finalY + 12
+        if (finalY < PAGE_H - 20) {
+            doc.setFont('helvetica', 'normal')
             doc.setFontSize(7)
-            doc.setTextColor(...COLOR.grisMedio)
-            doc.text('Docente responsable: ___________________________________', 14, finalY)
-            doc.text('Firma: _______________', W - 14, finalY, { align: 'right' })
+            doc.setTextColor(...COLOR_TEXT_FOOTER)
+            doc.text('Docente responsable: ___________________________________', MARGIN_L, finalY)
+            doc.text('Firma: _______________', PAGE_W - MARGIN_R, finalY, { align: 'right' })
         }
     })
 
-    // ── Numerar todas las páginas ────────────────────────────────────────────
-    const totalPaginas = doc.internal.getNumberOfPages()
-    for (let p = 1; p <= totalPaginas; p++) {
-        doc.setPage(p)
-        dibujarPie(doc, totalPaginas)
+    // ── Total de páginas dinámico (igual que useGenerarPDF) ─────────────────
+    if (typeof doc.putTotalPages === 'function') {
+        doc.putTotalPages('{totalPages}')
     }
 
-    // ── Guardar ──────────────────────────────────────────────────────────────
-    doc.save(`Reporte_Inscritos_Talleres_${anio}_P${periodo}.pdf`)
+    // ── Acción de salida ─────────────────────────────────────────────────────
+    const fileName = `Reporte_Inscritos_Talleres_${anio}_P${periodo}.pdf`
+
+    if (action === 'save') {
+        doc.save(fileName)
+
+    } else if (action === 'print') {
+        const blob = doc.output('blob')
+        const url = URL.createObjectURL(blob)
+        const iframe = document.createElement('iframe')
+        iframe.style.display = 'none'
+        iframe.src = url
+        document.body.appendChild(iframe)
+        iframe.onload = () => {
+            iframe.contentWindow.focus()
+            iframe.contentWindow.print()
+            setTimeout(() => {
+                document.body.removeChild(iframe)
+                URL.revokeObjectURL(url)
+            }, 2000)
+        }
+
+    } else {
+        const blob = doc.output('blob')
+        const url = URL.createObjectURL(blob)
+        window.open(url, '_blank')
+        setTimeout(() => URL.revokeObjectURL(url), 60_000)
+    }
 }

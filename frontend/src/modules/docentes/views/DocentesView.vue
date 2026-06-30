@@ -34,8 +34,9 @@
         :filteredDocentes="filteredDocentes"
         :selectedDocente="selectedDocente"
         :loading="loading"
-        @select="selectDocente"
+        @select="onSelectDocente"
         @clear="clearSelection"
+        @submit="irAlReporte"
       />
     </div>
 
@@ -89,6 +90,7 @@
 
           <div class="flex items-center gap-2 self-start">
             <button
+              ref="reportButtonRef"
               class="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-[14px] font-semibold bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-slate-900 transition-all duration-150 cursor-pointer border-none shadow-lg shadow-amber-500/20 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-amber-500"
               title="Generar reporte de materias dictadas"
               :disabled="generandoReporte"
@@ -151,7 +153,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, nextTick, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import DocenteSearch from '../components/DocenteSearch.vue'
 import { useDocentes } from '../composables/useDocentes'
@@ -173,9 +175,23 @@ const {
 // Estado de carga del botón "Generar reporte"
 const generandoReporte = ref(false)
 
+// Referencia al botón "Generar reporte" para poder enfocarlo por código
+const reportButtonRef = ref(null)
+
 // Iniciales para el avatar de la tarjeta seleccionada
 const initials = (d) => ((d.nombres?.[0] ?? '') + (d.apellidos?.[0] ?? '')).toUpperCase() || '?'
 
+// ✅ Al seleccionar un docente (click o Enter en el buscador), el foco
+// "baja" directo al botón Generar reporte. Así, con un solo Enter más
+// (ya con foco nativo en el <button>), el navegador lo activa solo.
+const onSelectDocente = async (docente) => {
+  selectDocente(docente)
+  await nextTick()
+  reportButtonRef.value?.focus()
+}
+
+// ✅ Genera el reporte. Se llama tanto desde el click del botón
+// como desde el evento "submit" del buscador (Enter con un docente ya seleccionado).
 const irAlReporte = async () => {
   if (!selectedDocente.value || generandoReporte.value) return
   generandoReporte.value = true

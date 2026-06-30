@@ -464,7 +464,7 @@ const menuSections = [
         label: 'Digitalización', icon: Upload,
         children: [
           { to: '/resoluciones/subir',         label: 'Subir Resolución'           },
-          { to: '/resoluciones/listado', label: 'Resoluciones Digitalizadas' },
+          { to: '/resoluciones/listado', label: 'Lista de Resoluciones' },
           { to: '/resoluciones/asignar', label: 'Asignar Resolución' },
         ],
       },

@@ -56,62 +56,62 @@ export function useReporte() {
     const loading = ref(false)
     const error = ref(null)
 
-    // const generarReporte = async (codigoDocente, anio = null) => {
-    //     loading.value = true
-    //     error.value = null
-    //     reporte.value = null
-
-    //     try {
-    //         const token = localStorage.getItem('token')
-    //         const payload = { docente: Number(codigoDocente) }
-    //         if (anio) payload.anio = Number(anio)
-
-    //         const response = await axios.post(
-    //             `${API_BASE}/api/reporte-docente`,
-    //             payload,
-    //             { headers: { Authorization: `Bearer ${token}` } }
-    //         )
-    //         reporte.value = response.data
-    //     } catch (err) {
-    //         error.value = err.response?.data?.message || 'Error al generar el reporte'
-    //     } finally {
-    //         loading.value = false
-    //     }
-    // }
-
-    const generarReporte = async (codigoDocente, anio = null, materia = null, grupo = null) => {
+    /**
+     * Genera el reporte de un docente.
+     *
+     * @param {number|string} codigoDocente
+     * @param {Object} filtros
+     * @param {number|null} filtros.anio          Año "desde" (o único año si no hay rango)
+     * @param {string|null} filtros.periodo        Periodo del año desde: '1' | '2' | '3' | '4'
+     * @param {number|null} filtros.anioHasta       Año "hasta" (para filtrar por rango)
+     * @param {string|null} filtros.periodoHasta    Periodo del año hasta
+     * @param {string|null} filtros.materia         Código o nombre de materia
+     * @param {string|null} filtros.grupo
+     */
+    const generarReporte = async (codigoDocente, filtros = {}) => {
         loading.value = true
         error.value = null
         reporte.value = null
+
+        const {
+            anio = null,
+            periodo = null,
+            anioHasta = null,
+            periodoHasta = null,
+            materia = null,
+            grupo = null,
+        } = filtros
+
 
         try {
             const token = localStorage.getItem('token')
             const payload = { docente: Number(codigoDocente) }
 
             if (anio) payload.anio = Number(anio)
-            if (materia) payload.materia = materia   // AÑADIR
-            if (grupo) payload.grupo = grupo     // AÑADIR
+            if (periodo) payload.periodo = periodo
+            if (anioHasta) payload.anio_hasta = Number(anioHasta)
+            if (periodoHasta) payload.periodo_hasta = periodoHasta
+            if (materia) payload.materia = materia
+            if (grupo) payload.grupo = grupo
+
 
             const response = await axios.post(
                 `${API_BASE}/api/reporte-docente`,
                 payload,
                 { headers: { Authorization: `Bearer ${token}` } }
             )
-            // ─── DEBUG ───────────────────────────────────────────
-            //console.log('📦 RAW response.data:', response.data)
-            //console.log('📋 Primera materia raw:', response.data?.materias?.[0] ?? response.data?.MATERIAS?.[0])
-            // ─────────────────────────────────────────────────────
+
 
             reporte.value = normalizeReporteResponse(response.data)
 
-          //  console.log('✅ Primera materia normalizada:', reporte.value?.materias?.[0])
+
         } catch (err) {
+            console.error('[useReporte] ERROR en la petición →', err.response?.data || err.message)
             error.value = err.response?.data?.message || 'Error al generar el reporte'
         } finally {
             loading.value = false
         }
     }
-
     // ─────────────────────────────────────────────────────
     // Abre o descarga el PDF de una resolución
     // Recibe el nro_resolucion (ej: "RR N 21/2007")
@@ -121,7 +121,6 @@ export function useReporte() {
         try {
             const token = localStorage.getItem('token')
 
-            // 1. Buscar el id_resolucion por nro_resolucion
             const { data } = await axios.get(
                 `${API_BASE}/api/resoluciones/por-numero`,
                 {
@@ -135,16 +134,12 @@ export function useReporte() {
                 return
             }
 
-            // 2. Construir la URL del PDF
             const url = `${API_BASE}/api/resoluciones/${data.id_resolucion}/pdf`
 
             if (descargar) {
-                // Descarga forzada
                 const link = document.createElement('a')
                 link.href = url
                 link.setAttribute('download', data.nombre_archivo || 'resolucion.pdf')
-                // Agregar token en header no funciona con <a>, 
-                // entonces pedimos el blob y lo descargamos
                 const blob = await axios.get(url, {
                     responseType: 'blob',
                     headers: { Authorization: `Bearer ${token}` },
@@ -156,7 +151,6 @@ export function useReporte() {
                 document.body.removeChild(link)
                 URL.revokeObjectURL(blobUrl)
             } else {
-                // Ver en nueva pestaña — igual usando blob para enviar el token
                 const blob = await axios.get(url, {
                     responseType: 'blob',
                     headers: { Authorization: `Bearer ${token}` },
@@ -182,6 +176,6 @@ export function useReporte() {
         error,
         generarReporte,
         limpiarReporte,
-        verPdfResolucion,  // 👈 nueva
+        verPdfResolucion,
     }
 }

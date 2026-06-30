@@ -62,6 +62,7 @@
                   <th class="px-4 py-2.5 text-left text-[0.68rem] font-semibold tracking-widest uppercase text-slate-400">Tipo de ingreso</th>
                   <th class="px-4 py-2.5 text-left text-[0.68rem] font-semibold tracking-widest uppercase text-slate-400">Resolución</th>
                   <th class="px-4 py-2.5 text-left text-[0.68rem] font-semibold tracking-widest uppercase text-slate-400">Designación</th>
+                  <th class="px-4 py-2.5 text-left text-[0.68rem] font-semibold tracking-widest uppercase text-slate-400">Reporte</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-slate-700/60">
@@ -71,11 +72,31 @@
                   <td class="px-4 py-2.5 text-slate-400 font-mono">{{ g.plan }}</td>
                   <td class="px-4 py-2.5 text-slate-400 font-mono">{{ g.materia }}</td>
                   <td class="px-4 py-2.5 text-slate-400">{{ g.grupo }}</td>
-                  <td class="px-4 py-2.5 text-slate-300 font-mono">{{ g.docente }}</td>
+                  <td class="px-4 py-2.5 text-slate-300" :title="`Código: ${g.docente}`">
+                    {{ nombreDocentePorCodigo(g.docente) }}
+                  </td>
                   <td class="px-4 py-2.5 text-slate-400">{{ g.tipo }}</td>
                   <td class="px-4 py-2.5 text-sky-400">{{ g.tipoIngreso || '—' }}</td>
                   <td class="px-4 py-2.5 text-amber-400 font-medium">{{ g.resolucion }}</td>
                   <td class="px-4 py-2.5 text-slate-400 max-w-xs truncate" :title="g.designacion">{{ g.designacion }}</td>
+                  <td class="px-4 py-2.5">
+                    <button
+                      type="button"
+                      class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold
+                             border border-slate-700 text-slate-300 hover:border-amber-500/50 hover:text-amber-400
+                             hover:bg-amber-500/5 transition-colors"
+                      title="Abrir reporte de materias dictadas de este docente"
+                      @click="verReporte(g)"
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                        <polyline points="14 2 14 8 20 8"/>
+                        <line x1="16" y1="13" x2="8" y2="13"/>
+                        <line x1="16" y1="17" x2="8" y2="17"/>
+                      </svg>
+                      Ver reporte
+                    </button>
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -113,7 +134,9 @@
                 </thead>
                 <tbody class="divide-y divide-slate-700/60">
                   <tr v-for="(m, i) in ultimasAsignadas" :key="i">
-                    <td class="px-3 py-2 text-slate-300 font-mono">{{ m.cod_docente }}</td>
+                    <td class="px-3 py-2 text-slate-300" :title="`Código: ${m.cod_docente}`">
+                      {{ nombreDocentePorCodigo(m.cod_docente) }}
+                    </td>
                     <td class="px-3 py-2 text-slate-400 font-mono">{{ m.cod_plan }}</td>
                     <td class="px-3 py-2 text-slate-400 font-mono">{{ m.cod_materia }}</td>
                     <td class="px-3 py-2 text-slate-400">{{ m.grupo ?? '—' }}</td>
@@ -260,6 +283,7 @@
           :marcadas-keys="materiasMarcadas.map(m => m.key)"
           :docente-cod="docenteCodActual"
           @toggle="(m) => toggleMateria(selectedDocente, m)"
+          @tipo-ingreso-change="(m) => actualizarTipoIngreso(selectedDocente, m)"
         />
       </div>
 
@@ -279,6 +303,7 @@
 
 <script setup>
 import { ref, computed, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import DocenteSearch from '../../docentes/components/DocenteSearch.vue'
 import { useDocentes } from '../../docentes/composables/useDocentes'
 import { useReporte } from '../../reportes/composables/useReporte'
@@ -287,6 +312,8 @@ import { useAsignacionResolucion } from '../composables/useAsignacionResolucion'
 import ResolucionSearchPicker from '../components/ResolucionSearchPicker.vue'
 import MateriasAsignarTabla from '../components/MateriasAsignarTabla.vue'
 import MateriasMarcadasResumen from '../components/MateriasMarcadasResumen.vue'
+
+const router = useRouter()
 
 // ─── Docentes ───────────────────────────────────────────────────
 const {
@@ -344,6 +371,7 @@ const {
   seleccionarResolucion,
   limpiarResolucion,
   toggleMateria,
+  actualizarTipoIngreso,  
   quitarMateria,
   limpiarTodo,
   confirmarAsignacion,
@@ -403,10 +431,8 @@ const materiasFiltradas = computed(() => {
 // Es solo un valor por defecto: el usuario puede cambiarlo después.
 watch(resolucionActiva, (nueva) => {
   if (!nueva) return
-
   const anioResolucion = String(nueva.anio ?? '').trim()
   const periodoResolucion = String(nueva.periodo ?? '').trim()
-
   if (anioResolucion && aniosDisponibles.value.includes(anioResolucion)) {
     filtroAnio.value = anioResolucion
   }
@@ -419,10 +445,8 @@ watch(resolucionActiva, (nueva) => {
 // ya haber elegido la resolución (el orden de los pasos es libre).
 watch(materiasDelReporte, () => {
   if (!resolucionActiva.value) return
-
   const anioResolucion = String(resolucionActiva.value.anio ?? '').trim()
   const periodoResolucion = String(resolucionActiva.value.periodo ?? '').trim()
-
   if (anioResolucion && aniosDisponibles.value.includes(anioResolucion) && !filtroAnio.value) {
     filtroAnio.value = anioResolucion
   }
@@ -438,6 +462,24 @@ const resolucionAsignadaNro = ref('')
 const resolucionAsignadaAnio = ref('')
 const resolucionAsignadaPeriodo = ref('')
 const gruposActualizados = ref([])
+
+// Guardamos el código y nombre completo del docente que estaba
+// seleccionado al momento de terminar la asignación. La consulta de
+// aplicarEnGrupos solo devuelve el CODIGO del docente (no hace join
+// con DOCENTES), así que usamos este mapa para mostrar el nombre en
+// vez del código en las tablas de resultado.
+const docenteAsignadoCodigo = ref('')
+const docenteAsignadoNombre = ref('')
+
+function nombreDocentePorCodigo(codigo) {
+  if (docenteAsignadoCodigo.value && String(codigo) === String(docenteAsignadoCodigo.value) && docenteAsignadoNombre.value) {
+    return docenteAsignadoNombre.value
+  }
+  // Fallback: si por algún motivo el código no coincide (no debería
+  // pasar, ya que todo lo asignado es del mismo docente seleccionado),
+  // mostramos el código tal cual para no perder la información.
+  return codigo ?? '—'
+}
 
 const resolucionAnioPeriodoLabel = computed(() => {
   if (!resolucionAsignadaAnio.value && !resolucionAsignadaPeriodo.value) return '—'
@@ -465,6 +507,19 @@ function normalizarGrupo(g) {
   }
 }
 
+// Abre, en una pestaña nueva, el reporte de materias dictadas del
+// docente correspondiente a esa fila de la tabla de grupos actualizados.
+// Se usa el código de docente tal cual viene en la fila (g.docente),
+// y se abre en pestaña nueva para no perder la vista de resultado
+// que el usuario tiene en pantalla.
+function verReporte(g) {
+  const ruta = router.resolve({
+    name: 'reporte',
+    query: { codigo: g.docente },
+  })
+  window.open(ruta.href, '_blank')
+}
+
 async function handleTerminar() {
   errorLocal.value = ''
   try {
@@ -472,6 +527,14 @@ async function handleTerminar() {
     resolucionAsignadaAnio.value = resolucionActiva.value?.anio ?? ''
     resolucionAsignadaPeriodo.value = resolucionActiva.value?.periodo ?? ''
     ultimasAsignadas.value = [...materiasMarcadas.value]
+
+    // Capturamos código y nombre del docente ANTES de que se pueda
+    // limpiar la selección, para poder mostrarlo en la fase de
+    // resultado en vez del código crudo que devuelve aplicarEnGrupos.
+    docenteAsignadoCodigo.value = docenteCodActual.value ?? ''
+    const nombres = selectedDocente.value?.nombres ?? selectedDocente.value?.NOMBRES ?? ''
+    const apellidos = selectedDocente.value?.apellidos ?? selectedDocente.value?.APELLIDOS ?? ''
+    docenteAsignadoNombre.value = `${nombres} ${apellidos}`.trim()
 
     const { idResolucion } = await confirmarAsignacion()
     const resultado = await aplicarEnGrupos(idResolucion)

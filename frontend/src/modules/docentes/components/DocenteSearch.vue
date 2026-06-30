@@ -44,10 +44,15 @@
           type="text"
           placeholder="Buscar por nombre o código SIS..."
           autocomplete="off"
+          role="combobox"
+          aria-haspopup="listbox"
+          :aria-expanded="isOpen"
+          :aria-activedescendant="highlightedIndex >= 0 ? `docente-opt-${highlightedIndex}` : undefined"
           class="flex-1 bg-transparent border-none outline-none text-slate-100 text-sm py-2.5 min-w-0 placeholder-slate-500"
           @focus="onFocus"
           @blur="onBlur"
           @input="onInput"
+          @keydown="onKeydown"
         />
         <button
           v-if="localQuery"
@@ -63,7 +68,6 @@
       </div>
     </div>
 
-    <!-- ✅ Teleport al body — escapa cualquier overflow:hidden padre -->
     <Teleport to="body">
       <Transition
         enter-active-class="transition-all duration-150 ease-out"
@@ -89,15 +93,20 @@
             Sin resultados para "<strong class="text-slate-300">{{ localQuery }}</strong>"
           </div>
 
-          <ul v-else class="list-none m-0 p-1.5 max-h-72 overflow-y-auto" role="listbox">
+          <ul v-else ref="listRef" class="list-none m-0 p-1.5 max-h-72 overflow-y-auto" role="listbox">
             <li
-              v-for="docente in listaEfectiva"
+              v-for="(docente, index) in listaEfectiva"
+              :id="`docente-opt-${index}`"
               :key="docente.id"
               role="option"
               :aria-selected="selectedDocente?.id === docente.id"
               class="flex items-center gap-2.5 px-2.5 py-2 rounded-lg cursor-pointer transition-colors"
-              :class="selectedDocente?.id === docente.id ? 'bg-amber-500/10' : 'hover:bg-white/5'"
+              :class="[
+                selectedDocente?.id === docente.id ? 'bg-amber-500/10' : '',
+                highlightedIndex === index ? 'bg-white/10' : 'hover:bg-white/5'
+              ]"
               @mousedown.prevent="handleSelect(docente)"
+              @mouseenter="highlightedIndex = index"
             >
               <div
                 class="w-8 h-8 rounded-full bg-gradient-to-br from-blue-700 to-violet-600 text-white text-xs font-bold flex items-center justify-center shrink-0 tracking-wide"
@@ -108,7 +117,7 @@
 
               <div class="flex-1 min-w-0 flex flex-col gap-0.5">
                 <span class="text-sm font-medium text-slate-100 truncate">
-                  {{ docente.nombres }} {{ docente.apellidos }}
+                   {{ docente.apellidos }} {{ docente.nombres }}
                 </span>
                 <span class="flex items-center gap-1.5">
                   <span class="text-[0.68rem] font-semibold tracking-wide bg-indigo-500/15 text-indigo-300 px-1.5 py-px rounded">
@@ -138,7 +147,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
 
 const props = defineProps({
   docentes:         { type: Array,  default: () => [] },
@@ -151,11 +160,12 @@ const emit = defineEmits(['update:searchQuery', 'select', 'clear'])
 
 const containerRef = ref(null)
 const inputRef     = ref(null)
-const isFocused    = ref(false)
-const localQuery   = ref('')
-const isOpen       = ref(false)
+const listRef       = ref(null)
+const isFocused     = ref(false)
+const localQuery    = ref('')
+const isOpen        = ref(false)
+const highlightedIndex = ref(-1)
 
-// ✅ Posición calculada del dropdown en coordenadas de pantalla
 const dropdownStyle = ref({})
 
 const updateDropdownPosition = async () => {
@@ -184,6 +194,11 @@ const listaEfectiva = computed(() => {
   })
 })
 
+// Si la lista cambia (filtro), reseteamos el resaltado
+watch(listaEfectiva, () => {
+  highlightedIndex.value = listaEfectiva.value.length > 0 ? 0 : -1
+})
+
 const initials = (d) =>
   ((d.nombres?.[0] ?? '') + (d.apellidos?.[0] ?? '')).toUpperCase() || '?'
 
@@ -192,6 +207,7 @@ const toggleDropdown = async () => {
   if (isOpen.value) {
     await updateDropdownPosition()
     inputRef.value?.focus()
+    highlightedIndex.value = listaEfectiva.value.length > 0 ? 0 : -1
   }
 }
 
@@ -199,6 +215,9 @@ const onFocus = async () => {
   isFocused.value = true
   isOpen.value    = true
   await updateDropdownPosition()
+  if (highlightedIndex.value < 0 && listaEfectiva.value.length > 0) {
+    highlightedIndex.value = 0
+  }
 }
 
 const onBlur = () => {
@@ -212,14 +231,65 @@ const onInput = () => {
   }
 }
 
+
+const onKeydown = async (e) => {
+  const total = listaEfectiva.value.length
+
+  if (e.key === 'ArrowDown') {
+    e.preventDefault()
+    if (!isOpen.value) {
+      isOpen.value = true
+      await updateDropdownPosition()
+    }
+    if (total > 0) {
+      highlightedIndex.value = (highlightedIndex.value + 1) % total
+      scrollHighlightedIntoView()
+    }
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault()
+    if (!isOpen.value) {
+      isOpen.value = true
+      await updateDropdownPosition()
+    }
+    if (total > 0) {
+      highlightedIndex.value = highlightedIndex.value <= 0 ? total - 1 : highlightedIndex.value - 1
+      scrollHighlightedIntoView()
+    }
+  } else if (e.key === 'Enter') {
+    e.preventDefault()
+    if (isOpen.value && highlightedIndex.value >= 0 && listaEfectiva.value[highlightedIndex.value]) {
+      handleSelect(listaEfectiva.value[highlightedIndex.value])
+    }
+  } else if (e.key === 'Escape') {
+    isOpen.value = false
+    inputRef.value?.blur()
+  } else if (e.key === 'Home' && isOpen.value && total > 0) {
+    e.preventDefault()
+    highlightedIndex.value = 0
+    scrollHighlightedIntoView()
+  } else if (e.key === 'End' && isOpen.value && total > 0) {
+    e.preventDefault()
+    highlightedIndex.value = total - 1
+    scrollHighlightedIntoView()
+  }
+}
+
+const scrollHighlightedIntoView = () => {
+  nextTick(() => {
+    const el = listRef.value?.children?.[highlightedIndex.value]
+    el?.scrollIntoView({ block: 'nearest' })
+  })
+}
+
 const handleSelect = (docente) => {
-  localQuery.value = `${docente.nombres} ${docente.apellidos}`
+  localQuery.value = `${docente.apellidos} ${docente.nombres} `
   isOpen.value     = false
   emit('select', docente)
 }
 
 const handleClear = () => {
   localQuery.value = ''
+  highlightedIndex.value = -1
   emit('update:searchQuery', '')
   emit('clear')
 }

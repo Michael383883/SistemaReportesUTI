@@ -1,48 +1,70 @@
 <template>
   <div class="flex flex-wrap items-end gap-3">
-    <!-- Año desde -->
+    <!-- Año desde (admite periodo: 2016 o 2016/1) -->
     <div class="flex flex-col gap-1.5">
-      <label class="text-[0.68rem] font-semibold tracking-widest uppercase text-slate-400">
+      <label class="text-[0.68rem] font-semibold tracking-widest uppercase text-slate-800">
         Desde el año
       </label>
       <input
         v-model="anioLocal"
-        type="number"
-        min="2001"
-        :max="anioActual"
-        placeholder="Ej: 2016"
-        class="
-          w-36 bg-slate-800 border border-slate-700 rounded-lg
-          text-slate-100 text-sm px-3 py-2 outline-none
-          placeholder-slate-500 transition-all duration-150
-          focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20
-          [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none
-        "
-      />
-    </div>
-
-    <!-- Código de materia -->
-    <div class="flex flex-col gap-1.5">
-      <label class="text-[0.68rem] font-semibold tracking-widest uppercase text-slate-400">
-        Materia
-      </label>
-      <input
-        v-model="materiaLocal"
         type="text"
-        placeholder="Ej: 1301033"
-        maxlength="20"
+        inputmode="numeric"
+        placeholder="Ej: 2016 o 2016/1"
+        maxlength="9"
         class="
           w-40 bg-slate-800 border border-slate-700 rounded-lg
           text-slate-100 text-sm px-3 py-2 outline-none
           placeholder-slate-500 transition-all duration-150
           focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20
         "
+        @keyup.enter="onGenerar"
+      />
+    </div>
+
+    <!-- Año hasta (admite periodo: 2024 o 2024/2) -->
+    <div class="flex flex-col gap-1.5">
+      <label class="text-[0.68rem] font-semibold tracking-widest uppercase text-slate-800">
+        Hasta el año
+      </label>
+      <input
+        v-model="anioHastaLocal"
+        type="text"
+        inputmode="numeric"
+        placeholder="Ej: 2024 o 2024/2"
+        maxlength="9"
+        class="
+          w-40 bg-slate-800 border border-slate-700 rounded-lg
+          text-slate-100 text-sm px-3 py-2 outline-none
+          placeholder-slate-500 transition-all duration-150
+          focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20
+        "
+        @keyup.enter="onGenerar"
+      />
+    </div>
+
+    <!-- Materia (código o nombre) -->
+    <div class="flex flex-col gap-1.5">
+      <label class="text-[0.68rem] font-semibold tracking-widest uppercase text-slate-800">
+        Materia
+      </label>
+      <input
+        v-model="materiaLocal"
+        type="text"
+        placeholder="Código o nombre, ej: 1301033 / Cálculo"
+        maxlength="60"
+        class="
+          w-56 bg-slate-800 border border-slate-700 rounded-lg
+          text-slate-100 text-sm px-3 py-2 outline-none
+          placeholder-slate-500 transition-all duration-150
+          focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20
+        "
+        @keyup.enter="onGenerar"
       />
     </div>
 
     <!-- Grupo -->
     <div class="flex flex-col gap-1.5">
-      <label class="text-[0.68rem] font-semibold tracking-widest uppercase text-slate-400">
+      <label class="text-[0.68rem] font-semibold tracking-widest uppercase text-slate-800">
         Grupo
       </label>
       <input
@@ -56,6 +78,7 @@
           placeholder-slate-500 transition-all duration-150
           focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20
         "
+        @keyup.enter="onGenerar"
       />
     </div>
 
@@ -85,7 +108,7 @@
 
     <!-- Limpiar filtros -->
     <button
-      v-if="anioLocal || materiaLocal || grupoLocal"
+      v-if="anioLocal || anioHastaLocal || materiaLocal || grupoLocal"
       class="
         inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium
         border border-slate-700 text-slate-400 bg-transparent hover:bg-white/5
@@ -190,19 +213,26 @@ import { generarPDF } from '../composables/useGenerarPDF'
 import { generarPDFConTipoIngreso } from '../composables/useGenerarPDFConTipoIngreso'
 
 const props = defineProps({
-  anio:    { type: [Number, String], default: null },
-  materia: { type: String, default: '' },
-  grupo:   { type: String, default: '' },
-  loading: { type: Boolean, default: false },
-  reporte: { type: Object, default: null },
+  anio:      { type: [Number, String], default: null }, // ej: 2016 o "2016/1"
+  anioHasta: { type: [Number, String], default: null }, // ej: 2024 o "2024/2"
+  materia:   { type: String, default: '' },              // código o nombre
+  grupo:     { type: String, default: '' },
+  loading:   { type: Boolean, default: false },
+  reporte:   { type: Object, default: null },
 })
 
-const emit = defineEmits(['generar', 'update:anio', 'update:materia', 'update:grupo'])
+const emit = defineEmits([
+  'generar',
+  'update:anio',
+  'update:anioHasta',
+  'update:materia',
+  'update:grupo',
+])
 
-const anioActual   = new Date().getFullYear()
-const anioLocal    = ref(props.anio    || '')
-const materiaLocal = ref(props.materia || '')
-const grupoLocal   = ref(props.grupo   || '')
+const anioLocal      = ref(props.anio      || '')
+const anioHastaLocal = ref(props.anioHasta || '')
+const materiaLocal   = ref(props.materia   || '')
+const grupoLocal     = ref(props.grupo     || '')
 
 // ── Menú PDF ──────────────────────────────────────────────────────────────────
 const menuOpen   = ref(false)
@@ -235,9 +265,7 @@ const pdfOpciones = [
                <rect x="6" y="14" width="12" height="8"/>
              </svg>`,
   },
-  // ── separador ───────────────────────────────────────────────────────────────
   { action: 'divider' },
-  // ── con modalidad de ingreso ─────────────────────────────────────────────────
   {
     action: 'open-tipo-ingreso',
     label:  'Ver con modalidad ingreso',
@@ -282,33 +310,56 @@ const onPDF = (action) => {
   menuOpen.value = false
   if (!props.reporte) return
 
-  // Con modalidad de ingreso
   if (action === 'open-tipo-ingreso')   return generarPDFConTipoIngreso(props.reporte, { action: 'open' })
   if (action === 'save-tipo-ingreso')   return generarPDFConTipoIngreso(props.reporte, { action: 'save' })
   if (action === 'print-tipo-ingreso')  return generarPDFConTipoIngreso(props.reporte, { action: 'print' })
 
-  // Normal
   generarPDF(props.reporte, { action })
+}
+
+// ── Parseo de año/periodo ─────────────────────────────────────────────────────
+// Acepta "2016", "2016/1", "2016-1", "2016 1" → { anio: 2016, periodo: '1' | null }
+function parseAnioPeriodo(valorCrudo) {
+  const valor = (valorCrudo || '').toString().trim()
+  if (!valor) return { anio: null, periodo: null }
+
+  const match = valor.match(/^(\d{4})\s*[\/\-\s]?\s*([1-4])?$/)
+  if (!match) return { anio: Number(valor) || null, periodo: null }
+
+  const [, anioStr, periodoStr] = match
+  return {
+    anio:    Number(anioStr),
+    periodo: periodoStr || null,
+  }
 }
 
 // ── Acciones ──────────────────────────────────────────────────────────────────
 const onGenerar = () => {
-  const anio    = anioLocal.value       ? Number(anioLocal.value) : null
+  const { anio, periodo }            = parseAnioPeriodo(anioLocal.value)
+  const { anio: anioHasta, periodo: periodoHasta } = parseAnioPeriodo(anioHastaLocal.value)
   const materia = materiaLocal.value.trim() || null
   const grupo   = grupoLocal.value.trim()   || null
 
-  emit('update:anio',    anio)
-  emit('update:materia', materia)
-  emit('update:grupo',   grupo)
-  emit('generar', { anio, materia, grupo })
+ 
+
+  
+
+  emit('update:anio',      anioLocal.value      || null)
+  emit('update:anioHasta', anioHastaLocal.value || null)
+  emit('update:materia',   materia)
+  emit('update:grupo',     grupo)
+
+  emit('generar', { anio, periodo, anioHasta, periodoHasta, materia, grupo })
 }
 
 const limpiarFiltros = () => {
-  anioLocal.value    = ''
-  materiaLocal.value = ''
-  grupoLocal.value   = ''
-  emit('update:anio',    null)
-  emit('update:materia', null)
-  emit('update:grupo',   null)
+  anioLocal.value      = ''
+  anioHastaLocal.value = ''
+  materiaLocal.value   = ''
+  grupoLocal.value     = ''
+  emit('update:anio',      null)
+  emit('update:anioHasta', null)
+  emit('update:materia',   null)
+  emit('update:grupo',     null)
 }
 </script>

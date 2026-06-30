@@ -2,7 +2,7 @@
 import { ref } from 'vue'
 import axios from 'axios'
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'
+const API_BASE = import.meta.env.VITE_API_URL || ''
 
 function authHeaders() {
     const token = localStorage.getItem('token')
@@ -31,6 +31,52 @@ function mapKeys(obj) {
     return obj
 }
 
+// ─────────────────────────────────────────────────────────────
+// mensajeError: traduce cualquier error de axios/backend a un
+// mensaje claro y accionable para el usuario final.
+// ─────────────────────────────────────────────────────────────
+function mensajeError(e, fallback = 'Ocurrió un error inesperado. Inténtalo de nuevo.') {
+    // Sin respuesta del servidor: caída de red, CORS, servidor apagado, timeout
+    if (!e.response) {
+        if (e.code === 'ECONNABORTED') {
+            return 'La solicitud tardó demasiado en responder. Verifica tu conexión e inténtalo de nuevo.'
+        }
+        return 'No se pudo conectar con el servidor. Verifica tu conexión e inténtalo de nuevo.'
+    }
+
+    const status = e.response.status
+    const data = e.response.data
+
+    // Errores de validación de Laravel (422)
+    const laravelErrors = data?.errores ?? data?.errors
+    if (laravelErrors && typeof laravelErrors === 'object') {
+        return Object.values(laravelErrors).flat().join(' | ')
+    }
+
+    switch (status) {
+        case 401:
+        case 403:
+            return 'Tu sesión expiró o no tienes permisos para esta acción. Inicia sesión nuevamente.'
+        case 404:
+            return 'No se encontró la resolución solicitada. Puede que haya sido eliminada.'
+        case 409:
+            return data?.error ?? 'Ya existe una resolución con ese número para el año y periodo seleccionados.'
+        case 413:
+            return 'El archivo PDF es demasiado grande. El tamaño máximo permitido es de 10 MB.'
+        case 415:
+            return 'El archivo debe estar en formato PDF.'
+        case 422:
+            return data?.error ?? data?.message ?? 'Algunos datos no son válidos. Revisa el formulario.'
+        case 429:
+            return 'Se realizaron demasiadas solicitudes. Espera un momento e inténtalo de nuevo.'
+        default:
+            if (status >= 500) {
+                return 'Ocurrió un error en el servidor al procesar la solicitud. Inténtalo más tarde.'
+            }
+            return data?.error ?? data?.message ?? fallback
+    }
+}
+
 export function useResolucion() {
     const loading = ref(false)
     const error = ref('')
@@ -46,6 +92,19 @@ export function useResolucion() {
         error.value = ''
 
         try {
+            // Validación de archivo en cliente antes de enviar al servidor
+            if (archivo) {
+                if (archivo.type !== 'application/pdf') {
+                    error.value = 'El archivo debe ser un PDF.'
+                    throw new Error(error.value)
+                }
+                const MAX_MB = 10
+                if (archivo.size > MAX_MB * 1024 * 1024) {
+                    error.value = `El archivo PDF supera el tamaño máximo de ${MAX_MB} MB.`
+                    throw new Error(error.value)
+                }
+            }
+
             const form = new FormData()
 
             form.append('nro_resolucion', String(numero).trim())
@@ -77,20 +136,18 @@ export function useResolucion() {
                 }
             )
 
-            if (!data.ok) throw new Error(data.error ?? 'Error al guardar la resolución.')
+            if (!data.ok) {
+                error.value = data.error ?? 'No se pudo guardar la resolución. Inténtalo de nuevo.'
+                throw new Error(error.value)
+            }
 
             resolucionId.value = data.id_resolucion
             return data.id_resolucion
 
         } catch (e) {
-            const laravelErrors = e.response?.data?.errores
-            if (laravelErrors) {
-                error.value = Object.values(laravelErrors).flat().join(' | ')
-            } else {
-                error.value = e.response?.data?.error
-                    ?? e.response?.data?.message
-                    ?? e.message
-                    ?? 'Error al guardar la resolución.'
+            // Si ya seteamos error.value arriba (validación local), no lo pisamos
+            if (!error.value) {
+                error.value = mensajeError(e, 'No se pudo guardar la resolución. Inténtalo de nuevo.')
             }
             console.error('❌ guardarResolucion:', e.response?.data ?? e.message)
             throw e
@@ -114,6 +171,11 @@ export function useResolucion() {
         error.value = ''
 
         try {
+            if (!detalles || detalles.length === 0) {
+                error.value = 'No hay docentes/materias para asignar.'
+                throw new Error(error.value)
+            }
+
             const { data } = await axios.post(
                 `${API_BASE}/api/resoluciones/${idResolucion}/detalles/bulk`,
                 { detalles },
@@ -124,13 +186,8 @@ export function useResolucion() {
             return data
 
         } catch (e) {
-            const laravelErrors = e.response?.data?.errors ?? e.response?.data?.errores
-            if (laravelErrors) {
-                error.value = Object.values(laravelErrors).flat().join(' | ')
-            } else {
-                error.value = e.response?.data?.message
-                    ?? e.message
-                    ?? 'Error al guardar los detalles.'
+            if (!error.value) {
+                error.value = mensajeError(e, 'No se pudieron guardar las asignaciones. Inténtalo de nuevo.')
             }
             console.error('❌ guardarDetalles:', e.response?.data ?? e.message)
             throw e
@@ -159,9 +216,7 @@ export function useResolucion() {
             console.log('✅ detallesGuardados:', detallesGuardados.value)
 
         } catch (e) {
-            error.value = e.response?.data?.message
-                ?? e.message
-                ?? 'Error al cargar la resolución.'
+            error.value = mensajeError(e, 'No se pudo cargar la resolución.')
             console.error('❌ cargarResolucionCompleta:', e.response?.data ?? e.message)
             throw e
         } finally {
@@ -190,17 +245,19 @@ export function useResolucion() {
                 { headers: { ...authHeaders() } }
             )
 
-            if (!data.ok) throw new Error(data.error ?? 'Error al aplicar en grupos.')
+            if (!data.ok) {
+                error.value = data.error ?? 'No se pudo aplicar la asignación a los grupos.'
+                throw new Error(error.value)
+            }
 
             console.log('✅ aplicarEnGrupos:', data)
 
             return data  // { ok, filas_afectadas, grupos }
 
         } catch (e) {
-            error.value = e.response?.data?.error
-                ?? e.response?.data?.message
-                ?? e.message
-                ?? 'Error al aplicar en grupos.'
+            if (!error.value) {
+                error.value = mensajeError(e, 'No se pudo aplicar la asignación a los grupos.')
+            }
             console.error('❌ aplicarEnGrupos:', e.response?.data ?? e.message)
             throw e
         } finally {

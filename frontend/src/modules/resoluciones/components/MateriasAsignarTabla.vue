@@ -83,7 +83,8 @@
               <select
                 v-model="m.tipo_ingreso"
                 class="w-full rounded-lg border border-slate-700 bg-slate-800 text-slate-200 text-xs px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
+              @change="emit('tipo-ingreso-change', m)"
+                >
                 <option value="">-- Seleccionar --</option>
                 <option value="ACEFALIA">ACEFALIA</option>
                 <option value="TEMPORAL">TEMPORAL</option>
@@ -195,8 +196,8 @@ const props = defineProps({
   docenteCod: { type: [Number, String], default: null },
 })
 
-const emit = defineEmits(['toggle'])
-
+//const emit = defineEmits(['toggle'])
+const emit = defineEmits(['toggle', 'tipo-ingreso-change'])
 function keyDe(m) {
   return `${props.docenteCod}__${m.plan}__${m.materia}__${m.grp}__${m.gestion}`
 }
@@ -213,11 +214,23 @@ function checkTitle(m) {
 // ─── Validación: gestión de la materia vs año/periodo de la resolución ───
 // La gestión viene como "2024/2", "2024/1", "2024/Verano", etc.
 // Comparamos año y periodo contra resolucionActiva.anio / .periodo.
+// Parsea "2024/3 - Verano" -> { anio: "2024", periodo: "3", tipo: "Verano" }
+// También soporta "2024/3" sin tipo -> { anio: "2024", periodo: "3", tipo: "" }
+function parseGestion(gestion) {
+  const str = String(gestion ?? '').trim()
+  const [anioPart, ...resto] = str.split('/')
+  const restoStr = resto.join('/').trim()
+  const match = restoStr.match(/^(\S+)\s*-?\s*(.*)$/)
+  return {
+    anio: anioPart?.trim() ?? '',
+    periodo: match ? match[1].trim() : restoStr,
+    tipo: match ? match[2].trim() : '',
+  }
+}
+
 function coincideGestion(m) {
   if (!props.resolucionActiva) return true
-  const partes = String(m.gestion ?? '').split('/')
-  const anioMateria = partes[0]?.trim()
-  const periodoMateria = partes.slice(1).join('/').trim()
+  const { anio: anioMateria, periodo: periodoMateria } = parseGestion(m.gestion)
 
   const anioResolucion = String(props.resolucionActiva.anio ?? '').trim()
   const periodoResolucion = String(props.resolucionActiva.periodo ?? '').trim()

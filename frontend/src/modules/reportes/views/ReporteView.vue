@@ -37,8 +37,9 @@
       <div class="mb-5">
         <ReporteFiltros
           v-model:anio="anioFiltro"
-          v-model:materia="materiaFiltro"   
-          v-model:grupo="grupoFiltro"       
+          v-model:anio-hasta="anioHastaFiltro"
+          v-model:materia="materiaFiltro"
+          v-model:grupo="grupoFiltro"
           :loading="loading"
           :reporte="reporte"
           @generar="reGenerar"
@@ -76,33 +77,73 @@ const router = useRouter()
 
 const { reporte, loading, error, generarReporte } = useReporte()
 
-const anioFiltro = ref(null)
-const materiaFiltro = ref(null)   // AÑADIR
-const grupoFiltro   = ref(null)   // AÑADIR
+// anioFiltro guarda el string crudo, ej: "2016" o "2016/1" (lo que el usuario tipeó)
+const anioFiltro      = ref(null)
+const anioHastaFiltro = ref(null)
+const materiaFiltro   = ref(null)
+const grupoFiltro     = ref(null)
 
+// Parsea "2016", "2016/1", "2016-2" → { anio, periodo }
+function parseAnioPeriodo(valorCrudo) {
+  const valor = (valorCrudo ?? '').toString().trim()
+  if (!valor) return { anio: null, periodo: null }
+
+  const match = valor.match(/^(\d{4})\s*[\/\-\s]?\s*([1-4])?$/)
+  if (!match) return { anio: Number(valor) || null, periodo: null }
+
+  const [, anioStr, periodoStr] = match
+  return { anio: Number(anioStr), periodo: periodoStr || null }
+}
 
 onMounted(async () => {
-  const codigo = route.query.codigo
-  const anio   = route.query.anio ? Number(route.query.anio) : null
+  const codigo       = route.query.codigo
+  const anio         = route.query.anio || null
+  const anioHasta    = route.query.anioHasta || null
+  const materia      = route.query.materia || null
+  const grupo        = route.query.grupo || null
+
   if (!codigo) { router.replace({ name: 'docentes' }); return }
-  anioFiltro.value = anio
-  await generarReporte(codigo, anio)
+
+  anioFiltro.value      = anio
+  anioHastaFiltro.value = anioHasta
+  materiaFiltro.value   = materia
+  grupoFiltro.value     = grupo
+
+  const { anio: anioNum, periodo }                   = parseAnioPeriodo(anio)
+  const { anio: anioHastaNum, periodo: periodoHasta } = parseAnioPeriodo(anioHasta)
+
+  await generarReporte(codigo, {
+    anio: anioNum,
+    periodo,
+    anioHasta: anioHastaNum,
+    periodoHasta,
+    materia,
+    grupo,
+  })
 })
 
-const reGenerar = async ({ anio, materia, grupo }) => {
+const reGenerar = async ({ anio, periodo, anioHasta, periodoHasta, materia, grupo }) => {
+
   const codigo = route.query.codigo
   if (!codigo) return
 
+  const anioQuery      = periodo      ? `${anio}/${periodo}`           : (anio ?? null)
+  const anioHastaQuery = periodoHasta ? `${anioHasta}/${periodoHasta}` : (anioHasta ?? null)
+
+ 
   router.replace({
     query: {
       codigo,
-      ...(anio    ? { anio }    : {}),
-      ...(materia ? { materia } : {}),
-      ...(grupo   ? { grupo }   : {}),
+      ...(anioQuery      ? { anio: anioQuery }           : {}),
+      ...(anioHastaQuery ? { anioHasta: anioHastaQuery } : {}),
+      ...(materia         ? { materia }                  : {}),
+      ...(grupo           ? { grupo }                    : {}),
     }
   })
 
-  await generarReporte(codigo, anio, materia, grupo)  // AÑADIR materia, grupo
+  
+  await generarReporte(codigo, { anio, periodo, anioHasta, periodoHasta, materia, grupo })
 }
+
 
 </script>
