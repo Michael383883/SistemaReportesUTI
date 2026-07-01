@@ -43,6 +43,10 @@ const normalizeReporteResponse = (data) => {
     out.anio_desde = data.anio_desde ?? data.ANIO_DESDE ?? data.anio ?? data.ANIO ?? null
     out.total = data.total ?? data.TOTAL ?? null
 
+    // Info de restricción de periodos aún no concluidos (para el botón
+    // de "habilitar" en ReporteHeader). Se pasa tal cual viene del backend.
+    out.restriccion = data.restriccion ?? data.RESTRICCION ?? null
+
     const materiasRaw = data.materias ?? data.MATERIAS ?? []
     out.materias = Array.isArray(materiasRaw)
         ? materiasRaw.map(normalizeMateria)
@@ -61,12 +65,15 @@ export function useReporte() {
      *
      * @param {number|string} codigoDocente
      * @param {Object} filtros
-     * @param {number|null} filtros.anio          Año "desde" (o único año si no hay rango)
-     * @param {string|null} filtros.periodo        Periodo del año desde: '1' | '2' | '3' | '4'
-     * @param {number|null} filtros.anioHasta       Año "hasta" (para filtrar por rango)
-     * @param {string|null} filtros.periodoHasta    Periodo del año hasta
-     * @param {string|null} filtros.materia         Código o nombre de materia
+     * @param {number|null} filtros.anio               Año "desde" (o único año si no hay rango)
+     * @param {string|null} filtros.periodo             Periodo del año desde: '1' | '2' | '3' | '4'
+     * @param {number|null} filtros.anioHasta           Año "hasta" (para filtrar por rango)
+     * @param {string|null} filtros.periodoHasta        Periodo del año hasta
+     * @param {string|null} filtros.materia             Código o nombre de materia
      * @param {string|null} filtros.grupo
+     * @param {boolean}     filtros.habilitarRestriccion  true = pide liberar un periodo puntual restringido
+     * @param {number|null} filtros.anioHabilitado        Año del periodo a liberar (junto con habilitarRestriccion)
+     * @param {string|null} filtros.periodoHabilitado     Periodo a liberar (junto con habilitarRestriccion)
      */
     const generarReporte = async (codigoDocente, filtros = {}) => {
         loading.value = true
@@ -80,6 +87,9 @@ export function useReporte() {
             periodoHasta = null,
             materia = null,
             grupo = null,
+            habilitarRestriccion = false,
+            anioHabilitado = null,
+            periodoHabilitado = null,
         } = filtros
 
 
@@ -94,6 +104,13 @@ export function useReporte() {
             if (materia) payload.materia = materia
             if (grupo) payload.grupo = grupo
 
+            // Solo se manda si el usuario clickeó "habilitar" en el frontend.
+            // Si no, el backend sigue ocultando lo no concluido como siempre.
+            if (habilitarRestriccion && anioHabilitado && periodoHabilitado) {
+                payload.habilitar_restriccion = true
+                payload.anio_habilitado = Number(anioHabilitado)
+                payload.periodo_habilitado = periodoHabilitado
+            }
 
             const response = await axios.post(
                 `${API_BASE}/api/reporte-docente`,

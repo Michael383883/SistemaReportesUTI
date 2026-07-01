@@ -12,61 +12,42 @@
     </div>
 
     <!-- ── Estado de conexiones ──────────────────────────────────────── -->
-    <section
-      class="bg-slate-800 border border-slate-700 rounded-xl p-6 flex flex-col gap-4"
-      aria-labelledby="section-status"
-    >
+    <section class="bg-slate-800 border border-slate-700 rounded-xl p-6 flex flex-col gap-4" aria-labelledby="section-status">
       <div class="flex items-center justify-between">
-        <span
-          id="section-status"
-          class="text-[0.68rem] font-semibold text-slate-500 uppercase tracking-widest"
-        >
+        <span id="section-status" class="text-[0.68rem] font-semibold text-slate-500 uppercase tracking-widest">
           Estado de conexiones
         </span>
-
         <button
           type="button"
           :disabled="loadingStatus"
           :aria-busy="loadingStatus"
           aria-label="Actualizar estado de conexiones"
           @click="loadStatus"
-          class="flex items-center gap-1.5 text-[11px] text-slate-400
-                 hover:text-slate-200 transition-colors outline-none
-                 focus-visible:ring-1 focus-visible:ring-slate-400 rounded
-                 disabled:opacity-40 disabled:cursor-not-allowed"
+          class="flex items-center gap-1.5 text-[11px] text-slate-400 hover:text-slate-200 transition-colors outline-none
+                 focus-visible:ring-1 focus-visible:ring-slate-400 rounded disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          <RefreshCw
-            class="w-3.5 h-3.5 transition-transform"
-            :class="loadingStatus ? 'animate-spin' : ''"
-            aria-hidden="true"
-          />
+          <RefreshCw class="w-3.5 h-3.5 transition-transform" :class="loadingStatus ? 'animate-spin' : ''" aria-hidden="true" />
           Actualizar
         </button>
       </div>
 
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-
         <div class="flex flex-col gap-3 bg-slate-900/50 border border-slate-700/60 rounded-lg p-4">
           <div class="flex items-center gap-3">
-            <div class="w-11 h-11 rounded-lg flex flex-col items-center justify-center gap-0.5
-                        shrink-0 bg-pink-500/15 text-pink-300"
-                 aria-hidden="true">
+            <div class="w-11 h-11 rounded-lg flex flex-col items-center justify-center gap-0.5 shrink-0 bg-pink-500/15 text-pink-300" aria-hidden="true">
               <Database class="w-4 h-4" />
               <span class="text-[9px] font-bold leading-none tracking-tight">2008</span>
             </div>
             <div class="flex flex-col flex-1 min-w-0">
-              <strong class="text-[13px] text-slate-200 font-medium">SQL Server 2008</strong>
+              <strong class="text-[13px] text-slate-200 font-medium">SQL Server 2008 (origen)</strong>
               <small class="text-[11px] text-slate-500 font-mono truncate">
                 {{ status.sqlserver_2008.host }} · {{ status.sqlserver_2008.database }}
               </small>
             </div>
           </div>
           <span
-            class="self-start inline-flex items-center gap-1.5 px-3 py-1
-                   rounded-full text-[11px] font-semibold"
-            :class="status.sqlserver_2008.connected
-              ? 'bg-emerald-500/15 text-emerald-400'
-              : 'bg-red-500/15 text-red-400'"
+            class="self-start inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold"
+            :class="status.sqlserver_2008.connected ? 'bg-emerald-500/15 text-emerald-400' : 'bg-red-500/15 text-red-400'"
           >
             <i class="inline-block w-1.5 h-1.5 rounded-full bg-current" aria-hidden="true" />
             {{ status.sqlserver_2008.connected ? 'Conectado' : 'Sin conexión' }}
@@ -75,48 +56,34 @@
 
         <div class="flex flex-col gap-3 bg-slate-900/50 border border-slate-700/60 rounded-lg p-4">
           <div class="flex items-center gap-3">
-            <div class="w-11 h-11 rounded-lg flex flex-col items-center justify-center gap-0.5
-                        shrink-0 bg-blue-500/15 text-blue-300"
-                 aria-hidden="true">
+            <div class="w-11 h-11 rounded-lg flex flex-col items-center justify-center gap-0.5 shrink-0 bg-blue-500/15 text-blue-300" aria-hidden="true">
               <Database class="w-4 h-4" />
               <span class="text-[9px] font-bold leading-none tracking-tight">2022</span>
             </div>
             <div class="flex flex-col flex-1 min-w-0">
-              <strong class="text-[13px] text-slate-200 font-medium">SQL Server 2022</strong>
+              <strong class="text-[13px] text-slate-200 font-medium">SQL Server 2022 (destino)</strong>
               <small class="text-[11px] text-slate-500 font-mono truncate">
                 {{ status.sqlserver_2022.host }} · {{ status.sqlserver_2022.database }}
               </small>
             </div>
           </div>
           <span
-            class="self-start inline-flex items-center gap-1.5 px-3 py-1
-                   rounded-full text-[11px] font-semibold"
-            :class="status.sqlserver_2022.connected
-              ? 'bg-emerald-500/15 text-emerald-400'
-              : 'bg-red-500/15 text-red-400'"
+            class="self-start inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold"
+            :class="status.sqlserver_2022.connected ? 'bg-emerald-500/15 text-emerald-400' : 'bg-red-500/15 text-red-400'"
           >
             <i class="inline-block w-1.5 h-1.5 rounded-full bg-current" aria-hidden="true" />
             {{ status.sqlserver_2022.connected ? 'Conectado' : 'Sin conexión' }}
           </span>
         </div>
-
       </div>
     </section>
 
-    <!-- ── Alerta de conexión, compartida por todas las secciones de abajo ── -->
+    <!-- ── Alerta de conexión ────────────────────────────────────────── -->
     <transition
-      enter-active-class="transition-opacity duration-200"
-      enter-from-class="opacity-0"
-      leave-active-class="transition-opacity duration-200"
-      leave-to-class="opacity-0"
+      enter-active-class="transition-opacity duration-200" enter-from-class="opacity-0"
+      leave-active-class="transition-opacity duration-200" leave-to-class="opacity-0"
     >
-      <div
-        v-if="!canSync"
-        role="alert"
-        class="flex items-start gap-2 p-3 rounded-lg
-               bg-amber-500/10 border border-amber-500/20
-               text-amber-400 text-[12px]"
-      >
+      <div v-if="!canSync" role="alert" class="flex items-start gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[12px]">
         <AlertTriangle class="w-4 h-4 shrink-0" aria-hidden="true" />
         <p class="m-0 leading-relaxed">
           <template v-if="!status.sqlserver_2008.connected && !status.sqlserver_2022.connected">
@@ -133,93 +100,62 @@
       </div>
     </transition>
 
-    <!-- ── Migración inicial (carga completa) ──────────────────────────── -->
-    <section
-      class="bg-slate-800 border border-slate-700 rounded-xl p-6 flex flex-col gap-4"
-      aria-labelledby="section-migrate"
-    >
-      <span
-        id="section-migrate"
-        class="text-[0.68rem] font-semibold text-slate-500 uppercase tracking-widest"
-      >
-        Migración inicial
+    <!-- ── Catálogos ─────────────────────────────────────────────────── -->
+    <section class="bg-slate-800 border border-slate-700 rounded-xl p-6 flex flex-col gap-4" aria-labelledby="section-catalogos">
+      <span id="section-catalogos" class="text-[0.68rem] font-semibold text-slate-500 uppercase tracking-widest">
+        Catálogos
       </span>
-
       <p class="text-[13px] text-slate-400 leading-relaxed m-0">
-        Crea cada tabla en el 2022 (si no existe todavía) y trae <strong>todos</strong> los
-        datos del 2008. Solo tiene efecto la primera vez por tabla: si ya existe en el 2022,
-        no se toca — usá la sincronización de abajo para traer los cambios nuevos.
+        Espejo exacto del 2008 (TRUNCATE + INSERT). Se pueden volver a correr en cualquier
+        momento, siempre reflejan el estado actual del origen.
       </p>
 
-      <!-- Migrar todas de una -->
       <button
         type="button"
-        :disabled="!canSync || migratingAll || migratingTable !== null"
-        :aria-busy="migratingAll"
-        @click="handleMigrateAll"
-        class="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg
-               text-[13px] font-medium transition-colors outline-none
-               bg-emerald-600 text-white hover:bg-emerald-700
-               focus-visible:ring-2 focus-visible:ring-emerald-400/50
-               disabled:bg-slate-700/60 disabled:text-slate-500
-               disabled:cursor-not-allowed"
+        :disabled="!canSync || catalogosBusy"
+        :aria-busy="migratingCatalogosAll"
+        @click="handleMigrarCatalogosTodos"
+        class="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-[13px] font-medium transition-colors outline-none
+               bg-emerald-600 text-white hover:bg-emerald-700 focus-visible:ring-2 focus-visible:ring-emerald-400/50
+               disabled:bg-slate-700/60 disabled:text-slate-500 disabled:cursor-not-allowed"
       >
-        <DatabaseZap class="w-4 h-4 shrink-0" :class="migratingAll ? 'animate-pulse' : ''" aria-hidden="true" />
-        {{ migratingAll ? 'Migrando todas...' : 'Migrar todas las tablas (carga inicial)' }}
+        <DatabaseZap class="w-4 h-4 shrink-0" :class="migratingCatalogosAll ? 'animate-pulse' : ''" aria-hidden="true" />
+        {{ migratingCatalogosAll ? 'Migrando catálogos...' : 'Migrar todos los catálogos' }}
       </button>
 
-      <!-- Resultado consolidado de "migrar todas" -->
-      <SyncResultBlock
-        v-if="migrateAllResult || migrateAllError"
-        :result="migrateAllResult"
-        :error="migrateAllError"
-        is-multi
-      />
+      <SyncResultBlock v-if="catalogosAllResult || catalogosAllError" :result="catalogosAllResult" :error="catalogosAllError" />
 
-      <!-- Migración individual -->
       <details class="group">
-        <summary
-          class="cursor-pointer select-none text-[12px] text-slate-400
-                 hover:text-slate-200 transition-colors list-none flex items-center gap-1.5 w-fit"
-        >
+        <summary class="cursor-pointer select-none text-[12px] text-slate-400 hover:text-slate-200 transition-colors list-none flex items-center gap-1.5 w-fit">
           <ChevronRight class="w-3.5 h-3.5 transition-transform group-open:rotate-90" aria-hidden="true" />
-          Migrar una tabla puntual
+          Migrar un catálogo puntual
         </summary>
 
         <div class="flex flex-col gap-2 mt-3">
           <div
-            v-for="tabla in tablasMigrables"
+            v-for="tabla in TABLAS_CATALOGO"
             :key="tabla"
             class="flex flex-col gap-2 bg-slate-900/50 border border-slate-700/60 rounded-lg p-3"
           >
             <div class="flex items-center justify-between gap-3">
-              <span class="font-mono text-[12px] font-semibold text-slate-200 truncate">
-                {{ tabla }}
-              </span>
+              <span class="font-mono text-[12px] font-semibold text-slate-200 truncate">{{ tabla }}</span>
               <button
                 type="button"
-                :disabled="!canSync || migratingAll || migratingTable !== null"
-                :aria-busy="migratingTable === tabla"
-                @click="handleMigrateTable(tabla)"
-                class="flex items-center gap-1.5 px-3 py-1.5 rounded-md shrink-0
-                       text-[11px] font-medium transition-colors outline-none
-                       bg-slate-700 text-slate-200 hover:bg-slate-600
-                       focus-visible:ring-2 focus-visible:ring-emerald-400/50
+                :disabled="!canSync || catalogosBusy"
+                :aria-busy="migratingCatalogoTabla === tabla"
+                @click="handleMigrarCatalogo(tabla)"
+                class="flex items-center gap-1.5 px-3 py-1.5 rounded-md shrink-0 text-[11px] font-medium transition-colors outline-none
+                       bg-slate-700 text-slate-200 hover:bg-slate-600 focus-visible:ring-2 focus-visible:ring-emerald-400/50
                        disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                <DatabaseZap
-                  class="w-3.5 h-3.5 shrink-0"
-                  :class="migratingTable === tabla ? 'animate-pulse' : ''"
-                  aria-hidden="true"
-                />
-                {{ migratingTable === tabla ? 'Migrando...' : 'Migrar' }}
+                <DatabaseZap class="w-3.5 h-3.5 shrink-0" :class="migratingCatalogoTabla === tabla ? 'animate-pulse' : ''" aria-hidden="true" />
+                {{ migratingCatalogoTabla === tabla ? 'Migrando...' : 'Migrar' }}
               </button>
             </div>
-
             <SyncResultBlock
-              v-if="migrateTableResults[tabla]"
-              :result="migrateTableResults[tabla].result"
-              :error="migrateTableResults[tabla].error"
+              v-if="catalogoTablaResults[tabla]"
+              :result="catalogoTablaResults[tabla].result"
+              :error="catalogoTablaResults[tabla].error"
               compact
             />
           </div>
@@ -227,120 +163,187 @@
       </details>
     </section>
 
-    <!-- ── Sincronización de gestión (GRUPOS) ──────────────────────────── -->
-    <section
-      class="bg-slate-800 border border-slate-700 rounded-xl p-6 flex flex-col gap-4"
-      aria-labelledby="section-sync"
-    >
-      <span
-        id="section-sync"
-        class="text-[0.68rem] font-semibold text-slate-500 uppercase tracking-widest"
-      >
-        Sincronización de gestión (GRUPOS)
+    <!-- ── Carga inicial ─────────────────────────────────────────────── -->
+    <section class="bg-slate-800 border border-slate-700 rounded-xl p-6 flex flex-col gap-4" aria-labelledby="section-carga-inicial">
+      <span id="section-carga-inicial" class="text-[0.68rem] font-semibold text-slate-500 uppercase tracking-widest">
+        Carga inicial (GRUPOS, HORARIOS2, KARDEX_EXT)
       </span>
-
       <p class="text-[13px] text-slate-400 leading-relaxed m-0">
-        Trae los grupos nuevos o modificados de la gestión actual desde el 2008.
-        No borra nada en destino salvo que actives "Eliminar obsoletos".
+        Copia todo el histórico desde el 2008, sin filtrar por semestre. Es de
+        <strong>una sola ejecución por tabla</strong>: si la tabla ya existe en el 2022, el
+        backend la rechaza. Para repetirla hay que borrarla manualmente en el 2022 primero
+        (<code class="text-slate-300">DROP TABLE dbo.NOMBRE_TABLA</code>).
+      </p>
+      <p class="text-[12px] text-amber-400/90 leading-relaxed m-0 flex items-start gap-1.5">
+        <AlertTriangle class="w-3.5 h-3.5 shrink-0 mt-0.5" aria-hidden="true" />
+        KARDEX_EXT puede tardar bastante (puede tener años de notas). Recomendado: correr
+        una tabla a la vez en vez de las 3 juntas.
       </p>
 
-      <label class="flex items-center gap-2.5 cursor-pointer select-none w-fit">
-        <input
-          type="checkbox"
-          v-model="eliminarObsoletos"
-          class="w-4 h-4 rounded border-slate-600 bg-slate-900 text-indigo-500
-                 focus:ring-indigo-400/50 focus:ring-offset-0 cursor-pointer"
-        />
-        <span class="text-[12px] text-slate-300">
-          Eliminar en destino las filas que ya no existen en origen (aplica a toda la sincronización)
-        </span>
-      </label>
-
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <button
-          type="button"
-          :disabled="!canSync || syncingGrupos || syncingGestion"
-          :aria-busy="syncingGrupos"
-          @click="handleSyncGrupos"
-          class="flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg
-                 text-[13px] font-medium transition-colors outline-none
-                 bg-slate-700 text-slate-200 hover:bg-slate-600
-                 focus-visible:ring-2 focus-visible:ring-indigo-400/50
-                 disabled:opacity-40 disabled:cursor-not-allowed"
+      <div class="flex flex-col gap-2">
+        <div
+          v-for="tabla in TABLAS_CARGA_INICIAL"
+          :key="tabla"
+          class="flex flex-col gap-2 bg-slate-900/50 border border-slate-700/60 rounded-lg p-3"
         >
-          <RefreshCw class="w-4 h-4 shrink-0" :class="syncingGrupos ? 'animate-spin' : ''" aria-hidden="true" />
-          {{ syncingGrupos ? 'Sincronizando...' : 'Sincronizar GRUPOS' }}
-        </button>
-
-        <button
-          type="button"
-          :disabled="!canSync || syncingGrupos || syncingGestion"
-          :aria-busy="syncingGestion"
-          @click="handleSyncGestion"
-          class="flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg
-                 text-[13px] font-medium transition-colors outline-none
-                 bg-indigo-600 text-white hover:bg-indigo-700
-                 focus-visible:ring-2 focus-visible:ring-indigo-400/50
-                 disabled:bg-slate-700/60 disabled:text-slate-500
-                 disabled:cursor-not-allowed"
-        >
-          <RefreshCw class="w-4 h-4 shrink-0" :class="syncingGestion ? 'animate-spin' : ''" aria-hidden="true" />
-          {{ syncingGestion ? 'Sincronizando...' : 'Sincronizar toda la gestión' }}
-        </button>
+          <div class="flex items-center justify-between gap-3">
+            <span class="font-mono text-[12px] font-semibold text-slate-200 truncate">{{ tabla }}</span>
+            <button
+              type="button"
+              :disabled="!canSync || cargaInicialBusy"
+              :aria-busy="cargaInicialTablaActiva === tabla"
+              @click="handleCargaInicialTabla(tabla)"
+              class="flex items-center gap-1.5 px-3 py-1.5 rounded-md shrink-0 text-[11px] font-medium transition-colors outline-none
+                     bg-indigo-600 text-white hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-400/50
+                     disabled:bg-slate-700/60 disabled:text-slate-500 disabled:cursor-not-allowed"
+            >
+              <DatabaseZap class="w-3.5 h-3.5 shrink-0" :class="cargaInicialTablaActiva === tabla ? 'animate-pulse' : ''" aria-hidden="true" />
+              {{ cargaInicialTablaActiva === tabla ? 'Cargando...' : 'Cargar' }}
+            </button>
+          </div>
+          <SyncResultBlock
+            v-if="cargaInicialTablaResults[tabla]"
+            :result="cargaInicialTablaResults[tabla].result"
+            :error="cargaInicialTablaResults[tabla].error"
+            compact
+          />
+        </div>
       </div>
 
-      <SyncResultBlock :result="grupoResult" :error="grupoError" :eliminar-obsoletos="eliminarObsoletos" />
+      <details class="group">
+        <summary class="cursor-pointer select-none text-[12px] text-slate-400 hover:text-slate-200 transition-colors list-none flex items-center gap-1.5 w-fit">
+          <ChevronRight class="w-3.5 h-3.5 transition-transform group-open:rotate-90" aria-hidden="true" />
+          Cargar las 3 tablas de una sola vez
+        </summary>
+        <div class="flex flex-col gap-2 mt-3">
+          <button
+            type="button"
+            :disabled="!canSync || cargaInicialBusy"
+            :aria-busy="cargaInicialTodasBusy"
+            @click="handleCargaInicialTodas"
+            class="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-[13px] font-medium transition-colors outline-none
+                   bg-slate-700 text-slate-200 hover:bg-slate-600 focus-visible:ring-2 focus-visible:ring-indigo-400/50
+                   disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <DatabaseZap class="w-4 h-4 shrink-0" :class="cargaInicialTodasBusy ? 'animate-pulse' : ''" aria-hidden="true" />
+            {{ cargaInicialTodasBusy ? 'Cargando...' : 'Ejecutar carga inicial completa' }}
+          </button>
+          <SyncResultBlock v-if="cargaInicialTodasResult || cargaInicialTodasError" :result="cargaInicialTodasResult" :error="cargaInicialTodasError" />
+        </div>
+      </details>
     </section>
 
- 
+    <!-- ── Sincronización por semestre ──────────────────────────────────── -->
+    <section class="bg-slate-800 border border-slate-700 rounded-xl p-6 flex flex-col gap-4" aria-labelledby="section-semestre">
+      <span id="section-semestre" class="text-[0.68rem] font-semibold text-slate-500 uppercase tracking-widest">
+        Sincronización por semestre
+      </span>
+      <p class="text-[13px] text-slate-400 leading-relaxed m-0">
+        Solo aplica una vez hecha la carga inicial. Idempotente: correrlo varias veces con el
+        mismo año/periodo no genera duplicados — si ya está al día vas a ver "Sin cambios".
+      </p>
+
+      <SemestreSelector v-model:anio="anio" v-model:periodo="periodo" id-prefix="semestre" />
+
+      <p v-if="!semestreValido" class="text-[11px] text-red-400 m-0">
+        Ingresá un año y un periodo válidos antes de sincronizar.
+      </p>
+
+      <!-- GRUPOS (MERGE) -->
+      <div class="flex flex-col gap-2 bg-slate-900/50 border border-slate-700/60 rounded-lg p-4">
+        <div class="flex items-center justify-between gap-3">
+          <div>
+            <strong class="text-[13px] text-slate-200 font-medium">GRUPOS</strong>
+            <p class="text-[11px] text-slate-500 m-0">MERGE (INSERT + UPDATE + DELETE) acotado a {{ anio || '—' }}-{{ periodo || '—' }}</p>
+          </div>
+          <button
+            type="button"
+            :disabled="!canSync || !semestreValido || semestreBusy"
+            :aria-busy="syncingGrupos"
+            @click="handleSyncGrupos"
+            class="flex items-center gap-1.5 px-3 py-2 rounded-md shrink-0 text-[12px] font-medium transition-colors outline-none
+                   bg-indigo-600 text-white hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-400/50
+                   disabled:bg-slate-700/60 disabled:text-slate-500 disabled:cursor-not-allowed"
+          >
+            <RefreshCw class="w-3.5 h-3.5 shrink-0" :class="syncingGrupos ? 'animate-spin' : ''" aria-hidden="true" />
+            {{ syncingGrupos ? 'Sincronizando...' : 'Sincronizar GRUPOS' }}
+          </button>
+        </div>
+        <SyncResultBlock v-if="grupoResult || grupoError" :result="grupoResult" :error="grupoError" compact />
+      </div>
+
+      <!-- HORARIOS2 / KARDEX_EXT (DELETE + INSERT) -->
+      <div class="flex flex-col gap-3 bg-slate-900/50 border border-slate-700/60 rounded-lg p-4">
+        <div class="flex items-center justify-between gap-3">
+          <strong class="text-[13px] text-slate-200 font-medium">HORARIOS2 / KARDEX_EXT</strong>
+        </div>
+
+        <div class="flex gap-4">
+          <label class="flex items-center gap-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              v-model="tablasSemestreSeleccionadas"
+              value="HORARIOS2"
+              class="w-4 h-4 rounded border-slate-600 bg-slate-900 text-indigo-500 focus:ring-indigo-400/50 focus:ring-offset-0 cursor-pointer"
+            />
+            <span class="text-[12px] text-slate-300 font-mono">HORARIOS2</span>
+          </label>
+          <label class="flex items-center gap-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              v-model="tablasSemestreSeleccionadas"
+              value="KARDEX_EXT"
+              class="w-4 h-4 rounded border-slate-600 bg-slate-900 text-indigo-500 focus:ring-indigo-400/50 focus:ring-offset-0 cursor-pointer"
+            />
+            <span class="text-[12px] text-slate-300 font-mono">KARDEX_EXT</span>
+          </label>
+        </div>
+
+        <button
+          type="button"
+          :disabled="!canSync || !semestreValido || semestreBusy || tablasSemestreSeleccionadas.length === 0"
+          :aria-busy="syncingSemestre"
+          @click="handleSyncSemestreTablas"
+          class="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-[13px] font-medium transition-colors outline-none
+                 bg-slate-700 text-slate-200 hover:bg-slate-600 focus-visible:ring-2 focus-visible:ring-indigo-400/50
+                 disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          <RefreshCw class="w-4 h-4 shrink-0" :class="syncingSemestre ? 'animate-spin' : ''" aria-hidden="true" />
+          {{ syncingSemestre ? 'Sincronizando...' : `Sincronizar ${anio || '—'}-${periodo || '—'}` }}
+        </button>
+
+        <SyncResultBlock v-if="semestreResult || semestreError" :result="semestreResult" :error="semestreError" compact />
+      </div>
+    </section>
 
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, h, defineComponent } from 'vue'
-import {
-  Database,
-  DatabaseZap,
-  AlertTriangle,
-  CheckCircle2,
-  XCircle,
-  RefreshCw,
-  ChevronRight,
-} from 'lucide-vue-next'
-import { databaseService } from '../services/databaseService'
+import { ref, reactive, computed, onMounted } from 'vue'
+import { Database, DatabaseZap, AlertTriangle, RefreshCw, ChevronRight } from 'lucide-vue-next'
+import { databaseService, TABLAS_CATALOGO, TABLAS_CARGA_INICIAL } from '../services/databaseService'
+import SyncResultBlock from '../components/SyncResultBlock.vue'
+import SemestreSelector from '../components/SemestreSelector.vue'
 
-// ── Tablas elegibles para migración inicial (incluye GRUPOS, a diferencia
-//    del listado de sync genérico que la excluye porque tiene su propio flujo) ──
-const TABLAS_MIGRABLES = [
-  'BIOGRAFICOS',
-  'BIOGRAFICOS_EXT',
-  'DOCENTES',
-  'DOCENTES_2',
-  'DOCENTES_TELEFONO',
-  'GRUPOS',
-  'GRUPOS_COMPARTIDOS',
-  'HORARIOS2',
-  'KARDEX_EXT',
-  'MATERIAS',
-  'NROINSMATGRPNE',
-  'PLANES',
-]
-const tablasMigrables = ref(TABLAS_MIGRABLES)
+// ── Helper genérico para extraer un mensaje de error legible ─────────────
+function mensajeError(e, fallback) {
+  return e?.response?.data?.message ?? fallback
+}
 
-// ── Estado inicial ───────────────────────────────────────────────────────
+// Cada resultado se guarda con su hora, así SyncResultBlock puede mostrar
+// "hace 5s" / "hace 3 min" — hace visible que la migración corrió de verdad
+// y no es un dato viejo pegado en pantalla.
+function conTimestamp(data) {
+  return { ...data, timestamp: Date.now() }
+}
+
+// ── Estado de conexiones ───────────────────────────────────────────────
 const defaultServer = () => ({ connected: false, host: '—', database: '—' })
-
-const status = ref({
-  sqlserver_2022: defaultServer(),
-  sqlserver_2008: defaultServer(),
-})
-
+const status = ref({ sqlserver_2022: defaultServer(), sqlserver_2008: defaultServer() })
 const loadingStatus = ref(false)
 
-const canSync = computed(() =>
-  status.value.sqlserver_2008.connected && status.value.sqlserver_2022.connected
-)
+const canSync = computed(() => status.value.sqlserver_2008.connected && status.value.sqlserver_2022.connected)
 
 async function loadStatus() {
   loadingStatus.value = true
@@ -349,13 +352,13 @@ async function loadStatus() {
     status.value = {
       sqlserver_2022: {
         connected: data?.sqlserver_2022?.connected ?? false,
-        host:      data?.sqlserver_2022?.host      ?? '—',
-        database:  data?.sqlserver_2022?.database  ?? '—',
+        host: data?.sqlserver_2022?.host ?? '—',
+        database: data?.sqlserver_2022?.database ?? '—',
       },
       sqlserver_2008: {
         connected: data?.sqlserver_2008?.connected ?? false,
-        host:      data?.sqlserver_2008?.host      ?? '—',
-        database:  data?.sqlserver_2008?.database  ?? '—',
+        host: data?.sqlserver_2008?.host ?? '—',
+        database: data?.sqlserver_2008?.database ?? '—',
       },
     }
   } catch (e) {
@@ -365,204 +368,150 @@ async function loadStatus() {
   }
 }
 
-// ── Toggle global "eliminar obsoletos" (solo aplica a sincronización) ────
-const eliminarObsoletos = ref(false)
+// ── Catálogos ──────────────────────────────────────────────────────────
+const migratingCatalogosAll = ref(false)
+const catalogosAllResult = ref(null)
+const catalogosAllError = ref(null)
+const migratingCatalogoTabla = ref(null) // nombre de la tabla en migración, o null
+const catalogoTablaResults = reactive({}) // { [tabla]: { result, error } }
 
-// ── Migración inicial ─────────────────────────────────────────────────────
-const migratingAll        = ref(false)
-const migrateAllResult    = ref(null)
-const migrateAllError     = ref(null)
-const migratingTable      = ref(null)   // nombre de la tabla en migración, o null
-const migrateTableResults = ref({})     // { [tabla]: { result, error } }
+const catalogosBusy = computed(() => migratingCatalogosAll.value || migratingCatalogoTabla.value !== null)
 
-async function handleMigrateAll() {
-  if (migratingAll.value) return
-  migratingAll.value = true
-  migrateAllResult.value = null
-  migrateAllError.value  = null
-
+async function handleMigrarCatalogosTodos() {
+  if (migratingCatalogosAll.value) return
+  migratingCatalogosAll.value = true
+  catalogosAllResult.value = null
+  catalogosAllError.value = null
   try {
-    const data = await databaseService.migrateAll()
-    migrateAllResult.value = {
-      label: `Migración completa — ${data.resumen.exitosas}/${data.resumen.total} tablas`,
+    const data = await databaseService.migrarCatalogos()
+    catalogosAllResult.value = conTimestamp({
+      label: `Catálogos migrados — ${data.resumen.exitosas}/${data.resumen.total}`,
       detalle: data.detalle,
-    }
-    
+    })
   } catch (e) {
-    migrateAllError.value = e?.response?.data?.message ?? 'Error al migrar las tablas. Intenta de nuevo.'
+    catalogosAllError.value = mensajeError(e, 'Error al migrar los catálogos. Intenta de nuevo.')
   } finally {
-    migratingAll.value = false
+    migratingCatalogosAll.value = false
   }
 }
 
+async function handleMigrarCatalogo(tabla) {
+  if (migratingCatalogoTabla.value) return
+  migratingCatalogoTabla.value = tabla
+  catalogoTablaResults[tabla] = null
+  try {
+    const data = await databaseService.migrarCatalogo(tabla)
+    const item = data.detalle?.[0]
+    catalogoTablaResults[tabla] = {
+      result: conTimestamp({ single: item ?? { tabla, success: data.success, message: 'Migración completada' } }),
+      error: null,
+    }
+  } catch (e) {
+    catalogoTablaResults[tabla] = { result: null, error: mensajeError(e, `Error al migrar ${tabla}.`) }
+  } finally {
+    migratingCatalogoTabla.value = null
+  }
+}
 
+// ── Carga inicial ──────────────────────────────────────────────────────
+const cargaInicialTablaActiva = ref(null)
+const cargaInicialTablaResults = reactive({})
+const cargaInicialTodasBusy = ref(false)
+const cargaInicialTodasResult = ref(null)
+const cargaInicialTodasError = ref(null)
 
-// ── Sincronización de gestión (GRUPOS) ───────────────────────────────────
-const syncingGrupos  = ref(false)
-const syncingGestion = ref(false)
-const grupoResult    = ref(null)
-const grupoError     = ref(null)
+const cargaInicialBusy = computed(() => cargaInicialTablaActiva.value !== null || cargaInicialTodasBusy.value)
+
+async function handleCargaInicialTabla(tabla) {
+  if (cargaInicialTablaActiva.value) return
+  cargaInicialTablaActiva.value = tabla
+  cargaInicialTablaResults[tabla] = null
+  try {
+    const data = await databaseService.cargaInicial([tabla])
+    const item = data.detalle?.[0]
+    cargaInicialTablaResults[tabla] = {
+      result: conTimestamp({ single: item ?? { tabla, success: data.success, message: 'Carga completada' } }),
+      error: null,
+    }
+  } catch (e) {
+    cargaInicialTablaResults[tabla] = { result: null, error: mensajeError(e, `Error al cargar ${tabla}.`) }
+  } finally {
+    cargaInicialTablaActiva.value = null
+  }
+}
+
+async function handleCargaInicialTodas() {
+  if (cargaInicialTodasBusy.value) return
+  cargaInicialTodasBusy.value = true
+  cargaInicialTodasResult.value = null
+  cargaInicialTodasError.value = null
+  try {
+    const data = await databaseService.cargaInicial(TABLAS_CARGA_INICIAL)
+    cargaInicialTodasResult.value = conTimestamp({
+      label: `Carga inicial completada — ${data.resumen.exitosas}/${data.resumen.total}`,
+      detalle: data.detalle,
+    })
+  } catch (e) {
+    cargaInicialTodasError.value = mensajeError(e, 'Error en la carga inicial. Intenta de nuevo.')
+  } finally {
+    cargaInicialTodasBusy.value = false
+  }
+}
+
+// ── Sincronización por semestre ───────────────────────────────────────
+const currentYear = new Date().getFullYear().toString()
+const anio = ref(currentYear)
+const periodo = ref('1')
+const semestreValido = computed(() => /^\d{4}$/.test(anio.value) && (periodo.value === '1' || periodo.value === '2'))
+
+const syncingGrupos = ref(false)
+const grupoResult = ref(null)
+const grupoError = ref(null)
+
+const syncingSemestre = ref(false)
+const semestreResult = ref(null)
+const semestreError = ref(null)
+const tablasSemestreSeleccionadas = ref(['HORARIOS2', 'KARDEX_EXT'])
+
+const semestreBusy = computed(() => syncingGrupos.value || syncingSemestre.value)
 
 async function handleSyncGrupos() {
-  if (syncingGrupos.value) return
+  if (syncingGrupos.value || !semestreValido.value) return
   syncingGrupos.value = true
   grupoResult.value = null
-  grupoError.value  = null
-
+  grupoError.value = null
   try {
-    const data = await databaseService.syncGrupos(eliminarObsoletos.value)
-    grupoResult.value = { label: data.message ?? 'Sincronización de GRUPOS completada', single: data }
+    const data = await databaseService.migrarGrupos(anio.value, periodo.value)
+    const item = data.detalle?.[0]
+    grupoResult.value = conTimestamp({
+      single: item ?? { tabla: 'GRUPOS', success: data.success, message: 'Sincronización completada' },
+    })
   } catch (e) {
-    grupoError.value = e?.response?.data?.message ?? 'Error al sincronizar GRUPOS. Intenta de nuevo.'
+    grupoError.value = mensajeError(e, 'Error al sincronizar GRUPOS. Intenta de nuevo.')
   } finally {
     syncingGrupos.value = false
   }
 }
 
-async function handleSyncGestion() {
-  if (syncingGestion.value) return
-  syncingGestion.value = true
-  grupoResult.value = null
-  grupoError.value  = null
-
+async function handleSyncSemestreTablas() {
+  if (syncingSemestre.value || !semestreValido.value || tablasSemestreSeleccionadas.value.length === 0) return
+  syncingSemestre.value = true
+  semestreResult.value = null
+  semestreError.value = null
   try {
-    const data = await databaseService.syncGestion(eliminarObsoletos.value)
-    grupoResult.value = {
-      label: `Gestión sincronizada — ${data.resumen.exitosas}/${data.resumen.total} tablas`,
+    const data = await databaseService.migrarSemestre(anio.value, periodo.value, tablasSemestreSeleccionadas.value)
+    semestreResult.value = conTimestamp({
+      label: `Sincronizado ${anio.value}-${periodo.value} — ${data.resumen.exitosas}/${data.resumen.total}`,
       detalle: data.detalle,
-    }
+    })
   } catch (e) {
-    grupoError.value = e?.response?.data?.message ?? 'Error al sincronizar la gestión. Intenta de nuevo.'
+    semestreError.value = mensajeError(e, 'Error al sincronizar. Intenta de nuevo.')
   } finally {
-    syncingGestion.value = false
+    syncingSemestre.value = false
   }
 }
-
-
-
-
-async function handleSyncTable(tabla) {
-  if (syncingTable.value) return
-  syncingTable.value = tabla
-  tableResults.value = { ...tableResults.value, [tabla]: null }
-
-  try {
-    const data = await databaseService.syncTable(tabla, eliminarObsoletos.value)
-    tableResults.value = {
-      ...tableResults.value,
-      [tabla]: { result: { label: data.message, single: data }, error: null },
-    }
-  } catch (e) {
-    tableResults.value = {
-      ...tableResults.value,
-      [tabla]: { result: null, error: e?.response?.data?.message ?? `Error al sincronizar ${tabla}.` },
-    }
-  } finally {
-    syncingTable.value = null
-  }
-}
-
-
-
-// ── Bloque de resultado reutilizable (inline, sin archivo aparte) ────────
-const SyncResultBlock = defineComponent({
-  props: {
-    result: { type: Object, default: null },
-    error: { type: String, default: null },
-    eliminarObsoletos: { type: Boolean, default: false },
-    isMulti: { type: Boolean, default: false },
-    compact: { type: Boolean, default: false },
-  },
-  setup(props) {
-    return () => {
-      if (props.error) {
-        return h('div', {
-          role: 'alert',
-          'aria-live': 'assertive',
-          class: 'flex items-center gap-2 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-[12px]',
-        }, [
-          h(XCircle, { class: 'w-4 h-4 shrink-0' }),
-          h('span', props.error),
-        ])
-      }
-
-      if (!props.result) return null
-
-      const detalleSingle = (item) => {
-        if (!item) return null
-        const nodes = [
-          h('div', {
-            class: ['flex items-center gap-2 text-[11px]', item.success ? 'text-emerald-400' : 'text-red-400'],
-          }, [
-            item.success ? h(CheckCircle2, { class: 'w-3.5 h-3.5 shrink-0' }) : h(XCircle, { class: 'w-3.5 h-3.5 shrink-0' }),
-            h('span', { class: 'font-mono font-semibold' }, item.tabla),
-            h('span', { class: 'text-slate-500' }, `— ${item.message}`),
-          ]),
-        ]
-
-        if (item.detalle) {
-          nodes.push(h('div', { class: 'flex gap-3 text-[11px] text-slate-400 ml-5' }, [
-            h('span', ['Insertados: ', h('strong', { class: 'text-slate-200' }, item.detalle.INSERT ?? 0)]),
-            h('span', ['Actualizados: ', h('strong', { class: 'text-slate-200' }, item.detalle.UPDATE ?? 0)]),
-            props.eliminarObsoletos
-              ? h('span', ['Eliminados: ', h('strong', { class: 'text-slate-200' }, item.detalle.DELETE ?? 0)])
-              : null,
-          ].filter(Boolean)))
-        }
-
-        if (item.cambios && item.cambios.length) {
-          nodes.push(h('ul', { class: 'flex flex-col gap-0.5 mt-1 list-none p-0 m-0 max-h-40 overflow-y-auto' },
-            item.cambios.slice(0, 50).map((c, i) =>
-              h('li', { key: i, class: 'flex items-center gap-2 text-[10px] text-slate-400 ml-5' }, [
-                h('span', {
-                  class: [
-                    'px-1.5 py-0.5 rounded text-[9px] font-bold uppercase shrink-0',
-                    c.accion === 'INSERT' ? 'bg-emerald-500/15 text-emerald-400'
-                      : c.accion === 'UPDATE' ? 'bg-amber-500/15 text-amber-400'
-                      : 'bg-red-500/15 text-red-400',
-                  ],
-                }, c.accion),
-                h('span', { class: 'font-mono truncate' }, Object.values(c.llave).join(' / ')),
-              ])
-            )
-          ))
-          if (item.cambios.length > 50) {
-            nodes.push(h('p', { class: 'text-[10px] text-slate-500 ml-5 m-0' }, `+ ${item.cambios.length - 50} cambios más`))
-          }
-        }
-
-        return nodes
-      }
-
-      const body = []
-
-      if (props.result.single) {
-        body.push(...(detalleSingle(props.result.single) || []))
-      } else if (props.result.detalle) {
-        body.push(h('ul', { class: 'flex flex-col gap-2 mt-1 list-none p-0 m-0' },
-          props.result.detalle.map((item) =>
-            h('li', { key: item.tabla, class: 'flex flex-col gap-1' }, detalleSingle(item))
-          )
-        ))
-      }
-
-      return h('div', {
-        role: 'status',
-        'aria-live': 'polite',
-        class: ['flex flex-col gap-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-[13px]', props.compact ? 'p-3' : 'p-4'],
-      }, [
-        h('p', { class: 'font-medium m-0 text-emerald-400 flex items-center gap-2' }, [
-          h(CheckCircle2, { class: 'w-4 h-4 shrink-0' }),
-          props.result.label,
-        ]),
-        ...body,
-      ])
-    }
-  },
-})
 
 onMounted(() => {
   loadStatus()
-  
 })
 </script>

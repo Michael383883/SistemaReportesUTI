@@ -31,7 +31,12 @@
     <!-- Reporte cargado -->
     <template v-else-if="reporte">
       <!-- Header del docente -->
-      <ReporteHeader :reporte="reporte" @volver="$router.back()" />
+      <ReporteHeader
+        :reporte="reporte"
+        :loading="loading"
+        @volver="$router.back()"
+        @toggle-restriccion="onToggleRestriccion"
+      />
 
       <!-- Filtros — se pasa :reporte para que el botón PDF tenga acceso a los datos -->
       <div class="mb-5">
@@ -82,6 +87,14 @@ const anioFiltro      = ref(null)
 const anioHastaFiltro = ref(null)
 const materiaFiltro   = ref(null)
 const grupoFiltro     = ref(null)
+
+// ── Estado de habilitación de periodo restringido ──────────────────────────
+// Se activa solo con el botón de ReporteHeader. Se mantiene en memoria para
+// que, si el usuario cambia otros filtros y regenera, el periodo habilitado
+// siga apareciendo (si no, se volvería a ocultar en cada regeneración).
+const habilitarRestriccion = ref(false)
+const anioHabilitado       = ref(null)
+const periodoHabilitado    = ref(null)
 
 // Parsea "2016", "2016/1", "2016-2" → { anio, periodo }
 function parseAnioPeriodo(valorCrudo) {
@@ -141,9 +154,40 @@ const reGenerar = async ({ anio, periodo, anioHasta, periodoHasta, materia, grup
     }
   })
 
-  
-  await generarReporte(codigo, { anio, periodo, anioHasta, periodoHasta, materia, grupo })
+
+  await generarReporte(codigo, {
+    anio, periodo, anioHasta, periodoHasta, materia, grupo,
+    // Se reenvía el estado de habilitación vigente, para que no se pierda
+    // al cambiar otros filtros (año, materia, grupo, etc.)
+    habilitarRestriccion: habilitarRestriccion.value,
+    anioHabilitado:       anioHabilitado.value,
+    periodoHabilitado:    periodoHabilitado.value,
+  })
 }
 
+// ── Click en el botón de ReporteHeader ──────────────────────────────────────
+// { anio, periodo, habilitar } viene del componente ReporteHeader.vue
+const onToggleRestriccion = async ({ anio, periodo, habilitar }) => {
+  habilitarRestriccion.value = habilitar
+  anioHabilitado.value       = habilitar ? anio : null
+  periodoHabilitado.value    = habilitar ? periodo : null
 
+  const codigo = route.query.codigo
+  if (!codigo) return
+
+  const { anio: anioNum, periodo: periodoActual }                   = parseAnioPeriodo(anioFiltro.value)
+  const { anio: anioHastaNum, periodo: periodoHastaActual }         = parseAnioPeriodo(anioHastaFiltro.value)
+
+  await generarReporte(codigo, {
+    anio: anioNum,
+    periodo: periodoActual,
+    anioHasta: anioHastaNum,
+    periodoHasta: periodoHastaActual,
+    materia: materiaFiltro.value,
+    grupo: grupoFiltro.value,
+    habilitarRestriccion: habilitarRestriccion.value,
+    anioHabilitado:       anioHabilitado.value,
+    periodoHabilitado:    periodoHabilitado.value,
+  })
+}
 </script>
