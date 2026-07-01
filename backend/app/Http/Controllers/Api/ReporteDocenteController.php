@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\JsonResponse;
+use Carbon\Carbon;
 
 class ReporteDocenteController extends Controller
 {
@@ -16,7 +17,8 @@ class ReporteDocenteController extends Controller
      */
     private function ordenTemporal(?int $anio, ?string $periodo): ?int
     {
-        if (!$anio) return null;
+        if (!$anio)
+            return null;
 
         $ordenPeriodo = match ($periodo) {
             '1' => 1,
@@ -29,6 +31,58 @@ class ReporteDocenteController extends Controller
         return ($anio * 10) + $ordenPeriodo;
     }
 
+    /**
+     * Rangos aproximados de cada periodo académico (mes-día).
+     * Ajustables sin tocar el resto de la lógica.
+     *
+     * 3 -> Curso de Verano       (05 ene - 20 feb)
+     * 1 -> Semestre I            (10 feb - 30 jun)
+     * 4 -> Curso de Invierno     (01 jul - 15 ago, margen hasta mediados de agosto)
+     * 2 -> Semestre II + cierre  (05 ago - 20 dic)
+     */
+    private function rangosPeriodos(): array
+    {
+        return [
+            '3' => ['inicio' => '01-05', 'fin' => '02-20'],
+            '1' => ['inicio' => '02-10', 'fin' => '06-30'],
+            '4' => ['inicio' => '07-01', 'fin' => '08-15'],
+            '2' => ['inicio' => '08-05', 'fin' => '12-20'],
+        ];
+    }
+
+    /**
+     * Determina qué combinaciones (anio-periodo) AÚN NO HAN CONCLUIDO
+     * según la fecha actual del servidor, para excluirlas automáticamente
+     * del reporte de materias dictadas.
+     * Revisa el año actual y el siguiente (cubre el caso de que ya haya
+     * datos cargados de verano del próximo año en diciembre).
+     *
+     * Reemplaza el antiguo filtro estático NOT IN ('2026-1').
+     *
+     * @return array Lista de strings "anio-periodo", ej: ['2026-1', '2026-2']
+     */
+    private function periodosNoConcluidos(): array
+    {
+        $hoy = now();
+        $anioActual = (int) $hoy->format('Y');
+        $rangos = $this->rangosPeriodos();
+
+        $noConcluidos = [];
+
+        foreach ([$anioActual, $anioActual + 1] as $anio) {
+            foreach ($rangos as $periodo => $r) {
+                $fin = Carbon::createFromFormat('Y-m-d', "{$anio}-{$r['fin']}")->endOfDay();
+
+                if ($hoy->lte($fin)) {
+                    // El periodo termina hoy o después -> todavía no concluye
+                    $noConcluidos[] = "{$anio}-{$periodo}";
+                }
+            }
+        }
+
+        return $noConcluidos;
+    }
+
     public function materiasDictadas(Request $request)
     {
         $request->validate([
@@ -39,6 +93,16 @@ class ReporteDocenteController extends Controller
             'periodo_hasta' => 'nullable|string|in:1,2,3,4',
             'materia' => 'nullable|string|max:60',
             'grupo' => 'nullable|string|max:2',
+
+            // ── Habilitación puntual de un periodo restringido ──────────────
+            // El frontend manda esto SOLO cuando el usuario hace click en
+            // "habilitar" para ese año/periodo específico. Si no se manda,
+            // el comportamiento sigue siendo el de siempre (oculta lo no
+            // concluido). No habilita todo lo pendiente, solo el que se
+            // indique en anio_habilitado + periodo_habilitado.
+            'habilitar_restriccion' => 'nullable|boolean',
+            'anio_habilitado' => 'required_if:habilitar_restriccion,true|nullable|numeric',
+            'periodo_habilitado' => 'required_if:habilitar_restriccion,true|nullable|string|in:1,2,3,4',
         ]);
 
         $docente = $request->docente;
@@ -48,6 +112,10 @@ class ReporteDocenteController extends Controller
         $periodoHasta = $request->periodo_hasta;
         $materia = $request->materia;
         $grupo = $request->grupo;
+
+        $habilitarRestriccion = $request->boolean('habilitar_restriccion');
+        $anioHabilitado = $request->anio_habilitado;
+        $periodoHabilitado = $request->periodo_habilitado;
 
         // CONSULTAR DOCENTE
         $docenteInfo = DB::connection('sqlsrv')->selectOne("
@@ -130,6 +198,46 @@ class ReporteDocenteController extends Controller
             $bindings['grupo'] = $grupo;
         }
 
+        // ── Exclusión dinámica de periodos aún no concluidos ───────────────────
+        // Reemplaza el antiguo filtro estático NOT IN ('2026-1').
+        //
+        // Comportamiento:
+        // - Por defecto: se ocultan TODOS los periodos aún no concluidos.
+        // - Si habilitar_restriccion=true y viene anio_habilitado/periodo_habilitado,
+        //   se libera SOLO esa combinación puntual (si efectivamente estaba
+        //   restringida); el resto de periodos no concluidos sigue oculto.
+        $noConcluidos = $this->periodosNoConcluidos();
+        $claveHabilitada = null;
+        $restriccionFueHabilitada = false;
+
+        if ($habilitarRestriccion && $anioHabilitado && $periodoHabilitado) {
+            $claveHabilitada = "{$anioHabilitado}-{$periodoHabilitado}";
+
+            if (in_array($claveHabilitada, $noConcluidos, true)) {
+                // Se remueve únicamente esa combinación de la lista de exclusión
+                $noConcluidos = array_values(array_diff($noConcluidos, [$claveHabilitada]));
+                $restriccionFueHabilitada = true;
+            }
+            // Si $claveHabilitada no estaba en $noConcluidos (ej. ya concluyó
+            // o el año/periodo no existe como restricción), no se hace nada:
+            // no tiene sentido "habilitar" algo que no estaba restringido.
+        }
+
+        $filtroNoConcluidos = "";
+
+        if (!empty($noConcluidos)) {
+            $placeholders = [];
+            foreach ($noConcluidos as $i => $valor) {
+                $key = "excl_{$i}";
+                $placeholders[] = ":{$key}";
+                $bindings[$key] = $valor;
+            }
+
+            $filtroNoConcluidos = "AND (
+                CONVERT(VARCHAR(4), GRUPOS.ANIO) + '-' + GRUPOS.PERIODO
+            ) NOT IN (" . implode(',', $placeholders) . ")";
+        }
+
         $materias = DB::connection('sqlsrv')->select("
 
         SELECT
@@ -208,11 +316,7 @@ class ReporteDocenteController extends Controller
           AND GRUPOS.PRIMARIO = 'Y'
           AND GRUPOS.TIPO = 'N'
 
-          AND (
-                CONVERT(VARCHAR(4), GRUPOS.ANIO)
-                + '-' +
-                GRUPOS.PERIODO
-              ) NOT IN ('2026-1')
+          {$filtroNoConcluidos}
 
           {$filtroAnioExacto}
           {$filtroRango}
@@ -254,22 +358,21 @@ class ReporteDocenteController extends Controller
             'materia_filtro' => $materia ?? 'todas',
             'grupo_filtro' => $grupo ?? 'todos',
 
+            // Info de la restricción, útil para que el frontend muestre
+            // el botón de "habilitar" solo cuando aplica.
+            'restriccion' => [
+                'periodos_no_concluidos' => $this->periodosNoConcluidos(),
+                'habilitacion_solicitada' => $claveHabilitada,
+                'habilitacion_aplicada' => $restriccionFueHabilitada,
+            ],
+
             'total' => count($materias),
 
             'materias' => $materias,
         ]);
     }
 
-    // ... horario() sin cambios
 
-
-    /**
-     * POST /api/reporte-horario
-     *
-     * Body (opcional):
-     *   { "docente": 123 }   → filtra un docente
-     *   {}                   → todos los docentes
-     */
     public function horario(Request $request): JsonResponse
     {
         // ─── 1. Gestión activa ────────────────────────────────────────────

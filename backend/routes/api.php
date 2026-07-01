@@ -70,23 +70,13 @@ Route::middleware('auth:sanctum')->group(function () {
 */
 Route::prefix('database')->group(function () {
     Route::get('status', [DatabaseController::class, 'status']);
-    Route::get('tablas', [DatabaseController::class, 'tablas']);
-    Route::post('migrate', [DatabaseController::class, 'migrate']);
-    Route::post('migrate-all', [DatabaseController::class, 'migrateAll']);
-    Route::post('sync-grupos', [DatabaseController::class, 'syncGrupos']);
-    Route::post('sync-gestion', [DatabaseController::class, 'syncGestion']);
-    Route::post('sync-table', [DatabaseController::class, 'syncTable']);
+    Route::post('carga-inicial', [DatabaseController::class, 'cargaInicial']);
+    Route::post('migrar-catalogos', [DatabaseController::class, 'migrarCatalogos']);
+    Route::post('migrar-catalogo/{tabla}', [DatabaseController::class, 'migrarCatalogo']);
+    Route::post('migrar-grupos', [DatabaseController::class, 'migrarGrupos']);
+    Route::post('migrar-semestre', [DatabaseController::class, 'migrarSemestre']);
+    
 });
-
-Route::post('/database/migraciontot', [DatabaseController::class, 'migraciontot']);
-Route::post('/database/incremental-migrate', [DatabaseController::class, 'incrementalMigrate']);
-
-Route::post('/copiar-tablas', [MigracionController::class, 'copiarTablas']);
-Route::post('/sync-table', [MigracionController::class, 'syncTable']);
-
-
-
-
 /*
 |--------------------------------------------------------------------------
 | DASHBOARD ADMIN
