@@ -5,9 +5,19 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Services\PeriodoAcademicoService;
 
 class HorarioDocenteController extends Controller
 {
+
+    protected PeriodoAcademicoService $periodo;
+    public function __construct()
+    {
+        $this->periodo = new PeriodoAcademicoService(
+            null,
+            'periodo_academico_semestral'
+        );
+    }
     public function index(Request $request)
     {
         $request->validate([
@@ -18,8 +28,10 @@ class HorarioDocenteController extends Controller
             'carrera' => 'nullable|string',
         ]);
 
-        $anio = $request->anio ?? 2026;
-        $periodo = $request->periodo ?? 1;
+        // input() funciona tanto para query string (?anio=2024&periodo=1)
+        // como para JSON body ({"anio":2024,"periodo":1})
+        $anio = $request->input('anio') ?: $this->periodo->anioActual();
+        $periodo = $request->input('periodo') ?: $this->periodo->periodoActual();
 
         // ─── SUBCONSULTA INTERNA (= TBL en el SQL original) ──────────────────
         // Hace el GROUP BY SIN el join a NroInsMatGrpNE,

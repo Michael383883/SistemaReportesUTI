@@ -4,13 +4,12 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Services\PeriodoAcademicoService;
 
 class TallerEstudiantesController extends Controller
 {
-    const ANIO_ACTUAL = '2026';
-    const PERIODO_ACTUAL = '1';
-
     /**
      * Talleres de titulación identificados
      */
@@ -22,11 +21,25 @@ class TallerEstudiantesController extends Controller
         '1302212', // TALLER DE TITULACION
     ];
 
+    protected PeriodoAcademicoService $periodo;
+    public function __construct()
+    {
+        $this->periodo = new PeriodoAcademicoService(
+            null,
+            'periodo_academico_semestral'
+        );
+    }
     /**
      * Todos los estudiantes inscritos en los talleres
      */
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
+        // Si el frontend manda ?anio=2025&periodo=2 (selector editable),
+        // se respeta esa gestión. Si no manda nada, se usa el cálculo
+        // automático según la fecha del sistema.
+        $anio = $request->query('anio') ?: $this->periodo->anioActual();
+        $periodoActual = $request->query('periodo') ?: $this->periodo->periodoActual();
+
         $estudiantes = DB::connection('sqlsrv')
             ->table('KARDEX_EXT')
             ->join('GRUPOS', function ($join) {
@@ -88,8 +101,8 @@ class TallerEstudiantesController extends Controller
 
                 'KARDEX_EXT.NOTA_FINAL'
             ])
-            ->where('KARDEX_EXT.ANIO', self::ANIO_ACTUAL)
-            ->where('KARDEX_EXT.PERIODO', self::PERIODO_ACTUAL)
+            ->where('KARDEX_EXT.ANIO', $anio)
+            ->where('KARDEX_EXT.PERIODO', $periodoActual)
             ->whereNull('KARDEX_EXT.CANCELADO')
             ->whereIn('KARDEX_EXT.MATERIA', $this->materiasTaller)
             ->whereIn('KARDEX_EXT.TIPO_EXAMEN', ['N', 'E'])
@@ -100,6 +113,9 @@ class TallerEstudiantesController extends Controller
 
         return response()->json([
             'success' => true,
+            'anio' => $anio,
+            'periodo' => $periodoActual,
+            'automatico' => !$request->query('anio') && !$request->query('periodo'),
             'total' => $estudiantes->count(),
             'data' => $estudiantes
         ]);
@@ -111,8 +127,11 @@ class TallerEstudiantesController extends Controller
      * Ejemplo:
      * /api/talleres/1301054
      */
-    public function materia(string $materia): JsonResponse
+    public function materia(Request $request, string $materia): JsonResponse
     {
+        $anio = $request->query('anio') ?: $this->periodo->anioActual();
+        $periodoActual = $request->query('periodo') ?: $this->periodo->periodoActual();
+
         $estudiantes = DB::connection('sqlsrv')
             ->table('KARDEX_EXT')
             ->join('GRUPOS', function ($join) {
@@ -174,8 +193,8 @@ class TallerEstudiantesController extends Controller
 
                 'KARDEX_EXT.NOTA_FINAL'
             ])
-            ->where('KARDEX_EXT.ANIO', self::ANIO_ACTUAL)
-            ->where('KARDEX_EXT.PERIODO', self::PERIODO_ACTUAL)
+            ->where('KARDEX_EXT.ANIO', $anio)
+            ->where('KARDEX_EXT.PERIODO', $periodoActual)
             ->whereNull('KARDEX_EXT.CANCELADO')
             ->where('KARDEX_EXT.MATERIA', $materia)
             ->whereIn('KARDEX_EXT.TIPO_EXAMEN', ['N', 'E'])
@@ -185,6 +204,8 @@ class TallerEstudiantesController extends Controller
         return response()->json([
             'success' => true,
             'materia' => $materia,
+            'anio' => $anio,
+            'periodo' => $periodoActual,
             'total' => $estudiantes->count(),
             'data' => $estudiantes
         ]);
