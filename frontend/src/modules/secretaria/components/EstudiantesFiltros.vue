@@ -1,91 +1,234 @@
 <template>
-  <div class="flex flex-wrap items-center gap-3">
+  <div>
 
-    <!-- Buscador -->
-    <div class="relative flex-1 min-w-[220px]">
-      <svg xmlns="http://www.w3.org/2000/svg" class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 105 11a6 6 0 0012 0z" />
-      </svg>
-      <input
-        type="text"
-        placeholder="Buscar estudiante o código..."
-        class="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition"
-        :value="modelValue.busqueda"
-        @input="actualizar('busqueda', $event.target.value)"
-      />
+    <!-- Barra superior -->
+    <div class="flex items-center gap-3">
+
+      <!-- Selector de gestión (año/periodo) -->
+      <div class="flex items-center gap-1.5 shrink-0">
+        <select
+          class="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition"
+          title="Periodo académico"
+          :value="modelValue.periodo"
+          @change="actualizar('periodo', $event.target.value)"
+        >
+          <option v-for="p in PERIODOS" :key="p.value" :value="p.value">
+            {{ p.label }}
+          </option>
+        </select>
+
+        <select
+          class="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition"
+          title="Año"
+          :value="modelValue.anio"
+          @change="actualizar('anio', $event.target.value)"
+        >
+          <option value="2026">Año 2026</option>
+          <option value="2025">Año 2025</option>
+          <option value="2024">Año 2024</option>
+        </select>
+      </div>
+
+      <!-- Buscador -->
+      <div class="relative flex-1">
+        <svg xmlns="http://www.w3.org/2000/svg"
+          class="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor">
+
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M21 21l-4.35-4.35M17 11A6 6 0 105 11a6 6 0 0012 0z"/>
+
+        </svg>
+
+        <input
+          type="text"
+          placeholder="Buscar estudiante o código..."
+          class="w-full h-10 rounded-xl border border-slate-200 bg-white
+                pl-11 pr-4 text-sm
+                text-slate-700
+                placeholder:text-slate-400
+                focus:outline-none
+                focus:ring-2
+                focus:ring-blue-100
+                focus:border-blue-500
+                transition"
+          :value="modelValue.busqueda"
+          @input="actualizar('busqueda', $event.target.value)"
+        />
+      </div>
+
+      <!-- Botón filtros -->
+      <button
+        @click="mostrarFiltros = !mostrarFiltros"
+        class="flex items-center gap-2 h-10 px-4 rounded-xl
+              border border-slate-200 bg-white
+              hover:bg-slate-50
+              transition
+              shrink-0">
+
+        <svg xmlns="http://www.w3.org/2000/svg"
+          class="h-4 w-4 text-slate-600"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor">
+
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M3 4a1 1 0 011-1h16a1 1 0 01.8 1.6L15 12v6l-6 2v-8L3.2 4.6A1 1 0 013 4z"/>
+
+        </svg>
+
+        <span class="text-sm font-medium text-slate-700">
+          Filtros
+        </span>
+
+        <!-- Badge cantidad -->
+        <span
+          v-if="modelValue.plan || modelValue.nivel"
+          class="flex items-center justify-center
+                min-w-[20px] h-5 px-1
+                rounded-full
+                bg-blue-600
+                text-white
+                text-[11px]
+                font-semibold">
+
+          {{
+            [modelValue.plan, modelValue.nivel]
+            .filter(Boolean).length
+          }}
+
+        </span>
+
+        <svg xmlns="http://www.w3.org/2000/svg"
+          class="h-4 w-4 text-slate-500 transition duration-200"
+          :class="{ 'rotate-180': mostrarFiltros }"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor">
+
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M19 9l-7 7-7-7"/>
+
+        </svg>
+
+      </button>
+
     </div>
 
-    <!-- Año -->
-    <div class="relative">
-      <select
-        class="pl-3 pr-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition appearance-none cursor-pointer"
-        :value="modelValue.anio"
-        @change="actualizar('anio', $event.target.value)"
-      >
-        <option value="2026">Año 2026</option>
-        <option value="2025">Año 2025</option>
-        <option value="2024">Año 2024</option>
-      </select>
-    </div>
+    <!-- Panel filtros -->
+    <Transition
+      enter-active-class="transition-all duration-200"
+      leave-active-class="transition-all duration-150"
+      enter-from-class="opacity-0 -translate-y-2"
+      leave-to-class="opacity-0 -translate-y-2">
 
-    <!-- Periodo -->
-    <div class="relative">
-      <select
-        class="pl-3 pr-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition appearance-none cursor-pointer"
-        :value="modelValue.periodo"
-        @change="actualizar('periodo', $event.target.value)"
-      >
-        <option v-for="p in PERIODOS" :key="p.value" :value="p.value">
-          {{ p.label }}
-        </option>
-      </select>
-    </div>
+      <div
+        v-if="mostrarFiltros"
+        class="mt-3 rounded-xl border border-slate-200
+              bg-slate-50 p-4">
 
-    <!-- Plan / Carrera -->
-    <div class="relative">
-      <select
-        class="pl-3 pr-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition appearance-none cursor-pointer"
-        :value="modelValue.plan"
-        @change="actualizar('plan', $event.target.value)"
-      >
-        <option value="">Todas las carreras</option>
-        <option v-for="p in planesOptions" :key="p.codigo" :value="p.codigo">
-          {{ p.nombre }}
-        </option>
-      </select>
-    </div>
+        <div class="flex items-center justify-between mb-3">
 
-    <!-- Nivel -->
-    <div class="relative">
-      <select
-        class="pl-3 pr-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition appearance-none cursor-pointer"
-        :value="modelValue.nivel"
-        @change="actualizar('nivel', $event.target.value)"
-      >
-        <option value="">Todos los niveles</option>
-        <option v-for="n in NIVELES" :key="n" :value="n">
-          Nivel {{ n }}
-        </option>
-      </select>
-    </div>
+          <span class="text-sm font-semibold text-slate-700">
+            Filtros avanzados
+          </span>
 
-    <!-- Limpiar filtros -->
-    <button
-      type="button"
-      class="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-600 text-sm font-medium py-2.5 px-4 transition active:scale-95"
-      @click="limpiarFiltros"
-    >
-      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582M20 20v-5h-.581M5.635 19A9 9 0 104.582 9H4" />
-      </svg>
-      Limpiar filtros
-    </button>
+          <button
+            v-if="modelValue.plan || modelValue.nivel"
+            @click="limpiarFiltros"
+            class="text-xs font-medium
+                  text-blue-600
+                  hover:text-blue-700
+                  transition">
+
+            Restablecer
+
+          </button>
+
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+
+          <!-- Carrera -->
+          <div>
+            <label class="block text-xs font-medium text-slate-500 mb-1">
+              Carrera
+            </label>
+
+            <select
+              class="w-full h-10 rounded-lg
+                    border border-slate-200
+                    bg-white
+                    px-3
+                    text-sm"
+              :value="modelValue.plan"
+              @change="actualizar('plan', $event.target.value)">
+
+              <option value="">Todas las carreras</option>
+
+              <option
+                v-for="p in planesOptions"
+                :key="p.codigo"
+                :value="p.codigo">
+
+                {{ p.nombre }}
+
+              </option>
+
+            </select>
+          </div>
+
+          <!-- Nivel -->
+          <div>
+            <label class="block text-xs font-medium text-slate-500 mb-1">
+              Nivel
+            </label>
+
+            <select
+              class="w-full h-10 rounded-lg
+                    border border-slate-200
+                    bg-white
+                    px-3
+                    text-sm"
+              :value="modelValue.nivel"
+              @change="actualizar('nivel', $event.target.value)">
+
+              <option value="">Todos los niveles</option>
+
+              <option
+                v-for="n in NIVELES"
+                :key="n"
+                :value="n">
+
+                Nivel {{ n }}
+
+              </option>
+
+            </select>
+          </div>
+
+        </div>
+
+      </div>
+
+    </Transition>
 
   </div>
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { ref, computed } from 'vue'
 import { PLANES, PERIODOS, NIVELES } from '../services/estudiantesInscritosService.js'
 
 const props = defineProps({
@@ -97,6 +240,8 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['update:modelValue', 'limpiar'])
+
+const mostrarFiltros = ref(false)
 
 function actualizar(campo, valor) {
   emit('update:modelValue', { ...props.modelValue, [campo]: valor })

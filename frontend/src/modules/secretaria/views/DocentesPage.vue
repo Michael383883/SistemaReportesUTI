@@ -2,12 +2,54 @@
   <div class="min-h-screen bg-slate-50">
     <!-- Header -->
     <div class="bg-white border-b border-slate-200 px-6 py-4">
-      <div class="flex items-center justify-between">
+      <div class="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 class="text-2xl font-bold text-slate-800">Gestión de Docentes</h1>
-          <p class="text-sm text-slate-500 mt-0.5">Facultad de Ciencias Económicas · {{ currentPeriod }}</p>
+          <p class="text-sm text-slate-500 mt-0.5 flex items-center gap-2">
+            <template v-if="filtros.anio && filtros.periodo">
+              Facultad de Ciencias Económicas · {{ PERIODOS[filtros.periodo] || filtros.periodo }}/{{ filtros.anio }}
+              <span
+                v-if="!gestionEsAutomatica"
+                class="text-[10px] font-semibold text-amber-600 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5"
+              >
+                manual
+              </span>
+            </template>
+            <template v-else>
+              Facultad de Ciencias Económicas · cargando gestión...
+            </template>
+          </p>
         </div>
         <div class="flex items-center gap-3">
+
+          <!-- Selector de gestión (año/periodo) -->
+          <div class="flex items-center gap-1.5">
+            <select
+              v-model="filtros.periodo"
+              class="h-10 px-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-500"
+              title="Periodo académico"
+            >
+              <option v-for="(nombre, cod) in PERIODOS" :key="cod" :value="cod">{{ nombre }}</option>
+            </select>
+
+            <select
+              v-model="filtros.anio"
+              class="h-10 px-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-500"
+              title="Año"
+            >
+              <option v-for="a in aniosDisponibles" :key="a" :value="a">{{ a }}</option>
+            </select>
+
+            <button
+              v-if="!gestionEsAutomatica"
+              @click="volverAGestionActual"
+              title="Volver a la gestión actual detectada por el sistema"
+              class="h-10 px-3 rounded-lg border border-amber-200 bg-amber-50 text-amber-700 text-xs font-semibold hover:bg-amber-100 transition"
+            >
+              Hoy
+            </button>
+          </div>
+
           <span class="bg-teal-50 text-teal-700 text-sm font-semibold px-3 py-1.5 rounded-full border border-teal-200">
             {{ docentesFiltrados.length }} docentes
           </span>
@@ -43,12 +85,11 @@
           <input
             v-model="busqueda"
             type="text"
-            placeholder="Buscar por nombre, CI "
+            placeholder="Buscar por nombre, código o CI..."
             class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
           />
         </div>
 
-        
         <!-- Filtro Grado -->
         <select
           v-model="filtroGrado"
@@ -110,44 +151,44 @@
           <table class="w-full text-sm">
             <thead>
               <tr class="bg-slate-50 border-b border-slate-200">
+                <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Nro</th>
+                <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Código</th>
                 <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Docente</th>
                 <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">C.I.</th>
                 <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Grado</th>
-               
                 <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Contacto</th>
                 <th class="text-center px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Horario</th>
-                <th class="text-center px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Carga</th>
                 <th class="text-center px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Acciones</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-100">
               <tr
-                v-for="docente in docentesPaginados"
+                v-for="(docente, idx) in docentesPaginados"
                 :key="docente.docente"
                 class="hover:bg-slate-50 transition-colors cursor-pointer"
                 @click="abrirDetalle(docente)"
               >
-                <!-- Nombre + Avatar -->
+                <!-- Nro -->
+                <td class="px-4 py-3 text-slate-800 text-xs">{{ (paginaActual - 1) * porPagina + idx + 1 }}</td>
+
+                <!-- Codigo -->
+                <td class="px-4 py-3 text-slate-600 font-mono text-xs">{{ docente.docente }}</td>
+
+                <!-- Nombre -->
                 <td class="px-4 py-3">
-                  <div class="flex items-center gap-3">
-                    <div class="w-9 h-9 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center flex-shrink-0">
-              <i class="ti ti-user" style="font-size: 18px; color: #64748b;" aria-hidden="true"></i>
-            </div>
-                    <div>
-                      <p class="font-medium text-slate-800 leading-tight">{{ formatNombre(docente.nombre_docente) }}</p>
-                    
-                    </div>
-                  </div>
+                  <p class="font-medium text-slate-800 leading-tight">{{ formatNombre(docente.nombre_docente) }}</p>
                 </td>
+
                 <!-- CI -->
                 <td class="px-4 py-3 text-slate-600 font-mono text-xs">{{ docente.ci || '—' }}</td>
+
                 <!-- Grado -->
                 <td class="px-4 py-3">
                   <span :class="['inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium', badgeGrado(docente.grado_academico)]">
                     {{ docente.grado_academico || 'Sin especificar' }}
                   </span>
                 </td>
-                
+
                 <!-- Contacto -->
                 <td class="px-4 py-3">
                   <div class="flex flex-col gap-1">
@@ -174,12 +215,13 @@
                     </span>
                   </div>
                 </td>
-                <!-- Horario (NUEVO) -->
-                <td class="px-4 py-3">
+
+                <!-- Horario -->
+                <td class="px-4 py-3 text-center">
                   <button
                     v-if="docente.horario_cargado"
                     @click.stop="verHorarioRapido(docente)"
-                    class="text-xs font-medium text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded-lg transition-colors flex items-center gap-1"
+                    class="text-xs font-medium text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded-lg transition-colors inline-flex items-center gap-1"
                   >
                     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
@@ -188,24 +230,10 @@
                   </button>
                   <span v-else class="text-xs text-slate-400">Sin horario</span>
                 </td>
-                <!-- Carga horaria -->
-                <td class="px-4 py-3 text-center">
-                  <div v-if="docente.horas_total" class="flex items-center justify-center gap-2">
-                    <div class="flex-1 bg-slate-100 rounded-full h-1.5 w-16">
-                      <div :class="['h-1.5 rounded-full', colorCarga(docente.horas_total)]" :style="{ width: Math.min((docente.horas_total / 40) * 100, 100) + '%' }"></div>
-                    </div>
-                    <span class="text-xs text-slate-600 font-medium">{{ docente.horas_total }}h</span>
-                  </div>
-                  <span v-else class="text-xs text-amber-600 flex items-center justify-center gap-1">
-                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
-                    </svg>
-                    Sin asignar
-                  </span>
-                </td>
+
                 <!-- Acciones -->
                 <td class="px-4 py-3" @click.stop>
-                  <div class="flex items-center justify-center gap-2">
+                  <div class="flex items-center justify-center">
                     <button
                       @click="abrirDetalle(docente)"
                       class="p-1.5 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-colors"
@@ -214,15 +242,6 @@
                       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
-                      </svg>
-                    </button>
-                    <button
-                      @click="verHorarioCompleto(docente)"
-                      class="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                      title="Ver horario"
-                    >
-                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
                       </svg>
                     </button>
                   </div>
@@ -260,7 +279,7 @@
         </div>
       </div>
 
-      <!-- Vista Cards (simplificada) -->
+      <!-- Vista Cards -->
       <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         <div
           v-for="docente in docentesPaginados"
@@ -269,12 +288,12 @@
           class="bg-white rounded-xl border border-slate-200 p-4 hover:shadow-md hover:border-teal-300 transition-all cursor-pointer group"
         >
           <div class="flex items-start gap-3 mb-3">
-            <div class="w-14 h-14 rounded-2xl bg-white/20 border border-white/30 flex items-center justify-center flex-shrink-0">
-              <i class="ti ti-user" style="font-size: 28px; color: white;" aria-hidden="true"></i>
+            <div class="w-14 h-14 rounded-2xl bg-teal-50 border border-teal-100 flex items-center justify-center flex-shrink-0">
+              <i class="ti ti-user text-teal-600" style="font-size: 24px;" aria-hidden="true"></i>
             </div>
             <div class="min-w-0 flex-1">
               <p class="font-semibold text-slate-800 text-sm leading-tight truncate group-hover:text-teal-700 transition-colors">{{ formatNombre(docente.nombre_docente) }}</p>
-             
+              <p class="text-xs text-slate-400 font-mono">{{ docente.docente }}</p>
             </div>
           </div>
 
@@ -336,7 +355,7 @@
 
 <script setup>
 defineOptions({ name: 'DocentesPage' })
-import { ref, computed, watch, onMounted, nextTick } from 'vue'
+import { ref, reactive, computed, watch, onMounted, nextTick } from 'vue'
 import DocenteDetalleModal from '@/shared/components/docentes/DocenteDetalleModal.vue'
 import HorarioRapidoModal from '@/shared/components/docentes/HorarioRapidoModal.vue'
 import { docentesService } from '@/shared/services/docentesService'
@@ -354,14 +373,39 @@ const porPagina = ref(15)
 const docenteSeleccionado = ref(null)
 const docenteHorarioSeleccionado = ref(null)
 const modoModal = ref('detalle')
-const currentPeriod = ref('mayo 2026')
 const origenHorario = ref(null) // 'tabla' o 'detalle'
 
+// anio/periodo arrancan en null: el backend calcula la gestión actual
+// automáticamente (PeriodoAcademicoService) en la primera carga.
+// El usuario puede después cambiarlos con los selects — en ese caso
+// se le pasan al backend como override.
+const filtros = reactive({
+  anio: null,
+  periodo: null,
+})
+
+// true mientras filtros.anio/periodo son los que detectó el sistema;
+// false en cuanto el usuario los cambia manualmente con los selects.
+const gestionEsAutomatica = ref(true)
+
+const PERIODOS = {
+  '1': 'I',
+  '2': 'II',
+}
+
+// Rango razonable de años para el selector
+const aniosDisponibles = computed(() => {
+  const actual = new Date().getFullYear()
+  const desde = actual - 5
+  const anios = []
+  for (let a = actual + 1; a >= desde; a--) anios.push(a)
+  return anios
+})
 
 const { registrar } = useDocentesRecientes()
 
 function abrirDetalle(docente) {
-  registrar(docente)           // ← registra la visita
+  registrar(docente)
   docenteSeleccionado.value = docente
   modoModal.value = 'detalle'
 }
@@ -373,17 +417,26 @@ onMounted(async () => {
 async function cargarDocentes() {
   cargando.value = true
   try {
-    const [docentesData, horariosData] = await Promise.all([
+    const [docentesData, horariosResp] = await Promise.all([
       docentesService.getAll(),
-      docentesService.getAllHorarios()
+      docentesService.getAllHorarios({
+        anio: filtros.anio || null,
+        periodo: filtros.periodo || null,
+      })
     ])
 
+    const horariosData = horariosResp.data || []
+
+    // El backend informa qué año/periodo usó para armar esta lista
+    // (automático por PeriodoAcademicoService, o el override que mandamos).
+    if (horariosResp.anio) filtros.anio = horariosResp.anio
+    if (horariosResp.periodo) filtros.periodo = String(horariosResp.periodo)
+    gestionEsAutomatica.value = horariosResp.automatico ?? true
+
     const horariosMap = new Map()
-    if (Array.isArray(horariosData)) {
-      horariosData.forEach(h => {
-        horariosMap.set(String(h.docente), h)
-      })
-    }
+    horariosData.forEach(h => {
+      horariosMap.set(String(h.docente), h)
+    })
 
     docentes.value = docentesData
       .filter(docente => horariosMap.has(String(docente.docente)))
@@ -410,6 +463,27 @@ async function cargarDocentes() {
   }
 }
 
+function volverAGestionActual() {
+  filtros.anio = null
+  filtros.periodo = null
+  gestionEsAutomatica.value = true
+  cargarDocentes()
+}
+
+// Cambiar el select de Año o Periodo dispara una nueva carga con ese
+// override; a partir de ahí gestionEsAutomatica queda en false hasta
+// que el usuario presione "Hoy".
+watch(
+  () => [filtros.anio, filtros.periodo],
+  (nuevo, viejo) => {
+    // Evita recargar en el primer render (cuando pasan de null -> valor
+    // automático recién llegado del backend).
+    if (!viejo[0] && !viejo[1]) return
+    gestionEsAutomatica.value = false
+    cargarDocentes()
+  },
+)
+
 const unidades = computed(() => {
   const u = new Set(docentes.value.map(d => d.unidad).filter(Boolean))
   return [...u].sort()
@@ -418,11 +492,11 @@ const unidades = computed(() => {
 const docentesFiltrados = computed(() => {
   let lista = docentes.value
   if (busqueda.value.trim()) {
-    const q = busqueda.value.toLowerCase()
+    const q = busqueda.value.toLowerCase().trim()
     lista = lista.filter(d =>
       (d.nombre_docente || '').toLowerCase().includes(q) ||
-      String(d.ci || '').includes(q) ||
-      (d.unidad || '').toLowerCase().includes(q)
+      String(d.docente ?? '').toLowerCase().includes(q) ||
+      String(d.ci ?? '').toLowerCase().includes(q)
     )
   }
   if (filtroUnidad.value) lista = lista.filter(d => d.unidad === filtroUnidad.value)
@@ -430,7 +504,7 @@ const docentesFiltrados = computed(() => {
   return lista
 })
 
-const totalPaginas = computed(() => Math.ceil(docentesFiltrados.value.length / porPagina.value))
+const totalPaginas = computed(() => Math.max(1, Math.ceil(docentesFiltrados.value.length / porPagina.value)))
 
 const docentesPaginados = computed(() => {
   const start = (paginaActual.value - 1) * porPagina.value
@@ -440,24 +514,27 @@ const docentesPaginados = computed(() => {
 watch([busqueda, filtroUnidad, filtroGrado], () => { paginaActual.value = 1 })
 
 // Funciones para horarios
-
 async function onVerHorarioDesdeModal(docente) {
-  origenHorario.value = 'detalle'  // ← vino desde el detalle
+  origenHorario.value = 'detalle'
   docenteSeleccionado.value = null
   await nextTick()
   await verHorarioRapido(docente)
 }
+
 async function verHorarioRapido(docente) {
-  registrar(docente)  
+  registrar(docente)
   if (origenHorario.value !== 'detalle') {
-    origenHorario.value = 'tabla'  // ← vino desde la tabla
+    origenHorario.value = 'tabla'
   }
   if (docente.horario_completo) {
     docenteHorarioSeleccionado.value = docente
     return
   }
   try {
-    const horario = await docentesService.getHorario(docente.docente)
+    const horario = await docentesService.getHorario(docente.docente, {
+      anio: filtros.anio,
+      periodo: filtros.periodo,
+    })
     docenteHorarioSeleccionado.value = { ...docente, horario_completo: horario }
   } catch (e) {
     console.error('Error cargando horario:', e)
@@ -468,7 +545,6 @@ function cerrarHorarioRapido() {
   const docente = docenteHorarioSeleccionado.value
   docenteHorarioSeleccionado.value = null
 
-  // Si vino desde el detalle, vuelve al detalle
   if (origenHorario.value === 'detalle') {
     origenHorario.value = null
     docenteSeleccionado.value = docente
@@ -477,13 +553,6 @@ function cerrarHorarioRapido() {
     origenHorario.value = null
   }
 }
-
-function verHorarioCompleto(docente) {
-  docenteSeleccionado.value = docente
-  modoModal.value = 'horario'
-}
-
-
 
 function cerrarModal() {
   docenteSeleccionado.value = null
@@ -498,6 +567,7 @@ function limpiarFiltros() {
 
 function exportarExcel() {
   const datos = docentesFiltrados.value.map(d => ({
+    'Código': d.docente || '',
     'Nombre': formatNombre(d.nombre_docente),
     'C.I.': d.ci || '',
     'Grado Académico': d.grado_academico || '',
@@ -512,6 +582,7 @@ function exportarExcel() {
 
   // Ancho de columnas
   hoja['!cols'] = [
+    { wch: 10 }, // Código
     { wch: 30 }, // Nombre
     { wch: 12 }, // CI
     { wch: 18 }, // Grado
@@ -525,10 +596,11 @@ function exportarExcel() {
   const libro = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(libro, hoja, 'Docentes')
 
-  const fecha = new Date().toISOString().slice(0, 10)
-  XLSX.writeFile(libro, `docentes_${fecha}.xlsx`)
+  const gestion = filtros.periodo && filtros.anio
+    ? `${filtros.periodo}-${filtros.anio}`
+    : new Date().toISOString().slice(0, 10)
+  XLSX.writeFile(libro, `docentes_${gestion}.xlsx`)
 }
-
 
 // Helpers
 function formatNombre(nombre) {
@@ -558,11 +630,5 @@ function badgeGrado(grado) {
     'Ingeniero': 'bg-orange-100 text-orange-700',
   }
   return map[grado] || 'bg-slate-100 text-slate-500'
-}
-
-function colorCarga(horas) {
-  if (horas >= 30) return 'bg-green-500'
-  if (horas >= 15) return 'bg-amber-500'
-  return 'bg-red-400'
 }
 </script>

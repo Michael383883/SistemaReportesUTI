@@ -74,6 +74,8 @@ function normalizarInscrito(row) {
 
         grupo: row.GRUPO,
 
+        docente: row.DOCENTE,
+
         codEstudiante: row.COD_ESTUDIANTE,
         estudiante: row.ESTUDIANTE,
     }

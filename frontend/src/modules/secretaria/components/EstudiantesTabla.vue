@@ -12,37 +12,41 @@
       v-else
       v-for="grupo in grupos"
       :key="grupo.clave"
-      class="rounded-2xl shadow-sm ring-1 ring-slate-200 overflow-hidden bg-white"
+      class="bg-white rounded-2xl shadow-sm ring-1 ring-slate-200 overflow-hidden"
     >
       <!-- Header del grupo -->
-      <div class="flex items-center justify-between px-6 py-4 bg-slate-800">
-        <div class="flex items-center gap-3">
-          <div class="h-8 w-8 rounded-lg bg-white/20 flex items-center justify-center">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2" />
-            </svg>
-          </div>
-          <div>
-            <div class="text-white font-bold text-[15px] tracking-wide">
-              {{ grupo.nombreMateria || grupo.materia }}
-            </div>
-            <div class="text-slate-400 text-[13px] mt-0.5">
-              Grupo {{ grupo.grupo }} · {{ grupo.siglaPlan }} · Nivel {{ grupo.nivel }}
-            </div>
-          </div>
-        </div>
-        <span class="rounded-full bg-white/20 text-white text-xs font-semibold px-3 py-1">
-          {{ grupo.estudiantes.length }} inscritos
-        </span>
-      </div>
+      <div class="flex items-center justify-between px-6 py-4 bg-slate-800 rounded-t-xl">
 
-      <!-- Info docente -->
-      <div v-if="grupo.docente" class="px-6 py-2.5 bg-blue-50 border-b border-blue-100 flex items-center gap-2 text-blue-700 text-xs">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0z" />
-        </svg>
-        <span class="font-medium">Docente:</span>
-        <span>{{ grupo.docente }}</span>
+        <div class="flex items-center gap-4 text-white">
+
+          <h2 class="font-bold text-sm uppercase">
+            Materia: {{ grupo.nombreMateria || grupo.materia }}
+          </h2>
+
+          <span v-if="grupo.docente" class="text-slate-400">•</span>
+
+          <span v-if="grupo.docente" class="text-sm text-slate-100">
+            {{ grupo.docente }}
+          </span>
+
+        </div>
+
+        <div class="flex gap-2">
+
+          <span class="rounded-full bg-slate-700 px-3 py-1 text-xs text-white">
+            Grupo {{ grupo.grupo }}
+          </span>
+
+          <span class="rounded-full bg-blue-600/20 px-3 py-1 text-xs text-blue-300">
+            Examen Normal
+          </span>
+
+          <span class="rounded-full bg-green-600/20 px-3 py-1 text-xs text-green-300 font-semibold">
+            {{ grupo.estudiantes.length }} inscritos
+          </span>
+
+        </div>
+
       </div>
 
       <!-- Tabla -->
@@ -50,11 +54,10 @@
         <table class="w-full text-sm">
           <thead>
             <tr class="bg-slate-50 border-b border-slate-100">
-              <th class="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-6 py-3 w-10">#</th>
-              <th class="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Nombre del Estudiante</th>
+              <th class="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-6 py-3 w-10">Nro</th>
+              <th class="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Codigo</th>
+              <th class="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Nombre</th>
               <th class="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Carrera</th>
-              <th class="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Nivel</th>
-              <th class="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Grupo</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-50">
@@ -63,22 +66,20 @@
               :key="est.codEstudiante"
               class="hover:bg-blue-50/40 transition-colors group"
             >
-              <td class="px-6 py-3 text-slate-400 text-xs">{{ idx + 1 }}</td>
+              <!-- Nro -->
+              <td class="px-6 py-3 text-slate-800 text-xs">{{ idx + 1 }}</td>
 
+              <!-- Codigo -->
+              <td class="px-6 py-3 text-slate-800 font-medium">{{ est.codEstudiante }}</td>
+
+              <!-- Nombre -->
               <td class="px-4 py-3">
                 <div class="flex items-center gap-2.5">
-                  <div class="h-7 w-7 rounded-full bg-blue-100 text-blue-500 flex items-center justify-center shrink-0">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M12 3L1 9l11 6 9-4.91V17h2V9L12 3z"/>
-                      <path d="M5 13.18v4L12 21l7-3.82v-4L12 17l-7-3.82z"/>
-                    </svg>
-                  </div>
                   <span class="text-slate-800 font-medium">{{ est.estudiante }}</span>
-                  <span class="text-slate-500"> - </span>
-                  <span class="text-slate-800 font-medium">{{ est.codEstudiante }}</span>
                 </div>
               </td>
 
+              <!-- Carrera -->
               <td class="px-4 py-3">
                 <span
                   :class="colorPlan(est.siglaPlan)"
@@ -87,10 +88,6 @@
                   {{ est.siglaPlan }}
                 </span>
               </td>
-
-              <td class="px-4 py-3 text-slate-600 text-xs font-medium">{{ est.nivel }}</td>
-
-              <td class="px-4 py-3 text-slate-600 text-xs font-medium">{{ est.grupo }}</td>
             </tr>
           </tbody>
         </table>

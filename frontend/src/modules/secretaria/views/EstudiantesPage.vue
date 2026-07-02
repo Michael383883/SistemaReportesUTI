@@ -2,7 +2,7 @@
   <div class="min-h-screen bg-slate-50">
 
     <!-- ===== HEADER ===== -->
-    <div class="bg-white border-b border-slate-200 px-6 py-5">
+    <div class="bg-white border-b border-slate-200 ">
       <div class="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
 
         <!-- Título -->

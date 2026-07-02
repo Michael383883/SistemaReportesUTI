@@ -1,7 +1,7 @@
 // src/modules/secretaria/services/docentesService.js
 
-//const API_BASE = 'http://localhost:8000/api'
 const API_BASE = import.meta.env.VITE_API_URL || ''
+
 async function apiFetch(path, options = {}) {
     try {
         const url = `${API_BASE}${path}`
@@ -53,47 +53,88 @@ export const docentesService = {
     /**
      * Obtener horario/materias de un docente
      * GET /api/horarios/docentes/{codigo_docente}
+     *
+     * Acepta anio/periodo opcionales para pedir una gestión específica.
+     * Si no se envían, el backend calcula la gestión actual automáticamente.
      */
-    async getHorario(codigo) {
-        const response = await apiFetch(`/api/horarios/docentes/${codigo}`)
+    async getHorario(codigo, filtros = {}) {
+        const params = new URLSearchParams()
+        if (filtros.anio) params.append('anio', filtros.anio)
+        if (filtros.periodo) params.append('periodo', filtros.periodo)
 
-        // Transformar la respuesta al formato que espera el frontend
-        if (response && response.horarios) {
-            return {
-                docente: response.docente,
-                nombre_completo: response.nombre_completo,
-                carga_horaria_total: response.carga_horaria_total,
-                total_horarios: response.total_horarios,
-                materias: transformarHorarios(response.horarios)
-            }
+        const query = params.toString()
+        const url = `${API_BASE}/api/horarios/docentes/${codigo}${query ? '?' + query : ''}`
+
+        const res = await fetch(url, {
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        })
+
+        if (!res.ok) {
+            const error = await res.json().catch(() => ({ message: res.statusText }))
+            throw new Error(error.message || `Error ${res.status}`)
         }
 
-        // Si la respuesta ya es un array o tiene otra estructura
-        if (Array.isArray(response)) {
-            return {
-                materias: transformarHorarios(response)
-            }
-        }
+        const response = await res.json()
+        const item = Array.isArray(response.data) ? response.data[0] : response.data
 
-        return response
+        const resultado = item
+            ? {
+                  docente: item.docente,
+                  nombre_completo: item.nombre_completo,
+                  carga_horaria_total: item.carga_horaria_total,
+                  total_horarios: item.total_horarios,
+                  materias: transformarHorarios(item.horarios || [])
+              }
+            : { materias: [] }
+
+        return {
+            ...resultado,
+            anio: response.filtros?.anio ?? null,
+            periodo: response.filtros?.periodo ?? null,
+            automatico: response.filtros?.automatico ?? true,
+        }
     },
 
     /**
      * Obtener horarios de todos los docentes
      * GET /api/horarios/docentes
+     *
+     * Acepta anio/periodo opcionales. Si no se envían, el backend
+     * calcula la gestión actual (semestral) automáticamente y la
+     * informa de vuelta en `filtros.anio` / `filtros.periodo`.
      */
-    async getAllHorarios() {
-        const response = await apiFetch(`/api/horarios/docentes`)
+    async getAllHorarios(filtros = {}) {
+        const params = new URLSearchParams()
+        if (filtros.anio) params.append('anio', filtros.anio)
+        if (filtros.periodo) params.append('periodo', filtros.periodo)
 
-        // Si es un array, transformar cada docente
-        if (Array.isArray(response)) {
-            return response.map(docente => ({
-                ...docente,
-                materias: transformarHorarios(docente.horarios || [])
-            }))
+        const query = params.toString()
+        const url = `${API_BASE}/api/horarios/docentes${query ? '?' + query : ''}`
+
+        const res = await fetch(url, {
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        })
+
+        if (!res.ok) {
+            const error = await res.json().catch(() => ({ message: res.statusText }))
+            throw new Error(error.message || `Error ${res.status}`)
         }
 
-        return response
+        const response = await res.json()
+
+        const data = Array.isArray(response.data)
+            ? response.data.map(docente => ({
+                  ...docente,
+                  materias: transformarHorarios(docente.horarios || [])
+              }))
+            : []
+
+        return {
+            data,
+            anio: response.filtros?.anio ?? null,
+            periodo: response.filtros?.periodo ?? null,
+            automatico: response.filtros?.automatico ?? true,
+        }
     }
 }
 
