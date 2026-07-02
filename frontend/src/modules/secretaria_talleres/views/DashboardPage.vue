@@ -2,41 +2,80 @@
 <template>
   <div class="min-h-screen bg-gradient-to-br from-slate-50 to-white">
 
+    
     <!-- Header -->
-    <div class="bg-white border-b border-slate-200 px-6 py-5">
-      <div class="flex items-center justify-between">
-        <div>
-          <h1 class="text-2xl font-bold text-slate-800">Dashboard de Talleres</h1>
-          <p class="text-sm text-slate-500 mt-1">Secretaría de Talleres · {{ periodoActual }}</p>
-        </div>
-        <div class="flex items-center gap-3">
-          <!-- Tabs Docentes / Estudiantes -->
-          <div class="flex bg-slate-100 rounded-xl p-1 gap-1">
+      <div class="bg-white border-b border-slate-200 px-6 py-5">
+        <div class="flex items-center justify-between flex-wrap gap-3">
+          <div>
+            <h1 class="text-2xl font-bold text-slate-800">Dashboard de Talleres</h1>
+            <p class="text-sm text-slate-500 mt-1 flex items-center gap-2">
+              <template v-if="gestion.anio && gestion.periodo">
+                Secretaría de Talleres · {{ PERIODOS[gestion.periodo] || gestion.periodo }}/{{ gestion.anio }}
+                <span
+                  v-if="!gestion.automatico"
+                  class="text-[10px] font-semibold text-amber-600 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5"
+                >
+                  manual
+                </span>
+              </template>
+              <template v-else>
+                Secretaría de Talleres · cargando gestión...
+              </template>
+            </p>
+          </div>
+          <div class="flex items-center gap-3">
+
+            <!-- Selector de gestión (año/periodo) -->
+            <div class="flex items-center gap-1.5">
+              <select
+                v-model="filtroPeriodo"
+                class="h-9 px-2.5 bg-white border border-slate-200 rounded-lg text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-500"
+              >
+                <option v-for="(nombre, cod) in PERIODOS" :key="cod" :value="cod">{{ nombre }}</option>
+              </select>
+              <select
+                v-model="filtroAnio"
+                class="h-9 px-2.5 bg-white border border-slate-200 rounded-lg text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-500"
+              >
+                <option v-for="a in aniosDisponibles" :key="a" :value="a">{{ a }}</option>
+              </select>
+              <button
+                v-if="!gestion.automatico"
+                @click="volverAGestionActual"
+                title="Volver a la gestión actual"
+                class="h-9 px-3 rounded-lg border border-amber-200 bg-amber-50 text-amber-700 text-xs font-semibold hover:bg-amber-100 transition"
+              >
+                Hoy
+              </button>
+            </div>
+
+            <!-- Tabs Docentes / Estudiantes -->
+            <div class="flex bg-slate-100 rounded-xl p-1 gap-1">
+              <button
+                v-for="tab in tabs"
+                :key="tab.id"
+                @click="activeTab = tab.id"
+                :class="[
+                  'flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all',
+                  activeTab === tab.id
+                    ? 'bg-white text-slate-800 shadow-sm'
+                    : 'text-slate-500 hover:text-slate-700'
+                ]"
+              >
+                <component :is="tab.icon" class="w-4 h-4" />
+                {{ tab.label }}
+              </button>
+            </div>
             <button
-              v-for="tab in tabs"
-              :key="tab.id"
-              @click="activeTab = tab.id"
-              :class="[
-                'flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all',
-                activeTab === tab.id
-                  ? 'bg-white text-slate-800 shadow-sm'
-                  : 'text-slate-500 hover:text-slate-700'
-              ]"
+              @click="recargarDatos"
+              class="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
             >
-              <component :is="tab.icon" class="w-4 h-4" />
-              {{ tab.label }}
+              <RefreshCw :class="['w-4 h-4', loading && 'animate-spin']" />
+              Actualizar
             </button>
           </div>
-          <button
-            @click="recargarDatos"
-            class="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
-          >
-            <RefreshCw :class="['w-4 h-4', loading && 'animate-spin']" />
-            Actualizar
-          </button>
         </div>
       </div>
-    </div>
 
     <div class="p-6 space-y-6">
 
@@ -283,7 +322,7 @@
 
 <script setup>
 defineOptions({ name: 'DashboardPage' })
-import { ref, computed, onMounted } from 'vue'
+import { ref, reactive, computed, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { RefreshCw, AlertTriangle, Info, AlertCircle, Users, GraduationCap } from 'lucide-vue-next'
 import { Bar, Pie } from 'vue-chartjs'
@@ -300,7 +339,6 @@ ChartJS.register(Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale,
 const router = useRouter()
 const kpis = ref({})
 const loading = ref(true)
-const periodoActual = ref('Mayo 2026')
 const activeTab = ref('estudiantes')
 const chartViewEst = ref('bar')
 const { recientes: docentesRecientes } = useDocentesRecientes()
@@ -310,7 +348,32 @@ const tabs = [
   { id: 'docentes', label: 'Docentes', icon: Users },
 ]
 
+// ── Gestión (año/periodo) ──────────────────────────────────────────────────
+const PERIODOS = { '1': 'I', '2': 'II' }
 
+const filtroAnio = ref(null)
+const filtroPeriodo = ref(null)
+
+// gestión efectiva devuelta por el backend (para mostrar en el header)
+const gestion = computed(() => kpis.value.gestion || { anio: null, periodo: null, automatico: true })
+
+const aniosDisponibles = computed(() => {
+  const actual = new Date().getFullYear()
+  const anios = []
+  for (let a = actual + 1; a >= actual - 5; a--) anios.push(a)
+  return anios
+})
+
+function volverAGestionActual() {
+  filtroAnio.value = null
+  filtroPeriodo.value = null
+  cargarDatos()
+}
+
+watch([filtroAnio, filtroPeriodo], (nuevo, viejo) => {
+  if (!viejo[0] && !viejo[1]) return // evita recarga en el primer set automático
+  cargarDatos()
+})
 
 // ── Computed ─────────────────────────────────────────────────────────────────
 const maxNivel = computed(() => {
@@ -373,7 +436,14 @@ onMounted(async () => await cargarDatos())
 async function cargarDatos() {
   loading.value = true
   try {
-    kpis.value = await dashboardService.getKPIs()
+    kpis.value = await dashboardService.getKPIs({
+      anio: filtroAnio.value || null,
+      periodo: filtroPeriodo.value || null,
+    })
+
+    // reflejar en los selects la gestión que terminó usando el backend
+    if (kpis.value.gestion?.anio) filtroAnio.value = kpis.value.gestion.anio
+    if (kpis.value.gestion?.periodo) filtroPeriodo.value = String(kpis.value.gestion.periodo)
   } catch (error) {
     console.error('Error cargando dashboard:', error)
   } finally {

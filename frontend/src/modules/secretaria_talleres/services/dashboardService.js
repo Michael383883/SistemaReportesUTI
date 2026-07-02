@@ -3,21 +3,39 @@ import { docentesService } from '../../../shared/services/docentesService.js'
 
 export const dashboardService = {
 
-    async getKPIs() {
+    async getKPIs(filtros = {}) {
         const [estudiantesResp, docentesResp] = await Promise.allSettled([
-            estudiantesService.getInscritos(),
-            docentesService.getAllHorarios(),
+            estudiantesService.getInscritos({
+                anio: filtros.anio || null,
+                periodo: filtros.periodo || null,
+            }),
+            docentesService.getAllHorarios({
+                anio: filtros.anio || null,
+                periodo: filtros.periodo || null,
+            }),
         ])
 
         const estudiantes = estudiantesResp.status === 'fulfilled'
             ? estudiantesResp.value
             : { data: [], total: 0 }
 
-        const docentesRaw = docentesResp.status === 'fulfilled'
+        // getAllHorarios ahora retorna { data, anio, periodo, automatico }
+        const docentesResult = docentesResp.status === 'fulfilled'
             ? docentesResp.value
-            : []
+            : { data: [], anio: null, periodo: null, automatico: true }
+
+        const docentesRaw = docentesResult.data || []
+
+        // La gestión "real" usada por el backend (útil si el usuario no mandó nada
+        // y queremos reflejar en el header qué periodo se está mostrando)
+        const gestion = {
+            anio: docentesResult.anio ?? estudiantes.anio ?? null,
+            periodo: docentesResult.periodo ?? estudiantes.periodo ?? null,
+            automatico: docentesResult.automatico ?? true,
+        }
 
         return {
+            gestion,
             estudiantes: buildEstudiantesKPIs(estudiantes),
             docentes: buildDocentesKPIs(docentesRaw),
             talleres: buildTalleresKPIs(estudiantesResp, docentesRaw),

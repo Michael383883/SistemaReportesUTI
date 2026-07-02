@@ -2,16 +2,27 @@
   <div class="min-h-screen bg-slate-50">
 
     <!-- ===== HEADER ===== -->
-    <div class="bg-white border-b border-slate-200 px-6 py-5">
+    <div class="border-b border-slate-200 ">
       <div class="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
 
         <!-- Título -->
         <div>
-          <h1 class="text-xl font-bold text-slate-800 tracking-tight">
+          <h1 class="text-xl font-bold text-slate-1000 tracking-tight">
             Estudiantes en Talleres
           </h1>
-          <p class="text-sm text-slate-500 mt-0.5">
-            Gestión · Período {{ filtros.periodo }} / {{ filtros.anio }}
+          <p class="text-sm text-slate-500 mt-0.5 flex items-center gap-2">
+            <template v-if="filtros.anio && filtros.periodo">
+              Gestión · {{ PERIODOS[filtros.periodo] || filtros.periodo }} / {{ filtros.anio }}
+              <span
+                v-if="!gestionEsAutomatica"
+                class="text-[11px] font-semibold text-amber-600 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5"
+              >
+                seleccionado manualmente
+              </span>
+            </template>
+            <template v-else>
+              Gestión · cargando período actual...
+            </template>
           </p>
         </div>
 
@@ -69,97 +80,266 @@
       </div>
     </div>
 
-    <!-- ===== FILTROS ===== -->
-    <div class="bg-white border-b border-slate-100 px-6 py-4 shadow-sm">
-      <div class="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+    <!-- =======================================================
+     BUSCADOR + FILTROS
+      ======================================================== -->
+      <div >
 
-        <!-- Buscador nombre/código -->
-        <div class="relative">
-          <svg xmlns="http://www.w3.org/2000/svg" class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 105 11a6 6 0 0012 0z" />
-          </svg>
-          <input
-            v-model="filtros.busqueda"
-            type="text"
-            placeholder="Buscar estudiante o código..."
-            class="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition"
-          />
-        </div>
+        <!-- Barra superior -->
+        <div class="flex items-center gap-3">
 
-        <!-- Filtro Plan/Carrera -->
-        <div class="relative">
-          <svg xmlns="http://www.w3.org/2000/svg" class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 14l9-5-9-5-9 5 9 5z" />
-          </svg>
-          <select
-            v-model="filtros.plan"
-            class="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition appearance-none cursor-pointer"
-          >
-            <option value="">Todas las carreras</option>
-            <option v-for="(nombre, codigo) in PLANES" :key="codigo" :value="codigo">
-              {{ nombre }}
-            </option>
-          </select>
-        </div>
+          <!-- Selector de gestión (año/periodo) editable -->
+          <div class="flex items-center gap-1.5 shrink-0">
+            <select
+              v-model="filtros.periodo"
+              class="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition"
+              title="Periodo académico"
+            >
+              <option v-for="(nombre, codigo) in PERIODOS" :key="codigo" :value="codigo">
+                {{ nombre }}
+              </option>
+            </select>
 
-        <!-- Filtro Materia -->
-        <div class="relative">
-          <svg xmlns="http://www.w3.org/2000/svg" class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2" />
-          </svg>
-          <select
-            v-model="filtros.materia"
-            class="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition appearance-none cursor-pointer"
-          >
-            <option value="">Todas las materias</option>
-            <option v-for="m in materias" :key="m.codigo" :value="m.codigo">
-              {{ m.nombre }} ({{ m.codigo }})
-            </option>
-          </select>
-        </div>
+            <select
+              v-model="filtros.anio"
+              class="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition"
+              title="Año"
+            >
+              <option v-for="a in aniosDisponibles" :key="a" :value="a">
+                {{ a }}
+              </option>
+            </select>
 
-        <!-- Filtro Grupo -->
-        <div class="relative">
-          <select
-            v-model="filtros.grupo"
-            class="w-full pl-3 pr-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition appearance-none cursor-pointer"
-          >
-            <option value="">Todos los grupos</option>
-            <option v-for="g in gruposDisponibles" :key="g" :value="g">
-              Grupo {{ g }}
-            </option>
-          </select>
-        </div>
+            <button
+              v-if="!gestionEsAutomatica"
+              @click="volverAGestionActual"
+              title="Volver a la gestión actual detectada por el sistema"
+              class="h-10 px-3 rounded-xl border border-amber-200 bg-amber-50 text-amber-700 text-xs font-semibold hover:bg-amber-100 transition shrink-0"
+            >
+              Hoy
+            </button>
+          </div>
 
-        <!-- Botón limpiar filtros -->
-        <button
-          @click="limpiarFiltros"
-          class="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-600 text-sm font-medium py-2.5 px-4 transition active:scale-95"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582M20 20v-5h-.581M5.635 19A9 9 0 104.582 9H4" />
-          </svg>
-          Limpiar filtros
-        </button>
+          <!-- Buscador -->
+          <div class="relative flex-1">
+            <svg xmlns="http://www.w3.org/2000/svg"
+              class="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor">
 
-      </div>
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M21 21l-4.35-4.35M17 11A6 6 0 105 11a6 6 0 0012 0z"/>
 
-      <!-- Pills de filtros activos -->
-      <div v-if="filtrosActivos.length" class="max-w-7xl mx-auto mt-3 flex flex-wrap gap-2">
-        <span
-          v-for="f in filtrosActivos"
-          :key="f.key"
-          class="inline-flex items-center gap-1.5 rounded-full bg-blue-100 text-blue-700 text-xs font-medium px-3 py-1"
-        >
-          {{ f.label }}
-          <button @click="quitarFiltro(f.key)" class="hover:text-blue-900 transition-colors">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
+
+            <input
+              v-model="filtros.busqueda"
+              type="text"
+              placeholder="Buscar estudiante, docente o código..."
+              class="w-full h-10 rounded-xl border border-slate-200 bg-white
+                    pl-11 pr-4 text-sm
+                    text-slate-700
+                    placeholder:text-slate-400
+                    focus:outline-none
+                    focus:ring-2
+                    focus:ring-blue-100
+                    focus:border-blue-500
+                    transition"/>
+          </div>
+
+          <!-- Botón filtros -->
+          <button
+            @click="mostrarFiltros = !mostrarFiltros"
+            class="flex items-center gap-2 h-10 px-4 rounded-xl
+                  border border-slate-200 bg-white
+                  hover:bg-slate-50
+                  transition
+                  shrink-0">
+
+            <svg xmlns="http://www.w3.org/2000/svg"
+              class="h-4 w-4 text-slate-600"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor">
+
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M3 4a1 1 0 011-1h16a1 1 0 01.8 1.6L15 12v6l-6 2v-8L3.2 4.6A1 1 0 013 4z"/>
+
+            </svg>
+
+            <span class="text-sm font-medium text-slate-700">
+              Filtros
+            </span>
+
+            <!-- Badge cantidad -->
+            <span
+              v-if="filtros.plan || filtros.materia || filtros.grupo"
+              class="flex items-center justify-center
+                    min-w-[20px] h-5 px-1
+                    rounded-full
+                    bg-blue-600
+                    text-white
+                    text-[11px]
+                    font-semibold">
+
+              {{
+                [filtros.plan, filtros.materia, filtros.grupo]
+                .filter(Boolean).length
+              }}
+
+            </span>
+
+            <svg xmlns="http://www.w3.org/2000/svg"
+              class="h-4 w-4 text-slate-500 transition duration-200"
+              :class="{ 'rotate-180': mostrarFiltros }"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor">
+
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M19 9l-7 7-7-7"/>
+
+            </svg>
+
           </button>
-        </span>
+
+        </div>
+
+        <!-- Panel filtros -->
+        <Transition
+          enter-active-class="transition-all duration-200"
+          leave-active-class="transition-all duration-150"
+          enter-from-class="opacity-0 -translate-y-2"
+          leave-to-class="opacity-0 -translate-y-2">
+
+          <div
+            v-if="mostrarFiltros"
+            class="mt-3 rounded-xl border border-slate-200
+                  bg-slate-50 p-4">
+
+            <div class="flex items-center justify-between mb-3">
+
+              <span class="text-sm font-semibold text-slate-700">
+                Filtros avanzados
+              </span>
+
+              <button
+                v-if="filtros.plan || filtros.materia || filtros.grupo"
+                @click="limpiarFiltros"
+                class="text-xs font-medium
+                      text-blue-600
+                      hover:text-blue-700
+                      transition">
+
+                Restablecer
+
+              </button>
+
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+
+              <!-- Carrera -->
+              <div>
+                <label class="block text-xs font-medium text-slate-500 mb-1">
+                  Carrera
+                </label>
+
+                <select
+                  v-model="filtros.plan"
+                  class="w-full h-10 rounded-lg
+                        border border-slate-200
+                        bg-white
+                        px-3
+                        text-sm">
+
+                  <option value="">Todas las carreras</option>
+
+                  <option
+                    v-for="(nombre,codigo) in PLANES"
+                    :key="codigo"
+                    :value="codigo">
+
+                    {{ nombre }}
+
+                  </option>
+
+                </select>
+              </div>
+
+              <!-- Materia -->
+              <div>
+                <label class="block text-xs font-medium text-slate-500 mb-1">
+                  Materia
+                </label>
+
+                <select
+                  v-model="filtros.materia"
+                  class="w-full h-10 rounded-lg
+                        border border-slate-200
+                        bg-white
+                        px-3
+                        text-sm">
+
+                  <option value="">Todas las materias</option>
+
+                  <option
+                    v-for="m in materias"
+                    :key="m.codigo"
+                    :value="m.codigo">
+
+                    {{ m.nombre }}
+
+                  </option>
+
+                </select>
+              </div>
+
+              <!-- Grupo -->
+              <div>
+                <label class="block text-xs font-medium text-slate-500 mb-1">
+                  Grupo
+                </label>
+
+                <select
+                  v-model="filtros.grupo"
+                  class="w-full h-10 rounded-lg
+                        border border-slate-200
+                        bg-white
+                        px-3
+                        text-sm">
+
+                  <option value="">Todos los grupos</option>
+
+                  <option
+                    v-for="g in gruposDisponibles"
+                    :key="g"
+                    :value="g">
+
+                    Grupo {{ g }}
+
+                  </option>
+
+                </select>
+              </div>
+
+            </div>
+
+          </div>
+
+        </Transition>
+
       </div>
-    </div>
 
     <!-- ===== CONTENIDO PRINCIPAL ===== -->
     <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
@@ -175,13 +355,37 @@
         </div>
       </div>
 
-      <!-- Sin resultados -->
+      <!-- Sin datos en el backend para esta gestión (año/periodo actual) -->
+      <div v-else-if="sinDatosDeGestion" class="flex flex-col items-center justify-center py-24 text-slate-400">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mb-3 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+        <p class="text-base font-medium text-slate-600">
+          No hay estudiantes inscritos en talleres
+        </p>
+        <p class="text-sm mt-1 text-center max-w-sm">
+          <template v-if="filtros.anio && filtros.periodo">
+            Aún no se registran inscripciones para la gestión {{ filtros.periodo }}/{{ filtros.anio }}.
+          </template>
+          <template v-else>
+            Aún no se registran inscripciones para la gestión actual.
+          </template>
+        </p>
+      </div>
+
+      <!-- Hay datos, pero el filtro/búsqueda no encontró nada -->
       <div v-else-if="!estudiantesFiltrados.length" class="flex flex-col items-center justify-center py-24 text-slate-400">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mb-3 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
           <path stroke-linecap="round" stroke-linejoin="round" d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
         <p class="text-base font-medium">Sin resultados</p>
         <p class="text-sm mt-1">Intenta ajustar los filtros de búsqueda.</p>
+        <button
+          @click="limpiarFiltros"
+          class="mt-3 text-sm font-medium text-blue-600 hover:text-blue-700 transition"
+        >
+          Limpiar filtros
+        </button>
       </div>
 
       <!-- Tablas segmentadas por materia/grupo -->
@@ -193,42 +397,51 @@
         >
 
           <!-- Header del grupo -->
-        <div  class="flex items-center justify-between px-6 py-4 bg-slate-800"> 
-            <div class="flex items-center gap-3">
-              <div class="h-8 w-8 rounded-lg bg-white/20 flex items-center justify-center">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2" />
-                </svg>
-              </div>
-              <div>
-                <h2 class="text-white font-bold text-base">{{ item.materia }}</h2>
-                <p class="text-slate-400 text-xs">Grupo {{ item.grupo }}</p>
-                <p class="text-slate-400 text-xs">Docente: {{ item.docente }}</p>
-              </div>
-            </div>
-            <span class="rounded-full bg-white/20 text-white text-xs font-semibold px-3 py-1">
-              {{ item.estudiantes.length }} inscritos
-            </span>
-          </div>
+        <div class="flex items-center justify-between px-6 py-4 bg-slate-800 rounded-t-xl">
+
+        <div class="flex items-center gap-4 text-white">
+
+          <h2 class="font-bold text-SM uppercase">
+           Materia: {{ item.materia }}
+          </h2>
+
+          <span class="text-slate-400">•</span>
+
+          <span class="text-sm text-slate-100">
+            {{ item.docente }}
+          </span>
+
+        </div>
+
+        <div class="flex gap-2">
+
+          <span class="rounded-full bg-slate-700 px-3 py-1 text-xs text-white">
+            Grupo {{ item.grupo }}
+          </span>
+
+          <span class="rounded-full bg-blue-600/20 px-3 py-1 text-xs text-blue-300">
+            Examen Normal
+          </span>
+
+          <span class="rounded-full bg-green-600/20 px-3 py-1 text-xs text-green-300 font-semibold">
+            {{ item.estudiantes.length }} inscritos
+          </span>
+
+        </div>
+
+      </div>
 
           <!-- Info docente -->
-          <div class="px-6 py-2.5 bg-blue-50 border-b border-blue-100 flex items-center gap-2 text-blue-700 text-xs">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-            <span class="font-medium">Docente:</span>
-            <span>{{ item.docente }}</span>
-          </div>
-
+          
           <!-- Tabla -->
           <div class="overflow-x-auto">
             <table class="w-full text-sm">
               <thead>
                 <tr class="bg-slate-50 border-b border-slate-100">
-                  <th class="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-6 py-3 w-10">#</th>
-                  <th class="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Nombre del Estudiante</th>
+                  <th class="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-6 py-3 w-10">Nro</th>
+                  <th class="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Codigo</th>
+                  <th class="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Nombre</th>
                   <th class="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Carrera</th>
-                  <th class="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Grupo</th>
                   <th class="text-center text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Contacto</th>
                 </tr>
               </thead>
@@ -238,21 +451,19 @@
                   :key="est.cod_estudiante"
                   class="hover:bg-blue-50/40 transition-colors group"
                 >
-                  <!-- N° -->
-                  <td class="px-6 py-3 text-slate-400 text-xs">{{ idx + 1 }}</td>
+                  <!-- Nro° -->
+                  <td class="px-6 py-3 text-slate-800 text-xs">{{ idx + 1 }}</td>
+
+                  <!-- Codigo -->
+                  <td class="px-6 py-3 text-slate-800 font-medium">{{ est.codigo }}</td>
+                  
 
                   <!-- Nombre -->
                   <td class="px-4 py-3">
                     <div class="flex items-center gap-2.5">
-                      <div class="h-7 w-7 rounded-full bg-blue-100 text-blue-500 flex items-center justify-center shrink-0">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M12 3L1 9l11 6 9-4.91V17h2V9L12 3z"/>
-                          <path d="M5 13.18v4L12 21l7-3.82v-4L12 17l-7-3.82z"/>
-                        </svg>
-                      </div>
+                      
                      <span class="text-slate-800 font-medium">{{ est.nom_estudiante }}</span>
-                      <span class="text-slate-500"> - </span>
-                      <span class="text-slate-800 font-medium">{{ est.codigo }}</span>
+                      
                     </div>
                   </td>
 
@@ -266,9 +477,7 @@
                     </span>
                   </td>
 
-                  <!-- Grupo -->
-                  <td class="px-4 py-3 text-slate-600 text-xs font-medium">{{ est.grupo }}</td>
-
+                  
                   <!-- Contacto -->
                   <td class="px-4 py-3 text-center">
                     <button
@@ -322,15 +531,40 @@ const modalVisible           = ref(false)
 const estudianteSeleccionado = ref({})
 const contactoData           = ref(null)
 
+// anio/periodo arrancan en null: el backend calcula la gestión actual
+// automáticamente (PeriodoAcademicoService) en la primera carga.
+// El usuario puede después cambiarlos con los selects — en ese caso
+// se le pasan al backend como override vía query string.
 const filtros = reactive({
-  anio:     2026,
-  periodo:  1,
+  anio:     null,
+  periodo:  null,
   busqueda: '',
   plan:     '',
   materia:  '',
   grupo:    '',
 })
 
+// true mientras filtros.anio/periodo son los que detectó el sistema;
+// false en cuanto el usuario los cambia manualmente con los selects.
+const gestionEsAutomatica = ref(true)
+
+const PERIODOS = {
+  '1': 'I',
+  '2': 'II',
+  
+}
+
+// Rango razonable de años para el selector (año actual del navegador
+// como techo, unos años atrás como piso). 
+const aniosDisponibles = computed(() => {
+  const actual = new Date().getFullYear()
+  const desde = actual - 5
+  const anios = []
+  for (let a = actual + 1; a >= desde; a--) anios.push(a)
+  return anios
+})
+
+const mostrarFiltros = ref(false)
 // ─────────────────────────────────────────────
 // Computed
 // ─────────────────────────────────────────────
@@ -344,14 +578,31 @@ const gruposDisponibles = computed(() => {
 
 const estudiantesFiltrados = computed(() => {
   const texto = filtros.busqueda.toLowerCase().trim()
+
   return estudiantes.value.filter(est => {
-    const matchGrupo    = !filtros.grupo    || est.grupo === filtros.grupo
-    const matchBusqueda = !texto
-      || est.nom_estudiante?.toLowerCase().includes(texto)
-      || String(est.cod_estudiante).includes(texto)
-    return matchGrupo && matchBusqueda
+    const matchGrupo = !filtros.grupo || est.grupo === filtros.grupo
+
+    const searchable = [
+      est.nom_estudiante,
+      est.cod_estudiante,
+      est.docente,
+      est.nom_materia,
+      est.materia,
+      est.grupo,
+      PLANES[est.plan], // nombre de la carrera si existe
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase()
+
+    return matchGrupo && (!texto || searchable.includes(texto))
   })
 })
+
+// true solo cuando ya terminó de cargar y el backend no trajo
+// NINGÚN estudiante para la gestión actual (sin importar filtros de
+// búsqueda; esto es antes de aplicar el filtro de texto/grupo).
+const sinDatosDeGestion = computed(() => !cargando.value && estudiantes.value.length === 0)
 
 const gruposPorMateria = computed(() => {
   return estudiantesFiltrados.value.reduce((acc, est) => {
@@ -394,8 +645,18 @@ const cargarEstudiantes = async () => {
     const resultado = await estudiantesService.getInscritos({
       plan:    filtros.plan    || null,
       materia: filtros.materia || null,
+      // Solo se envían si el usuario ya los sabe (carga inicial = null,
+      // deja que el backend calcule la gestión automáticamente).
+      anio:    filtros.anio    || null,
+      periodo: filtros.periodo || null,
     })
     estudiantes.value = resultado.data || []
+
+    // El backend informa qué año/periodo usó para armar esta lista
+    // (automático por PeriodoAcademicoService, o el override que mandamos).
+    if (resultado.anio)    filtros.anio    = resultado.anio
+    if (resultado.periodo) filtros.periodo = String(resultado.periodo)
+    gestionEsAutomatica.value = resultado.automatico ?? true
 
     const materiasMap = new Map()
     estudiantes.value.forEach(est => {
@@ -421,6 +682,27 @@ watch(
   () => [filtros.plan, filtros.materia],
   () => cargarEstudiantes(),
 )
+
+// Cambiar el select de Año o Periodo dispara una nueva carga con ese
+// override; a partir de ahí gestionEsAutomatica queda en false hasta
+// que el usuario presione "Hoy".
+watch(
+  () => [filtros.anio, filtros.periodo],
+  (nuevo, viejo) => {
+    // Evita recargar en el primer render (cuando pasan de null -> valor
+    // automático recién llegado del backend).
+    if (!viejo[0] && !viejo[1]) return
+    gestionEsAutomatica.value = false
+    cargarEstudiantes()
+  },
+)
+
+const volverAGestionActual = () => {
+  filtros.anio = null
+  filtros.periodo = null
+  gestionEsAutomatica.value = true
+  cargarEstudiantes()
+}
 
 // ─────────────────────────────────────────────
 // Helpers UI

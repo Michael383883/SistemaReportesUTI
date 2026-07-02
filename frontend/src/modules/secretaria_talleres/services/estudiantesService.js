@@ -1,8 +1,5 @@
 const API_BASE = import.meta.env.VITE_API_URL || ''
 
-export const ANIO_ACTUAL = '2026'
-export const PERIODO_ACTUAL = '1'
-
 export const PLANES = {
     '109401': 'Lic. en Administración de Empresas',
     '125091': 'Licenciatura en Ingeniería Comercial',
@@ -11,8 +8,16 @@ export const PLANES = {
     '059801': 'Licenciatura en Economía',
 }
 
-async function apiFetch(path) {
+async function apiFetch(path, params = {}) {
     const url = new URL(`${API_BASE}${path}`, window.location.origin)
+
+    // Solo agrega a la query los params que realmente tienen valor
+    // (undefined/null/'' se omiten para no mandar ?anio=&periodo=)
+    Object.entries(params).forEach(([key, value]) => {
+        if (value !== null && value !== undefined && value !== '') {
+            url.searchParams.set(key, value)
+        }
+    })
 
     const token = localStorage.getItem('token')
 
@@ -55,10 +60,10 @@ function normalizarEstudiante(row) {
         anio: row.ANIO,
 
         periodo: row.PERIODO,
-        
+
         celular: row.CELULAR,
         correo: row.CORREO,
-        
+
     }
 }
 
@@ -66,7 +71,7 @@ export const estudiantesService = {
 
     async getInscritos(filtros = {}) {
 
-        const { materia = null } = filtros
+        const { materia = null, plan = null, anio = null, periodo = null } = filtros
 
         let endpoint = '/api/talleres'
 
@@ -74,13 +79,19 @@ export const estudiantesService = {
             endpoint = `/api/talleres/${materia}`
         }
 
-        const respuesta = await apiFetch(endpoint)
+        // anio/periodo solo se mandan si el usuario los eligió a mano
+        // (override). Si van null, el backend calcula la gestión actual
+        // automáticamente con PeriodoAcademicoService.
+        const respuesta = await apiFetch(endpoint, { plan, anio, periodo })
 
         return {
             data: (respuesta.data ?? []).map(normalizarEstudiante),
             total: respuesta.total ?? 0,
-            anio: ANIO_ACTUAL,
-            periodo: PERIODO_ACTUAL,
+            // Estos vienen calculados (o confirmados) por el backend en
+            // cada respuesta — nunca hardcodeados en el frontend.
+            anio: respuesta.anio ?? null,
+            periodo: respuesta.periodo != null ? String(respuesta.periodo) : null,
+            automatico: respuesta.automatico ?? true,
         }
     },
 
