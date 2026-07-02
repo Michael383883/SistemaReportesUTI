@@ -32,7 +32,18 @@ use App\Http\Controllers\Api\GrupoTipoIngresoController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\DashboardAdminController;
 
+// PARA DOC EXTRAS 
+use App\Http\Controllers\Api\ClasificacionDocenteController;
+use App\Http\Controllers\Api\ReporteClasificacionController;
 
+//MATERIAS
+use App\Http\Controllers\Api\MateriaController;
+
+//REFERENCIAS
+use App\Http\Controllers\Api\ReferenciaController;
+
+//reportes excel
+use App\Http\Controllers\Api\ReporteExcelController;
 /*
 |--------------------------------------------------------------------------
 | AUTH (público)
@@ -75,7 +86,7 @@ Route::prefix('database')->group(function () {
     Route::post('migrar-catalogo/{tabla}', [DatabaseController::class, 'migrarCatalogo']);
     Route::post('migrar-grupos', [DatabaseController::class, 'migrarGrupos']);
     Route::post('migrar-semestre', [DatabaseController::class, 'migrarSemestre']);
-    
+
 });
 /*
 |--------------------------------------------------------------------------
@@ -105,6 +116,7 @@ Route::get('/reporte-horario', [ReporteDocenteController::class, 'horario']);
 */
 Route::prefix('horarios')->group(function () {
     Route::get('/docentes', [HorarioDocenteController::class, 'index']);
+    Route::post('/docentes', [HorarioDocenteController::class, 'index']); // acepta JSON body
     Route::get('/docentes/{codigo_docente}', [HorarioDocenteController::class, 'show']);
 });
 
@@ -175,3 +187,50 @@ Route::get('/estudiantes/{codigo}/contacto', [TallerEstudiantesController::class
 Route::get('/estudiantes-inscritos', [EstudianteInscritoController::class, 'index']);
 
 Route::post('/grupos/tipo-ingreso/bulk', [GrupoTipoIngresoController::class, 'bulkUpdate']);
+
+
+
+
+/*
+|--------------------------------------------------------------------------
+| DIGITALSIACION 2 ARCHIVOS 
+|--------------------------------------------------------------------------
+*/
+Route::get('/clasificaciones', [ClasificacionDocenteController::class, 'index']);
+Route::get('/clasificaciones/{id}', [ClasificacionDocenteController::class, 'show'])
+    ->where('id', '[0-9]+');
+Route::post('/clasificaciones', [ClasificacionDocenteController::class, 'store']);
+Route::get('/clasificaciones/{id}/pdf', [ClasificacionDocenteController::class, 'descargar'])
+    ->where('id', '[0-9]+');
+Route::delete('/clasificaciones/{id}', [ClasificacionDocenteController::class, 'destroy'])
+    ->where('id', '[0-9]+');
+ 
+// Reportes
+Route::get('/reportes/clasificacion', [ReporteClasificacionController::class, 'listado']);
+Route::get('/reportes/clasificacion/docente/{cod_docente}', [ReporteClasificacionController::class, 'porDocente'])
+    ->where('cod_docente', '[0-9]+');
+Route::get('/reportes/clasificacion/por-referencia', [ReporteClasificacionController::class, 'porReferencia']);
+
+
+
+/*
+|--------------------------------------------------------------------------
+| MATERIASS 
+|--------------------------------------------------------------------------
+*/
+
+Route::get('/materias', [MateriaController::class, 'index']);
+Route::get('/materias/periodos', [MateriaController::class, 'periodos']);
+
+
+/*
+|--------------------------------------------------------------------------
+| referencias 
+|--------------------------------------------------------------------------
+*/
+Route::get('/referencias', [ReferenciaController::class, 'index']);
+Route::get('/referencias/anios', [ReferenciaController::class, 'anios']);
+
+
+// Reporte Excel
+Route::get('/reportes/docentes-clasificados/excel', [ReporteExcelController::class, 'generarListadoDocentes']);
