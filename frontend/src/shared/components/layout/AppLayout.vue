@@ -469,6 +469,18 @@ const menuSections = [
         ],
       },
 
+
+
+      {
+          label: 'Documetos Adjuntos',
+          icon: FileText, // importa este icono desde lucide-vue-next
+          children: [
+            { to: '/clasificaciones', label: 'Listado de documentos' },
+            { to: '/clasificaciones/nueva', label: 'Nuevo Documento' },
+            
+          ],
+        },
+
       {
         label: 'Horarios', icon: CalendarDays,
         children: [

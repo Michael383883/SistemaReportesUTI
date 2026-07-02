@@ -12,6 +12,7 @@ import { secretariaRoutes } from '@/modules/secretaria/routes'
 import { secretariaTalleresRoutes } from '@/modules/secretaria_talleres/routes'
 import { reporteHorarioRoutesadmin } from '@/modules/horariosadmin/routes'
 import { inscritosRoutes } from '@/modules/inscritos/routes'
+import { resolucionesExtraRoutes } from '@/modules/resolucionesExtra/routes'
 
 const routes = [
   ...authRoutes,
@@ -41,6 +42,7 @@ const routes = [
       ...secretariaTalleresRoutes,
       ...reporteHorarioRoutesadmin,
       ...inscritosRoutes,
+      ...resolucionesExtraRoutes,
     ],
   },
   {
