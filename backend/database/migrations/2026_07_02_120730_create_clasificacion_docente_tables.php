@@ -12,7 +12,12 @@ return new class extends Migration {
 
             $table->increments('ID_CLASIFICACION');
 
-            $table->string('NIVEL', 20);
+            // CATEGORIA: Docentes Titulares / Docentes Temporales
+            $table->string('CATEGORIA', 50)->nullable();
+            
+            // NIVEL: PRIMER NIVEL / SEGUNDO NIVEL / TERCER NIVEL
+            $table->string('NIVEL', 50)->nullable();
+            
             $table->string('GESTION', 10)->nullable();
             $table->string('PERIODO', 30)->nullable();
 
@@ -28,7 +33,7 @@ return new class extends Migration {
 
             $table->timestamp('FECHA_REGISTRO')->useCurrent();
 
-            $table->index(['NIVEL', 'GESTION']);
+            $table->index(['CATEGORIA', 'NIVEL', 'GESTION']);
         });
 
         // Crear exactamente el mismo tipo que DOCENTES.CODIGO
@@ -51,11 +56,10 @@ return new class extends Migration {
 
             $table->unsignedInteger('ID_CLASIFICACION');
 
-            $table->string('COD_MATERIA', 10)->nullable();  // ← SOLO UNA VEZ
+            $table->string('COD_MATERIA', 10)->nullable();
             $table->string('NOMBRE_MATERIA', 150);
             $table->string('COD_PLAN', 10)->nullable();
-            // $table->string('COD_MATERIA', 10)->nullable();  // ← ELIMINADA (estaba duplicada)
-            $table->integer('NOTA')->nullable();  // ← Esta columna existe en tu BD?
+            $table->integer('NOTA')->nullable();
 
             $table->text('DETALLE')->nullable();
 
