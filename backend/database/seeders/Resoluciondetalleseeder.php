@@ -37,9 +37,9 @@ class ResolucionDetalleSeeder extends Seeder
             ['docente' => '200400011', 'plan' => '126091', 'materia' => '1302008', 'grupo' => '03', 'tipo' => 'N'],
             ['docente' => '200400011', 'plan' => '109401', 'materia' => '1301027', 'grupo' => '20', 'tipo' => 'N'],
             ['docente' => '200400011', 'plan' => '125091', 'materia' => '1301144', 'grupo' => '40', 'tipo' => 'N'],
-            ['docente' => '198500123', 'plan' => '125091', 'materia' => '1301143', 'grupo' => '07', 'tipo' => 'N'],
-            ['docente' => '198500123', 'plan' => '126091', 'materia' => '1302171', 'grupo' => '57', 'tipo' => 'N'],
-            ['docente' => '199200456', 'plan' => '109401', 'materia' => '1301027', 'grupo' => '20', 'tipo' => 'N'],
+            ['docente' => '201000113', 'plan' => '125091', 'materia' => '1301143', 'grupo' => '07', 'tipo' => 'N'],
+            ['docente' => '201000113', 'plan' => '126091', 'materia' => '1302171', 'grupo' => '57', 'tipo' => 'N'],
+            ['docente' => '201000113', 'plan' => '109401', 'materia' => '1301027', 'grupo' => '20', 'tipo' => 'N'],
         ];
 
         // Combinaciones posibles de TIPO_INGRESO / OBSERVACION, igual
