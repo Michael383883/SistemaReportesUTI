@@ -18,6 +18,7 @@ return new class extends Migration {
                 GRUPO          NVARCHAR(5)       NULL,
                 TIPO           NVARCHAR(2)       NULL,
                 OBSERVACION    NVARCHAR(200)     NULL,
+                TIPO_INGRESO   NVARCHAR(50)      NULL,   
 
                 CONSTRAINT FK_DETALLE_RESOLUCION
                     FOREIGN KEY (ID_RESOLUCION)
