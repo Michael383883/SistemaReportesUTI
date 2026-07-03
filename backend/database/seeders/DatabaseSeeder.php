@@ -6,34 +6,39 @@ use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
+use Database\Seeders\ClasificacionDocenteSeeder;
+use Database\Seeders\ResolucionDetalleSeeder;
+//use Database\Seeders\ResolucionPdfSeeder;
+
+
 class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
         $users = [
             [
-                'email'    => 'admin@umss.edu',
-                'name'     => 'Administrador UTI',
+                'email' => 'admin@umss.edu',
+                'name' => 'Administrador UTI',
                 'password' => Hash::make('Admin1234!'),
-                'role'     => 'admin',
+                'role' => 'admin',
             ],
             [
-                'email'    => 'secretaria@umss.edu',
-                'name'     => 'Secretaría FCE',
+                'email' => 'secretaria@umss.edu',
+                'name' => 'Secretaría FCE',
                 'password' => Hash::make('Secret1234!'),
-                'role'     => 'secretaria',
+                'role' => 'secretaria',
             ],
             [
-                'email'    => 'talleres@umss.edu',
-                'name'     => 'Secretaría Talleres',
+                'email' => 'talleres@umss.edu',
+                'name' => 'Secretaría Talleres',
                 'password' => Hash::make('Talleres1234!'),
-                'role'     => 'secretaria_talleres',
+                'role' => 'secretaria_talleres',
             ],
             [
-                'email'    => 'uti@umss.edu',
-                'name'     => 'Técnico UTI',
+                'email' => 'uti@umss.edu',
+                'name' => 'Técnico UTI',
                 'password' => Hash::make('Uti12345!'),
-                'role'     => 'uti',
+                'role' => 'uti',
             ],
         ];
 
@@ -52,5 +57,10 @@ class DatabaseSeeder extends Seeder
                 $user['role'],
             ]);
         }
+        $this->call([
+            ResolucionPdfSeeder::class,
+            ResolucionDetalleSeeder::class,
+            //ClasificacionDocenteSeeder::class,
+        ]);
     }
 }
