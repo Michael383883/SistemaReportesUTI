@@ -3,7 +3,7 @@
     <!-- HEADER -->
      <div class="flex items-start justify-between mb-3">
       <h1 class="text-xl font-bold text-black-400 tracking-tight m-0 mb-0.5">
-        Reportes de horarios resumen 2
+        Reportes de horarios resumen Segunda versión
       </h1>
       <span class="text-xs text-black/70">
         Reporte completo · Gestión {{ anio }}/{{ periodo }}
