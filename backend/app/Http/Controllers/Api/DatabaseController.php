@@ -143,4 +143,11 @@ class DatabaseController extends Controller
             return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
         }
     }
+
+
+    public function migrarDocentes(): JsonResponse
+    {
+        set_time_limit(120);
+        return $this->respuesta([MigracionService::sincronizarDocentesMerge()]);
+    }
 }

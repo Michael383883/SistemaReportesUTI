@@ -15,7 +15,6 @@ class MigracionService
     private static array $catalogos = [
         'BIOGRAFICOS',
         'BIOGRAFICOS_EXT',
-        'DOCENTES',
         'DOCENTES_2',
         'DOCENTES_TELEFONO',
         'MATERIAS',
@@ -29,6 +28,9 @@ class MigracionService
 
     /** ⚠️ PK sin confirmar aún — correr diagnóstico antes de usar en producción */
     private const GRUPOS_PK = ['ANIO', 'PERIODO', 'PLAN', 'MATERIA', 'GRUPO'];
+
+    /** PK de DOCENTES — confirmar que CODIGO es único antes de usar en producción */
+    private const DOCENTES_PK = ['CODIGO'];
 
     /** Tablas permitidas para carga inicial (histórico completo, una sola vez) */
     private static array $tablasCargaInicial = [
@@ -182,7 +184,7 @@ class MigracionService
                     'filas_antes' => (int) $filasAntes,
                     'filas_despues' => (int) $filasDespues,
                     'diferencia' => (int) $filasDespues - (int) $filasAntes,
-                    'nota' => 'Es un espejo completo (TRUNCATE + INSERT), no hay detalle fila por fila de qué cambió.',
+                    'nota' => 'Es un espejo completo, no hay detalle fila por fila de qué cambió.',
                 ],
             ];
         } catch (Exception $e) {
@@ -190,7 +192,7 @@ class MigracionService
         }
     }
 
-    /* ==================== GRUPOS (única con MERGE) ==================== */
+    /* ==================== GRUPOS (MERGE con DELETE) ==================== */
 
     public static function sincronizarGrupos(string $anio, string $periodo): array
     {
@@ -270,6 +272,111 @@ class MigracionService
             ];
         } catch (Exception $e) {
             return self::error('GRUPOS', $e->getMessage());
+        }
+    }
+
+    /* ==================== DOCENTES (MERGE con DELETE) ==================== */
+
+    /** Sincroniza DOCENTES vía MERGE (solo INSERT/UPDATE, sin DELETE por las FK de tablas hijas como CLASIFICACION_DOCENTE) */
+    /** Sincroniza DOCENTES vía MERGE completo (INSERT + UPDATE + DELETE).
+     *  El 2008 manda: si un docente ya no existe ahí, se borra también en 2022.
+     *  Antes de borrar al padre, se eliminan sus hijos huérfanos en
+     *  CLASIFICACION_DOCENTE (FK_CLASIFICACION_DOCENTE_DOCENTE) para no romper
+     *  la integridad referencial. */
+    public static function sincronizarDocentesMerge(): array
+    {
+        try {
+            $tabla = 'DOCENTES';
+            $pk = self::DOCENTES_PK;
+            $linked = self::LINKED_SERVER . '.' . self::DB_2008 . '.dbo.[' . $tabla . ']';
+            $conn = DB::connection(self::CONEXION_2022);
+
+            if (!self::tablaExisteEn2022($tabla)) {
+                $conn->statement("SELECT * INTO dbo.[$tabla] FROM $linked WHERE 1 = 0");
+            }
+
+            $columnas = self::obtenerColumnas($tabla);
+            if (empty($columnas)) {
+                return self::error($tabla, 'No se pudieron obtener columnas vía linked server');
+            }
+
+            $colsInsert = implode(', ', array_map(fn($c) => "[$c]", $columnas));
+            $colsSrcInsert = implode(', ', array_map(fn($c) => "S.[$c]", $columnas));
+            $setUpdate = implode(', ', array_map(
+                fn($c) => "T.[$c] = S.[$c]",
+                array_filter($columnas, fn($c) => !in_array($c, $pk))
+            ));
+
+            $partitionCols = implode(', ', array_map(fn($c) => "[$c]", $pk));
+            $onClause = implode(' AND ', array_map(fn($c) => "T.[$c] = S.[$c]", $pk));
+
+            $outputCols = implode(",\n                ", array_map(
+                fn($c) => "CAST(ISNULL(inserted.[$c], deleted.[$c]) AS NVARCHAR(100)) AS [$c]",
+                $pk
+            ));
+            $tableVarCols = implode(', ', array_map(fn($c) => "[$c] NVARCHAR(100)", $pk));
+
+            $huerfanosEliminados = 0;
+            $filas = [];
+
+            $conn->transaction(function () use ($conn, $tabla, $linked, $partitionCols, $colsInsert, $colsSrcInsert, $setUpdate, $onClause, $outputCols, $tableVarCols, &$huerfanosEliminados, &$filas) {
+                // 1) Borrar primero los hijos de CLASIFICACION_DOCENTE cuyo docente
+                //    ya no existe en el origen (2008). Si no hacemos esto antes,
+                //    el DELETE del MERGE de abajo revienta por la FK.
+                $huerfanosEliminados = $conn->selectOne("
+                SET NOCOUNT ON;
+                DELETE CD
+                FROM dbo.CLASIFICACION_DOCENTE AS CD
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM $linked AS S WHERE S.[CODIGO] = CD.[COD_DOCENTE]
+                );
+                SELECT @@ROWCOUNT AS n;
+            ")->n;
+
+                // 2) MERGE completo: ahora sí con DELETE, el 2008 manda.
+                $sql = "
+                SET NOCOUNT ON;
+                DECLARE @Cambios TABLE (accion NVARCHAR(10), $tableVarCols);
+
+                ;WITH Origen AS (
+                    SELECT *,
+                        ROW_NUMBER() OVER (PARTITION BY $partitionCols ORDER BY (SELECT NULL)) AS RN
+                    FROM $linked
+                )
+                MERGE dbo.[$tabla] AS T
+                USING (SELECT * FROM Origen WHERE RN = 1) AS S
+                ON $onClause
+                WHEN MATCHED THEN
+                    UPDATE SET $setUpdate
+                WHEN NOT MATCHED BY TARGET THEN
+                    INSERT ($colsInsert) VALUES ($colsSrcInsert)
+                WHEN NOT MATCHED BY SOURCE THEN
+                    DELETE
+                OUTPUT
+                    \$action,
+                    $outputCols
+                INTO @Cambios;
+
+                SELECT * FROM @Cambios ORDER BY accion;
+            ";
+
+                $filas = $conn->select($sql);
+            });
+
+            $cambios = self::resumirCambios($filas, $pk);
+            $cambios['huerfanos_eliminados'] = (int) $huerfanosEliminados;
+            if ($huerfanosEliminados > 0) {
+                $cambios['nota_huerfanos'] = "Se eliminaron {$huerfanosEliminados} filas de CLASIFICACION_DOCENTE porque su docente ya no existe en el 2008.";
+            }
+
+            return [
+                'tabla' => $tabla,
+                'success' => true,
+                'message' => 'DOCENTES sincronizada vía MERGE (INSERT + UPDATE + DELETE) — espejo exacto del 2008',
+                'cambios' => $cambios,
+            ];
+        } catch (Exception $e) {
+            return self::error('DOCENTES', $e->getMessage());
         }
     }
 

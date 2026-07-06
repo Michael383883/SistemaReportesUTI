@@ -86,7 +86,7 @@ Route::prefix('database')->group(function () {
     Route::post('migrar-catalogo/{tabla}', [DatabaseController::class, 'migrarCatalogo']);
     Route::post('migrar-grupos', [DatabaseController::class, 'migrarGrupos']);
     Route::post('migrar-semestre', [DatabaseController::class, 'migrarSemestre']);
-
+    Route::post('/migrar-docentes', [DatabaseController::class, 'migrarDocentes']);
 });
 /*
 |--------------------------------------------------------------------------
@@ -204,7 +204,7 @@ Route::get('/clasificaciones/{id}/pdf', [ClasificacionDocenteController::class, 
     ->where('id', '[0-9]+');
 Route::delete('/clasificaciones/{id}', [ClasificacionDocenteController::class, 'destroy'])
     ->where('id', '[0-9]+');
- 
+
 // Reportes
 Route::get('/reportes/clasificacion', [ReporteClasificacionController::class, 'listado']);
 Route::get('/reportes/clasificacion/docente/{cod_docente}', [ReporteClasificacionController::class, 'porDocente'])
