@@ -6,11 +6,6 @@ use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
-use Database\Seeders\ResolucionDetalleSeeder;
-use Database\Seeders\ResolucionPdfSeeder;
-use Database\Seeders\ClasificacionDocenteSeeder;
-
-
 class DatabaseSeeder extends Seeder
 {
     public function run(): void
@@ -57,11 +52,6 @@ class DatabaseSeeder extends Seeder
                 $user['role'],
             ]);
         }
-        $this->call([
-            ResolucionPdfSeeder::class,
-            ResolucionDetalleSeeder::class,
-            ClasificacionDocenteSeeder::class,
 
-        ]);
     }
 }
