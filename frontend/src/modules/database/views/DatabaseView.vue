@@ -163,6 +163,42 @@
       </details>
     </section>
 
+    <!-- ── DOCENTES (MERGE dedicado, sin DELETE) ────────────────────────── -->
+    <section class="bg-slate-800 border border-slate-700 rounded-xl p-6 flex flex-col gap-4" aria-labelledby="section-docentes">
+      <span id="section-docentes" class="text-[0.68rem] font-semibold text-slate-500 uppercase tracking-widest">
+        Docentes
+      </span>
+      <p class="text-[13px] text-slate-400 leading-relaxed m-0">
+        MERGE de solo INSERT + UPDATE (nunca DELETE). DOCENTES tiene tablas hijas con FK
+        (ej. CLASIFICACION_DOCENTE), así que borrar registros desde acá podría romper la
+        integridad referencial — para bajas hay que hacerlo aparte, revisando antes sus hijos.
+      </p>
+
+      <div class="flex flex-col gap-2 bg-slate-900/50 border border-slate-700/60 rounded-lg p-4">
+        <div class="flex items-center justify-between gap-3">
+          <div>
+            <strong class="text-[13px] text-slate-200 font-medium">DOCENTES</strong>
+           <p class="text-[13px] text-slate-400 leading-relaxed m-0">
+              MERGE completo (INSERT + UPDATE + DELETE) — espejo exacto del 2008.
+            </p>
+          </div>
+          <button
+            type="button"
+            :disabled="!canSync || syncingDocentes"
+            :aria-busy="syncingDocentes"
+            @click="handleSyncDocentes"
+            class="flex items-center gap-1.5 px-3 py-2 rounded-md shrink-0 text-[12px] font-medium transition-colors outline-none
+                   bg-indigo-600 text-white hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-400/50
+                   disabled:bg-slate-700/60 disabled:text-slate-500 disabled:cursor-not-allowed"
+          >
+            <RefreshCw class="w-3.5 h-3.5 shrink-0" :class="syncingDocentes ? 'animate-spin' : ''" aria-hidden="true" />
+            {{ syncingDocentes ? 'Sincronizando...' : 'Sincronizar DOCENTES' }}
+          </button>
+        </div>
+        <SyncResultBlock v-if="docentesResult || docentesError" :result="docentesResult" :error="docentesError" compact />
+      </div>
+    </section>
+
     <!-- ── Carga inicial ─────────────────────────────────────────────── -->
     <section class="bg-slate-800 border border-slate-700 rounded-xl p-6 flex flex-col gap-4" aria-labelledby="section-carga-inicial">
       <span id="section-carga-inicial" class="text-[0.68rem] font-semibold text-slate-500 uppercase tracking-widest">
@@ -410,6 +446,29 @@ async function handleMigrarCatalogo(tabla) {
     catalogoTablaResults[tabla] = { result: null, error: mensajeError(e, `Error al migrar ${tabla}.`) }
   } finally {
     migratingCatalogoTabla.value = null
+  }
+}
+
+// ── DOCENTES (MERGE dedicado, sin DELETE) ───────────────────────────────
+const syncingDocentes = ref(false)
+const docentesResult = ref(null)
+const docentesError = ref(null)
+
+async function handleSyncDocentes() {
+  if (syncingDocentes.value) return
+  syncingDocentes.value = true
+  docentesResult.value = null
+  docentesError.value = null
+  try {
+    const data = await databaseService.migrarDocentes()
+    const item = data.detalle?.[0]
+    docentesResult.value = conTimestamp({
+      single: item ?? { tabla: 'DOCENTES', success: data.success, message: 'Sincronización completada' },
+    })
+  } catch (e) {
+    docentesError.value = mensajeError(e, 'Error al sincronizar DOCENTES. Intenta de nuevo.')
+  } finally {
+    syncingDocentes.value = false
   }
 }
 

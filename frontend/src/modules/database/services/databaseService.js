@@ -1,14 +1,6 @@
+//services/databaseService.js
 import axios from 'axios'
 
-// ──────────────────────────────────────────────────────────────────────────
-// Si tu proyecto ya tiene una instancia de axios centralizada (con baseURL,
-// interceptores de auth, etc. — por ejemplo la que probablemente usa el
-// módulo "docentes"), BÓRRALA esta instancia y usá la tuya:
-//
-//   import api from '@/services/api'
-//
-// Dejo esta acá para que el archivo funcione standalone.
-// ──────────────────────────────────────────────────────────────────────────
 const api = axios.create({
     baseURL: `${import.meta.env.VITE_API_URL ?? ''}/api/database`,
 })
@@ -52,6 +44,12 @@ export const databaseService = {
     async cargaInicial(tablas) {
         const body = tablas && tablas.length ? { tablas } : {}
         const { data } = await api.post('/carga-inicial', body)
+        return data
+    },
+
+    // 4a. Sincronizar DOCENTES (MERGE dedicado: solo INSERT+UPDATE, sin DELETE) --
+    async migrarDocentes() {
+        const { data } = await api.post('/migrar-docentes')
         return data
     },
 
