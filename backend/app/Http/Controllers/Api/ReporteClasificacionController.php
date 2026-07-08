@@ -21,6 +21,7 @@ class ReporteClasificacionController extends Controller
                 'cd.NIVEL',
                 'cd.GESTION',
                 'cd.PERIODO',
+                'cd.TIPO_DOCUMENTO',
                 'cd.DETALLE_GENERAL',
                 'cd.FOTOCOPIA_TITULAR',
                 'cd.OBSERVACION',
@@ -36,6 +37,9 @@ class ReporteClasificacionController extends Controller
         }
         if ($request->filled('nivel')) {
             $query->where('cd.NIVEL', $request->query('nivel'));
+        }
+        if ($request->filled('tipo_documento')) {          // <-- nuevo
+            $query->where('cd.TIPO_DOCUMENTO', $request->query('tipo_documento'));
         }
 
         $cabeceras = $query->orderBy('NOMBRE_DOCENTE')->get();
@@ -128,6 +132,7 @@ class ReporteClasificacionController extends Controller
                 DB::raw("LTRIM(RTRIM(d.APELLIDOS + ' ' + d.NOMBRES)) AS NOMBRE_DOCENTE"),
                 'cd.CATEGORIA',
                 'cd.NIVEL',
+                'cd.TIPO_DOCUMENTO',
                 'cd.GESTION'
             )
             ->orderBy('NOMBRE_DOCENTE')

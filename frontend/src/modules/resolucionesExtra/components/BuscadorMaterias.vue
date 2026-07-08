@@ -110,6 +110,7 @@
             <span v-if="m.sigla" class="text-gray-400 ml-1">({{ m.sigla }})</span>
             <div class="text-[10px] text-gray-400 truncate">
               Código: {{ m.codigo }} · Periodo: {{ m.periodo }}
+              <span v-if="m.nombre_plan"> · Plan: {{ m.nombre_plan }}</span>
             </div>
           </div>
           <!-- Círculo a la derecha -->
@@ -243,6 +244,7 @@ function onSelectMateria(materia) {
     cod_materia: materia.codigo,
     nombre_materia: materia.nombre,
     cod_plan: materia.plan || null,
+    nombre_plan: materia.nombre_plan || null,
     nota: null,
     detalle: ''
   }

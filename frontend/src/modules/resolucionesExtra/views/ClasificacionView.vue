@@ -4,7 +4,7 @@
     <!-- Header -->
     <div class="mb-4">
       <h1 class="text-[18px] font-semibold text-gray-1000">Digitalizar Documentos de Docente</h1>
-      <p class="text-[12px] text-gray-700 mt-0.5">Carga y registro de documentos (docentes titulares, docentes temporales)</p>
+      <p class="text-[12px] text-gray-700 mt-0.5">Carga y registro de documentos (Web sis 2001)</p>
     </div>
 
     <!-- Stepper -->

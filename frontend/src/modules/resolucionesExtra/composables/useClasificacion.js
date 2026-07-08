@@ -17,11 +17,12 @@ export function useClasificacion() {
         }
     }
 
-    function buildFormData({ cod_docente, categoria, nivel, gestion, periodo, detalle_general, observacion, observacion2, materias, referencias, archivo }) {
+    function buildFormData({ cod_docente, categoria, nivel, tipo_documento, gestion, periodo, detalle_general, observacion, observacion2, materias, referencias, archivo }) {
         const fd = new FormData()
         fd.append('cod_docente', cod_docente)
-        fd.append('categoria', categoria)      // ← Cambio: antes era 'nivel'
-        fd.append('nivel', nivel)              // ← Cambio: antes era 'orden_nivel'
+        fd.append('categoria', categoria)
+        fd.append('nivel', nivel)
+        if (tipo_documento) fd.append('tipo_documento', tipo_documento)   // <-- nuevo
         if (gestion) fd.append('gestion', gestion)
         if (periodo) fd.append('periodo', periodo)
         if (detalle_general) fd.append('detalle_general', detalle_general)

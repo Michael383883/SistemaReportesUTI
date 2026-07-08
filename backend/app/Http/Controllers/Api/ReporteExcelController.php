@@ -14,22 +14,59 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class ReporteExcelController extends Controller
 {
+
+    // GET /api/reportes/docentes-clasificados/preview
+    public function previsualizar(Request $request)
+    {
+        try {
+            $gestionDesde = $request->query('gestion_desde', '2001');
+            $gestionHasta = $request->query('gestion_hasta');
+            $periodo = $request->query('periodo');
+            $version = $request->query('version', '5ta Versión');
+
+            $etiquetaGestion = $gestionHasta
+                ? "{$gestionDesde} - {$gestionHasta}"
+                : "Desde {$gestionDesde}";
+
+            $data = $this->construirDatos($gestionDesde, $gestionHasta, $periodo);
+
+            return response()->json([
+                'ok' => true,
+                'gestion' => $etiquetaGestion,
+                'version' => $version,
+                'total_filas' => count($data),
+                'data' => $data,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'ok' => false,
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
     // Orden de los niveles para clasificar y ordenar el listado
+
     private const ORDEN_NIVELES = [
         'PRIMER NIVEL' => 1,
         'SEGUNDO NIVEL' => 2,
         'TERCER NIVEL' => 3,
     ];
 
+    // Etiquetas legibles para TIPO_DOCUMENTO
+    private const ETIQUETAS_TIPO_DOCUMENTO = [
+        'TITULARIDAD_HISTORICA' => 'Titularidad Histórica',
+        'TITULARIDAD_RCU_43_11' => 'Titularidad RCU 43/11',
+        'EXAMEN_SUFICIENCIA' => 'Examen de Suficiencia',
+        'CONCURSO_MERITOS' => 'Concurso de Méritos',
+    ];
+
     public function generarListadoDocentes(Request $request)
     {
         try {
-            // Por defecto trae TODAS las gestiones desde 2001 en adelante.
-            // Se puede acotar con ?gestion_desde=2015&gestion_hasta=2020 si se necesita.
             $gestionDesde = $request->query('gestion_desde', '2001');
             $gestionHasta = $request->query('gestion_hasta'); // opcional
-            $periodo = $request->query('periodo'); // opcional: 1, 2, o null para traer ambos
-            $version = $request->query('version', '4ta Versión');
+            $periodo = $request->query('periodo'); // opcional
+            $version = $request->query('version', '5ta Versión');
 
             $etiquetaGestion = $gestionHasta
                 ? "{$gestionDesde} - {$gestionHasta}"
@@ -53,18 +90,13 @@ class ReporteExcelController extends Controller
         }
     }
 
-    /**
-     * Construye el arreglo de filas para el reporte, ya agrupado y ordenado
-     * por docente -> clasificación -> materia, tal como debe verse en el Excel.
-     */
     private function construirDatos(string $gestionDesde, ?string $gestionHasta = null, ?int $periodo = null): array
     {
         $query = ClasificacionDocente::with([
-                'docente',
-                'materias', // ya viene ordenada por ORDEN gracias a la relación del modelo
-                'referencias',
-            ])
-            // CAST porque GESTION es varchar en la BD; así compara como número y no como texto
+            'docente',
+            'materias',
+            'referencias',
+        ])
             ->whereRaw('CAST(GESTION AS INT) >= ?', [(int) $gestionDesde]);
 
         if ($gestionHasta !== null) {
@@ -77,10 +109,8 @@ class ReporteExcelController extends Controller
 
         $clasificaciones = $query->get();
 
-        // Un docente puede tener varias clasificaciones (varias resoluciones/títulos)
         $porDocente = $clasificaciones->groupBy('COD_DOCENTE');
 
-        // Ordenar los grupos: primero por NIVEL (PRIMER/SEGUNDO/TERCER) y luego por apellido/nombre
         $gruposOrdenados = $porDocente->sort(function ($grupoA, $grupoB) {
             $nivelA = self::ORDEN_NIVELES[$grupoA->first()->NIVEL] ?? 999;
             $nivelB = self::ORDEN_NIVELES[$grupoB->first()->NIVEL] ?? 999;
@@ -103,19 +133,23 @@ class ReporteExcelController extends Controller
             $contadorPorNivel[$nivel] = ($contadorPorNivel[$nivel] ?? 0) + 1;
             $primeraFilaDocente = true;
 
+            // Para saber en qué índice de $data cae la última fila de este docente
+            // (así podemos marcar el borde grueso de cierre del grupo)
+            $indiceInicioGrupo = count($data);
+
             foreach ($clasificacionesDelDocente as $clasificacion) {
                 $materias = $clasificacion->materias;
 
-                // Si la clasificación no tiene materias asociadas en la FCE
                 if ($materias->isEmpty()) {
-                    $materias = collect([(object) [
-                        'NOMBRE_MATERIA' => 'NO REGENTA MATERIA EN LA FCE',
-                        'CARGA_HORARIA' => null,
-                        'DETALLE' => $clasificacion->DETALLE_GENERAL,
-                    ]]);
+                    $materias = collect([
+                        (object) [
+                            'NOMBRE_MATERIA' => 'NO REGENTA MATERIA EN LA FCE',
+                            'CARGA_HORARIA' => null,
+                            'DETALLE' => $clasificacion->DETALLE_GENERAL,
+                        ]
+                    ]);
                 }
 
-                // OBS2 = primera referencia, OBS3 = el resto (si hay más de una)
                 $referencias = $clasificacion->referencias->pluck('NRO_REFERENCIA')->filter()->values();
                 $obs2 = $referencias->get(0, '');
                 $obs3 = $referencias->count() > 1 ? $referencias->slice(1)->implode(' - ') : '';
@@ -125,29 +159,40 @@ class ReporteExcelController extends Controller
 
                 foreach ($materias as $materia) {
                     $data[] = [
-                        'N'                 => $primeraFilaDocente ? $contadorPorNivel[$nivel] : null,
-                        'NOMBRE_DOCENTE'    => $nombreDocente,
-                        'NOMBRE_MATERIA'    => $materia->NOMBRE_MATERIA ?: 'NO REGENTA MATERIA EN LA FCE',
-                        'CH'                => $materia->CARGA_HORARIA,
-                        'DETALLE'           => $primeraFilaClasificacion
+                        'N' => $primeraFilaDocente ? $contadorPorNivel[$nivel] : null,
+                        'NOMBRE_DOCENTE' => $nombreDocente,
+                        'NOMBRE_MATERIA' => $materia->NOMBRE_MATERIA ?: 'NO REGENTA MATERIA EN LA FCE',
+                        'CH' => $materia->CARGA_HORARIA,
+                        'TIPO_DOCUMENTO' => $primeraFilaClasificacion
+                            ? (self::ETIQUETAS_TIPO_DOCUMENTO[$clasificacion->TIPO_DOCUMENTO] ?? $clasificacion->TIPO_DOCUMENTO ?? '')
+                            : '',
+                        'DETALLE' => $primeraFilaClasificacion
                             ? ($clasificacion->DETALLE_GENERAL ?: ($materia->DETALLE ?? ''))
                             : ($materia->DETALLE ?? ''),
-                        'NIVEL'             => $primeraFilaDocente ? $nivel : '',
+                        'CATEGORIA' => $primeraFilaDocente ? $this->formatearCategoria($clasificacion->CATEGORIA) : '',
+                        'NIVEL' => $primeraFilaDocente ? $nivel : '',
                         'FOTOCOPIA_TITULAR' => ($primeraFilaDocente && $clasificacion->FOTOCOPIA_TITULAR)
                             ? 'PRESENTO FOTOCOPIA'
                             : '',
-                        'OBS2'              => $primeraFilaClasificacion ? $obs2 : '',
-                        'OBS3'              => $primeraFilaClasificacion ? $obs3 : '',
-                        // Filas "titular" (con detalle general) se muestran en negrita
-                        'NEGRITA'           => $primeraFilaClasificacion && $esGeneral,
-                        // Se conserva por si luego quieres agregar la columna de vuelta
-                        'CATEGORIA'         => $clasificacion->CATEGORIA,
+                        'OBS2' => $primeraFilaClasificacion ? $obs2 : '',
+                        'OBS3' => $primeraFilaClasificacion ? $obs3 : '',
+                        'NEGRITA' => $primeraFilaClasificacion && $esGeneral,
                     ];
 
                     $primeraFilaDocente = false;
                     $primeraFilaClasificacion = false;
                 }
             }
+
+            // Marca la última fila de este docente para dibujar el borde grueso de cierre
+            $indiceUltimaFila = count($data) - 1;
+            if ($indiceUltimaFila >= $indiceInicioGrupo) {
+                $data[$indiceUltimaFila]['FIN_GRUPO'] = true;
+            }
+
+            // Marca el inicio del grupo para poder fusionar Nº y NOMBRE_DOCENTE al escribir el Excel
+            $data[$indiceInicioGrupo]['INICIO_GRUPO'] = true;
+            $data[$indiceInicioGrupo]['FILAS_GRUPO'] = $indiceUltimaFila - $indiceInicioGrupo + 1;
         }
 
         return $data;
@@ -161,8 +206,26 @@ class ReporteExcelController extends Controller
     }
 
     /**
-     * Genera el Excel replicando exactamente el layout de la hoja "Escalafon":
-     * columna A vacía, datos en B..G, columna H vacía (separador), I..K = FOTOCOPIA/OBS2/OBS3
+     * Oculta el texto "Sin Examen de suficiencia" en la columna CATEGORIA:
+     * si el docente tiene esa categoría, la celda queda vacía.
+     */
+    private function formatearCategoria(?string $categoria): string
+    {
+        if ($categoria === null) {
+            return '';
+        }
+
+        if (mb_strtolower(trim($categoria)) === mb_strtolower('Sin Examen de suficiencia')) {
+            return '';
+        }
+
+        return $categoria;
+    }
+
+    /**
+     * Layout de columnas:
+     * B Nº | C NOMBRE DOCENTE | D NOMBRE MATERIA | E CH | F TIPO DOCUMENTO | G DETALLE
+     * H CATEGORIA | I NIVEL | J (separador vacío) | K FOTOCOPIA TITULAR | L OBS2 | M OBS3
      */
     private function generarExcel(array $data, string $gestion, string $version)
     {
@@ -178,12 +241,12 @@ class ReporteExcelController extends Controller
         $sheet->setCellValue('B2', 'Facultad de Ciencias Económicas');
 
         $sheet->setCellValue('B3', "LISTA DE DOCENTES CLASIFICADOS EN PRIMER NIVEL, SEGUNDO NIVEL Y TERCER NIVEL - {$gestion} ({$version}) {$fechaHoy}");
-        $sheet->mergeCells('B3:G3');
+        $sheet->mergeCells('B3:I3');
         $sheet->getStyle('B3')->getFont()->setBold(true)->setSize(14);
         $sheet->getStyle('B3')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
         $sheet->setCellValue('B4', 'Nota: Este es un documento preliminar el mismo puede ser modificado de acuerdo a la solicitud debidamente documentado con Resolución.');
-        $sheet->mergeCells('B4:G4');
+        $sheet->mergeCells('B4:I4');
         $sheet->getStyle('B4')->getAlignment()->setWrapText(true)->setVertical(Alignment::VERTICAL_CENTER);
 
         // === CABECERA DE TABLA (fila 5) ===
@@ -192,24 +255,32 @@ class ReporteExcelController extends Controller
             'C' => 'NOMBRE DOCENTE',
             'D' => 'NOMBRE MATERIA',
             'E' => 'CH',
-            'F' => 'DETALLE',
-            'G' => 'NIVEL',
-            'I' => 'FOTOCOPIA TITULAR',
-            'J' => 'OBS 2',
-            'K' => 'OBS3',
+            'F' => 'TIPO DE DOCUMENTO',
+            'G' => 'DETALLE',
+            'H' => 'CATEGORIA',
+            'I' => 'NIVEL',
+            'K' => 'FOTOCOPIA TITULAR',
+            'L' => 'OBS 2',
+            'M' => 'OBS3',
         ];
 
         foreach ($headers as $col => $texto) {
             $sheet->setCellValue($col . '5', $texto);
         }
-        $sheet->getStyle('B5:K5')->getFont()->setBold(true);
-        $sheet->getStyle('B5:K5')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER)
+        $sheet->getStyle('B5:I5')->getFont()->setBold(true);
+        $sheet->getStyle('K5:M5')->getFont()->setBold(true);
+        $sheet->getStyle('B5:I5')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER)
             ->setVertical(Alignment::VERTICAL_CENTER);
-        $sheet->getStyle('B5:K5')->getFill()
+        $sheet->getStyle('K5:M5')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER)
+            ->setVertical(Alignment::VERTICAL_CENTER);
+        $sheet->getStyle('B5:I5')->getFill()
             ->setFillType(Fill::FILL_SOLID)
             ->getStartColor()->setARGB('FFD9D9D9');
-        $sheet->getStyle('B5:G5')->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
-        $sheet->getStyle('I5:K5')->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
+        $sheet->getStyle('K5:M5')->getFill()
+            ->setFillType(Fill::FILL_SOLID)
+            ->getStartColor()->setARGB('FFD9D9D9');
+        $sheet->getStyle('B5:I5')->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
+        $sheet->getStyle('K5:M5')->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
         $sheet->getRowDimension(5)->setRowHeight(20);
 
         // === FILAS DE DATOS ===
@@ -220,45 +291,78 @@ class ReporteExcelController extends Controller
             $sheet->setCellValue('C' . $fila, $item['NOMBRE_DOCENTE']);
             $sheet->setCellValue('D' . $fila, $item['NOMBRE_MATERIA']);
             $sheet->setCellValue('E' . $fila, $item['CH']);
-            $sheet->setCellValue('F' . $fila, $item['DETALLE']);
-            $sheet->setCellValue('G' . $fila, $item['NIVEL']);
-            $sheet->setCellValue('I' . $fila, $item['FOTOCOPIA_TITULAR']);
-            $sheet->setCellValue('J' . $fila, $item['OBS2']);
-            $sheet->setCellValue('K' . $fila, $item['OBS3']);
+            $sheet->setCellValue('F' . $fila, $item['TIPO_DOCUMENTO']);
+            $sheet->setCellValue('G' . $fila, $item['DETALLE']);
+            $sheet->setCellValue('H' . $fila, $item['CATEGORIA']);
+            $sheet->setCellValue('I' . $fila, $item['NIVEL']);
+            $sheet->setCellValue('K' . $fila, $item['FOTOCOPIA_TITULAR']);
+            $sheet->setCellValue('L' . $fila, $item['OBS2']);
+            $sheet->setCellValue('M' . $fila, $item['OBS3']);
 
-            $sheet->getStyle('B' . $fila . ':K' . $fila)->getAlignment()
+            $sheet->getStyle('B' . $fila . ':I' . $fila)->getAlignment()
+                ->setWrapText(true)
+                ->setVertical(Alignment::VERTICAL_CENTER);
+            $sheet->getStyle('K' . $fila . ':M' . $fila)->getAlignment()
                 ->setWrapText(true)
                 ->setVertical(Alignment::VERTICAL_CENTER);
 
             $sheet->getStyle('E' . $fila)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
             $sheet->getStyle('B' . $fila)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
-            // Grid uniforme, fino, en todas las celdas de la fila
-            $sheet->getStyle('B' . $fila . ':K' . $fila)->getBorders()->getAllBorders()
+            // Grid uniforme fino
+            $sheet->getStyle('B' . $fila . ':I' . $fila)->getBorders()->getAllBorders()
+                ->setBorderStyle(Border::BORDER_THIN);
+            $sheet->getStyle('K' . $fila . ':M' . $fila)->getBorders()->getAllBorders()
                 ->setBorderStyle(Border::BORDER_THIN);
 
-            // Filas "titular" (con detalle general) van en negrita: docente, detalle y nivel
-            if (!empty($item['NEGRITA'])) {
-                $sheet->getStyle('C' . $fila)->getFont()->setBold(true);
-                $sheet->getStyle('F' . $fila)->getFont()->setBold(true);
-                $sheet->getStyle('G' . $fila)->getFont()->setBold(true);
+            // Fusiona Nº y NOMBRE DOCENTE en todas las filas que pertenecen al mismo docente
+            if (!empty($item['INICIO_GRUPO']) && $item['FILAS_GRUPO'] > 1) {
+                $filaInicio = $fila;
+                $filaFin = $fila + $item['FILAS_GRUPO'] - 1;
+
+                $sheet->mergeCells('B' . $filaInicio . ':B' . $filaFin);
+                $sheet->mergeCells('C' . $filaInicio . ':C' . $filaFin);
+
+                $sheet->getStyle('B' . $filaInicio . ':B' . $filaFin)->getAlignment()
+                    ->setHorizontal(Alignment::HORIZONTAL_CENTER)
+                    ->setVertical(Alignment::VERTICAL_CENTER);
+                $sheet->getStyle('C' . $filaInicio . ':C' . $filaFin)->getAlignment()
+                    ->setHorizontal(Alignment::HORIZONTAL_LEFT)
+                    ->setVertical(Alignment::VERTICAL_CENTER)
+                    ->setWrapText(true);
+            }
+
+            // Borde grueso de cierre al final de cada grupo de docente
+            if (!empty($item['FIN_GRUPO'])) {
+                $sheet->getStyle('B' . $fila . ':I' . $fila)->getBorders()->getBottom()
+                    ->setBorderStyle(Border::BORDER_MEDIUM);
+                $sheet->getStyle('K' . $fila . ':M' . $fila)->getBorders()->getBottom()
+                    ->setBorderStyle(Border::BORDER_MEDIUM);
             }
 
             $fila++;
         }
 
-        // === ANCHOS DE COLUMNA (igual al Excel de referencia) ===
+        // === AUTOFILTRO (solo en CATEGORIA e NIVEL, que son columnas adyacentes: H e I) ===
+        $ultimaFila = $fila - 1;
+        if ($ultimaFila >= 5) {
+            $sheet->setAutoFilter('H5:I' . $ultimaFila);
+        }
+
+        // === ANCHOS DE COLUMNA ===
         $sheet->getColumnDimension('A')->setWidth(4);
         $sheet->getColumnDimension('B')->setWidth(5);
         $sheet->getColumnDimension('C')->setWidth(37.5);
         $sheet->getColumnDimension('D')->setWidth(38.7);
         $sheet->getColumnDimension('E')->setWidth(6);
-        $sheet->getColumnDimension('F')->setWidth(60);
-        $sheet->getColumnDimension('G')->setWidth(15.3);
-        $sheet->getColumnDimension('H')->setWidth(1.5);
-        $sheet->getColumnDimension('I')->setWidth(23.6);
-        $sheet->getColumnDimension('J')->setWidth(16);
-        $sheet->getColumnDimension('K')->setWidth(20);
+        $sheet->getColumnDimension('F')->setWidth(22);
+        $sheet->getColumnDimension('G')->setWidth(45);
+        $sheet->getColumnDimension('H')->setWidth(18);
+        $sheet->getColumnDimension('I')->setWidth(15.3);
+        $sheet->getColumnDimension('J')->setWidth(1.5);
+        $sheet->getColumnDimension('K')->setWidth(23.6);
+        $sheet->getColumnDimension('L')->setWidth(16);
+        $sheet->getColumnDimension('M')->setWidth(20);
 
         $sheet->freezePane('B6');
 

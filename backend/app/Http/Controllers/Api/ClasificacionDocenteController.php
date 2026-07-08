@@ -21,6 +21,7 @@ class ClasificacionDocenteController extends Controller
                 DB::raw("LTRIM(RTRIM(d.APELLIDOS + ' ' + d.NOMBRES)) AS NOMBRE_DOCENTE"),
                 'cd.CATEGORIA',
                 'cd.NIVEL',
+                'cd.TIPO_DOCUMENTO',
                 'cd.GESTION',
                 'cd.PERIODO',
                 'cd.FOTOCOPIA_TITULAR',
@@ -39,6 +40,9 @@ class ClasificacionDocenteController extends Controller
         }
         if ($request->filled('cod_docente')) {
             $query->where('cd.COD_DOCENTE', $request->query('cod_docente'));
+        }
+        if ($request->filled('tipo_documento')) {
+            $query->where('cd.TIPO_DOCUMENTO', $request->query('tipo_documento'));
         }
 
         $listado = $query->orderBy('NOMBRE_DOCENTE')->get();
@@ -82,8 +86,9 @@ class ClasificacionDocenteController extends Controller
         try {
             $request->validate([
                 'cod_docente' => 'required|integer',
-                'categoria' => 'required|string|in:Docentes Titulares,Docentes Temporales',
-                'nivel' => 'required|string|in:PRIMER NIVEL,SEGUNDO NIVEL,TERCER NIVEL',
+                'categoria' => 'required|string|in:Docentes Titulares,Docentes Temporales,Examen de suficiencia,Acefala,Sin Examen de suficiencia',
+                'nivel' => 'nullable|string|in:Primer nivel,Segundo nivel,Tercer nivel',
+                'tipo_documento' => 'nullable|string|max: 40', // <-- nuevo
                 'gestion' => 'nullable|string|max:10',
                 'periodo' => 'nullable|string|max:30',
                 'detalle_general' => 'nullable|string',
@@ -113,9 +118,10 @@ class ClasificacionDocenteController extends Controller
             $idClasificacion = DB::table('CLASIFICACION_DOCENTE')->insertGetId([
                 'COD_DOCENTE' => $request->cod_docente,
                 'CATEGORIA' => $request->categoria,
-                'NIVEL' => $request->nivel,          // ← Guarda el texto "PRIMER NIVEL", "SEGUNDO NIVEL", "TERCER NIVEL"
+                'NIVEL' => $request->nivel ?: null,           // ← Guarda el texto "PRIMER NIVEL", "SEGUNDO NIVEL", "TERCER NIVEL"
                 'GESTION' => $request->gestion,
                 'PERIODO' => $request->periodo,
+                'TIPO_DOCUMENTO' => $request->tipo_documento,
                 'DETALLE_GENERAL' => $request->detalle_general,
                 'FOTOCOPIA_TITULAR' => $fotocopia,
                 'RUTA_ARCHIVO' => $rutaArchivo,

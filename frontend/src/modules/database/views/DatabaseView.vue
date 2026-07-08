@@ -103,7 +103,7 @@
     <!-- ── Catálogos ─────────────────────────────────────────────────── -->
     <section class="bg-slate-800 border border-slate-700 rounded-xl p-6 flex flex-col gap-4" aria-labelledby="section-catalogos">
       <span id="section-catalogos" class="text-[0.68rem] font-semibold text-slate-500 uppercase tracking-widest">
-        Catálogos
+        Tablas de la Base de datos
       </span>
       <p class="text-[13px] text-slate-400 leading-relaxed m-0">
         Espejo exacto del 2008 (TRUNCATE + INSERT). Se pueden volver a correr en cualquier
@@ -128,7 +128,7 @@
       <details class="group">
         <summary class="cursor-pointer select-none text-[12px] text-slate-400 hover:text-slate-200 transition-colors list-none flex items-center gap-1.5 w-fit">
           <ChevronRight class="w-3.5 h-3.5 transition-transform group-open:rotate-90" aria-hidden="true" />
-          Migrar un catálogo puntual
+          Migrar una tabla puntual
         </summary>
 
         <div class="flex flex-col gap-2 mt-3">

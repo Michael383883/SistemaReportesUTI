@@ -92,7 +92,7 @@
           class="w-full text-left px-3 py-2 text-[12px] border-b border-gray-100 last:border-b-0 flex items-center justify-between hover:bg-gray-50 transition-colors"
           :class="[
             idx === highlightIndex ? 'bg-blue-50' : '',
-            referenciaYaSeleccionada(ref.id) ? 'opacity-50 cursor-not-allowed' : ''
+            referenciaYaSeleccionada(ref.id) ? 'opacity-60 cursor-not-allowed bg-green-50/40' : ''
           ]"
           @mousedown.prevent="onSelectReferencia(ref)"
           @mouseenter="highlightIndex = idx"
@@ -102,6 +102,12 @@
             <div class="flex items-center gap-2">
               <span class="font-medium text-gray-800">{{ ref.nro_referencia }}</span>
               <span class="text-[10px] text-gray-400">Año: {{ ref.anio || 'N/A' }}</span>
+              <span
+                v-if="referenciaYaSeleccionada(ref.id)"
+                class="text-[10px] font-semibold text-green-600 bg-green-100 px-1.5 py-0.5 rounded"
+              >
+                Ya registrada
+              </span>
             </div>
             <div class="text-[11px] text-gray-500 truncate">
               {{ ref.descripcion || 'Sin descripción' }}
@@ -146,18 +152,17 @@ const referenciasFiltradas = computed(() => {
 
 // Verificar si una referencia ya está seleccionada
 function referenciaYaSeleccionada(id) {
-  return props.referenciasSeleccionadas.some(r => r.id_resolucion === id)
+  return props.referenciasSeleccionadas.some(
+    r => Number(r.id_resolucion) === Number(id)
+  )
 }
-
+// ─── Cargar referencias al hacer focus ───
 // ─── Cargar referencias al hacer focus ───
 async function onFocus() {
   dropdownOpen.value = true
-  if (!searchTerm.value) {
-    // Si no hay término de búsqueda, cargar todas
-    await cargarReferencias()
-  }
+  // Siempre carga (aunque no haya texto), así el docente ve de una las que ya tiene
+  await cargarReferencias()
 }
-
 // ─── Cargar referencias con filtros ───
 async function cargarReferencias() {
   const params = {}

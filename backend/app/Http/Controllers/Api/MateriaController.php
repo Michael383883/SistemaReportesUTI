@@ -12,46 +12,48 @@ class MateriaController extends Controller
     /**
      * GET /api/materias
      * Busca materias por gestión (ANIO) y/o periodo (PERIODO)
+     * Incluye el nombre del plan (JOIN con PLANES)
      */
     public function index(Request $request)
     {
         try {
-            $query = DB::table('MATERIAS')
+            $query = DB::table('MATERIAS as m')
+                ->leftJoin('PLANES as p', function ($join) {
+                    $join->on('m.PLAN', '=', 'p.CODIGO')
+                        ->on('m.ANIO', '=', 'p.ANIO');
+                })
                 ->select(
-                    'CODIGO as codigo',
-                    'NOMBRE as nombre',
-                    'SIGLA as sigla',
-                    'PERIODO as periodo',
-                    'ANIO as anio',
-                    'PLAN as plan'
+                    'm.CODIGO as codigo',
+                    'm.NOMBRE as nombre',
+                    'm.SIGLA as sigla',
+                    'm.PERIODO as periodo',
+                    'm.ANIO as anio',
+                    'm.PLAN as cod_plan',
+                    'p.NOMBRE as nombre_plan'
                 )
-                ->whereNotNull('NOMBRE')
-                ->where('NOMBRE', '!=', 'NULL');
+                ->whereNotNull('m.NOMBRE')
+                ->where('m.NOMBRE', '!=', 'NULL');
 
-            // Filtro por gestión (ANIO) - OBLIGATORIO
             if ($request->filled('anio')) {
-                $query->where('ANIO', $request->query('anio'));
+                $query->where('m.ANIO', $request->query('anio'));
             } else {
-                // Si no hay año, devolver vacío
                 return response()->json([]);
             }
 
-            // Filtro por periodo (PERIODO) - OPCIONAL
             if ($request->filled('periodo')) {
-                $query->where('PERIODO', $request->query('periodo'));
+                $query->where('m.PERIODO', $request->query('periodo'));
             }
 
-            // Búsqueda por texto - OPCIONAL
             if ($request->filled('search')) {
                 $search = $request->query('search');
                 $query->where(function ($q) use ($search) {
-                    $q->where('NOMBRE', 'LIKE', "%{$search}%")
-                      ->orWhere('CODIGO', 'LIKE', "%{$search}%")
-                      ->orWhere('SIGLA', 'LIKE', "%{$search}%");
+                    $q->where('m.NOMBRE', 'LIKE', "%{$search}%")
+                        ->orWhere('m.CODIGO', 'LIKE', "%{$search}%")
+                        ->orWhere('m.SIGLA', 'LIKE', "%{$search}%");
                 });
             }
 
-            $materias = $query->orderBy('NOMBRE')->get();
+            $materias = $query->orderBy('m.NOMBRE')->get();
 
             return response()->json($materias);
 
@@ -72,7 +74,6 @@ class MateriaController extends Controller
 
     /**
      * GET /api/materias/periodos
-     * Obtiene los años disponibles
      */
     public function periodos()
     {

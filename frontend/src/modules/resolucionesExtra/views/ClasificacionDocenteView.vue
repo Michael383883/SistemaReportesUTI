@@ -182,17 +182,25 @@
             <!-- CABECERA -->
             <div class="flex items-center justify-between gap-3 px-4 py-3 bg-gray-50/50 border-b border-gray-100">
               <div class="flex items-center gap-3 min-w-0 flex-1 flex-wrap">
+                <!-- TÍTULO: TIPO_DOCUMENTO como título, DETALLE_GENERAL como subtítulo -->
+                <div class="flex flex-col flex-1">
+                  <span class="text-base font-medium text-gray-800 truncate">
+                    {{ c.TIPO_DOCUMENTO || 'Sin título' }}
+                  </span>
+                  <span v-if="c.DETALLE_GENERAL" class="text-xs text-gray-400 truncate">
+                    {{ c.DETALLE_GENERAL }}
+                  </span>
+                </div>
                 <!-- CATEGORIA -->
                 <span class="inline-flex px-2.5 py-1 rounded-full text-xs font-medium flex-shrink-0" :class="badgeCategoria(c.CATEGORIA)">
                   {{ c.CATEGORIA }}
                 </span>
-                <!-- NIVEL (texto normal, sin colores) -->
+
+                <!-- NIVEL -->
                 <span class="text-sm font-medium text-gray-600 flex-shrink-0">
                   {{ c.NIVEL || '—' }}
                 </span>
-                <span class="text-base font-medium text-gray-800 truncate flex-1 min-w-[120px]">
-                  {{ c.DETALLE_GENERAL || 'Sin título' }}
-                </span>
+
                 <span v-if="c.FECHA_REGISTRO" class="text-xs text-gray-400 flex-shrink-0 hidden sm:inline">
                   {{ formatearFecha(c.FECHA_REGISTRO) }}
                 </span>
@@ -226,9 +234,10 @@
             </div>
 
             <!-- CONTENIDO -->
-            <div class="px-4 py-3 space-y-2">
+            <div class="px-4 py-3 space-y-2.5">
 
-              <div v-if="c.OBSERVACION || c.OBSERVACION2" class="flex flex-wrap gap-2 mb-1">
+              <!-- Observaciones -->
+              <div v-if="c.OBSERVACION || c.OBSERVACION2" class="flex flex-wrap gap-2">
                 <span v-if="c.OBSERVACION" class="inline-flex items-center gap-1 px-3 py-1.5 bg-gray-100 rounded-lg text-sm text-gray-600 leading-snug">
                   {{ c.OBSERVACION }}
                 </span>
@@ -237,58 +246,68 @@
                 </span>
               </div>
 
-              <!-- FILA COMPLETA: Gestión/Periodo | Materias | Referencias -->
+              <!-- Meta: Gestión / Periodo / Fecha (móvil) -->
               <div
-                v-if="c.GESTION || c.PERIODO || c.materias?.length || c.referencias?.length"
-                class="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm"
+                v-if="c.GESTION || c.PERIODO || c.FECHA_REGISTRO"
+                class="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500"
               >
-                <!-- Gestión / Periodo -->
-                <div v-if="c.GESTION || c.PERIODO" class="flex items-center gap-3 text-gray-500 flex-shrink-0">
-                  <span v-if="c.GESTION" class="flex items-center gap-1.5">
-                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-                    </svg>
-                    {{ c.GESTION }}
-                  </span>
-                  <span v-if="c.PERIODO" class="flex items-center gap-1.5">
-                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                    </svg>
-                    Periodo {{ c.PERIODO }}
-                  </span>
-                </div>
+                <span v-if="c.GESTION" class="flex items-center gap-1.5">
+                  <svg class="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                  </svg>
+                  {{ c.GESTION }}
+                </span>
+                <span v-if="c.PERIODO" class="flex items-center gap-1.5">
+                  <svg class="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                  </svg>
+                  Periodo {{ c.PERIODO }}
+                </span>
+                <span v-if="c.FECHA_REGISTRO" class="flex items-center gap-1.5 sm:hidden">
+                  <svg class="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                  </svg>
+                  {{ formatearFecha(c.FECHA_REGISTRO) }}
+                </span>
+              </div>
 
-                <span v-if="(c.GESTION || c.PERIODO) && (c.materias?.length || c.referencias?.length)" class="text-gray-200 select-none">|</span>
-
-                <!-- Materias -->
-                <div v-if="c.materias?.length" class="flex flex-wrap items-center gap-2 flex-1 min-w-[160px]">
-                  <span class="text-xs font-semibold text-gray-400 uppercase tracking-wide flex-shrink-0">Materias:</span>
+              <!-- Materias -->
+              <div v-if="c.materias?.length" class="flex items-start gap-2.5">
+                <span class="text-[11px] font-semibold text-gray-400 uppercase tracking-wide pt-1.5 flex-shrink-0 w-[78px]">
+                  Materias
+                </span>
+                <div class="flex flex-wrap gap-1.5 flex-1 min-w-0">
                   <span
                     v-for="m in c.materias"
                     :key="m.ID_DETALLE"
-                    class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 border border-blue-100 rounded text-sm text-blue-700"
+                    class="inline-flex items-center gap-1.5 pl-2.5 pr-1 py-1 bg-blue-50 border border-blue-100 rounded-lg text-sm text-blue-800 leading-none"
                   >
-                    {{ m.NOMBRE_MATERIA }}
-                    <span v-if="m.NOTA !== null && m.NOTA !== undefined" class="text-xs font-semibold text-blue-500">
-                      {{ m.NOTA }}
+                    <span class="font-medium">{{ m.NOMBRE_MATERIA }}</span>
+                    <span
+                      class="text-[11px] font-semibold px-1.5 py-1 rounded"
+                      :class="tieneNota(m) ? 'bg-blue-600 text-white' : 'bg-white text-gray-400 border border-blue-100'"
+                    >
+                      {{ tieneNota(m) ? `Nota: ${m.NOTA}` : 'Sin calificación' }}
                     </span>
                   </span>
                 </div>
+              </div>
 
-                <span v-if="c.materias?.length && c.referencias?.length" class="text-gray-200 select-none">|</span>
-
-                <!-- Referencias -->
-                <div v-if="c.referencias?.length" class="flex flex-wrap items-center gap-2 flex-1 min-w-[160px]">
-                  <span class="text-xs font-semibold text-gray-400 uppercase tracking-wide flex-shrink-0">Referencias:</span>
+              <!-- Referencias -->
+              <div v-if="c.referencias?.length" class="flex items-start gap-2.5">
+                <span class="text-[11px] font-semibold text-gray-400 uppercase tracking-wide pt-1.5 flex-shrink-0 w-[78px]">
+                  Referencias
+                </span>
+                <div class="flex flex-wrap gap-1.5 flex-1 min-w-0">
                   <template v-for="r in c.referencias" :key="r.ID_REF">
                     <a
                       v-if="r.ID_RESOLUCION"
                       :href="`${API_BASE}/api/resoluciones/${r.ID_RESOLUCION}/pdf`"
                       target="_blank"
-                      class="group inline-flex items-center bg-green-50 border border-green-100 hover:border-green-200 rounded-lg text-sm text-green-700 font-medium transition-colors overflow-hidden"
+                      class="group inline-flex items-center bg-green-50 border border-green-100 hover:border-green-200 rounded-lg text-sm text-green-700 font-medium transition-colors overflow-hidden leading-none"
                     >
-                      <span class="px-2.5 py-1">{{ r.NRO_REFERENCIA }}</span>
-                      <span class="inline-flex items-center gap-1 px-2 py-1 bg-green-600 group-hover:bg-green-700 text-white text-xs font-semibold h-full transition-colors">
+                      <span class="px-2.5 py-1.5">{{ r.NRO_REFERENCIA }}</span>
+                      <span class="inline-flex items-center gap-1 px-2 py-1.5 bg-green-600 group-hover:bg-green-700 text-white text-[11px] font-semibold h-full transition-colors">
                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                           <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h3m5-13v4a1 1 0 001 1h4m-5-5H8a2 2 0 00-2 2v14a2 2 0 002 2h8a2 2 0 002-2V8l-5-5z"/>
                         </svg>
@@ -297,7 +316,7 @@
                     </a>
                     <span
                       v-else
-                      class="inline-flex items-center px-2.5 py-1 bg-gray-50 border border-gray-100 rounded text-sm text-gray-500"
+                      class="inline-flex items-center px-2.5 py-1.5 bg-gray-50 border border-gray-100 rounded-lg text-sm text-gray-500 leading-none"
                     >
                       {{ r.NRO_REFERENCIA }}
                     </span>
@@ -332,9 +351,12 @@
                 {{ c.CATEGORIA }}
               </span>
               <p class="text-sm font-medium text-gray-800 truncate">
-                {{ c.NOMBRE_ARCHIVO || c.DETALLE_GENERAL || 'Sin archivo' }}
+                {{ c.TIPO_DOCUMENTO || c.NOMBRE_ARCHIVO || 'Sin archivo' }}
               </p>
             </div>
+            <p v-if="c.DETALLE_GENERAL" class="text-xs text-gray-400 truncate">
+              {{ c.DETALLE_GENERAL }}
+            </p>
           </div>
 
           <!-- Referencias -->
@@ -393,7 +415,7 @@
         </h3>
         <p class="text-center text-sm text-gray-500 mb-6">
           ¿Estás seguro de eliminar la clasificación <br>
-          <span class="font-medium text-gray-700">"{{ itemAEliminar?.DETALLE_GENERAL || 'Sin título' }}"</span>?
+          <span class="font-medium text-gray-700">"{{ itemAEliminar?.TIPO_DOCUMENTO || itemAEliminar?.DETALLE_GENERAL || 'Sin título' }}"</span>?
           <br>
           <span class="text-sm text-red-500">Esta acción eliminará todas las materias y referencias asociadas.</span>
         </p>
@@ -471,6 +493,7 @@ const clasificacionesFiltradas = computed(() => {
 
   return clasificaciones.value.filter(c => {
     const campos = [
+      c.TIPO_DOCUMENTO,
       c.DETALLE_GENERAL,
       c.CATEGORIA,
       c.NIVEL,
@@ -493,6 +516,10 @@ const clasificacionesFiltradas = computed(() => {
 function badgeCategoria(categoria) {
   if (categoria === 'Docentes Titulares')  return 'bg-emerald-50 text-emerald-700'
   if (categoria === 'Docentes Temporales') return 'bg-amber-50 text-amber-700'
+  if (categoria === 'Examen de suficiencia') return 'bg-blue-50 text-blue-700'
+  if (categoria === 'Acefala') return 'bg-gray-50 text-gray-700'
+  if (categoria === 'Sin Examen de suficiencia') return 'bg-orange-50 text-orange-700'
+
   return 'bg-gray-50 text-gray-600'
 }
 
@@ -500,7 +527,16 @@ function badgeCategoria(categoria) {
 function dotCategoria(categoria) {
   if (categoria === 'Docentes Titulares')  return 'bg-emerald-500'
   if (categoria === 'Docentes Temporales') return 'bg-amber-500'
+  if (categoria === 'Examen de suficiencia') return 'bg-blue-500'
+  if (categoria === 'Acefala') return 'bg-gray-500'
+  if (categoria === 'Sin Examen de suficiencia') return 'bg-orange-500'
+
   return 'bg-gray-400'
+}
+
+// ─── ¿La materia tiene nota registrada? ───
+function tieneNota(materia) {
+  return materia?.NOTA !== null && materia?.NOTA !== undefined && materia?.NOTA !== ''
 }
 
 function formatearFecha(fecha) {

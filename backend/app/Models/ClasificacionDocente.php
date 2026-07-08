@@ -17,6 +17,7 @@ class ClasificacionDocente extends Model
         'GESTION',
         'PERIODO',
         'DETALLE_GENERAL',
+        'TIPO_DOCUMENTO',
         'FOTOCOPIA_TITULAR',
         'RUTA_ARCHIVO',
         'NOMBRE_ARCHIVO',

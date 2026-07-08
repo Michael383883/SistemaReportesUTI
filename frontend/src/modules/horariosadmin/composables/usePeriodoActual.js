@@ -29,31 +29,16 @@ export function calcularPeriodo(fecha = new Date()) {
     const dia = fecha.getDate()
     const anio = fecha.getFullYear()
 
-    // ── Período 3: 1 ene → 6 feb ──────────────────────────────────
-    if (mes === 1 || (mes === 2 && dia <= 6)) {
-        return {
-            periodo: 3,
-            anio: PERIODO_3_USA_ANIO_ANTERIOR ? anio - 1 : anio,
-        }
-    }
 
-    // ── Período 1: 7 feb → 30 jun ─────────────────────────────────
+    // ── Período 1: 1 en → 30 jun ─────────────────────────────────
     if (
-        (mes === 2 && dia >= 7) ||
-        mes === 3 ||
-        mes === 4 ||
-        mes === 5 ||
-        mes === 6
+        (mes === 1 || (mes === 6 && dia <= 30))
     ) {
         return { periodo: 1, anio }
     }
 
-    // ── Período 4: 1 jul → 31 ago (curso de invierno) ─────────────
-    if (mes === 7 || mes === 8) {
-        return { periodo: 4, anio }
-    }
 
-    // ── Período 2: 1 sep → 31 dic ─────────────────────────────────
+    // ── Período 2: 1 julio  → 31 dic ─────────────────────────────────
     // (mes 9, 10, 11, 12)
     return { periodo: 2, anio }
 }

@@ -12,16 +12,18 @@ return new class extends Migration {
 
             $table->increments('ID_CLASIFICACION');
 
+            $table->text('TIPO_DOCUMENTO')->nullable();
+            $table->text('DETALLE_GENERAL')->nullable();
             // CATEGORIA: Docentes Titulares / Docentes Temporales
             $table->string('CATEGORIA', 50)->nullable();
-            
+
             // NIVEL: PRIMER NIVEL / SEGUNDO NIVEL / TERCER NIVEL
             $table->string('NIVEL', 50)->nullable();
-            
+
             $table->string('GESTION', 10)->nullable();
             $table->string('PERIODO', 30)->nullable();
 
-            $table->text('DETALLE_GENERAL')->nullable();
+
 
             $table->boolean('FOTOCOPIA_TITULAR')->default(false);
 
