@@ -7,45 +7,45 @@ use Illuminate\Database\Eloquent\Model;
 class ClasificacionDocente extends Model
 {
     protected $table = 'CLASIFICACION_DOCENTE';
-    protected $primaryKey = 'ID_CLASIFICACION';
+
+    protected $primaryKey = 'ID_CLASIFICACION_DOCENTE';
+
     public $timestamps = false;
 
     protected $fillable = [
+        'ID_DOCUMENTO',
         'COD_DOCENTE',
-        'CATEGORIA',
-        'NIVEL',
-        'GESTION',
-        'PERIODO',
-        'DETALLE_GENERAL',
-        'TIPO_DOCUMENTO',
-        'FOTOCOPIA_TITULAR',
-        'RUTA_ARCHIVO',
-        'NOMBRE_ARCHIVO',
-        'OBSERVACION',
-        'OBSERVACION2',
-        'FECHA_REGISTRO',
     ];
 
     protected $casts = [
+        'ID_DOCUMENTO' => 'integer',
         'COD_DOCENTE' => 'integer',
-        'FOTOCOPIA_TITULAR' => 'boolean',
-        'FECHA_REGISTRO' => 'datetime',
     ];
 
-    // NUEVO: relación con el docente (ajusta el nombre del modelo/campos si difieren)
+    public function documento()
+    {
+        return $this->belongsTo(
+            ClasificacionDocumento::class,
+            'ID_DOCUMENTO',
+            'ID_DOCUMENTO'
+        );
+    }
+
     public function docente()
     {
-        return $this->belongsTo(Docente::class, 'COD_DOCENTE', 'CODIGO');
+        return $this->belongsTo(
+            Docente::class,
+            'COD_DOCENTE',
+            'CODIGO'
+        );
     }
 
     public function materias()
     {
-        return $this->hasMany(ClasificacionMateria::class, 'ID_CLASIFICACION', 'ID_CLASIFICACION')
-            ->orderBy('ORDEN');
-    }
-
-    public function referencias()
-    {
-        return $this->hasMany(ClasificacionReferencia::class, 'ID_CLASIFICACION', 'ID_CLASIFICACION');
+        return $this->hasMany(
+            ClasificacionMateria::class,
+            'ID_CLASIFICACION_DOCENTE',
+            'ID_CLASIFICACION_DOCENTE'
+        );
     }
 }
