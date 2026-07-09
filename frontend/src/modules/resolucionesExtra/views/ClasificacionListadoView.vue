@@ -157,9 +157,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr
-              v-for="c in listadoFiltrado"
-              :key="c.COD_DOCENTE ?? c.NOMBRE_DOCENTE"
+            <tr v-for="c in listadoFiltrado" :key="c.ID_CLASIFICACION_DOCENTE ?? c.COD_DOCENTE ?? c.NOMBRE_DOCENTE"
               class="border-b border-gray-50 last:border-0 hover:bg-gray-50/50 transition-colors"
             >
               <!-- Docente -->
@@ -212,9 +210,8 @@
 
               <!-- PDF -->
               <td class="px-4 py-3">
-                <a
-                  v-if="c.NOMBRE_ARCHIVO"
-                  :href="clasificacion.urlPdf(c.ID_CLASIFICACION, 'inline')"
+                
+                <a v-if="c.NOMBRE_ARCHIVO" :href="clasificacion.urlPdf(c.ID_DOCUMENTO, 'inline')"
                   target="_blank"
                   class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors"
                 >
@@ -285,11 +282,11 @@
             ¿Estás seguro de eliminar la clasificación de <br>
             <span class="font-medium text-gray-700">"{{ itemAEliminar?.NOMBRE_DOCENTE || 'Sin docente' }}"</span>?
             <br>
-            <span v-if="itemAEliminar?._totalClasificaciones > 1" class="text-sm text-amber-600">
-              Este docente tiene {{ itemAEliminar._totalClasificaciones }} clasificaciones registradas. Solo se eliminará la más reciente mostrada en el listado.
+            <span v-if="docentesPorDocumento.get(itemAEliminar?.ID_DOCUMENTO) > 1" class="text-sm text-amber-600">
+              Este documento tiene más de un docente asignado. Solo se quitará a {{ itemAEliminar?.NOMBRE_DOCENTE }}, el documento y los demás docentes se conservan.
             </span>
             <span v-else class="text-sm text-red-500">
-              Esta acción eliminará todas las materias y referencias asociadas.
+              Esta acción eliminará el documento completo, sus materias y referencias asociadas.
             </span>
           </p>
           <div class="flex gap-3">
@@ -535,6 +532,16 @@ function limpiarFiltros() {
   cargar()
 }
 
+// Cuenta cuántos docentes distintos tiene cada documento, usando el listado ya cargado
+const docentesPorDocumento = computed(() => {
+  const mapa = new Map()
+  for (const c of clasificacion.listado.value) {
+    const docId = c.ID_DOCUMENTO
+    mapa.set(docId, (mapa.get(docId) || 0) + 1)
+  }
+  return mapa
+})
+
 // ─── Agrupado por docente ───
 const listadoPorDocente = computed(() => {
   const mapa = new Map()
@@ -596,17 +603,25 @@ function cerrarModal() {
 
 async function eliminarClasificacion() {
   if (!itemAEliminar.value) return
-
   eliminando.value = true
 
+  const totalDocentesEnDocumento = docentesPorDocumento.value.get(itemAEliminar.value.ID_DOCUMENTO) || 1
+
   try {
-    const result = await clasificacion.eliminar(itemAEliminar.value.ID_CLASIFICACION)
+    let result
+    if (totalDocentesEnDocumento > 1) {
+      // Solo quita a este docente, el documento y los demás docentes quedan intactos
+      result = await clasificacion.eliminarDocente(itemAEliminar.value.ID_CLASIFICACION_DOCENTE)
+    } else {
+      // Es el único docente -> borra el documento completo
+      result = await clasificacion.eliminar(itemAEliminar.value.ID_DOCUMENTO)
+    }
 
     if (result?.ok) {
       await cargar()
       cerrarModal()
     } else {
-      alert(result?.error || 'Error al eliminar la clasificación')
+      alert(result?.error || 'Error al eliminar')
     }
   } catch (e) {
     console.error('Error al eliminar:', e)
@@ -615,7 +630,6 @@ async function eliminarClasificacion() {
     eliminando.value = false
   }
 }
-
 // ─── Vista previa de Reporte Excel (usa el mismo construirDatos() del backend) ───
 const mostrarPreviewExcel = ref(false)
 const excelParams = ref({

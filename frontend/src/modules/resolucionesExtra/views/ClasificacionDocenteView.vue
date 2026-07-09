@@ -167,7 +167,7 @@
       <div class="space-y-3">
         <div
           v-for="c in clasificacionesFiltradas"
-          :key="c.ID_CLASIFICACION"
+          :key="c.ID_CLASIFICACION_DOCENTE"
           class="relative pl-9"
         >
           <!-- Punto de la línea de tiempo -->
@@ -208,9 +208,7 @@
 
               <!-- Acciones -->
               <div class="flex items-center gap-2 flex-shrink-0">
-                <a
-                  v-if="c.NOMBRE_ARCHIVO"
-                  :href="clasificacion.urlPdf(c.ID_CLASIFICACION, 'inline')"
+                <a v-if="c.NOMBRE_ARCHIVO" :href="clasificacion.urlPdf(c.ID_DOCUMENTO, 'inline')"
                   target="_blank"
                   class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition-colors"
                 >
@@ -334,7 +332,7 @@
       <div class="divide-y divide-gray-100">
         <div
           v-for="c in clasificacionesFiltradas"
-          :key="c.ID_CLASIFICACION"
+          :key="c.ID_CLASIFICACION_DOCENTE"
           class="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors"
         >
           <!-- Icono de archivo -->
@@ -563,20 +561,18 @@ function cerrarModal() {
 
 async function eliminarClasificacion() {
   if (!itemAEliminar.value) return
-
   eliminando.value = true
 
   try {
-    const result = await clasificacion.eliminar(itemAEliminar.value.ID_CLASIFICACION)
+    const result = await clasificacion.eliminarDocente(itemAEliminar.value.ID_CLASIFICACION_DOCENTE)
 
     if (result?.ok) {
       clasificaciones.value = clasificaciones.value.filter(
-        c => c.ID_CLASIFICACION !== itemAEliminar.value.ID_CLASIFICACION
+        c => c.ID_CLASIFICACION_DOCENTE !== itemAEliminar.value.ID_CLASIFICACION_DOCENTE
       )
       cerrarModal()
-      console.log('Clasificación eliminada correctamente')
     } else {
-      alert(result?.error || 'Error al eliminar la clasificación')
+      alert(result?.error || 'Error al eliminar')
     }
   } catch (e) {
     console.error('Error al eliminar:', e)

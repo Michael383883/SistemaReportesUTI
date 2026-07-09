@@ -139,7 +139,8 @@
           </svg>
         </div>
         <p class="text-[14px] font-semibold text-gray-900">{{ successMessage }}</p>
-        <p class="text-[12px] text-gray-400 mt-1">Clasificación registrada correctamente (ID: {{ ultimoId }}).</p>
+        <p class="text-[12px] text-gray-400 mt-1">
+  Clasificación registrada correctamente (Documento ID: {{ ultimoId }}, docentes vinculados: {{ docentesRegistrados }}).</p>
         <div class="flex items-center justify-center gap-3 mt-5">
           <button
             @click="resetAll"
@@ -194,6 +195,8 @@ const archivo     = ref(null)
 
 const successMessage = ref('')
 const ultimoId        = ref(null)
+const docentesRegistrados = ref(0) // nuevo
+
 
 function limpiarArchivo() {
   archivo.value     = null
@@ -238,11 +241,12 @@ function irAlPaso2() {
 
 async function onGuardar(formData) {
   try {
-    const id = await clasificacion.guardarClasificacion({ ...formData, archivo: archivo.value })
-    ultimoId.value = id
+    const resultado = await clasificacion.guardarClasificacion({ ...formData, archivo: archivo.value })
+    ultimoId.value = resultado.idDocumento
+    docentesRegistrados.value = resultado.idsClasificacionDocente.length
     successMessage.value = 'Clasificación guardada exitosamente'
   } catch {
-    // error visible vía :error en ClasificacionForm (clasificacion.error.value)
+    // error visible vía :error en ClasificacionForm
   }
 }
 
