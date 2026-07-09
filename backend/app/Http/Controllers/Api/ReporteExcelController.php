@@ -14,7 +14,6 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class ReporteExcelController extends Controller
 {
-
     // GET /api/reportes/docentes-clasificados/preview
     public function previsualizar(Request $request)
     {
@@ -44,7 +43,6 @@ class ReporteExcelController extends Controller
             ], 500);
         }
     }
-    // Orden de los niveles para clasificar y ordenar el listado
 
     private const ORDEN_NIVELES = [
         'PRIMER NIVEL' => 1,
@@ -52,7 +50,6 @@ class ReporteExcelController extends Controller
         'TERCER NIVEL' => 3,
     ];
 
-    // Etiquetas legibles para TIPO_DOCUMENTO
     private const ETIQUETAS_TIPO_DOCUMENTO = [
         'TITULARIDAD_HISTORICA' => 'Titularidad Histórica',
         'TITULARIDAD_RCU_43_11' => 'Titularidad RCU 43/11',
@@ -64,8 +61,8 @@ class ReporteExcelController extends Controller
     {
         try {
             $gestionDesde = $request->query('gestion_desde', '2001');
-            $gestionHasta = $request->query('gestion_hasta'); // opcional
-            $periodo = $request->query('periodo'); // opcional
+            $gestionHasta = $request->query('gestion_hasta');
+            $periodo = $request->query('periodo');
             $version = $request->query('version', '5ta Versión');
 
             $etiquetaGestion = $gestionHasta
@@ -90,30 +87,39 @@ class ReporteExcelController extends Controller
         }
     }
 
+    /**
+     * IMPORTANTE: ahora se trabaja a nivel CLASIFICACION_DOCENTE (documento + un docente).
+     * GESTION, PERIODO, TIPO_DOCUMENTO, CATEGORIA, NIVEL, FOTOCOPIA_TITULAR viven en el
+     * documento (documento()), las materias son propias del docente dentro del documento
+     * (materias(), vía ID_CLASIFICACION_DOCENTE), y las referencias son del documento
+     * completo y se comparten entre todos los docentes de ese documento (documento->referencias).
+     */
     private function construirDatos(string $gestionDesde, ?string $gestionHasta = null, ?int $periodo = null): array
     {
         $query = ClasificacionDocente::with([
             'docente',
+            'documento.referencias',
             'materias',
-            'referencias',
         ])
-            ->whereRaw('CAST(GESTION AS INT) >= ?', [(int) $gestionDesde]);
+            ->whereHas('documento', function ($q) use ($gestionDesde, $gestionHasta, $periodo) {
+                $q->whereRaw('CAST(GESTION AS INT) >= ?', [(int) $gestionDesde]);
 
-        if ($gestionHasta !== null) {
-            $query->whereRaw('CAST(GESTION AS INT) <= ?', [(int) $gestionHasta]);
-        }
+                if ($gestionHasta !== null) {
+                    $q->whereRaw('CAST(GESTION AS INT) <= ?', [(int) $gestionHasta]);
+                }
 
-        if ($periodo !== null) {
-            $query->where('PERIODO', $periodo);
-        }
+                if ($periodo !== null) {
+                    $q->where('PERIODO', $periodo);
+                }
+            });
 
         $clasificaciones = $query->get();
 
         $porDocente = $clasificaciones->groupBy('COD_DOCENTE');
 
         $gruposOrdenados = $porDocente->sort(function ($grupoA, $grupoB) {
-            $nivelA = self::ORDEN_NIVELES[$grupoA->first()->NIVEL] ?? 999;
-            $nivelB = self::ORDEN_NIVELES[$grupoB->first()->NIVEL] ?? 999;
+            $nivelA = self::ORDEN_NIVELES[$grupoA->first()->documento->NIVEL] ?? 999;
+            $nivelB = self::ORDEN_NIVELES[$grupoB->first()->documento->NIVEL] ?? 999;
 
             if ($nivelA !== $nivelB) {
                 return $nivelA <=> $nivelB;
@@ -128,50 +134,51 @@ class ReporteExcelController extends Controller
         foreach ($gruposOrdenados as $clasificacionesDelDocente) {
             $primeraClasificacion = $clasificacionesDelDocente->first();
             $nombreDocente = $this->nombreDocente($primeraClasificacion);
-            $nivel = $primeraClasificacion->NIVEL;
+            $nivel = $primeraClasificacion->documento->NIVEL;
 
             $contadorPorNivel[$nivel] = ($contadorPorNivel[$nivel] ?? 0) + 1;
             $primeraFilaDocente = true;
 
-            // Para saber en qué índice de $data cae la última fila de este docente
-            // (así podemos marcar el borde grueso de cierre del grupo)
             $indiceInicioGrupo = count($data);
 
             foreach ($clasificacionesDelDocente as $clasificacion) {
+                $documento = $clasificacion->documento;
                 $materias = $clasificacion->materias;
 
                 if ($materias->isEmpty()) {
                     $materias = collect([
                         (object) [
                             'NOMBRE_MATERIA' => 'NO REGENTA MATERIA EN LA FCE',
+                            // CARGA_HORARIA no existe en CLASIFICACION_MATERIA con el esquema
+                            // actual; se deja null hasta que se agregue la columna si se necesita.
                             'CARGA_HORARIA' => null,
-                            'DETALLE' => $clasificacion->DETALLE_GENERAL,
+                            'DETALLE' => $documento->DETALLE_GENERAL,
                         ]
                     ]);
                 }
 
-                $referencias = $clasificacion->referencias->pluck('NRO_REFERENCIA')->filter()->values();
+                $referencias = $documento->referencias->pluck('NRO_REFERENCIA')->filter()->values();
                 $obs2 = $referencias->get(0, '');
                 $obs3 = $referencias->count() > 1 ? $referencias->slice(1)->implode(' - ') : '';
 
                 $primeraFilaClasificacion = true;
-                $esGeneral = !empty($clasificacion->DETALLE_GENERAL);
+                $esGeneral = !empty($documento->DETALLE_GENERAL);
 
                 foreach ($materias as $materia) {
                     $data[] = [
                         'N' => $primeraFilaDocente ? $contadorPorNivel[$nivel] : null,
                         'NOMBRE_DOCENTE' => $nombreDocente,
                         'NOMBRE_MATERIA' => $materia->NOMBRE_MATERIA ?: 'NO REGENTA MATERIA EN LA FCE',
-                        'CH' => $materia->CARGA_HORARIA,
+                        'CH' => $materia->CARGA_HORARIA ?? null,
                         'TIPO_DOCUMENTO' => $primeraFilaClasificacion
-                            ? (self::ETIQUETAS_TIPO_DOCUMENTO[$clasificacion->TIPO_DOCUMENTO] ?? $clasificacion->TIPO_DOCUMENTO ?? '')
+                            ? (self::ETIQUETAS_TIPO_DOCUMENTO[$documento->TIPO_DOCUMENTO] ?? $documento->TIPO_DOCUMENTO ?? '')
                             : '',
                         'DETALLE' => $primeraFilaClasificacion
-                            ? ($clasificacion->DETALLE_GENERAL ?: ($materia->DETALLE ?? ''))
+                            ? ($documento->DETALLE_GENERAL ?: ($materia->DETALLE ?? ''))
                             : ($materia->DETALLE ?? ''),
-                        'CATEGORIA' => $primeraFilaDocente ? $this->formatearCategoria($clasificacion->CATEGORIA) : '',
+                        'CATEGORIA' => $primeraFilaDocente ? $this->formatearCategoria($documento->CATEGORIA) : '',
                         'NIVEL' => $primeraFilaDocente ? $nivel : '',
-                        'FOTOCOPIA_TITULAR' => ($primeraFilaDocente && $clasificacion->FOTOCOPIA_TITULAR)
+                        'FOTOCOPIA_TITULAR' => ($primeraFilaDocente && $documento->FOTOCOPIA_TITULAR)
                             ? 'PRESENTO FOTOCOPIA'
                             : '',
                         'OBS2' => $primeraFilaClasificacion ? $obs2 : '',
@@ -184,13 +191,11 @@ class ReporteExcelController extends Controller
                 }
             }
 
-            // Marca la última fila de este docente para dibujar el borde grueso de cierre
             $indiceUltimaFila = count($data) - 1;
             if ($indiceUltimaFila >= $indiceInicioGrupo) {
                 $data[$indiceUltimaFila]['FIN_GRUPO'] = true;
             }
 
-            // Marca el inicio del grupo para poder fusionar Nº y NOMBRE_DOCENTE al escribir el Excel
             $data[$indiceInicioGrupo]['INICIO_GRUPO'] = true;
             $data[$indiceInicioGrupo]['FILAS_GRUPO'] = $indiceUltimaFila - $indiceInicioGrupo + 1;
         }
@@ -205,10 +210,6 @@ class ReporteExcelController extends Controller
         return trim(($docente->APELLIDOS ?? '') . ' ' . ($docente->NOMBRES ?? ''));
     }
 
-    /**
-     * Oculta el texto "Sin Examen de suficiencia" en la columna CATEGORIA:
-     * si el docente tiene esa categoría, la celda queda vacía.
-     */
     private function formatearCategoria(?string $categoria): string
     {
         if ($categoria === null) {
@@ -221,6 +222,8 @@ class ReporteExcelController extends Controller
 
         return $categoria;
     }
+
+    
 
     /**
      * Layout de columnas:

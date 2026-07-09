@@ -211,7 +211,8 @@ Route::get('/reportes/clasificacion/docente/{cod_docente}', [ReporteClasificacio
     ->where('cod_docente', '[0-9]+');
 Route::get('/reportes/clasificacion/por-referencia', [ReporteClasificacionController::class, 'porReferencia']);
 
-
+Route::delete('/clasificaciones/docente/{idClasificacionDocente}', [ClasificacionDocenteController::class, 'destroyDocente'])
+    ->where('idClasificacionDocente', '[0-9]+');
 
 /*
 |--------------------------------------------------------------------------

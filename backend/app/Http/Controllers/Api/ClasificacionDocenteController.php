@@ -10,39 +10,41 @@ use Illuminate\Support\Facades\Storage;
 class ClasificacionDocenteController extends Controller
 {
     // GET /clasificaciones
-    // GET /clasificaciones
+    // Nivel de fila: CLASIFICACION_DOCENTE (documento + un docente + sus materias)
     public function index(Request $request)
     {
-        $query = DB::table('CLASIFICACION_DOCENTE as cd')
-            ->join('DOCENTES as d', 'd.CODIGO', '=', 'cd.COD_DOCENTE')
+        $query = DB::table('CLASIFICACION_DOCENTE as ccd')
+            ->join('CLASIFICACION_DOCUMENTO as cdoc', 'cdoc.ID_DOCUMENTO', '=', 'ccd.ID_DOCUMENTO')
+            ->join('DOCENTES as d', 'd.CODIGO', '=', 'ccd.COD_DOCENTE')
             ->select(
-                'cd.ID_CLASIFICACION',
-                'cd.COD_DOCENTE',
+                'ccd.ID_CLASIFICACION_DOCENTE',
+                'ccd.ID_DOCUMENTO',
+                'ccd.COD_DOCENTE',
                 DB::raw("LTRIM(RTRIM(d.APELLIDOS + ' ' + d.NOMBRES)) AS NOMBRE_DOCENTE"),
-                'cd.CATEGORIA',
-                'cd.NIVEL',
-                'cd.TIPO_DOCUMENTO',
-                'cd.GESTION',
-                'cd.PERIODO',
-                'cd.FOTOCOPIA_TITULAR',
-                'cd.NOMBRE_ARCHIVO',
-                'cd.FECHA_REGISTRO'
+                'cdoc.CATEGORIA',
+                'cdoc.NIVEL',
+                'cdoc.TIPO_DOCUMENTO',
+                'cdoc.GESTION',
+                'cdoc.PERIODO',
+                'cdoc.FOTOCOPIA_TITULAR',
+                'cdoc.NOMBRE_ARCHIVO',
+                'cdoc.FECHA_REGISTRO'
             );
 
         if ($request->filled('categoria')) {
-            $query->where('cd.CATEGORIA', $request->query('categoria'));
+            $query->where('cdoc.CATEGORIA', $request->query('categoria'));
         }
         if ($request->filled('nivel')) {
-            $query->where('cd.NIVEL', $request->query('nivel'));
+            $query->where('cdoc.NIVEL', $request->query('nivel'));
         }
         if ($request->filled('gestion')) {
-            $query->where('cd.GESTION', $request->query('gestion'));
+            $query->where('cdoc.GESTION', $request->query('gestion'));
         }
         if ($request->filled('cod_docente')) {
-            $query->where('cd.COD_DOCENTE', $request->query('cod_docente'));
+            $query->where('ccd.COD_DOCENTE', $request->query('cod_docente'));
         }
         if ($request->filled('tipo_documento')) {
-            $query->where('cd.TIPO_DOCUMENTO', $request->query('tipo_documento'));
+            $query->where('cdoc.TIPO_DOCUMENTO', $request->query('tipo_documento'));
         }
 
         $listado = $query->orderBy('NOMBRE_DOCENTE')->get();
@@ -51,13 +53,18 @@ class ClasificacionDocenteController extends Controller
     }
 
     // GET /clasificaciones/{id}
+    // $id = ID_CLASIFICACION_DOCENTE (fila docente dentro del documento)
     public function show($id)
     {
-        $cabecera = DB::table('CLASIFICACION_DOCENTE as cd')
-            ->join('DOCENTES as d', 'd.CODIGO', '=', 'cd.COD_DOCENTE')
-            ->where('cd.ID_CLASIFICACION', $id)
+        $cabecera = DB::table('CLASIFICACION_DOCENTE as ccd')
+            ->join('CLASIFICACION_DOCUMENTO as cdoc', 'cdoc.ID_DOCUMENTO', '=', 'ccd.ID_DOCUMENTO')
+            ->join('DOCENTES as d', 'd.CODIGO', '=', 'ccd.COD_DOCENTE')
+            ->where('ccd.ID_CLASIFICACION_DOCENTE', $id)
             ->select(
-                'cd.*',
+                'ccd.ID_CLASIFICACION_DOCENTE',
+                'ccd.ID_DOCUMENTO',
+                'ccd.COD_DOCENTE',
+                'cdoc.*',
                 DB::raw("LTRIM(RTRIM(d.APELLIDOS + ' ' + d.NOMBRES)) AS NOMBRE_DOCENTE")
             )
             ->first();
@@ -66,13 +73,27 @@ class ClasificacionDocenteController extends Controller
             return response()->json(['ok' => false, 'error' => 'Clasificación no encontrada'], 404);
         }
 
+        // Materias asignadas a ESTE docente dentro del documento
         $cabecera->materias = DB::table('CLASIFICACION_MATERIA')
-            ->where('ID_CLASIFICACION', $id)
+            ->where('ID_CLASIFICACION_DOCENTE', $id)
             ->orderBy('ORDEN')
             ->get();
 
+        // Las referencias son del documento completo, no de un docente en particular
         $cabecera->referencias = DB::table('CLASIFICACION_REFERENCIA')
-            ->where('ID_CLASIFICACION', $id)
+            ->where('ID_DOCUMENTO', $cabecera->ID_DOCUMENTO)
+            ->get();
+
+        // Bonus: otros docentes que comparten el mismo documento (útil para la UI)
+        $cabecera->otros_docentes = DB::table('CLASIFICACION_DOCENTE as ccd2')
+            ->join('DOCENTES as d2', 'd2.CODIGO', '=', 'ccd2.COD_DOCENTE')
+            ->where('ccd2.ID_DOCUMENTO', $cabecera->ID_DOCUMENTO)
+            ->where('ccd2.ID_CLASIFICACION_DOCENTE', '!=', $id)
+            ->select(
+                'ccd2.ID_CLASIFICACION_DOCENTE',
+                'ccd2.COD_DOCENTE',
+                DB::raw("LTRIM(RTRIM(d2.APELLIDOS + ' ' + d2.NOMBRES)) AS NOMBRE_DOCENTE")
+            )
             ->get();
 
         return response()->json($cabecera);
@@ -85,18 +106,48 @@ class ClasificacionDocenteController extends Controller
 
         try {
             $request->validate([
-                'cod_docente' => 'required|integer',
-                'categoria' => 'required|string|in:Docentes Titulares,Docentes Temporales,Examen de suficiencia,Acefala,Sin Examen de suficiencia',
+                'cod_docente' => 'nullable|integer', // docente "general" (usado en caso "no regenta")
+                'categoria' => 'required|string|max:60',
                 'nivel' => 'nullable|string|in:Primer nivel,Segundo nivel,Tercer nivel',
-                'tipo_documento' => 'nullable|string|max: 40', // <-- nuevo
+                'tipo_documento' => 'nullable|string|max:40',
                 'gestion' => 'nullable|string|max:10',
                 'periodo' => 'nullable|string|max:30',
                 'detalle_general' => 'nullable|string',
                 'observacion' => 'nullable|string|max:300',
                 'observacion2' => 'nullable|string|max:300',
                 'archivo_pdf' => 'nullable|file|mimes:pdf|max:20480',
+                'materias' => 'nullable|string',    // JSON string
+                'referencias' => 'nullable|string', // JSON string
             ]);
 
+            // ------- decodificar materias primero, para saber qué docentes hay -------
+            $materias = [];
+            if ($request->filled('materias')) {
+                $materias = json_decode($request->materias, true);
+                if (!is_array($materias)) {
+                    throw new \Exception('materias inválidas: el JSON no es un array');
+                }
+            }
+
+            // Recolecta los docentes distintos que aparecen en las materias
+            // (cada materia trae su propio objeto "docente": { cod_docente, nombres, apellidos })
+            $codigosDocentes = collect($materias)
+                ->pluck('docente.cod_docente')
+                ->filter()
+                ->unique()
+                ->values();
+
+            // Caso "no regenta materia en la FCE": no hay materias reales, pero
+            // sí hay un docente general (form.cod_docente) que debe registrarse igual.
+            if ($codigosDocentes->isEmpty() && $request->filled('cod_docente')) {
+                $codigosDocentes = collect([(int) $request->cod_docente]);
+            }
+
+            if ($codigosDocentes->isEmpty()) {
+                throw new \Exception('No se especificó ningún docente (ni en materias ni como docente general).');
+            }
+
+            // ------- archivo -------
             $rutaArchivo = null;
             $nombreArchivo = null;
             $fotocopia = false;
@@ -115,10 +166,10 @@ class ClasificacionDocenteController extends Controller
                 $fotocopia = true;
             }
 
-            $idClasificacion = DB::table('CLASIFICACION_DOCENTE')->insertGetId([
-                'COD_DOCENTE' => $request->cod_docente,
+            // ------- 1) CLASIFICACION_DOCUMENTO (una sola vez) -------
+            $idDocumento = DB::table('CLASIFICACION_DOCUMENTO')->insertGetId([
                 'CATEGORIA' => $request->categoria,
-                'NIVEL' => $request->nivel ?: null,           // ← Guarda el texto "PRIMER NIVEL", "SEGUNDO NIVEL", "TERCER NIVEL"
+                'NIVEL' => $request->nivel ?: null,
                 'GESTION' => $request->gestion,
                 'PERIODO' => $request->periodo,
                 'TIPO_DOCUMENTO' => $request->tipo_documento,
@@ -129,33 +180,43 @@ class ClasificacionDocenteController extends Controller
                 'OBSERVACION' => $request->observacion,
                 'OBSERVACION2' => $request->observacion2,
                 'FECHA_REGISTRO' => now(),
-            ], 'ID_CLASIFICACION');
+            ], 'ID_DOCUMENTO');
 
-            // ------- materias -------
-            $materiasInsertadas = 0;
+            // ------- 2) CLASIFICACION_DOCENTE (una fila por cada docente distinto) -------
+            $mapaDocenteId = []; // cod_docente => ID_CLASIFICACION_DOCENTE
 
-            if ($request->filled('materias')) {
-                $materias = json_decode($request->materias, true);
+            foreach ($codigosDocentes as $cod) {
+                $idClasifDocente = DB::table('CLASIFICACION_DOCENTE')->insertGetId([
+                    'ID_DOCUMENTO' => $idDocumento,
+                    'COD_DOCENTE' => $cod,
+                ], 'ID_CLASIFICACION_DOCENTE');
 
-                if (!is_array($materias)) {
-                    throw new \Exception('materias inválidas: el JSON no es un array');
-                }
-
-                foreach ($materias as $i => $m) {
-                    DB::table('CLASIFICACION_MATERIA')->insert([
-                        'ID_CLASIFICACION' => $idClasificacion,
-                        'COD_MATERIA' => $m['cod_materia'] ?? null,
-                        'NOMBRE_MATERIA' => $m['nombre_materia'],
-                        'COD_PLAN' => $m['cod_plan'] ?? null,
-                        'NOTA' => $m['nota'] ?? null,
-                        'DETALLE' => $m['detalle'] ?? null,
-                        'ORDEN' => $i,
-                    ]);
-                    $materiasInsertadas++;
-                }
+                $mapaDocenteId[$cod] = $idClasifDocente;
             }
 
-            // ------- referencias -------
+            // ------- 3) CLASIFICACION_MATERIA -------
+            $materiasInsertadas = 0;
+
+            foreach ($materias as $i => $m) {
+                $codDocenteMateria = $m['docente']['cod_docente'] ?? null;
+                $idClasifDocenteMateria = $codDocenteMateria
+                    ? ($mapaDocenteId[$codDocenteMateria] ?? null)
+                    : null;
+
+                DB::table('CLASIFICACION_MATERIA')->insert([
+                    'ID_DOCUMENTO' => $idDocumento,
+                    'ID_CLASIFICACION_DOCENTE' => $idClasifDocenteMateria,
+                    'COD_MATERIA' => $m['cod_materia'] ?? null,
+                    'NOMBRE_MATERIA' => $m['nombre_materia'],
+                    'COD_PLAN' => $m['cod_plan'] ?? null,
+                    'NOTA' => $m['nota'] ?? null,
+                    'DETALLE' => $m['detalle'] ?? null,
+                    'ORDEN' => $i,
+                ]);
+                $materiasInsertadas++;
+            }
+
+            // ------- 4) CLASIFICACION_REFERENCIA (a nivel documento) -------
             $referenciasInsertadas = 0;
 
             if ($request->filled('referencias')) {
@@ -167,7 +228,7 @@ class ClasificacionDocenteController extends Controller
 
                 foreach ($referencias as $r) {
                     DB::table('CLASIFICACION_REFERENCIA')->insert([
-                        'ID_CLASIFICACION' => $idClasificacion,
+                        'ID_DOCUMENTO' => $idDocumento,
                         'NRO_REFERENCIA' => $r['nro_referencia'],
                         'ID_RESOLUCION' => $r['id_resolucion'] ?? null,
                     ]);
@@ -180,7 +241,8 @@ class ClasificacionDocenteController extends Controller
             return response()->json([
                 'ok' => true,
                 'mensaje' => 'Clasificación registrada correctamente',
-                'id_clasificacion' => $idClasificacion,
+                'id_documento' => $idDocumento,
+                'ids_clasificacion_docente' => array_values($mapaDocenteId),
                 'materias_insertadas' => $materiasInsertadas,
                 'referencias_insertadas' => $referenciasInsertadas,
             ], 201);
@@ -214,52 +276,80 @@ class ClasificacionDocenteController extends Controller
     }
 
     // GET /clasificaciones/{id}/pdf
+    // $id = ID_DOCUMENTO (el PDF es del documento, no de un docente en particular)
     public function descargar(Request $request, $id)
     {
-        $cab = DB::table('CLASIFICACION_DOCENTE')
-            ->select('ID_CLASIFICACION', 'NOMBRE_ARCHIVO', 'RUTA_ARCHIVO')
-            ->where('ID_CLASIFICACION', $id)
+        $doc = DB::table('CLASIFICACION_DOCUMENTO')
+            ->select('ID_DOCUMENTO', 'NOMBRE_ARCHIVO', 'RUTA_ARCHIVO')
+            ->where('ID_DOCUMENTO', $id)
             ->first();
 
-        if (!$cab) {
-            return response()->json(['ok' => false, 'error' => 'Clasificación no encontrada'], 404);
+        if (!$doc) {
+            return response()->json(['ok' => false, 'error' => 'Documento no encontrado'], 404);
         }
 
-        if (!$cab->RUTA_ARCHIVO || !Storage::disk('public')->exists($cab->RUTA_ARCHIVO)) {
+        if (!$doc->RUTA_ARCHIVO || !Storage::disk('public')->exists($doc->RUTA_ARCHIVO)) {
             return response()->json(['ok' => false, 'error' => 'Archivo no encontrado en storage'], 404);
         }
 
-        $contenido = Storage::disk('public')->get($cab->RUTA_ARCHIVO);
+        $contenido = Storage::disk('public')->get($doc->RUTA_ARCHIVO);
         $disposicion = $request->query('modo') === 'descargar' ? 'attachment' : 'inline';
 
         return response($contenido)
             ->header('Content-Type', 'application/pdf')
-            ->header('Content-Disposition', $disposicion . '; filename="' . $cab->NOMBRE_ARCHIVO . '"');
+            ->header('Content-Disposition', $disposicion . '; filename="' . $doc->NOMBRE_ARCHIVO . '"');
     }
 
     // DELETE /clasificaciones/{id}
+    // $id = ID_DOCUMENTO -> borra el documento completo (docentes, materias, referencias en cascada)
     public function destroy($id)
     {
-        $cab = DB::table('CLASIFICACION_DOCENTE')->where('ID_CLASIFICACION', $id)->first();
+        $doc = DB::table('CLASIFICACION_DOCUMENTO')->where('ID_DOCUMENTO', $id)->first();
 
-        if (!$cab) {
-            return response()->json(['ok' => false, 'error' => 'Clasificación no encontrada'], 404);
+        if (!$doc) {
+            return response()->json(['ok' => false, 'error' => 'Documento no encontrado'], 404);
         }
 
-        DB::table('CLASIFICACION_DOCENTE')->where('ID_CLASIFICACION', $id)->delete();
+        DB::table('CLASIFICACION_DOCUMENTO')->where('ID_DOCUMENTO', $id)->delete();
 
         try {
-            if ($cab->RUTA_ARCHIVO && Storage::disk('public')->exists($cab->RUTA_ARCHIVO)) {
-                Storage::disk('public')->delete($cab->RUTA_ARCHIVO);
+            if ($doc->RUTA_ARCHIVO && Storage::disk('public')->exists($doc->RUTA_ARCHIVO)) {
+                Storage::disk('public')->delete($doc->RUTA_ARCHIVO);
             }
         } catch (\Throwable $eArchivo) {
-            \Log::warning('No se pudo borrar el archivo físico de la clasificación', [
+            \Log::warning('No se pudo borrar el archivo físico del documento', [
                 'id' => $id,
-                'ruta' => $cab->RUTA_ARCHIVO,
+                'ruta' => $doc->RUTA_ARCHIVO,
                 'error' => $eArchivo->getMessage(),
             ]);
         }
 
-        return response()->json(['ok' => true, 'mensaje' => 'Clasificación eliminada correctamente']);
+        return response()->json(['ok' => true, 'mensaje' => 'Documento eliminado correctamente']);
+    }
+
+    // DELETE /clasificaciones/docente/{idClasificacionDocente}
+    // Elimina SOLO un docente del documento (no borra el documento ni sus otros docentes).
+    // Las materias que apuntaban a este docente quedan con ID_CLASIFICACION_DOCENTE = NULL.
+    public function destroyDocente($idClasificacionDocente)
+    {
+        $ccd = DB::table('CLASIFICACION_DOCENTE')
+            ->where('ID_CLASIFICACION_DOCENTE', $idClasificacionDocente)
+            ->first();
+
+        if (!$ccd) {
+            return response()->json(['ok' => false, 'error' => 'Registro de docente no encontrado'], 404);
+        }
+
+        DB::transaction(function () use ($idClasificacionDocente) {
+            DB::table('CLASIFICACION_MATERIA')
+                ->where('ID_CLASIFICACION_DOCENTE', $idClasificacionDocente)
+                ->update(['ID_CLASIFICACION_DOCENTE' => null]);
+
+            DB::table('CLASIFICACION_DOCENTE')
+                ->where('ID_CLASIFICACION_DOCENTE', $idClasificacionDocente)
+                ->delete();
+        });
+
+        return response()->json(['ok' => true, 'mensaje' => 'Docente eliminado de la clasificación']);
     }
 }

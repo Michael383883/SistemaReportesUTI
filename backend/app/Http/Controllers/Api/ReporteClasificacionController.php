@@ -11,54 +11,59 @@ class ReporteClasificacionController extends Controller
     // GET /reportes/clasificacion
     public function listado(Request $request)
     {
-        $query = DB::table('CLASIFICACION_DOCENTE as cd')
-            ->join('DOCENTES as d', 'd.CODIGO', '=', 'cd.COD_DOCENTE')
+        $query = DB::table('CLASIFICACION_DOCENTE as ccd')
+            ->join('CLASIFICACION_DOCUMENTO as cdoc', 'cdoc.ID_DOCUMENTO', '=', 'ccd.ID_DOCUMENTO')
+            ->join('DOCENTES as d', 'd.CODIGO', '=', 'ccd.COD_DOCENTE')
             ->select(
-                'cd.ID_CLASIFICACION',
-                'cd.COD_DOCENTE',
+                'ccd.ID_CLASIFICACION_DOCENTE',
+                'ccd.ID_DOCUMENTO',
+                'ccd.COD_DOCENTE',
                 DB::raw("LTRIM(RTRIM(d.APELLIDOS + ' ' + d.NOMBRES)) AS NOMBRE_DOCENTE"),
-                'cd.CATEGORIA',
-                'cd.NIVEL',
-                'cd.GESTION',
-                'cd.PERIODO',
-                'cd.TIPO_DOCUMENTO',
-                'cd.DETALLE_GENERAL',
-                'cd.FOTOCOPIA_TITULAR',
-                'cd.OBSERVACION',
-                'cd.OBSERVACION2',
-                'cd.NOMBRE_ARCHIVO'
+                'cdoc.CATEGORIA',
+                'cdoc.NIVEL',
+                'cdoc.GESTION',
+                'cdoc.PERIODO',
+                'cdoc.TIPO_DOCUMENTO',
+                'cdoc.DETALLE_GENERAL',
+                'cdoc.FOTOCOPIA_TITULAR',
+                'cdoc.OBSERVACION',
+                'cdoc.OBSERVACION2',
+                'cdoc.NOMBRE_ARCHIVO'
             );
 
         if ($request->filled('gestion')) {
-            $query->where('cd.GESTION', $request->query('gestion'));
+            $query->where('cdoc.GESTION', $request->query('gestion'));
         }
         if ($request->filled('categoria')) {
-            $query->where('cd.CATEGORIA', $request->query('categoria'));
+            $query->where('cdoc.CATEGORIA', $request->query('categoria'));
         }
         if ($request->filled('nivel')) {
-            $query->where('cd.NIVEL', $request->query('nivel'));
+            $query->where('cdoc.NIVEL', $request->query('nivel'));
         }
-        if ($request->filled('tipo_documento')) {          // <-- nuevo
-            $query->where('cd.TIPO_DOCUMENTO', $request->query('tipo_documento'));
+        if ($request->filled('tipo_documento')) {
+            $query->where('cdoc.TIPO_DOCUMENTO', $request->query('tipo_documento'));
         }
 
         $cabeceras = $query->orderBy('NOMBRE_DOCENTE')->get();
-        $ids = $cabeceras->pluck('ID_CLASIFICACION');
+        $idsClasifDocente = $cabeceras->pluck('ID_CLASIFICACION_DOCENTE');
+        $idsDocumento = $cabeceras->pluck('ID_DOCUMENTO')->unique();
 
+        // Materias: agrupadas por docente (ID_CLASIFICACION_DOCENTE)
         $materias = DB::table('CLASIFICACION_MATERIA')
-            ->whereIn('ID_CLASIFICACION', $ids)
+            ->whereIn('ID_CLASIFICACION_DOCENTE', $idsClasifDocente)
             ->orderBy('ORDEN')
             ->get()
-            ->groupBy('ID_CLASIFICACION');
+            ->groupBy('ID_CLASIFICACION_DOCENTE');
 
+        // Referencias: son del documento completo, se comparten entre los docentes de ese documento
         $referencias = DB::table('CLASIFICACION_REFERENCIA')
-            ->whereIn('ID_CLASIFICACION', $ids)
+            ->whereIn('ID_DOCUMENTO', $idsDocumento)
             ->get()
-            ->groupBy('ID_CLASIFICACION');
+            ->groupBy('ID_DOCUMENTO');
 
         $conDetalle = $cabeceras->map(function ($c) use ($materias, $referencias) {
-            $c->materias = $materias->get($c->ID_CLASIFICACION, collect())->values();
-            $c->referencias = $referencias->get($c->ID_CLASIFICACION, collect())->values();
+            $c->materias = $materias->get($c->ID_CLASIFICACION_DOCENTE, collect())->values();
+            $c->referencias = $referencias->get($c->ID_DOCUMENTO, collect())->values();
             return $c;
         });
 
@@ -83,27 +88,30 @@ class ReporteClasificacionController extends Controller
             return response()->json(['ok' => false, 'error' => 'Docente no encontrado'], 404);
         }
 
-        $clasificaciones = DB::table('CLASIFICACION_DOCENTE')
-            ->where('COD_DOCENTE', $cod_docente)
-            ->orderBy('GESTION')
+        $clasificaciones = DB::table('CLASIFICACION_DOCENTE as ccd')
+            ->join('CLASIFICACION_DOCUMENTO as cdoc', 'cdoc.ID_DOCUMENTO', '=', 'ccd.ID_DOCUMENTO')
+            ->where('ccd.COD_DOCENTE', $cod_docente)
+            ->select('ccd.ID_CLASIFICACION_DOCENTE', 'ccd.ID_DOCUMENTO', 'cdoc.*')
+            ->orderBy('cdoc.GESTION')
             ->get();
 
-        $ids = $clasificaciones->pluck('ID_CLASIFICACION');
+        $idsClasifDocente = $clasificaciones->pluck('ID_CLASIFICACION_DOCENTE');
+        $idsDocumento = $clasificaciones->pluck('ID_DOCUMENTO')->unique();
 
         $materias = DB::table('CLASIFICACION_MATERIA')
-            ->whereIn('ID_CLASIFICACION', $ids)
+            ->whereIn('ID_CLASIFICACION_DOCENTE', $idsClasifDocente)
             ->orderBy('ORDEN')
             ->get()
-            ->groupBy('ID_CLASIFICACION');
+            ->groupBy('ID_CLASIFICACION_DOCENTE');
 
         $referencias = DB::table('CLASIFICACION_REFERENCIA')
-            ->whereIn('ID_CLASIFICACION', $ids)
+            ->whereIn('ID_DOCUMENTO', $idsDocumento)
             ->get()
-            ->groupBy('ID_CLASIFICACION');
+            ->groupBy('ID_DOCUMENTO');
 
         $timeline = $clasificaciones->map(function ($c) use ($materias, $referencias) {
-            $c->materias = $materias->get($c->ID_CLASIFICACION, collect())->values();
-            $c->referencias = $referencias->get($c->ID_CLASIFICACION, collect())->values();
+            $c->materias = $materias->get($c->ID_CLASIFICACION_DOCENTE, collect())->values();
+            $c->referencias = $referencias->get($c->ID_DOCUMENTO, collect())->values();
             return $c;
         });
 
@@ -123,17 +131,18 @@ class ReporteClasificacionController extends Controller
         }
 
         $docentes = DB::table('CLASIFICACION_REFERENCIA as cr')
-            ->join('CLASIFICACION_DOCENTE as cd', 'cd.ID_CLASIFICACION', '=', 'cr.ID_CLASIFICACION')
-            ->join('DOCENTES as d', 'd.CODIGO', '=', 'cd.COD_DOCENTE')
+            ->join('CLASIFICACION_DOCUMENTO as cdoc', 'cdoc.ID_DOCUMENTO', '=', 'cr.ID_DOCUMENTO')
+            ->join('CLASIFICACION_DOCENTE as ccd', 'ccd.ID_DOCUMENTO', '=', 'cdoc.ID_DOCUMENTO')
+            ->join('DOCENTES as d', 'd.CODIGO', '=', 'ccd.COD_DOCENTE')
             ->where('cr.NRO_REFERENCIA', $nro)
             ->select(
-                'cd.ID_CLASIFICACION',
-                'cd.COD_DOCENTE',
+                'ccd.ID_CLASIFICACION_DOCENTE',
+                'ccd.COD_DOCENTE',
                 DB::raw("LTRIM(RTRIM(d.APELLIDOS + ' ' + d.NOMBRES)) AS NOMBRE_DOCENTE"),
-                'cd.CATEGORIA',
-                'cd.NIVEL',
-                'cd.TIPO_DOCUMENTO',
-                'cd.GESTION'
+                'cdoc.CATEGORIA',
+                'cdoc.NIVEL',
+                'cdoc.TIPO_DOCUMENTO',
+                'cdoc.GESTION'
             )
             ->orderBy('NOMBRE_DOCENTE')
             ->get();
