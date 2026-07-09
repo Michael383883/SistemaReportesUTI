@@ -7,7 +7,7 @@
         <input
           v-model="numero"
           type="text"
-          placeholder="Ej: 123/2026"
+          placeholder="Ej: RR Nº 266/2024"
           class="w-full px-3.5 py-2.5 text-[14px] border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-100"
           :class="errores.numero ? 'border-red-300' : 'border-gray-200 focus:border-blue-400'"
         />
@@ -19,7 +19,7 @@
         <textarea
           v-model="descripcion"
           rows="3"
-          placeholder="Descripción breve (opcional)"
+          placeholder="Descripción Ejm: (Del 26 febrero al 19 de abril de 2024. El semestre 1/2024 inició el 26 de febrero y terminó el 09 de julio del 2024.)"
           class="w-full px-3.5 py-2.5 text-[14px] border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 resize-none"
         ></textarea>
       </div>
