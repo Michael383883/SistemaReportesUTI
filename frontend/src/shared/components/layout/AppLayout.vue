@@ -455,8 +455,8 @@ const menuSections = [
       {
         label: 'Reportes', icon: BarChart2,
         children: [
-          { to: '/reportes/docentes',      label: 'Materias Dictadas'      },
-          { to: '/reportes/edicion-tipo-ingreso', label: 'Gestión de Modalidad'          },
+          { to: '/reportes/docentes',      label: 'Kardex docente'      },
+          { to: '/reportes/edicion-tipo-ingreso', label: 'Asignar Modalidad'          },
         ],
       },
 
