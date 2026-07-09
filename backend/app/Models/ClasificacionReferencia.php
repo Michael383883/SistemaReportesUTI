@@ -7,27 +7,37 @@ use Illuminate\Database\Eloquent\Model;
 class ClasificacionReferencia extends Model
 {
     protected $table = 'CLASIFICACION_REFERENCIA';
+
     protected $primaryKey = 'ID_REF';
+
     public $timestamps = false;
 
     protected $fillable = [
-        'ID_CLASIFICACION',
+        'ID_DOCUMENTO',
         'NRO_REFERENCIA',
         'ID_RESOLUCION',
     ];
 
     protected $casts = [
-        'ID_CLASIFICACION' => 'integer',
+        'ID_DOCUMENTO' => 'integer',
         'ID_RESOLUCION' => 'integer',
     ];
 
-    public function clasificacion()
+    public function documento()
     {
-        return $this->belongsTo(ClasificacionDocente::class, 'ID_CLASIFICACION', 'ID_CLASIFICACION');
+        return $this->belongsTo(
+            ClasificacionDocumento::class,
+            'ID_DOCUMENTO',
+            'ID_DOCUMENTO'
+        );
     }
 
     public function resolucion()
     {
-        return $this->belongsTo(ResolucionPdf::class, 'ID_RESOLUCION', 'ID_RESOLUCION');
+        return $this->belongsTo(
+            ResolucionPdf::class,
+            'ID_RESOLUCION',
+            'ID_RESOLUCION'
+        );
     }
 }

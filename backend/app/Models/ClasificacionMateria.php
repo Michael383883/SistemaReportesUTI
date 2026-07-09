@@ -7,27 +7,44 @@ use Illuminate\Database\Eloquent\Model;
 class ClasificacionMateria extends Model
 {
     protected $table = 'CLASIFICACION_MATERIA';
+
     protected $primaryKey = 'ID_DETALLE';
+
     public $timestamps = false;
 
     protected $fillable = [
-        'ID_CLASIFICACION',
+        'ID_DOCUMENTO',
+        'ID_CLASIFICACION_DOCENTE',
         'COD_MATERIA',
         'NOMBRE_MATERIA',
-        'COD_PLAN',        // ← Agregado (estaba en migración)
-        'NOTA',            // ← Agregado (estaba en migración)
+        'COD_PLAN',
+        'NOTA',
         'DETALLE',
         'ORDEN',
     ];
 
     protected $casts = [
-        'ID_CLASIFICACION' => 'integer',
+        'ID_DOCUMENTO' => 'integer',
+        'ID_CLASIFICACION_DOCENTE' => 'integer',
+        'NOTA' => 'integer',
         'ORDEN' => 'integer',
-        'NOTA' => 'integer',  // Si es nullable, puede ser null
     ];
 
-    public function clasificacion()
+    public function documento()
     {
-        return $this->belongsTo(ClasificacionDocente::class, 'ID_CLASIFICACION', 'ID_CLASIFICACION');
+        return $this->belongsTo(
+            ClasificacionDocumento::class,
+            'ID_DOCUMENTO',
+            'ID_DOCUMENTO'
+        );
+    }
+
+    public function clasificacionDocente()
+    {
+        return $this->belongsTo(
+            ClasificacionDocente::class,
+            'ID_CLASIFICACION_DOCENTE',
+            'ID_CLASIFICACION_DOCENTE'
+        );
     }
 }
