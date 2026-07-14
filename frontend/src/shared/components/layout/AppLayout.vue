@@ -476,7 +476,7 @@ const menuSections = [
           icon: FileText, // importa este icono desde lucide-vue-next
           children: [
             { to: '/clasificaciones', label: 'Listado de documentos' },
-            { to: '/clasificaciones/nueva', label: 'Nuevo Documento' },
+            { to: '/clasificaciones/nueva', label: 'Subir Documento' },
             
           ],
         },
