@@ -90,102 +90,151 @@
         </div>
       </div>
 
+      
       <!-- PDF dropdown -->
-      <div class="flex flex-col" ref="pdfDropdownRef">
-        <label class="text-[0.68rem] invisible">PDF</label>
-        <div class="relative">
-          <!-- Botón partido: acción principal + flecha -->
-          <div
-            class="inline-flex rounded-lg overflow-visible border border-red-700/40 shadow-lg shadow-red-900/20"
-            :class="(loading || docentes.length === 0) ? 'opacity-40 pointer-events-none' : ''"
+<div class="flex flex-col" ref="pdfDropdownRef">
+  <label class="text-[0.68rem] invisible">PDF</label>
+
+  <div class="relative">
+    <!-- Botón partido: ambos abren el menú -->
+    <div
+      class="inline-flex rounded-lg overflow-visible border border-red-700/40 shadow-lg shadow-red-900/20"
+      :class="(loading || docentes.length === 0) ? 'opacity-40 pointer-events-none' : ''"
+    >
+      <!-- Botón principal -->
+      <button
+        @click.stop="pdfMenuAbierto = !pdfMenuAbierto"
+        class="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold
+               bg-red-700 hover:bg-red-600 active:bg-red-800 text-white
+               transition-all duration-150"
+      >
+        <svg
+          width="15"
+          height="15"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+        </svg>
+
+        Generar PDF
+      </button>
+
+      <!-- Flecha -->
+      <button
+        @click.stop="pdfMenuAbierto = !pdfMenuAbierto"
+        class="px-2.5 py-2 bg-red-700 hover:bg-red-600 active:bg-red-800 text-white
+               border-l border-red-600/60 transition-all duration-150"
+        aria-label="Más opciones de PDF"
+      >
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2.5"
+          :style="pdfMenuAbierto ? 'transform: rotate(180deg);' : ''"
+          style="transition: transform 0.15s"
+        >
+          <polyline points="6 9 12 15 18 9"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Backdrop -->
+    <div
+      v-if="pdfMenuAbierto"
+      class="fixed inset-0 z-40"
+      @click="pdfMenuAbierto = false"
+    />
+
+    <!-- Menú desplegable -->
+    <Transition
+      enter-active-class="transition-all duration-150 ease-out"
+      enter-from-class="opacity-0 scale-95 -translate-y-1"
+      enter-to-class="opacity-100 scale-100 translate-y-0"
+      leave-active-class="transition-all duration-100 ease-in"
+      leave-from-class="opacity-100 scale-100 translate-y-0"
+      leave-to-class="opacity-0 scale-95 -translate-y-1"
+    >
+      <div
+        v-if="pdfMenuAbierto"
+        class="absolute right-0 top-full mt-1.5 z-50
+               bg-white border border-slate-200 rounded-xl
+               shadow-xl overflow-hidden w-52"
+      >
+        <!-- Ver PDF -->
+        <button
+          @click="
+            generarPDF('ver');
+            pdfMenuAbierto = false;
+          "
+          class="w-full flex items-center gap-3 px-4 py-3 text-sm text-slate-700
+                 hover:bg-slate-50 transition-colors text-left"
+        >
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            class="text-slate-400 shrink-0"
           >
-            <!-- Acción principal: descarga directa -->
-            <button
-              @click="generarPDF('descargar')"
-              class="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold
-                     bg-red-700 hover:bg-red-600 active:bg-red-800 text-white
-                     transition-all duration-150"
-            >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                <polyline points="14 2 14 8 20 8"/>
-              </svg>
-              Generar PDF
-            </button>
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+            <circle cx="12" cy="12" r="3"/>
+          </svg>
 
-            <!-- Separador + flecha para abrir menú -->
-            <button
-              @click.stop="pdfMenuAbierto = !pdfMenuAbierto"
-              class="px-2.5 py-2 bg-red-700 hover:bg-red-600 active:bg-red-800 text-white
-                     border-l border-red-600/60 transition-all duration-150"
-              aria-label="Más opciones de PDF"
-            >
-              <svg
-                width="14" height="14" viewBox="0 0 24 24" fill="none"
-                stroke="currentColor" stroke-width="2.5"
-                :style="pdfMenuAbierto ? 'transform:rotate(180deg)' : ''"
-                style="transition: transform 0.15s"
-              >
-                <polyline points="6 9 12 15 18 9"/>
-              </svg>
-            </button>
-          </div>
-
-          <!-- Menú desplegable -->
-          <Transition
-            enter-active-class="transition-all duration-150 ease-out"
-            enter-from-class="opacity-0 scale-95 -translate-y-1"
-            enter-to-class="opacity-100 scale-100 translate-y-0"
-            leave-active-class="transition-all duration-100 ease-in"
-            leave-from-class="opacity-100 scale-100 translate-y-0"
-            leave-to-class="opacity-0 scale-95 -translate-y-1"
-          >
-            <div
-              v-if="pdfMenuAbierto"
-              class="absolute right-0 top-full mt-1.5 z-50
-                     bg-white border border-slate-200 rounded-xl
-                     shadow-xl overflow-hidden w-52"
-            >
-              <!-- Ver PDF -->
-              <button
-                @click="generarPDF('ver'); pdfMenuAbierto = false"
-                class="w-full flex items-center gap-3 px-4 py-3 text-sm text-slate-700
-                       hover:bg-slate-50 transition-colors text-left"
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
-                     stroke="currentColor" stroke-width="2" class="text-slate-400 shrink-0">
-                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                  <circle cx="12" cy="12" r="3"/>
-                </svg>
-                <div>
-                  <div class="font-medium leading-tight">Ver PDF</div>
-                  <div class="text-xs text-slate-400 mt-0.5">Abre en nueva pestaña</div>
-                </div>
-              </button>
-
-              <div class="border-t border-slate-100" />
-
-              <!-- Descargar PDF -->
-              <button
-                @click="generarPDF('descargar'); pdfMenuAbierto = false"
-                class="w-full flex items-center gap-3 px-4 py-3 text-sm text-slate-700
-                       hover:bg-slate-50 transition-colors text-left"
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
-                     stroke="currentColor" stroke-width="2" class="text-slate-400 shrink-0">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                  <polyline points="7 10 12 15 17 10"/>
-                  <line x1="12" y1="15" x2="12" y2="3"/>
-                </svg>
-                <div>
-                  <div class="font-medium leading-tight">Descargar PDF</div>
-                  <div class="text-xs text-slate-400 mt-0.5">Guarda en tu equipo</div>
-                </div>
-              </button>
+          <div>
+            <div class="font-medium leading-tight">Ver PDF</div>
+            <div class="text-xs text-slate-400 mt-0.5">
+              Abre en nueva pestaña
             </div>
-          </Transition>
-        </div>
+          </div>
+        </button>
+
+        <div class="border-t border-slate-100"></div>
+
+        <!-- Descargar PDF -->
+        <button
+          @click="
+            generarPDF('descargar');
+            pdfMenuAbierto = false;
+          "
+          class="w-full flex items-center gap-3 px-4 py-3 text-sm text-slate-700
+                 hover:bg-slate-50 transition-colors text-left"
+        >
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            class="text-slate-400 shrink-0"
+          >
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+
+          <div>
+            <div class="font-medium leading-tight">Descargar PDF</div>
+            <div class="text-xs text-slate-400 mt-0.5">
+              Guarda en tu equipo
+            </div>
+          </div>
+        </button>
       </div>
+    </Transition>
+  </div>
+</div>
+
+
     </div>
 
     <!-- ERROR -->

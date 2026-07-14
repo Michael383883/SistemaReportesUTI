@@ -14,14 +14,7 @@
       </div>
 
       <div class="flex items-center gap-3 shrink-0 ml-4">
-        <div
-          class="bg-white/15 border border-white/30 rounded-lg px-3 py-1 text-center"
-        >
-          <span class="block text-2xl font-extrabold leading-none">
-            {{ totalChReal }}
-          </span>
-          <span class="block text-[10px] opacity-80">hrs/sem</span>
-        </div>
+        
         <div
           class="text-xs bg-white/10 border border-white/20 rounded-md px-3 py-1"
         >
@@ -148,7 +141,6 @@
     </div>
   </div>
 </template>
-
 <script setup>
 import { computed } from 'vue'
 import { useHorarioResumen } from '../composables/useHorarioResumen'
@@ -159,19 +151,22 @@ const props = defineProps({
   docente: { type: Object, required: true },
 })
 
-// Misma lógica de CH real que el componente completo:
-// compartidas cuentan UNA sola vez, el resto suma normal.
+// CH real: cada grupo compartido (identificado por MATERIA) cuenta
+// UNA sola vez, aunque el docente tenga varios grupos compartidos
+// distintos e independientes entre sí. El resto (no compartidas) suma normal.
 const totalChReal = computed(() => {
-  let compartidaContada = false
+  const materiasCompartidasVistas = new Set()
   let chCompartida = 0
   let chNormal = 0
 
   for (const mat of props.docente.materias ?? []) {
     const esCompartida = mat.COMPARTIDO !== undefined && mat.COMPARTIDO !== null && mat.COMPARTIDO !== ''
+
     if (esCompartida) {
-      if (!compartidaContada) {
-        chCompartida = Number(mat.CARGA_HORARIA) || 0
-        compartidaContada = true
+      const claveGrupo = mat.MATERIA // identifica el grupo compartido específico
+      if (!materiasCompartidasVistas.has(claveGrupo)) {
+        chCompartida += Number(mat.CARGA_HORARIA) || 0
+        materiasCompartidasVistas.add(claveGrupo)
       }
     } else {
       chNormal += Number(mat.CARGA_HORARIA) || 0
@@ -181,7 +176,7 @@ const totalChReal = computed(() => {
   return chNormal + chCompartida
 })
 
-// Total inscritos
+// Total inscritos: suma directa de todas las filas, sin filtrar
 const totalInscritos = computed(() => {
   return (props.docente.materias ?? []).reduce(
     (acc, mat) => acc + (Number(mat.TOTAL_NORMAL) || 0),

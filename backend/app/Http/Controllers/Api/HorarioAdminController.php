@@ -151,118 +151,119 @@ class HorarioAdminController extends Controller
         }
 
         $sql = "
-            SELECT
-                HORARIOS2.ANIO,
-                HORARIOS2.PERIODO,
-                GRUPOS.[PLAN],
+        SELECT
+            HORARIOS2.ANIO,
+            HORARIOS2.PERIODO,
+            GRUPOS.[PLAN],
 
-                CASE GRUPOS.[PLAN]
-                    WHEN '059801' THEN 'ECO'
-                    WHEN '109401' THEN 'ADM'
-                    WHEN '089801' THEN 'CCP'
-                    WHEN '125091' THEN 'COM'
-                    WHEN '126091' THEN 'FIN'
-                    ELSE 'NN'
-                END AS CARRERA,
+            CASE GRUPOS.[PLAN]
+                WHEN '059801' THEN 'ECO'
+                WHEN '109401' THEN 'ADM'
+                WHEN '089801' THEN 'CCP'
+                WHEN '125091' THEN 'COM'
+                WHEN '126091' THEN 'FIN'
+                ELSE 'NN'
+            END AS CARRERA,
 
-                MATERIAS.NIVEL,
-                HORARIOS2.DOCENTE,
-                DOCENTES.APELLIDOS,
-                DOCENTES.NOMBRES,
-                GRUPOS.MATERIA,
-                MATERIAS.NOMBRE,
-                HORARIOS2.TIPO,
+            MATERIAS.NIVEL,
+            HORARIOS2.DOCENTE,
+            DOCENTES.APELLIDOS,
+            DOCENTES.NOMBRES,
+            GRUPOS.MATERIA,
+            MATERIAS.NOMBRE,
+            HORARIOS2.TIPO,
 
+            CASE
+                WHEN HORARIOS2.TIPO = 'C' THEN ''
+                WHEN HORARIOS2.TIPO = 'P' THEN '[AUX]'
+                ELSE 'N'
+            END AS TIPO2,
+
+            GRUPOS.GRUPO,
+
+            SUM(
                 CASE
-                    WHEN HORARIOS2.TIPO = 'C' THEN ''
-                    WHEN HORARIOS2.TIPO = 'P' THEN '[AUX]'
-                    ELSE 'N'
-                END AS TIPO2,
+                    WHEN HORARIOS2.HORA > 0
+                    AND HORARIOS2.GRUPO = 'NN'
+                    THEN 8
+                    ELSE 2
+                END
+            ) AS CARGA_HORARIA,
 
-                GRUPOS.GRUPO,
+            GRUPOS_COMPARTIDOS.COMP,
+            GRUPOS_COMPARTIDOS.COMPARTIDO,
+            GRUPOS_COMPARTIDOS.ORDEN,
 
-                SUM(
-                    CASE
-                        WHEN HORARIOS2.HORA > 0
-                        AND HORARIOS2.GRUPO = 'NN'
-                        THEN 8
-                        ELSE 2
-                    END
-                ) AS CARGA_HORARIA,
+            ISNULL(NroInsMatGrpNE.[TOTAL NORMAL], 0) AS TOTAL_NORMAL
 
-                GRUPOS_COMPARTIDOS.COMP,
-                GRUPOS_COMPARTIDOS.COMPARTIDO,
-                GRUPOS_COMPARTIDOS.ORDEN,
+        FROM HORARIOS2
 
-                ISNULL(NroInsMatGrpNE.[TOTAL NORMAL], 0) AS TOTAL_NORMAL
+        INNER JOIN GRUPOS
+            ON HORARIOS2.ANIO = GRUPOS.ANIO
+            AND HORARIOS2.PERIODO = GRUPOS.PERIODO
+            AND HORARIOS2.MATERIA = GRUPOS.MATERIA
+            AND HORARIOS2.GRUPO = GRUPOS.GRUPO
+            AND HORARIOS2.DOCENTE = GRUPOS.DOCENTE
 
-            FROM HORARIOS2
+        INNER JOIN MATERIAS
+            ON GRUPOS.ANIO = MATERIAS.ANIO
+            AND GRUPOS.PERIODO = MATERIAS.PERIODO
+            AND GRUPOS.[PLAN] = MATERIAS.[PLAN]
+            AND GRUPOS.MATERIA = MATERIAS.CODIGO
 
-            INNER JOIN GRUPOS
-                ON HORARIOS2.ANIO = GRUPOS.ANIO
-                AND HORARIOS2.PERIODO = GRUPOS.PERIODO
-                AND HORARIOS2.MATERIA = GRUPOS.MATERIA
-                AND HORARIOS2.GRUPO = GRUPOS.GRUPO
-                AND HORARIOS2.DOCENTE = GRUPOS.DOCENTE
+        INNER JOIN DOCENTES
+            ON HORARIOS2.DOCENTE = DOCENTES.CODIGO
 
-            INNER JOIN MATERIAS
-                ON GRUPOS.ANIO = MATERIAS.ANIO
-                AND GRUPOS.PERIODO = MATERIAS.PERIODO
-                AND GRUPOS.[PLAN] = MATERIAS.[PLAN]
-                AND GRUPOS.MATERIA = MATERIAS.CODIGO
+        LEFT JOIN GRUPOS_COMPARTIDOS
+            ON GRUPOS.[PLAN] = GRUPOS_COMPARTIDOS.[PLAN]
+            AND GRUPOS.MATERIA = GRUPOS_COMPARTIDOS.MATERIA
+            AND GRUPOS.GRUPO = GRUPOS_COMPARTIDOS.GRUPO
+            AND GRUPOS.PRIMARIO = GRUPOS_COMPARTIDOS.PRIMARIO
 
-            INNER JOIN DOCENTES
-                ON HORARIOS2.DOCENTE = DOCENTES.CODIGO
+        LEFT JOIN NroInsMatGrpNE
+            ON GRUPOS.[PLAN] = NroInsMatGrpNE.[PLAN]
+            AND GRUPOS.DOCENTE = NroInsMatGrpNE.CODIGO
+            AND GRUPOS.MATERIA = NroInsMatGrpNE.MATERIA
+            AND GRUPOS.GRUPO = NroInsMatGrpNE.GRUPO
 
-            LEFT JOIN GRUPOS_COMPARTIDOS
-                ON GRUPOS.[PLAN] = GRUPOS_COMPARTIDOS.[PLAN]
-                AND GRUPOS.MATERIA = GRUPOS_COMPARTIDOS.MATERIA
-                AND GRUPOS.GRUPO = GRUPOS_COMPARTIDOS.GRUPO
-                AND GRUPOS.PRIMARIO = GRUPOS_COMPARTIDOS.PRIMARIO
+        WHERE HORARIOS2.ANIO = :anio
+        AND HORARIOS2.PERIODO = :periodo
+        AND HORARIOS2.TIPO IN ('C')
+        AND GRUPOS.[PLAN] IN ('109401','125091','089801','126091','059801')
+        AND GRUPOS.TIPO = 'N'
+        AND GRUPOS.PRIMARIO = 'Y'
+        AND HORARIOS2.HORA NOT IN (
+            730,900,1030,1200,1330,
+            1500,1630,1800,1930,2100
+        )
+        $docenteFilter
 
-            LEFT JOIN NroInsMatGrpNE
-                ON GRUPOS.[PLAN] = NroInsMatGrpNE.[PLAN]
-                AND GRUPOS.MATERIA = NroInsMatGrpNE.MATERIA
-                AND GRUPOS.GRUPO = NroInsMatGrpNE.GRUPO
+        GROUP BY
+            HORARIOS2.ANIO,
+            HORARIOS2.PERIODO,
+            GRUPOS.[PLAN],
+            MATERIAS.NIVEL,
+            HORARIOS2.DOCENTE,
+            DOCENTES.APELLIDOS,
+            DOCENTES.NOMBRES,
+            GRUPOS.MATERIA,
+            MATERIAS.NOMBRE,
+            HORARIOS2.TIPO,
+            GRUPOS.GRUPO,
+            GRUPOS_COMPARTIDOS.COMP,
+            GRUPOS_COMPARTIDOS.COMPARTIDO,
+            GRUPOS_COMPARTIDOS.ORDEN,
+            NroInsMatGrpNE.[TOTAL NORMAL]
 
-            WHERE HORARIOS2.ANIO = :anio
-            AND HORARIOS2.PERIODO = :periodo
-            AND HORARIOS2.TIPO IN ('C')
-            AND GRUPOS.[PLAN] IN ('109401','125091','089801','126091','059801')
-            AND GRUPOS.TIPO = 'N'
-            AND GRUPOS.PRIMARIO = 'Y'
-            AND HORARIOS2.HORA NOT IN (
-                730,900,1030,1200,1330,
-                1500,1630,1800,1930,2100
-            )
-            $docenteFilter
-
-            GROUP BY
-                HORARIOS2.ANIO,
-                HORARIOS2.PERIODO,
-                GRUPOS.[PLAN],
-                MATERIAS.NIVEL,
-                HORARIOS2.DOCENTE,
-                DOCENTES.APELLIDOS,
-                DOCENTES.NOMBRES,
-                GRUPOS.MATERIA,
-                MATERIAS.NOMBRE,
-                HORARIOS2.TIPO,
-                GRUPOS.GRUPO,
-                GRUPOS_COMPARTIDOS.COMP,
-                GRUPOS_COMPARTIDOS.COMPARTIDO,
-                GRUPOS_COMPARTIDOS.ORDEN,
-                NroInsMatGrpNE.[TOTAL NORMAL]
-
-            ORDER BY
-                DOCENTES.APELLIDOS,
-                DOCENTES.NOMBRES,
-                GRUPOS_COMPARTIDOS.ORDEN,
-                GRUPOS.MATERIA,
-                GRUPOS.GRUPO,
-                GRUPOS.[PLAN],
-                GRUPOS_COMPARTIDOS.COMPARTIDO
-            ";
+        ORDER BY
+            DOCENTES.APELLIDOS,
+            DOCENTES.NOMBRES,
+            GRUPOS_COMPARTIDOS.ORDEN,
+            GRUPOS.MATERIA,
+            GRUPOS.GRUPO,
+            GRUPOS.[PLAN],
+            GRUPOS_COMPARTIDOS.COMPARTIDO
+        ";
 
         $data = collect(DB::select($sql, $bindings));
 
@@ -288,7 +289,6 @@ class HorarioAdminController extends Controller
             'data' => $grouped,
         ]);
     }
-
     /**
      * Resumen de un docente específico.
      */

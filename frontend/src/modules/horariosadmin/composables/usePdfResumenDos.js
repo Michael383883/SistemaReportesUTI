@@ -81,7 +81,9 @@ export function generarPDFResumenDos(docentes = [], { anio, periodo } = {}) {
     const idxIns = 4 + dias.length
     const idxComp = 5 + dias.length
 
-    // Sub-encabezado de columnas que se repite bajo cada nombre de docente
+    // Encabezado de columnas GLOBAL — se repite automáticamente al inicio
+    // de cada página gracias a `head` + `showHead: 'everyPage'`, en vez de
+    // insertarse manualmente una vez por cada docente.
     function makeSubHead() {
         return [
             'PLAN - NIV', 'MATERIA', 'GRP',
@@ -102,19 +104,18 @@ export function generarPDFResumenDos(docentes = [], { anio, periodo } = {}) {
         }))
     }
 
-    // ── SIN head global: la tabla empieza directamente con el primer docente ──
     const body = []
 
     for (let di = 0; di < docentes.length; di++) {
         const docente = docentes[di]
         const materiasAgrupadas = agruparPorMateriaGrupo(docente.horarios ?? [])
 
-        // Nombre del docente — alineado a la izquierda
+        // Nombre del docente — texto normal (sin negrita), separador entre bloques
         body.push([{
             content: `${docente.docente}  ${(docente.apellidos ?? '').toUpperCase()} ${(docente.nombres ?? '').toUpperCase()}`,
             colSpan: nCols,
             styles: {
-                fontStyle: 'bold',
+                fontStyle: 'normal',
                 fontSize: 8.5,
                 halign: 'left',
                 fillColor: C_WHITE,
@@ -122,9 +123,6 @@ export function generarPDFResumenDos(docentes = [], { anio, periodo } = {}) {
                 cellPadding: { top: di === 0 ? 1.5 : 3.5, bottom: 1, left: 1.5, right: 1.5 },
             },
         }])
-
-        // Sub-encabezado de columnas justo debajo del nombre
-        body.push(makeSubHead())
 
         let chCompartida = 0
         let compartidaContada = false
@@ -207,7 +205,10 @@ export function generarPDFResumenDos(docentes = [], { anio, periodo } = {}) {
         startY: HEADER_H,
         margin: { left: ML, right: MR, top: HEADER_H, bottom: 12 },
         tableWidth: CW,
-        // Sin head: no hay fila de encabezado flotante global
+        // ✅ Head GLOBAL: se dibuja una sola vez al inicio de cada página,
+        // no una vez por cada docente. Ahorra mucho espacio vertical.
+        head: [makeSubHead()],
+        showHead: 'everyPage',
         body,
         alternateRowStyles: { fillColor: C_WHITE },
         styles: {
@@ -239,9 +240,10 @@ export function generarPDFResumenDos(docentes = [], { anio, periodo } = {}) {
                 data.cell.styles.fontStyle = 'normal'
             }
         },
-        didAddPage(data) {
-            drawPageHeader()
-            data.settings.margin.top = HEADER_H
+        didDrawPage(data) {
+            if (doc.internal.getCurrentPageInfo().pageNumber > 1) {
+                drawPageHeader()
+            }
         },
     })
 

@@ -21,14 +21,10 @@ const PLAN_MAP = {
 function planAAbreviacion(plan) {
     if (!plan) return ''
     const s = String(plan).trim()
-    // Si ya viene como sigla texto, devolver tal cual
     if (/^[A-Z]{2,4}$/i.test(s)) return s.toUpperCase()
-    // Coincidencia exacta
     if (PLAN_MAP[s]) return PLAN_MAP[s]
-    // Coincidencia por primeros 6 caracteres (variantes de turno al final)
     const base = s.slice(0, 6)
     if (PLAN_MAP[base]) return PLAN_MAP[base]
-    // Fallback
     return s
 }
 
@@ -38,8 +34,6 @@ function planAAbreviacion(plan) {
  * @param {number|string} options.anio
  * @param {number|string} options.periodo
  * @param {'ver'|'descargar'} [options.modo='descargar']
- *   'ver'       → abre el PDF en una nueva pestaña del navegador
- *   'descargar' → descarga el archivo directamente (comportamiento anterior)
  */
 export function generarPDFResumen(docentes = [], { anio, periodo, modo = 'descargar' } = {}) {
 
@@ -101,14 +95,12 @@ export function generarPDFResumen(docentes = [], { anio, periodo, modo = 'descar
         }
     }
 
-    // ── Construye el cuerpo completo (todos los docentes en una sola tabla) ──
     const body = []
 
     for (let di = 0; di < docentes.length; di++) {
         const docente = docentes[di]
         const materias = docente.materias ?? []
 
-        // Fila con el nombre del docente
         body.push([{
             content: `${docente.docente}  ${(docente.apellidos ?? '').toUpperCase()} ${(docente.nombres ?? '').toUpperCase()}`,
             colSpan: 7,
@@ -119,15 +111,11 @@ export function generarPDFResumen(docentes = [], { anio, periodo, modo = 'descar
             },
         }])
 
-        // Filas de materias (sin desglose de horario)
         for (const mat of materias) {
             const compTexto = mat.COMPARTIDO ?? ''
-            const cFlag = mat.COMP
-                ? (compTexto.toLowerCase().startsWith('comparte de') ? 1 : 0)
-                : 0
+            const cFlag = Number(mat.COMP) || 0
             const materiaTexto = [mat.MATERIA, mat.NOMBRE].filter(Boolean).join(' ')
 
-            // Col 0: carrera + nivel → "ADM - 3", "FIN - 5"
             let planTexto
             if (mat.CARRERA) {
                 planTexto = `${mat.CARRERA} - ${mat.NIVEL ?? ''}`
@@ -137,33 +125,39 @@ export function generarPDFResumen(docentes = [], { anio, periodo, modo = 'descar
             }
 
             body.push([
-                planTexto,                       // 0: carrera - nivel
-                materiaTexto,                     // 1: MATERIA
-                mat.GRUPO ?? '',                  // 2: GRP
-                String(mat.CARGA_HORARIA ?? ''),  // 3: CH
-                String(mat.TOTAL_NORMAL ?? ''),   // 4: INSC-N
-                String(cFlag),                    // 5: C
-                compTexto,                        // 6: COMPARTIDO
+                planTexto,
+                materiaTexto,
+                mat.GRUPO ?? '',
+                String(mat.CARGA_HORARIA ?? ''),
+                String(mat.TOTAL_NORMAL ?? ''),
+                String(cFlag),
+                compTexto,
             ])
         }
 
-        // ── Calcular totales ────────────────────────────────────────────────
-        // CH e INSC-N: suma solo materias con C=0 (excluye "Comparte de...")
-        const materiasNoCompartidasRecibidas = materias.filter(mat => {
-            const comp = mat.COMPARTIDO ?? ''
-            const c = mat.COMP
-                ? (comp.toLowerCase().startsWith('comparte de') ? 1 : 0)
-                : 0
-            return Number(c) === 0
-        })
+        let compartidaContada = false
+        let chCompartida = 0
+        let chNormal = 0
 
-        const totalCH = materiasNoCompartidasRecibidas
-            .reduce((acc, mat) => acc + Number(mat.CARGA_HORARIA ?? 0), 0)
+        for (const mat of materias) {
+            const esCompartida = mat.COMPARTIDO !== undefined && mat.COMPARTIDO !== null && mat.COMPARTIDO !== ''
+            if (esCompartida) {
+                if (!compartidaContada) {
+                    chCompartida = Number(mat.CARGA_HORARIA) || 0
+                    compartidaContada = true
+                }
+            } else {
+                chNormal += Number(mat.CARGA_HORARIA) || 0
+            }
+        }
 
-        const totalInscN = materiasNoCompartidasRecibidas
-            .reduce((acc, mat) => acc + Number(mat.TOTAL_NORMAL ?? 0), 0)
+        const totalCH = chNormal + chCompartida
 
-        // Fila TOTAL alineada: TOTAL en col GRP, valor CH en col CH, valor INSC-N en col INS
+        const totalInscN = materias.reduce(
+            (acc, mat) => acc + (Number(mat.TOTAL_NORMAL) || 0),
+            0
+        )
+
         body.push([
             { content: '', colSpan: 1, styles: { fillColor: C_WHITE, lineWidth: 0 } },
             { content: '', colSpan: 1, styles: { fillColor: C_WHITE, lineWidth: 0 } },
@@ -175,7 +169,6 @@ export function generarPDFResumen(docentes = [], { anio, periodo, modo = 'descar
         ])
     }
 
-    // Encabezado de la primera página
     drawPageHeader()
 
     autoTable(doc, {
@@ -184,7 +177,6 @@ export function generarPDFResumen(docentes = [], { anio, periodo, modo = 'descar
         tableWidth: CW,
         head: [['DOC. PLAN', 'MATERIA', 'GRP', 'CH', 'INSC-N', 'C', 'COMPARTIDO']],
         body,
-        // Sin filas alternadas
         alternateRowStyles: { fillColor: C_WHITE },
         styles: {
             font: 'helvetica', fontSize: 7,
@@ -222,31 +214,26 @@ export function generarPDFResumen(docentes = [], { anio, periodo, modo = 'descar
             const isDataRow = Array.isArray(raw) && raw.length === 7
             if (!isDataRow) return
 
-            // Saltar filas de cabecera docente o total (tienen objetos con colSpan)
             const firstCell = raw[0]
             if (typeof firstCell === 'object' && firstCell !== null && 'colSpan' in firstCell) return
 
             const col = data.column.index
 
-            // Líneas horizontales solo desde columna GRP (índice 2) en adelante
             if (col <= 1) {
                 data.cell.styles.lineWidth = { top: 0, right: 0, bottom: 0, left: 0 }
             } else {
                 data.cell.styles.lineWidth = { top: 0, right: 0, bottom: 0.2, left: 0 }
             }
 
-            // Col 0: texto normal
             if (col === 0) {
                 data.cell.styles.fontStyle = 'normal'
                 data.cell.styles.fontSize = 6.5
             }
 
-            // Col C: "0" en gris
             if (col === 5 && data.cell.raw === '0') {
                 data.cell.styles.textColor = C_ZERO_TEXT
             }
 
-            // COMPARTIDO: texto negro normal
             if (col === 6 && data.cell.raw) {
                 data.cell.styles.textColor = C_BLACK
                 data.cell.styles.fontStyle = 'normal'
@@ -254,7 +241,6 @@ export function generarPDFResumen(docentes = [], { anio, periodo, modo = 'descar
             }
         },
         didDrawCell(data) {
-            // Subrayado manual para el encabezado "INSC-N"
             if (data.section === 'head' && data.column.index === 4) {
                 doc.setFont('helvetica', 'bold')
                 doc.setFontSize(7)
@@ -267,31 +253,27 @@ export function generarPDFResumen(docentes = [], { anio, periodo, modo = 'descar
                 doc.line(cx - textW / 2, lineY, cx + textW / 2, lineY)
             }
         },
-        didAddPage(data) {
-            drawPageHeader()
-            data.settings.margin.top = HEADER_H
+        didDrawPage(data) {
+            if (doc.internal.getCurrentPageInfo().pageNumber > 1) {
+                drawPageHeader()
+            }
         },
     })
 
     drawFooters()
 
-    // ── Entrega del PDF según el modo ────────────────────────────────────────
     const filename = `ResumenCargaHoraria_${anio}_${periodo}.pdf`
 
     if (modo === 'ver') {
-        // Genera un Blob URL y lo abre en una nueva pestaña
         const blob = doc.output('blob')
         const url = URL.createObjectURL(blob)
         const ventana = window.open(url, '_blank')
-        // Libera la URL del objeto cuando la pestaña ya la cargó
         if (ventana) {
             ventana.addEventListener('load', () => URL.revokeObjectURL(url), { once: true })
         } else {
-            // Si el navegador bloqueó el popup, liberar igualmente después de un momento
             setTimeout(() => URL.revokeObjectURL(url), 10_000)
         }
     } else {
-        // Modo 'descargar': comportamiento original
         doc.save(filename)
     }
 }

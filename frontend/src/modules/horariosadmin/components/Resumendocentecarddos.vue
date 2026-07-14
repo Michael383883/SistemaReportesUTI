@@ -13,10 +13,7 @@
         
       </div>
       <div class="flex items-center gap-3 shrink-0 ml-4">
-        <div class="bg-white/15 border border-white/30 rounded-lg px-3 py-1 text-center">
-          <span class="block text-2xl font-extrabold leading-none">{{ totalChReal }}</span>
-          <span class="block text-[10px] opacity-80">hrs/sem</span>
-        </div>
+        
         <div class="text-xs bg-white/10 border border-white/20 rounded-md px-3 py-1">
           {{ filasAgrupadas.length }} materias
         </div>
@@ -28,12 +25,15 @@
       <table class="w-full border-collapse text-xs" style="table-layout: auto;">
         <thead>
           <tr class="bg-slate-50 border-b-2 border-slate-200">
+
+            <th class="px-2 py-2 text-center text-[11px] font-bold uppercase tracking-wider text-slate-600">
+             Plan - Nvl
+            </th>
+
             <th class="px-2 py-2 text-left text-[11px] font-bold uppercase tracking-wider text-slate-600 min-w-[150px]">
               Materia
             </th>
-            <th class="px-2 py-2 text-center text-[11px] font-bold uppercase tracking-wider text-slate-600">
-              Nivel
-            </th>
+            
             <th class="px-2 py-2 text-center text-[11px] font-bold uppercase tracking-wider text-slate-600">
               Grp
             </th>
@@ -58,17 +58,7 @@
             :key="i"
             class="border-b border-slate-100 hover:bg-slate-50 transition-colors"
           >
-            <td class="px-3 py-2">
-              <span class="font-semibold text-slate-800 text-[12px] leading-tight">
-                {{ fila.principal.NOMBRE }}
-              </span>
-              <br />
-              <span class="text-[10px] font-semibold text-slate-400">
-                {{ fila.principal.MATERIA }}
-              </span>
-            </td>
-
-            <td class="text-center px-2 py-2">
+          <td class="text-center px-2 py-2">
               <span
                 class="inline-block px-2 py-0.5 rounded-full text-[11px] font-bold border"
                 :style="{
@@ -80,6 +70,18 @@
                 {{ fila.principal.CARRERA }} - {{ fila.principal.NIVEL }}
               </span>
             </td>
+
+            <td class="px-3 py-2">
+              <span class="font-semibold text-slate-800 text-[12px] leading-tight">
+                {{ fila.principal.NOMBRE }}
+              </span>
+              <br />
+              <span class="text-[10px] font-semibold text-slate-400">
+                {{ fila.principal.MATERIA }}
+              </span>
+            </td>
+
+            
 
             <td class="text-center px-2 py-2 font-semibold text-slate-600">
               {{ fila.principal.GRUPO }}
@@ -98,45 +100,47 @@
                 </span>
               </div>
             </td>
+<td class="px-3 py-2">
+  <div v-if="fila.hermanas && fila.hermanas.length" class="flex flex-col gap-2">
+    <!-- Contenedor en fila, con wrap automático cuando no hay espacio -->
+    <div class="flex flex-row flex-wrap gap-3">
+      <div
+        v-for="(h, hi) in fila.hermanas"
+        :key="hi"
+        class="flex flex-col gap-0.5 border border-slate-600/40 rounded-md px-2 py-1 bg-white/5 min-w-[140px]"
+      >
+        <span class="text-[11px] font-semibold text-slate-700">
+          {{ h.NOMBRE }}
+        </span>
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="text-[10px] text-slate-800">
+            {{ h.MATERIA }} - Ins: {{ h.TOTAL_NORMAL ?? '—' }}
+          </span>
+          <span
+            class="inline-block px-1.5 py-0.5 rounded-full text-[10px] font-bold border whitespace-nowrap"
+            :style="{
+              background: colorCarrera(h.CARRERA).bg,
+              color: colorCarrera(h.CARRERA).text,
+              borderColor: colorCarrera(h.CARRERA).border,
+            }"
+          >
+            {{ h.CARRERA }} - {{ h.NIVEL }}
+          </span>
+        </div>
+        <span class="text-[10px] w-fit">
+          <span class="font-bold text-black">Grp: {{ h.GRUPO }}</span>
+        </span>
+      </div>
+    </div>
 
-            <td class="px-3 py-2">
-              <div v-if="fila.hermana" class="flex flex-col gap-1">
-                <span class="text-[11px] font-semibold text-slate-700">
-                  {{ fila.hermana.NOMBRE }}
-                </span>
-                <div class="flex items-center gap-2">
-                  <span class="text-[10px] text-slate-800">
-                    {{ fila.hermana.MATERIA }} - Ins: {{ fila.hermana.TOTAL_NORMAL ?? '—' }}
-                  </span>
-                  <span
-                    class="inline-block px-1.5 py-0.5 rounded-full text-[10px] font-bold border whitespace-nowrap"
-                    :style="{
-                      background: colorCarrera(fila.hermana.CARRERA).bg,
-                      color: colorCarrera(fila.hermana.CARRERA).text,
-                      borderColor: colorCarrera(fila.hermana.CARRERA).border,
-                    }"
-                  >
-                    {{ fila.hermana.CARRERA }} - {{ fila.hermana.NIVEL }}
-                  </span>
-                </div>
-                <span class="text-[10px] w-fit">
-                  <span class="font-bold text-black">
-                    Grp: {{ fila.hermana.GRUPO }}
-                  </span>
-                  <span
-                    class="font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 ml-1"
-                  >
-                    Suma:
-                    {{ fila.principal.TOTAL_NORMAL ?? 0 }}
-                    +
-                    {{ fila.hermana.TOTAL_NORMAL ?? 0 }}
-                    =
-                    {{ calcularTotal(fila) }}
-                  </span>
-                </span>
-              </div>
-              <span v-else class="text-slate-300 text-center block">—</span>
-            </td>
+    <span class="text-[10px] w-fit">
+      <span class="font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
+        Suma: {{ resumenSuma(fila) }} = {{ calcularTotal(fila) }}
+      </span>
+    </span>
+  </div>
+  <span v-else class="text-slate-300 text-center block">—</span>
+</td>
 
             <td class="text-center px-2 py-2">
               <span
@@ -204,21 +208,34 @@ const filasAgrupadas = computed(() => {
     if (indices.length < 2) continue
     const origenes = indices.filter(i => norm(materias[i].COMP) === '0')
     const derivadas = indices.filter(i => norm(materias[i].COMP) === '1')
-    const pares = Math.min(origenes.length, derivadas.length)
-    for (let p = 0; p < pares; p++) {
-      const iOrigen = origenes[p]
-      const iDerivada = derivadas[p]
-      if (usada[iOrigen] || usada[iDerivada]) continue
-      filas.push({ principal: materias[iOrigen], hermana: materias[iDerivada] })
+
+    if (origenes.length === 1 && derivadas.length >= 1) {
+      // ✅ Un solo origen puede tener VARIAS derivadas (comparte con más de una carrera)
+      const iOrigen = origenes[0]
+      filas.push({
+        principal: materias[iOrigen],
+        hermanas: derivadas.map(i => materias[i]),
+      })
       usada[iOrigen] = true
-      usada[iDerivada] = true
-    }
-    ;[...origenes, ...derivadas].forEach(i => {
-      if (!usada[i]) {
-        filas.push({ principal: materias[i], hermana: null })
-        usada[i] = true
+      derivadas.forEach(i => { usada[i] = true })
+    } else {
+      // Caso general / fallback: varios orígenes en el mismo ORDEN, emparejar 1 a 1
+      const pares = Math.min(origenes.length, derivadas.length)
+      for (let p = 0; p < pares; p++) {
+        const iOrigen = origenes[p]
+        const iDerivada = derivadas[p]
+        if (usada[iOrigen] || usada[iDerivada]) continue
+        filas.push({ principal: materias[iOrigen], hermanas: [materias[iDerivada]] })
+        usada[iOrigen] = true
+        usada[iDerivada] = true
       }
-    })
+      ;[...origenes, ...derivadas].forEach(i => {
+        if (!usada[i]) {
+          filas.push({ principal: materias[i], hermanas: [] })
+          usada[i] = true
+        }
+      })
+    }
   }
 
   const sinProcesar = materias
@@ -246,20 +263,20 @@ const filasAgrupadas = computed(() => {
         norm(sinProcesar[a].m.COMP) === '0'
           ? [sinProcesar[a], sinProcesar[encontrado]]
           : [sinProcesar[encontrado], sinProcesar[a]]
-      filas.push({ principal: origen.m, hermana: derivada.m })
+      filas.push({ principal: origen.m, hermanas: [derivada.m] })
       usadaSP.add(a)
       usadaSP.add(encontrado)
       usada[sinProcesar[a].idx] = true
       usada[sinProcesar[encontrado].idx] = true
     } else {
-      filas.push({ principal: ma, hermana: null })
+      filas.push({ principal: ma, hermanas: [] })
       usadaSP.add(a)
       usada[sinProcesar[a].idx] = true
     }
   }
 
   materias.forEach((m, idx) => {
-    if (!usada[idx]) filas.push({ principal: m, hermana: null })
+    if (!usada[idx]) filas.push({ principal: m, hermanas: [] })
   })
 
   return filas
@@ -267,11 +284,21 @@ const filasAgrupadas = computed(() => {
 
 function calcularTotal(fila) {
   const p = Number(fila.principal.TOTAL_NORMAL) || 0
-  const h = fila.hermana ? Number(fila.hermana.TOTAL_NORMAL) || 0 : 0
+  const h = (fila.hermanas || []).reduce(
+    (acc, m) => acc + (Number(m.TOTAL_NORMAL) || 0),
+    0
+  )
   return p + h
 }
 
-// ✅ Las tres computeds al nivel del módulo, FUERA de filasAgrupadas
+function resumenSuma(fila) {
+  const partes = [
+    Number(fila.principal.TOTAL_NORMAL) || 0,
+    ...(fila.hermanas || []).map(m => Number(m.TOTAL_NORMAL) || 0),
+  ]
+  return partes.join(' + ')
+}
+
 const totalChReal = computed(() =>
   filasAgrupadas.value.reduce(
     (acc, fila) => acc + (Number(fila.principal.CARGA_HORARIA) || 0),
@@ -279,17 +306,7 @@ const totalChReal = computed(() =>
   )
 )
 
-const totalParciales = computed(() =>
-  filasAgrupadas.value.reduce(
-    (acc, fila) => acc + (Number(fila.principal.TOTAL_NORMAL) || 0),
-    0
-  )
-)
-
 const totalGeneral = computed(() =>
-  filasAgrupadas.value.reduce(
-    (acc, fila) => acc + calcularTotal(fila),
-    0
-  )
+  filasAgrupadas.value.reduce((acc, fila) => acc + calcularTotal(fila), 0)
 )
 </script>

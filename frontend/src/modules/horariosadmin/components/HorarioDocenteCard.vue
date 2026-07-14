@@ -14,14 +14,7 @@
       </div>
 
       <div class="flex items-center gap-3 shrink-0 ml-4">
-        <div
-          class="bg-white/15 border border-white/30 rounded-lg px-3 py-1 text-center"
-        >
-          <span class="block text-2xl font-extrabold leading-none">
-            {{ totalChReal }} 
-          </span>
-          <span class="block text-[10px] opacity-80">hrs/sem</span>
-        </div>
+        
         <div
           class="text-xs bg-white/10 border border-white/20 rounded-md px-3 py-1"
         >

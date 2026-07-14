@@ -16,9 +16,10 @@ function norm(v) {
 
 /**
  * Misma lógica que el computed `filasAgrupadas` de Resumendocentecarddos.vue,
- * trasladada a JS plano. Empareja materias "origen" (COMP=0) con su
- * "derivada" (COMP=1) cuando comparten el mismo ORDEN, o como fallback
- * cuando tienen la misma carga horaria y distinta carrera.
+ * trasladada a JS plano. Empareja materias "origen" (COMP=0) con TODAS sus
+ * "derivadas" (COMP=1) cuando comparten el mismo ORDEN (un origen puede
+ * compartir con varias carreras a la vez), o como fallback 1 a 1 cuando
+ * tienen la misma carga horaria y distinta carrera.
  */
 function agruparFilas(materias = []) {
     const usada = new Array(materias.length).fill(false)
@@ -36,21 +37,34 @@ function agruparFilas(materias = []) {
         if (indices.length < 2) continue
         const origenes = indices.filter(i => norm(materias[i].COMP) === '0')
         const derivadas = indices.filter(i => norm(materias[i].COMP) === '1')
-        const pares = Math.min(origenes.length, derivadas.length)
-        for (let p = 0; p < pares; p++) {
-            const iOrigen = origenes[p]
-            const iDerivada = derivadas[p]
-            if (usada[iOrigen] || usada[iDerivada]) continue
-            filas.push({ principal: materias[iOrigen], hermana: materias[iDerivada] })
+
+        if (origenes.length === 1 && derivadas.length >= 1) {
+            // ✅ Un solo origen puede tener VARIAS derivadas (comparte con más de una carrera)
+            const iOrigen = origenes[0]
+            filas.push({
+                principal: materias[iOrigen],
+                hermanas: derivadas.map(i => materias[i]),
+            })
             usada[iOrigen] = true
-            usada[iDerivada] = true
-        }
-        ;[...origenes, ...derivadas].forEach(i => {
-            if (!usada[i]) {
-                filas.push({ principal: materias[i], hermana: null })
-                usada[i] = true
+            derivadas.forEach(i => { usada[i] = true })
+        } else {
+            // Caso general / fallback: varios orígenes en el mismo ORDEN, emparejar 1 a 1
+            const pares = Math.min(origenes.length, derivadas.length)
+            for (let p = 0; p < pares; p++) {
+                const iOrigen = origenes[p]
+                const iDerivada = derivadas[p]
+                if (usada[iOrigen] || usada[iDerivada]) continue
+                filas.push({ principal: materias[iOrigen], hermanas: [materias[iDerivada]] })
+                usada[iOrigen] = true
+                usada[iDerivada] = true
             }
-        })
+            ;[...origenes, ...derivadas].forEach(i => {
+                if (!usada[i]) {
+                    filas.push({ principal: materias[i], hermanas: [] })
+                    usada[i] = true
+                }
+            })
+        }
     }
 
     const sinProcesar = materias
@@ -78,20 +92,20 @@ function agruparFilas(materias = []) {
                 norm(sinProcesar[a].m.COMP) === '0'
                     ? [sinProcesar[a], sinProcesar[encontrado]]
                     : [sinProcesar[encontrado], sinProcesar[a]]
-            filas.push({ principal: origen.m, hermana: derivada.m })
+            filas.push({ principal: origen.m, hermanas: [derivada.m] })
             usadaSP.add(a)
             usadaSP.add(encontrado)
             usada[sinProcesar[a].idx] = true
             usada[sinProcesar[encontrado].idx] = true
         } else {
-            filas.push({ principal: ma, hermana: null })
+            filas.push({ principal: ma, hermanas: [] })
             usadaSP.add(a)
             usada[sinProcesar[a].idx] = true
         }
     }
 
     materias.forEach((m, idx) => {
-        if (!usada[idx]) filas.push({ principal: m, hermana: null })
+        if (!usada[idx]) filas.push({ principal: m, hermanas: [] })
     })
 
     return filas
@@ -99,7 +113,10 @@ function agruparFilas(materias = []) {
 
 function calcularTotal(fila) {
     const p = Number(fila.principal.TOTAL_NORMAL) || 0
-    const h = fila.hermana ? Number(fila.hermana.TOTAL_NORMAL) || 0 : 0
+    const h = (fila.hermanas || []).reduce(
+        (acc, m) => acc + (Number(m.TOTAL_NORMAL) || 0),
+        0
+    )
     return p + h
 }
 
@@ -143,8 +160,8 @@ export function generarPDFResumenDos(
         doc.setFont('helvetica', 'normal')
         doc.setFontSize(7)
         doc.text(`Generado: ${fechaActual}`, PAGE_W - MR, 19.5, { align: 'right' })
-        doc.text(`Total docentes: ${docentes.length}`, ML, 19.5)
-
+        //doc.text(`Total docentes: ${docentes.length}`, ML, 19.5)
+        doc.text('La carga horaria incluye Grupos Compartidos.', ML, 19.5)
         return HEADER_H
     }
 
@@ -183,19 +200,21 @@ export function generarPDFResumenDos(
             },
         }])
 
-        // Filas de materias (con su hermana de "comparte con", si existe)
+        // Filas de materias (con TODAS sus hermanas de "comparte con", si existen)
         for (const fila of filas) {
             const p = fila.principal
-            const h = fila.hermana
+            const hermanas = fila.hermanas || []
 
             const materiaTexto = [p.MATERIA, p.NOMBRE].filter(Boolean).join(' ')
             const nivelTexto = `${p.CARRERA ?? ''} - ${p.NIVEL ?? ''}`
 
-            let compTexto = ''
-            if (h) {
-                const hMateriaTexto = [h.MATERIA, h.NOMBRE].filter(Boolean).join(' ')
-                compTexto = `${hMateriaTexto} (${h.CARRERA ?? ''} - ${h.NIVEL ?? ''}) · Grp ${h.GRUPO ?? ''} · Ins: ${h.TOTAL_NORMAL ?? 0}`
-            }
+            // Cada hermana en su propia línea dentro de la celda (\n = salto de línea en autotable)
+            const compTexto = hermanas
+                .map(h => {
+                    const hMateriaTexto = [h.MATERIA, h.NOMBRE].filter(Boolean).join(' ')
+                    return `${hMateriaTexto} (${h.CARRERA ?? ''} - ${h.NIVEL ?? ''}) · Grp ${h.GRUPO ?? ''} · Ins: ${h.TOTAL_NORMAL ?? 0}`
+                })
+                .join('\n')
 
             body.push([
                 nivelTexto,                          // 0: carrera - nivel
@@ -254,6 +273,7 @@ export function generarPDFResumenDos(
             5: { cellWidth: 'auto' },
             6: { cellWidth: 14, halign: 'center' },
         },
+
         didParseCell(data) {
             if (data.section === 'head') {
                 if (data.column.index === 1) data.cell.styles.halign = 'left'
@@ -297,7 +317,9 @@ export function generarPDFResumenDos(
                 data.cell.styles.textColor = C_ZERO_TEXT
             }
 
-            // COMPARTE CON: texto gris/mutado, normal, sin negrita
+            // COMPARTE CON: texto gris/mutado, normal, sin negrita.
+            // Con varias hermanas, el texto trae '\n' y autotable lo respeta
+            // (cada hermana queda en su propia línea dentro de la celda).
             if (col === 5) {
                 data.cell.styles.textColor = data.cell.raw ? C_TEXT_MUTED : C_ZERO_TEXT
                 data.cell.styles.fontStyle = 'normal'
@@ -311,9 +333,10 @@ export function generarPDFResumenDos(
                 data.cell.styles.fontSize = 7
             }
         },
-        didAddPage(data) {
-            drawPageHeader()
-            data.settings.margin.top = HEADER_H
+        didDrawPage(data) {
+            if (doc.internal.getCurrentPageInfo().pageNumber > 1) {
+                drawPageHeader()
+            }
         },
     })
 
