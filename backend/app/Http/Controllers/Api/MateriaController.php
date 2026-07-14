@@ -11,8 +11,7 @@ class MateriaController extends Controller
 {
     /**
      * GET /api/materias
-     * Busca materias por gestión (ANIO) y/o periodo (PERIODO)
-     * Incluye el nombre del plan (JOIN con PLANES)
+     * (SIN CAMBIOS - se mantiene para uso futuro)
      */
     public function index(Request $request)
     {
@@ -74,6 +73,7 @@ class MateriaController extends Controller
 
     /**
      * GET /api/materias/periodos
+     * (SIN CAMBIOS - se mantiene para uso futuro)
      */
     public function periodos()
     {
@@ -96,6 +96,101 @@ class MateriaController extends Controller
 
             return response()->json([
                 'error' => 'Error al obtener los periodos',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * GET /api/materias/docente
+     * NUEVO: Busca materias, pero SOLO las que el docente indicado
+     * efectivamente dictó (según GRUPOS), no todas las materias del sistema.
+     *
+     * Parámetros:
+     *  - docente   (requerido) código del docente
+     *  - search    (opcional) filtra por nombre, código o sigla
+     *  - anio      (opcional) restringe a materias dictadas en ese año
+     *  - periodo   (opcional) restringe a materias dictadas en ese periodo
+     *
+     * Si no se manda anio/periodo, devuelve el listado histórico
+     * (distinct) de materias que ese docente dictó alguna vez.
+     */
+    public function porDocente(Request $request)
+    {
+        $request->validate([
+            'docente' => 'required|numeric',
+            'anio' => 'nullable|numeric',
+            'periodo' => 'nullable|string|in:1,2,3,4',
+            'search' => 'nullable|string|max:60',
+        ]);
+
+        try {
+            $docente = $request->query('docente');
+            $anio = $request->query('anio');
+            $periodo = $request->query('periodo');
+            $search = $request->query('search');
+
+            $query = DB::connection('sqlsrv')->table('GRUPOS')
+                ->join('MATERIAS', function ($join) {
+                    $join->on('MATERIAS.CODIGO', '=', 'GRUPOS.MATERIA')
+                        ->on('MATERIAS.ANIO', '=', 'GRUPOS.ANIO')
+                        ->on('MATERIAS.PERIODO', '=', 'GRUPOS.PERIODO')
+                        ->on('MATERIAS.PLAN', '=', 'GRUPOS.PLAN');
+                })
+                ->leftJoin('PLANES', function ($join) {
+                    $join->on('PLANES.CODIGO', '=', 'GRUPOS.PLAN')
+                        ->on('PLANES.ANIO', '=', 'GRUPOS.ANIO');
+                })
+                ->where('GRUPOS.DOCENTE', $docente)
+                ->where('GRUPOS.PRIMARIO', 'Y')
+                ->where('GRUPOS.TIPO', 'N')
+                ->select(
+                    'MATERIAS.CODIGO as codigo',
+                    'MATERIAS.NOMBRE as nombre',
+                    'MATERIAS.SIGLA as sigla',
+                    'MATERIAS.PERIODO as periodo',
+                    'MATERIAS.ANIO as anio',
+                    'MATERIAS.PLAN as cod_plan',
+                    'PLANES.NOMBRE as nombre_plan',
+                    'GRUPOS.GRUPO as grupo'   // ← NUEVO: número de grupo
+                );
+            // Nota: se quita distinct() global porque ahora el GRUPO forma
+            // parte del resultado y puede repetir la materia con distinto
+            // grupo (lo cual es correcto, cada fila = materia+grupo real).
+
+            if ($anio) {
+                $query->where('GRUPOS.ANIO', $anio);
+            }
+
+            if ($periodo) {
+                $query->where('GRUPOS.PERIODO', $periodo);
+            }
+
+            if ($search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('MATERIAS.NOMBRE', 'LIKE', "%{$search}%")
+                        ->orWhere('MATERIAS.CODIGO', 'LIKE', "%{$search}%")
+                        ->orWhere('MATERIAS.SIGLA', 'LIKE', "%{$search}%");
+                });
+            }
+
+            $materias = $query
+                ->orderBy('MATERIAS.NOMBRE')
+                ->orderBy('GRUPOS.GRUPO')
+                ->get();
+
+            return response()->json($materias);
+
+        } catch (\Exception $e) {
+            Log::error('Error en MateriaController@porDocente', [
+                'message' => $e->getMessage(),
+                'line' => $e->getLine(),
+                'file' => $e->getFile(),
+                'params' => $request->all()
+            ]);
+
+            return response()->json([
+                'error' => 'Error al buscar materias del docente',
                 'message' => $e->getMessage()
             ], 500);
         }

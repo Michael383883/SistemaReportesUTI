@@ -141,6 +141,25 @@
         <p class="text-[14px] font-semibold text-gray-900">{{ successMessage }}</p>
         <p class="text-[12px] text-gray-400 mt-1">
   Clasificación registrada correctamente (Documento ID: {{ ultimoId }}, docentes vinculados: {{ docentesRegistrados }}).</p>
+  <!-- Estado de asignación a GRUPOS -->
+<p v-if="aplicadoAGrupos === true" class="text-[12px] text-green-600 mt-1 font-medium">
+  ✓ Datos aplicados en GRUPOS correctamente.
+</p>
+<p v-else-if="aplicadoAGrupos === false" class="text-[12px] text-amber-600 mt-1 font-medium">
+  ⚠️ La clasificación se guardó, pero no se pudo aplicar en GRUPOS. Puedes intentarlo luego desde el listado.
+</p>
+<!-- 👇 NUEVO: detalle técnico del error al aplicar en GRUPOS -->
+<div v-if="errorGrupos" class="mt-2 mx-auto max-w-md text-left p-3 rounded-lg bg-red-50 border border-red-200 text-[11px] font-mono text-red-700 space-y-1">
+  <p v-if="errorGrupos.sqlstate"><strong>SQLSTATE:</strong> {{ errorGrupos.sqlstate }}</p>
+  <p v-if="errorGrupos.codigoDriver"><strong>Código driver:</strong> {{ errorGrupos.codigoDriver }}</p>
+  <p v-if="errorGrupos.mensajeDriver"><strong>Mensaje SQL Server:</strong> {{ errorGrupos.mensajeDriver }}</p>
+  <p v-if="errorGrupos.mensaje"><strong>Mensaje:</strong> {{ errorGrupos.mensaje }}</p>
+  <details v-if="errorGrupos.sql" class="cursor-pointer">
+    <summary class="text-red-600">Ver SQL y bindings</summary>
+    <pre class="whitespace-pre-wrap mt-1">{{ errorGrupos.sql }}</pre>
+    <pre class="whitespace-pre-wrap mt-1">Bindings: {{ JSON.stringify(errorGrupos.bindings) }}</pre>
+  </details>
+</div>
         <div class="flex items-center justify-center gap-3 mt-5">
           <button
             @click="resetAll"
@@ -196,8 +215,8 @@ const archivo     = ref(null)
 const successMessage = ref('')
 const ultimoId        = ref(null)
 const docentesRegistrados = ref(0) // nuevo
-
-
+const aplicadoAGrupos = ref(null)
+const errorGrupos = ref(null)
 function limpiarArchivo() {
   archivo.value     = null
   uploadError.value = ''
@@ -239,11 +258,26 @@ function irAlPaso2() {
   currentStep.value = 1
 }
 
-async function onGuardar(formData) {
+async function onGuardar(formData, debeAplicarAGrupos) {
   try {
     const resultado = await clasificacion.guardarClasificacion({ ...formData, archivo: archivo.value })
     ultimoId.value = resultado.idDocumento
     docentesRegistrados.value = resultado.idsClasificacionDocente.length
+
+    if (debeAplicarAGrupos && resultado.materiasInsertadas > 0) {
+      try {
+        const resGrupos = await clasificacion.aplicarEnGrupos(resultado.idDocumento)
+        aplicadoAGrupos.value = resGrupos.filas_afectadas > 0
+        errorGrupos.value = null // 👈 limpio si salió bien
+      } catch (e) { // 👈 antes decía "catch {" y perdía el error
+        aplicadoAGrupos.value = false
+        errorGrupos.value = clasificacion.errorDetalle.value // 👈 guardo el detalle
+      }
+    } else {
+      aplicadoAGrupos.value = null
+      errorGrupos.value = null
+    }
+
     successMessage.value = 'Clasificación guardada exitosamente'
   } catch {
     // error visible vía :error en ClasificacionForm
@@ -257,5 +291,9 @@ function resetAll() {
   uploadError.value    = ''
   successMessage.value = ''
   ultimoId.value        = null
+  docentesRegistrados.value = 0
+  aplicadoAGrupos.value = null
+   errorGrupos.value = null // 👈 nuevo
+
 }
 </script>

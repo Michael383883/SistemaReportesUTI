@@ -214,6 +214,19 @@ Route::get('/reportes/clasificacion/por-referencia', [ReporteClasificacionContro
 Route::delete('/clasificaciones/docente/{idClasificacionDocente}', [ClasificacionDocenteController::class, 'destroyDocente'])
     ->where('idClasificacionDocente', '[0-9]+');
 
+
+Route::get(
+    '/reportes/clasificacion/id-por-referencia',
+    [ReporteClasificacionController::class, 'idPorReferencia']
+);
+
+// Aplicar / quitar clasificación en GRUPOS
+// (id = ID_DOCUMENTO; solo tiene efecto si el documento tiene CLASIFICACION_MATERIA)
+Route::put('/clasificaciones/{id}/aplicar', [ClasificacionDocenteController::class, 'aplicarEnGrupos'])
+    ->where('id', '[0-9]+');
+Route::put('/clasificaciones/{id}/quitar', [ClasificacionDocenteController::class, 'quitarDeGrupos'])
+    ->where('id', '[0-9]+');
+
 /*
 |--------------------------------------------------------------------------
 | MATERIASS 
@@ -222,6 +235,7 @@ Route::delete('/clasificaciones/docente/{idClasificacionDocente}', [Clasificacio
 
 Route::get('/materias', [MateriaController::class, 'index']);
 Route::get('/materias/periodos', [MateriaController::class, 'periodos']);
+Route::get('/materias/docente', [MateriaController::class, 'porDocente']);
 
 
 /*

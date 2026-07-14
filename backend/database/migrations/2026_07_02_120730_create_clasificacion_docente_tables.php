@@ -80,7 +80,8 @@ return new class extends Migration {
             $table->string('COD_MATERIA', 10)->nullable();
             $table->string('NOMBRE_MATERIA', 150);
             $table->string('COD_PLAN', 10)->nullable();
-            $table->integer('NOTA')->nullable();
+            $table->decimal('NOTA', 5, 2)->nullable();
+            $table->string('GRUPO', 10)->nullable();
             $table->text('DETALLE')->nullable();
             $table->integer('ORDEN')->nullable();
 

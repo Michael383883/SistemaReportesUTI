@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Log;
 
 class ClasificacionDocenteController extends Controller
 {
@@ -179,7 +180,8 @@ class ClasificacionDocenteController extends Controller
                 'NOMBRE_ARCHIVO' => $nombreArchivo,
                 'OBSERVACION' => $request->observacion,
                 'OBSERVACION2' => $request->observacion2,
-                'FECHA_REGISTRO' => now(),
+                //'FECHA_REGISTRO' => now(),
+                'FECHA_REGISTRO' => DB::raw('GETDATE()'),
             ], 'ID_DOCUMENTO');
 
             // ------- 2) CLASIFICACION_DOCENTE (una fila por cada docente distinto) -------
@@ -209,6 +211,7 @@ class ClasificacionDocenteController extends Controller
                     'COD_MATERIA' => $m['cod_materia'] ?? null,
                     'NOMBRE_MATERIA' => $m['nombre_materia'],
                     'COD_PLAN' => $m['cod_plan'] ?? null,
+                    'GRUPO' => isset($m['grupo']) && $m['grupo'] !== null ? (string) $m['grupo'] : null, // ← cast explícito a string
                     'NOTA' => $m['nota'] ?? null,
                     'DETALLE' => $m['detalle'] ?? null,
                     'ORDEN' => $i,
@@ -235,6 +238,8 @@ class ClasificacionDocenteController extends Controller
                     $referenciasInsertadas++;
                 }
             }
+
+
 
             DB::commit();
 
@@ -352,4 +357,304 @@ class ClasificacionDocenteController extends Controller
 
         return response()->json(['ok' => true, 'mensaje' => 'Docente eliminado de la clasificación']);
     }
+
+
+    // PUT /clasificaciones/{id}/aplicar
+//
+// $id = ID_DOCUMENTO (CLASIFICACION_DOCUMENTO)
+//
+// Traslada los datos del documento hacia GRUPOS, SOLO para los grupos que
+// coincidan con las materias que el/los docente(s) tienen en
+// CLASIFICACION_MATERIA para este documento.
+//
+// Mapeo de campos:
+//   CLASIFICACION_DOCUMENTO.TIPO_DOCUMENTO  -> GRUPOS.RESOLUCION
+//   CLASIFICACION_DOCUMENTO.DETALLE_GENERAL -> GRUPOS.DESIGNACION
+//   CLASIFICACION_DOCUMENTO.CATEGORIA       -> GRUPOS.TIPO_INGRESO
+//
+// Cruce (match) contra GRUPOS:
+//   CLASIFICACION_DOCUMENTO.GESTION   = GRUPOS.ANIO
+//   CLASIFICACION_DOCUMENTO.PERIODO   = GRUPOS.PERIODO
+//   CLASIFICACION_MATERIA.COD_PLAN    = GRUPOS.PLAN
+//   CLASIFICACION_MATERIA.COD_MATERIA = GRUPOS.MATERIA
+//   CLASIFICACION_MATERIA.GRUPO       = GRUPOS.GRUPO
+//   CLASIFICACION_DOCENTE.COD_DOCENTE = GRUPOS.DOCENTE
+//
+// IMPORTANTE: si el documento se guardó en el caso "no regenta materia"
+// (sin filas en CLASIFICACION_MATERIA), no hay PLAN/MATERIA/GRUPO con qué
+// cruzar. En ese caso esta función NO toca GRUPOS y devuelve
+// filas_afectadas = 0 con un aviso, tal como pediste ("solo guarda como antes").
+//
+// Acepta opcionalmente "ids_materia" en el body (IDs de CLASIFICACION_MATERIA)
+// para limitar a materias puntuales; si no viene, aplica todas las del documento.
+
+    public function aplicarEnGrupos(Request $request, $id)
+    {
+        $idsMateria = $request->input('ids_materia', []);
+        $filtrarPorIds = is_array($idsMateria) && count($idsMateria) > 0;
+
+        $sqlUpdate = null;
+        $paramsUpdate = null;
+
+        try {
+            $tieneMaterias = DB::table('CLASIFICACION_MATERIA')
+                ->where('ID_DOCUMENTO', $id)
+                ->whereNotNull('COD_MATERIA')
+                ->exists();
+
+            if (!$tieneMaterias) {
+                return response()->json([
+                    'ok' => true,
+                    'filas_afectadas' => 0,
+                    'grupos' => [],
+                    'mensaje' => 'Este documento no tiene materias asignadas (caso "no regenta"); no se modifica GRUPOS.',
+                ]);
+            }
+
+            $placeholders = $filtrarPorIds
+                ? implode(',', array_fill(0, count($idsMateria), '?'))
+                : null;
+
+            $filtroIdMateriaSql = $filtrarPorIds
+                ? "AND cm.ID_DETALLE IN ($placeholders)"
+                : '';
+
+            $paramsUpdate = $filtrarPorIds
+                ? array_merge([$id], $idsMateria)
+                : [$id];
+
+            $sqlUpdate = "
+        UPDATE g
+        SET
+            g.RESOLUCION   = cdoc.TIPO_DOCUMENTO,
+            g.DESIGNACION  = cdoc.DETALLE_GENERAL,
+            g.TIPO_INGRESO = cdoc.CATEGORIA
+        FROM GRUPOS g
+        JOIN CLASIFICACION_MATERIA cm
+            ON  g.[PLAN]  COLLATE Modern_Spanish_CI_AS = cm.COD_PLAN    COLLATE Modern_Spanish_CI_AS
+            AND g.MATERIA COLLATE Modern_Spanish_CI_AS = cm.COD_MATERIA COLLATE Modern_Spanish_CI_AS
+            AND g.[GRUPO] COLLATE Modern_Spanish_CI_AS = CAST(cm.[GRUPO] AS VARCHAR(10)) COLLATE Modern_Spanish_CI_AS
+        JOIN CLASIFICACION_DOCENTE ccd
+            ON ccd.ID_CLASIFICACION_DOCENTE = cm.ID_CLASIFICACION_DOCENTE
+        JOIN CLASIFICACION_DOCUMENTO cdoc
+            ON cdoc.ID_DOCUMENTO = ccd.ID_DOCUMENTO
+        WHERE
+            cdoc.ID_DOCUMENTO = ?
+            AND g.DOCENTE = ccd.COD_DOCENTE
+            AND g.ANIO    = CAST(cdoc.GESTION AS NUMERIC(5,0))
+            AND g.PERIODO COLLATE Modern_Spanish_CI_AS = cdoc.PERIODO COLLATE Modern_Spanish_CI_AS
+            AND g.[TIPO]  COLLATE Modern_Spanish_CI_AS = 'N'
+            {$filtroIdMateriaSql}
+        ";
+
+            $actualizados = DB::update($sqlUpdate, $paramsUpdate);
+
+            $sqlSelect = "
+        SELECT
+            g.ANIO, g.PERIODO, g.[PLAN], g.MATERIA, g.[GRUPO],
+            g.DOCENTE, g.[TIPO], g.TIPO_INGRESO, g.RESOLUCION, g.DESIGNACION
+        FROM GRUPOS g
+        JOIN CLASIFICACION_MATERIA cm
+            ON  g.[PLAN]  COLLATE Modern_Spanish_CI_AS = cm.COD_PLAN    COLLATE Modern_Spanish_CI_AS
+            AND g.MATERIA COLLATE Modern_Spanish_CI_AS = cm.COD_MATERIA COLLATE Modern_Spanish_CI_AS
+            AND g.[GRUPO] COLLATE Modern_Spanish_CI_AS = CAST(cm.[GRUPO] AS VARCHAR(10)) COLLATE Modern_Spanish_CI_AS
+        JOIN CLASIFICACION_DOCENTE ccd
+            ON ccd.ID_CLASIFICACION_DOCENTE = cm.ID_CLASIFICACION_DOCENTE
+        JOIN CLASIFICACION_DOCUMENTO cdoc
+            ON cdoc.ID_DOCUMENTO = ccd.ID_DOCUMENTO
+        WHERE
+            cdoc.ID_DOCUMENTO = ?
+            AND g.DOCENTE = ccd.COD_DOCENTE
+            AND g.ANIO    = CAST(cdoc.GESTION AS NUMERIC(5,0))
+            AND g.PERIODO COLLATE Modern_Spanish_CI_AS = cdoc.PERIODO COLLATE Modern_Spanish_CI_AS
+            AND g.[TIPO]  COLLATE Modern_Spanish_CI_AS = 'N'
+            {$filtroIdMateriaSql}
+        ";
+
+            $gruposActualizados = DB::select($sqlSelect, $paramsUpdate);
+
+            return response()->json([
+                'ok' => true,
+                'filas_afectadas' => $actualizados,
+                'grupos' => $gruposActualizados,
+            ]);
+
+        } catch (\Illuminate\Database\QueryException $e) {
+            // Error específico de SQL Server: código de error, SQLSTATE, mensaje real del motor
+            $errorInfo = $e->errorInfo ?? null; // [SQLSTATE, driver_error_code, driver_error_message]
+
+            Log::error('Error SQL en aplicarEnGrupos', [
+                'id_documento' => $id,
+                'sql' => $sqlUpdate,
+                'bindings' => $paramsUpdate,
+                'sqlstate' => $errorInfo[0] ?? null,
+                'driver_code' => $errorInfo[1] ?? null,
+                'driver_message' => $errorInfo[2] ?? null,
+                'mensaje_completo' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'ok' => false,
+                'tipo_error' => 'sql',
+                'sqlstate' => $errorInfo[0] ?? null,
+                'codigo_driver' => $errorInfo[1] ?? null,
+                'mensaje_driver' => $errorInfo[2] ?? null,
+                'error' => $e->getMessage(),
+                'sql' => $sqlUpdate,
+                'bindings' => $paramsUpdate,
+            ], 500);
+
+        } catch (\Exception $e) {
+            Log::error('Error inesperado en aplicarEnGrupos', [
+                'id_documento' => $id,
+                'mensaje' => $e->getMessage(),
+                'archivo' => $e->getFile(),
+                'linea' => $e->getLine(),
+            ]);
+
+            return response()->json([
+                'ok' => false,
+                'tipo_error' => 'general',
+                'error' => $e->getMessage(),
+                'archivo' => $e->getFile(),
+                'linea' => $e->getLine(),
+            ], 500);
+        }
+    }
+
+
+    // PUT /clasificaciones/{id}/quitar
+    public function quitarDeGrupos(Request $request, $id)
+    {
+        $idsMateria = $request->input('ids_materia', []);
+        $filtrarPorIds = is_array($idsMateria) && count($idsMateria) > 0;
+
+        $sqlUpdate = null;
+        $paramsUpdate = null;
+
+        try {
+            $tieneMaterias = DB::table('CLASIFICACION_MATERIA')
+                ->where('ID_DOCUMENTO', $id)
+                ->whereNotNull('COD_MATERIA')
+                ->exists();
+
+            if (!$tieneMaterias) {
+                return response()->json([
+                    'ok' => true,
+                    'filas_afectadas' => 0,
+                    'grupos' => [],
+                    'mensaje' => 'Este documento no tiene materias asignadas (caso "no regenta"); no hay nada que quitar de GRUPOS.',
+                ]);
+            }
+
+            $placeholders = $filtrarPorIds
+                ? implode(',', array_fill(0, count($idsMateria), '?'))
+                : null;
+
+            $filtroIdMateriaSql = $filtrarPorIds
+                ? "AND cm.ID_DETALLE IN ($placeholders)"
+                : '';
+
+            $paramsUpdate = $filtrarPorIds
+                ? array_merge([$id], $idsMateria)
+                : [$id];
+
+            $sqlSelect = "
+        SELECT
+            g.ANIO, g.PERIODO, g.[PLAN], g.MATERIA, g.[GRUPO],
+            g.DOCENTE, g.[TIPO], g.TIPO_INGRESO, g.RESOLUCION, g.DESIGNACION
+        FROM GRUPOS g
+        JOIN CLASIFICACION_MATERIA cm
+            ON  g.[PLAN]  COLLATE Modern_Spanish_CI_AS = cm.COD_PLAN    COLLATE Modern_Spanish_CI_AS
+            AND g.MATERIA COLLATE Modern_Spanish_CI_AS = cm.COD_MATERIA COLLATE Modern_Spanish_CI_AS
+            AND g.[GRUPO] COLLATE Modern_Spanish_CI_AS = CAST(cm.[GRUPO] AS VARCHAR(10)) COLLATE Modern_Spanish_CI_AS
+        JOIN CLASIFICACION_DOCENTE ccd
+            ON ccd.ID_CLASIFICACION_DOCENTE = cm.ID_CLASIFICACION_DOCENTE
+        JOIN CLASIFICACION_DOCUMENTO cdoc
+            ON cdoc.ID_DOCUMENTO = ccd.ID_DOCUMENTO
+        WHERE
+            cdoc.ID_DOCUMENTO = ?
+            AND g.DOCENTE = ccd.COD_DOCENTE
+            AND g.ANIO    = CAST(cdoc.GESTION AS NUMERIC(5,0))
+            AND g.PERIODO COLLATE Modern_Spanish_CI_AS = cdoc.PERIODO COLLATE Modern_Spanish_CI_AS
+            AND g.[TIPO]  COLLATE Modern_Spanish_CI_AS = 'N'
+            {$filtroIdMateriaSql}
+        ";
+
+            $gruposAfectados = DB::select($sqlSelect, $paramsUpdate);
+
+            $sqlUpdate = "
+        UPDATE g
+        SET
+            g.RESOLUCION   = NULL,
+            g.DESIGNACION  = NULL,
+            g.TIPO_INGRESO = NULL
+        FROM GRUPOS g
+        JOIN CLASIFICACION_MATERIA cm
+            ON  g.[PLAN]  COLLATE Modern_Spanish_CI_AS = cm.COD_PLAN    COLLATE Modern_Spanish_CI_AS
+            AND g.MATERIA COLLATE Modern_Spanish_CI_AS = cm.COD_MATERIA COLLATE Modern_Spanish_CI_AS
+            AND g.[GRUPO] COLLATE Modern_Spanish_CI_AS = CAST(cm.[GRUPO] AS VARCHAR(10)) COLLATE Modern_Spanish_CI_AS
+        JOIN CLASIFICACION_DOCENTE ccd
+            ON ccd.ID_CLASIFICACION_DOCENTE = cm.ID_CLASIFICACION_DOCENTE
+        JOIN CLASIFICACION_DOCUMENTO cdoc
+            ON cdoc.ID_DOCUMENTO = ccd.ID_DOCUMENTO
+        WHERE
+            cdoc.ID_DOCUMENTO = ?
+            AND g.DOCENTE = ccd.COD_DOCENTE
+            AND g.ANIO    = CAST(cdoc.GESTION AS NUMERIC(5,0))
+            AND g.PERIODO COLLATE Modern_Spanish_CI_AS = cdoc.PERIODO COLLATE Modern_Spanish_CI_AS
+            AND g.[TIPO]  COLLATE Modern_Spanish_CI_AS = 'N'
+            {$filtroIdMateriaSql}
+        ";
+
+            $actualizados = DB::update($sqlUpdate, $paramsUpdate);
+
+            return response()->json([
+                'ok' => true,
+                'filas_afectadas' => $actualizados,
+                'grupos' => $gruposAfectados,
+            ]);
+
+        } catch (\Illuminate\Database\QueryException $e) {
+            $errorInfo = $e->errorInfo ?? null;
+
+            Log::error('Error SQL en quitarDeGrupos', [
+                'id_documento' => $id,
+                'sql' => $sqlUpdate,
+                'bindings' => $paramsUpdate,
+                'sqlstate' => $errorInfo[0] ?? null,
+                'driver_code' => $errorInfo[1] ?? null,
+                'driver_message' => $errorInfo[2] ?? null,
+                'mensaje_completo' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'ok' => false,
+                'tipo_error' => 'sql',
+                'sqlstate' => $errorInfo[0] ?? null,
+                'codigo_driver' => $errorInfo[1] ?? null,
+                'mensaje_driver' => $errorInfo[2] ?? null,
+                'error' => $e->getMessage(),
+                'sql' => $sqlUpdate,
+                'bindings' => $paramsUpdate,
+            ], 500);
+
+        } catch (\Exception $e) {
+            Log::error('Error inesperado en quitarDeGrupos', [
+                'id_documento' => $id,
+                'mensaje' => $e->getMessage(),
+                'archivo' => $e->getFile(),
+                'linea' => $e->getLine(),
+            ]);
+
+            return response()->json([
+                'ok' => false,
+                'tipo_error' => 'general',
+                'error' => $e->getMessage(),
+                'archivo' => $e->getFile(),
+                'linea' => $e->getLine(),
+            ], 500);
+        }
+    }
+
 }

@@ -18,6 +18,7 @@ class ClasificacionMateria extends Model
         'COD_MATERIA',
         'NOMBRE_MATERIA',
         'COD_PLAN',
+        'GRUPO',
         'NOTA',
         'DETALLE',
         'ORDEN',
@@ -26,7 +27,7 @@ class ClasificacionMateria extends Model
     protected $casts = [
         'ID_DOCUMENTO' => 'integer',
         'ID_CLASIFICACION_DOCENTE' => 'integer',
-        'NOTA' => 'integer',
+        'NOTA' => 'decimal:2',
         'ORDEN' => 'integer',
     ];
 

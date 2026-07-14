@@ -237,12 +237,13 @@
 
         <!-- BUSCADOR DE MATERIAS (oculto si está marcado "no regenta") -->
         <BuscadorMaterias
-          v-if="!noRegentaFCE"
-          :gestion="form.gestion"
-          :periodo="form.periodo"
-          :materiasSeleccionadas="form.materias"
-          @agregar-materia="onAgregarMateria"
-        />
+                v-if="!noRegentaFCE"
+                :docente="form.cod_docente"
+                :gestion="form.gestion"
+                :periodo="form.periodo"
+                :materiasSeleccionadas="form.materias"
+                @agregar-materia="onAgregarMateria"
+              />
 
         <!-- Materias seleccionadas -->
         <div v-if="form.materias.length && !noRegentaFCE" class="flex flex-wrap gap-2 mt-2">
@@ -256,6 +257,7 @@
               <span class="truncate">
                 {{ m.nombre_materia }}
                 <span v-if="m.cod_materia" class="text-blue-400 text-[10px]">({{ m.cod_materia }})</span>
+                <span v-if="m.grupo" class="text-blue-500 text-[10px] font-semibold ml-1">Grupo {{ m.grupo }}</span>
               </span>
 
               <button
@@ -274,7 +276,10 @@
                 type="text"
                 inputmode="numeric"
                 placeholder="Nota"
-                class="w-14 px-1.5 py-0.5 text-[11px] border border-blue-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white text-center"
+                class="w-14 px-1.5 py-0.5 text-[11px] border rounded focus:outline-none focus:ring-1 bg-white text-center"
+                :class="notaInvalida(m)
+                  ? 'border-red-400 focus:ring-red-500'
+                  : 'border-blue-300 focus:ring-blue-500'"
                 @keypress="soloNumeros"
               />
             </div>
@@ -323,6 +328,11 @@
                   </button>
                 </div>
               </div>
+            </div>
+
+            <!-- Aviso: nota no válida (debajo de la card) -->
+            <div v-if="notaInvalida(m)" class="text-[10px] text-red-600 font-medium pt-0.5">
+              ⚠️ Nota no válida
             </div>
           </div>
         </div>
@@ -392,10 +402,10 @@
       </button>
 
       <button
-        :disabled="saving || !esValido"
-        @click="$emit('guardar', formCopiado())"
-        class="inline-flex items-center gap-2 px-4 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-[13px] font-medium rounded-lg transition-colors"
-      >
+          :disabled="saving || !esValido"
+          @click="$emit('guardar', formCopiado(), asignaAGrupos)"
+          class="inline-flex items-center gap-2 px-4 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-[13px] font-medium rounded-lg transition-colors"
+        >
         <svg v-if="saving" class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
           <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
@@ -420,6 +430,18 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['guardar', 'back'])
+
+// Determina si, tras guardar, corresponde llamar a aplicarEnGrupos().
+// Reglas:
+//  - Si es "no regenta materia en la FCE" -> NO se toca GRUPOS.
+//  - Si no hay materias -> NO se toca GRUPOS.
+//  - Si hay materias pero les falta cod_plan, cod_materia o grupo -> NO se
+//    puede cruzar contra GRUPOS, así que tampoco se aplica.
+const asignaAGrupos = computed(() => {
+  if (noRegentaFCE.value) return false
+  if (form.materias.length === 0) return false
+  return form.materias.every(m => m.cod_materia && m.cod_plan && m.grupo)
+})
 
 // ─── Combobox de Periodo ───
 const periodoDropdownOpen = ref(false)
@@ -586,6 +608,15 @@ function soloNumeros(event) {
   }
 }
 
+// ─── Validación de NOTA (no debe ser mayor a 100) ───
+// Solo verifica y muestra el aviso debajo de la card; no bloquea el guardado.
+function notaInvalida(m) {
+  if (m.nota === null || m.nota === undefined || m.nota === '') return false
+  const valor = Number(m.nota)
+  if (Number.isNaN(valor)) return false
+  return valor > 100
+}
+
 // ─── "No regenta materia en la FCE" ───
 // Se guarda como una "materia" más (sin cod_materia), reutilizando la misma
 // tabla/columna que ya existe. No se agrega ningún campo nuevo en la BD.
@@ -600,18 +631,16 @@ const noRegentaFCE = computed(() =>
 function toggleNoRegenta(event) {
   const checked = event.target.checked
   if (checked) {
-    // Reemplaza cualquier materia real por el marcador "no regenta".
-    // En este caso el docente relevante es el docente general del formulario.
     form.materias = [{
       cod_materia: null,
       nombre_materia: NO_REGENTA_LABEL,
       cod_plan: null,
+      grupo: null,          // <-- nuevo
       nota: null,
       detalle: null,
       docente: null,
     }]
   } else {
-    // Al desmarcar, limpia el marcador para volver a buscar materias normalmente
     form.materias = []
   }
 }
@@ -622,11 +651,9 @@ function onAgregarMateria(materiaData) {
   if (existe) {
     return
   }
-  // Cada materia guarda su propio docente. Por defecto hereda el docente
-  // general seleccionado arriba; luego se puede cambiar individualmente
-  // con el link "cambiar" debajo de cada materia.
   form.materias.push({
     ...materiaData,
+    grupo: materiaData.grupo ?? null,   // <-- asegura que siempre exista la llave
     docente: selectedDocente.value
       ? {
           cod_docente: selectedDocente.value.codigo,

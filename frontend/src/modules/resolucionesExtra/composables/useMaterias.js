@@ -17,12 +17,13 @@ export function useMaterias() {
         }
     }
 
+    // ─── Buscador general (SIN filtro por docente) — se mantiene ───
     async function listar(filtros = {}) {
         if (!filtros.anio) {
             materias.value = []
             return []
         }
-        
+
         loading.value = true
         error.value = null
         try {
@@ -35,6 +36,33 @@ export function useMaterias() {
         } catch (e) {
             error.value = e?.response?.data?.error || 'No se pudo obtener las materias'
             console.error('Error al listar materias:', e)
+            materias.value = []
+            throw e
+        } finally {
+            loading.value = false
+        }
+    }
+
+    // ─── NUEVO: buscador filtrado por DOCENTE (lo que realmente dictó) ───
+    async function listarPorDocente(filtros = {}) {
+        // docente es obligatorio para este endpoint
+        if (!filtros.docente) {
+            materias.value = []
+            return []
+        }
+
+        loading.value = true
+        error.value = null
+        try {
+            const { data } = await axios.get(`${API_BASE}/api/materias/docente`, {
+                params: filtros, // { docente, anio, periodo, search }
+                headers: authHeaders(),
+            })
+            materias.value = data
+            return data
+        } catch (e) {
+            error.value = e?.response?.data?.error || 'No se pudo obtener las materias del docente'
+            console.error('Error al listar materias por docente:', e)
             materias.value = []
             throw e
         } finally {
@@ -67,6 +95,7 @@ export function useMaterias() {
         materias,
         periodos,
         listar,
+        listarPorDocente, // ← NUEVO
         obtenerPeriodos,
         reset,
     }
