@@ -144,19 +144,34 @@
 <script setup>
 import { ref } from 'vue'
 import { useReporte } from '../composables/useReporte'
+import { useReporteClasificacion } from '../composables/useReporteClasificacion'
 
-defineProps({
+const props = defineProps({
   materias: { type: Array, default: () => [] },
+  codDocente: { type: [String, Number], default: null },
 })
 
 const { verPdfResolucion } = useReporte()
+const { verPdfClasificacion } = useReporteClasificacion()
 
 const loadingPdf = ref({})
+
+async function verPdfConFallback(nro, descargar) {
+  try {
+    await verPdfResolucion(nro, descargar)
+  } catch (e) {
+    try {
+      await verPdfClasificacion(nro, props.codDocente, descargar)
+    } catch (e2) {
+      alert('No se encontró el PDF en ninguna de las dos fuentes.')
+    }
+  }
+}
 
 async function handleVer(m) {
   loadingPdf.value[m.nro] = true
   try {
-    await verPdfResolucion(m.resolucion, false)
+    await verPdfConFallback(m.resolucion, false)
   } finally {
     loadingPdf.value[m.nro] = false
   }
@@ -165,7 +180,7 @@ async function handleVer(m) {
 async function handleDescargar(m) {
   loadingPdf.value[m.nro] = true
   try {
-    await verPdfResolucion(m.resolucion, true)
+    await verPdfConFallback(m.resolucion, true)
   } finally {
     loadingPdf.value[m.nro] = false
   }

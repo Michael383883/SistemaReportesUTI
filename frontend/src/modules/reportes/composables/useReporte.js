@@ -135,50 +135,42 @@ export function useReporte() {
     // Primero busca el id, luego abre /resoluciones/{id}/pdf
     // ─────────────────────────────────────────────────────
     const verPdfResolucion = async (nroResolucion, descargar = false) => {
-        try {
-            const token = localStorage.getItem('token')
+        const token = localStorage.getItem('token')
 
-            const { data } = await axios.get(
-                `${API_BASE}/api/resoluciones/por-numero`,
-                {
-                    params: { nro: nroResolucion },
-                    headers: { Authorization: `Bearer ${token}` },
-                }
-            )
-
-            if (!data.ok) {
-                alert('No se encontró el PDF para esta resolución.')
-                return
+        const { data } = await axios.get(
+            `${API_BASE}/api/resoluciones/por-numero`,
+            {
+                params: { nro: nroResolucion },
+                headers: { Authorization: `Bearer ${token}` },
             }
+        )
 
-            const url = `${API_BASE}/api/resoluciones/${data.id_resolucion}/pdf`
+        if (!data.ok) {
+            throw new Error('No encontrado en resoluciones')
+        }
 
-            if (descargar) {
-                const link = document.createElement('a')
-                link.href = url
-                link.setAttribute('download', data.nombre_archivo || 'resolucion.pdf')
-                const blob = await axios.get(url, {
-                    responseType: 'blob',
-                    headers: { Authorization: `Bearer ${token}` },
-                })
-                const blobUrl = URL.createObjectURL(new Blob([blob.data], { type: 'application/pdf' }))
-                link.href = blobUrl
-                document.body.appendChild(link)
-                link.click()
-                document.body.removeChild(link)
-                URL.revokeObjectURL(blobUrl)
-            } else {
-                const blob = await axios.get(url, {
-                    responseType: 'blob',
-                    headers: { Authorization: `Bearer ${token}` },
-                })
-                const blobUrl = URL.createObjectURL(new Blob([blob.data], { type: 'application/pdf' }))
-                window.open(blobUrl, '_blank')
-            }
+        const url = `${API_BASE}/api/resoluciones/${data.id_resolucion}/pdf`
 
-        } catch (err) {
-            console.error('❌ verPdfResolucion:', err)
-            alert('Error al obtener el PDF.')
+        if (descargar) {
+            const blob = await axios.get(url, {
+                responseType: 'blob',
+                headers: { Authorization: `Bearer ${token}` },
+            })
+            const blobUrl = URL.createObjectURL(new Blob([blob.data], { type: 'application/pdf' }))
+            const link = document.createElement('a')
+            link.href = blobUrl
+            link.setAttribute('download', data.nombre_archivo || 'resolucion.pdf')
+            document.body.appendChild(link)
+            link.click()
+            document.body.removeChild(link)
+            URL.revokeObjectURL(blobUrl)
+        } else {
+            const blob = await axios.get(url, {
+                responseType: 'blob',
+                headers: { Authorization: `Bearer ${token}` },
+            })
+            const blobUrl = URL.createObjectURL(new Blob([blob.data], { type: 'application/pdf' }))
+            window.open(blobUrl, '_blank')
         }
     }
 

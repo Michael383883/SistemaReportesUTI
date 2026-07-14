@@ -123,87 +123,89 @@
     </button>
 
     <!-- Botón PDF con menú desplegable -->
-    <div class="relative ml-auto" ref="pdfMenuRef">
-      <div class="inline-flex rounded-lg overflow-hidden shadow-lg shadow-red-900/20 border border-red-700/40">
-        <button
-          :disabled="!reporte || loading"
-          class="
-            inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold
-            bg-red-700 hover:bg-red-600 active:bg-red-800
-            text-white transition-all duration-150 cursor-pointer border-none
-            disabled:opacity-40 disabled:cursor-not-allowed
-          "
-          @click="onPDF('open')"
-        >
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-            <polyline points="14 2 14 8 20 8"/>
-            <line x1="16" y1="13" x2="8" y2="13"/>
-            <line x1="16" y1="17" x2="8" y2="17"/>
-            <polyline points="10 9 9 9 8 9"/>
-          </svg>
-          Generar Reporte PDF
-        </button>
+<div class="relative ml-auto" ref="pdfMenuRef">
+  <div class="inline-flex rounded-lg overflow-hidden shadow-lg shadow-red-900/20 border border-red-700/40">
+    <button
+      :disabled="!reporte || loading"
+      class="
+        inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold
+        bg-red-700 hover:bg-red-600 active:bg-red-800
+        text-white transition-all duration-150 cursor-pointer border-none
+        disabled:opacity-40 disabled:cursor-not-allowed
+      "
+      @click.stop="toggleMenu"
+    >
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <polyline points="14 2 14 8 20 8"/>
+        <line x1="16" y1="13" x2="8" y2="13"/>
+        <line x1="16" y1="17" x2="8" y2="17"/>
+        <polyline points="10 9 9 9 8 9"/>
+      </svg>
+      Generar Reporte PDF
+    </button>
 
-        <button
-          :disabled="!reporte || loading"
-          class="
-            inline-flex items-center px-2.5 py-2
-            bg-red-800 hover:bg-red-700 active:bg-red-900
-            text-white border-l border-red-900/50 transition-all duration-150
-            cursor-pointer border-t-0 border-b-0 border-r-0
-            disabled:opacity-40 disabled:cursor-not-allowed
-          "
-          @click.stop="toggleMenu"
-        >
-          <svg
-            width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
-            :class="['transition-transform duration-200', menuOpen ? 'rotate-180' : '']"
-          >
-            <polyline points="6 9 12 15 18 9"/>
-          </svg>
-        </button>
-      </div>
-
-      <Transition
-        enter-active-class="transition ease-out duration-150"
-        enter-from-class="opacity-0 translate-y-1 scale-95"
-        enter-to-class="opacity-100 translate-y-0 scale-100"
-        leave-active-class="transition ease-in duration-100"
-        leave-from-class="opacity-100 translate-y-0 scale-100"
-        leave-to-class="opacity-0 translate-y-1 scale-95"
+    <button
+      :disabled="!reporte || loading"
+      class="
+        inline-flex items-center px-2.5 py-2
+        bg-red-800 hover:bg-red-700 active:bg-red-900
+        text-white border-l border-red-900/50 transition-all duration-150
+        cursor-pointer border-t-0 border-b-0 border-r-0
+        disabled:opacity-40 disabled:cursor-not-allowed
+      "
+      @click.stop="toggleMenu"
+    >
+      <svg
+        width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+        :class="['transition-transform duration-200', menuOpen ? 'rotate-180' : '']"
       >
+        <polyline points="6 9 12 15 18 9"/>
+      </svg>
+    </button>
+  </div>
+
+  <Transition
+    enter-active-class="transition ease-out duration-150"
+    enter-from-class="opacity-0 translate-y-1 scale-95"
+    enter-to-class="opacity-100 translate-y-0 scale-100"
+    leave-active-class="transition ease-in duration-100"
+    leave-from-class="opacity-100 translate-y-0 scale-100"
+    leave-to-class="opacity-0 translate-y-1 scale-95"
+  >
+    <div
+      v-if="menuOpen"
+      class="
+        absolute right-0 mt-1.5 w-52 rounded-xl
+        bg-slate-800 border border-slate-700
+        shadow-2xl shadow-black/40 z-50 overflow-hidden
+      "
+    >
+      <template v-for="opt in pdfOpciones" :key="opt.action">
+        <!-- Separador -->
         <div
-          v-if="menuOpen"
+          v-if="opt.action === 'divider'"
+          class="mx-3 my-1 border-t border-slate-700"
+        />
+        <!-- Opción normal -->
+        <button
+          v-else
           class="
-            absolute right-0 mt-1.5 w-52 rounded-xl
-            bg-slate-800 border border-slate-700
-            shadow-2xl shadow-black/40 z-50 overflow-hidden
+            w-full flex items-center gap-2.5 px-3.5 py-2.5
+            text-xs font-medium text-slate-300 hover:bg-white/[0.06] hover:text-slate-100
+            transition-colors duration-100 cursor-pointer border-none bg-transparent text-left
           "
+          @click="onPDF(opt.action)"
         >
-          <template v-for="opt in pdfOpciones" :key="opt.action">
-            <!-- Separador -->
-            <div
-              v-if="opt.action === 'divider'"
-              class="mx-3 my-1 border-t border-slate-700"
-            />
-            <!-- Opción normal -->
-            <button
-              v-else
-              class="
-                w-full flex items-center gap-2.5 px-3.5 py-2.5
-                text-xs font-medium text-slate-300 hover:bg-white/[0.06] hover:text-slate-100
-                transition-colors duration-100 cursor-pointer border-none bg-transparent text-left
-              "
-              @click="onPDF(opt.action)"
-            >
-              <span class="text-slate-500" v-html="opt.icon"/>
-              {{ opt.label }}
-            </button>
-          </template>
-        </div>
-      </Transition>
+          <span class="text-slate-500" v-html="opt.icon"/>
+          {{ opt.label }}
+        </button>
+      </template>
     </div>
+  </Transition>
+</div>
+
+
   </div>
 </template>
 

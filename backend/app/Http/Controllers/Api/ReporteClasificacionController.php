@@ -149,4 +149,41 @@ class ReporteClasificacionController extends Controller
 
         return response()->json($docentes);
     }
+
+    // GET /reportes/clasificacion/id-por-referencia?nro=...&cod_docente=...
+    // Traduce un "número de documento" (ej: "RCF No. 135/12") al
+    // ID_CLASIFICACION_DOCENTE correspondiente, para que el frontend
+    // pueda usarlo con el endpoint existente /api/clasificaciones/{id}/pdf
+    public function idPorReferencia(Request $request)
+    {
+        $nro = trim((string) $request->query('nro'));
+        $codDocente = $request->query('cod_docente');
+
+        if (!$nro) {
+            return response()->json(['ok' => false, 'error' => 'Falta parámetro nro'], 400);
+        }
+
+        $query = DB::table('CLASIFICACION_DOCENTE as ccd')
+            ->join('CLASIFICACION_DOCUMENTO as cdoc', 'cdoc.ID_DOCUMENTO', '=', 'ccd.ID_DOCUMENTO')
+            ->whereRaw('LTRIM(RTRIM(cdoc.TIPO_DOCUMENTO)) = ?', [$nro]);
+
+        if ($codDocente) {
+            $query->where('ccd.COD_DOCENTE', $codDocente);
+        }
+
+        $row = $query->select('ccd.ID_CLASIFICACION_DOCENTE')->first();
+
+        if (!$row) {
+            return response()->json([
+                'ok' => false,
+                'error' => 'No se encontró clasificación docente para ese número',
+                'nro_buscado' => $nro,
+            ], 200); // ← corregido: antes era 404, ahora 200 (no es un error real, solo "no está en esta fuente")
+        }
+
+        return response()->json([
+            'ok' => true,
+            'id' => $row->ID_CLASIFICACION_DOCENTE,
+        ]);
+    }
 }
