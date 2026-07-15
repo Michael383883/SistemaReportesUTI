@@ -49,6 +49,69 @@ function autoAncho(ws, rows) {
     ws['!cols'] = anchos.map((w) => ({ wch: Math.min(w, 50) }))
 }
 
+/**
+ * Abre una vista previa HTML en una pestaña nueva.
+ * IMPORTANTE: un .xlsx no se puede "mostrar" en el navegador (no es un
+ * formato que el navegador sepa renderizar inline como el PDF), por eso
+ * para el modo 'ver' generamos una tabla HTML equivalente en vez de
+ * descargar el archivo.
+ *
+ * @param {string} tituloPestana
+ * @param {Array<{titulo: string, ws: XLSX.WorkSheet}>} hojas
+ */
+function abrirVistaPrevia(tituloPestana, hojas) {
+    const ventana = window.open('', '_blank')
+
+    if (!ventana) {
+        // El navegador bloqueó el popup: avisamos en vez de fallar en silencio.
+        alert('Tu navegador bloqueó la ventana de vista previa. Habilita las ventanas emergentes para este sitio e inténtalo de nuevo.')
+        return
+    }
+
+    const bloques = hojas
+        .map(({ titulo, ws }) => {
+            const tablaHtml = XLSX.utils.sheet_to_html(ws, { editable: false, header: '', footer: '' })
+            return `
+                <section class="hoja">
+                    <h2>${titulo}</h2>
+                    ${tablaHtml}
+                </section>
+            `
+        })
+        .join('<hr class="separador" />')
+
+    ventana.document.write(`
+        <!DOCTYPE html>
+        <html lang="es">
+        <head>
+            <meta charset="utf-8" />
+            <title>${tituloPestana}</title>
+            <style>
+                body { font-family: Arial, Helvetica, sans-serif; padding: 24px; color: #1e293b; }
+                h2 { font-size: 14px; text-transform: uppercase; letter-spacing: .04em; color: #334155; margin: 24px 0 8px; }
+                table { border-collapse: collapse; width: 100%; font-size: 12px; margin-bottom: 12px; }
+                td, th { border: 1px solid #e2e8f0; padding: 6px 10px; text-align: left; white-space: nowrap; }
+                tr:first-child td, tr:nth-child(-n+5) td { border: none; }
+                .separador { border: none; border-top: 1px solid #e2e8f0; margin: 24px 0; }
+                .toolbar { margin-bottom: 16px; }
+                .toolbar button {
+                    background: #2563eb; color: #fff; border: none; border-radius: 8px;
+                    padding: 8px 16px; font-size: 13px; font-weight: 600; cursor: pointer;
+                }
+                .toolbar button:hover { background: #1d4ed8; }
+            </style>
+        </head>
+        <body>
+            <div class="toolbar">
+                <button onclick="window.print()">Imprimir / Guardar como PDF</button>
+            </div>
+            ${bloques}
+        </body>
+        </html>
+    `)
+    ventana.document.close()
+}
+
 // ─── Exportar Normal ─────────────────────────────────────────────────────────
 
 /**
@@ -58,9 +121,10 @@ function autoAncho(ws, rows) {
  * @param {Object} [opciones]
  * @param {string} [opciones.anio]
  * @param {string} [opciones.periodo]
+ * @param {'ver'|'descargar'} [opciones.modo]  – 'ver' abre vista previa, 'descargar' baja el .xlsx
  */
 export function exportarExcelNormal(estudiantes, opciones = {}) {
-    const { anio = '2026', periodo = '1' } = opciones
+    const { anio = '2026', periodo = '1', modo = 'descargar' } = opciones
 
     const encabezado = [
         'N°',
@@ -105,6 +169,15 @@ export function exportarExcelNormal(estudiantes, opciones = {}) {
 
     autoAncho(ws, filas)
 
+    // ── Modo "ver": vista previa en pestaña nueva, sin descargar nada ──
+    if (modo === 'ver') {
+        abrirVistaPrevia(`Vista previa – Talleres ${periodo}/${anio}`, [
+            { titulo: `Estudiantes – Gestión ${periodo}/${anio}`, ws },
+        ])
+        return
+    }
+
+    // ── Modo "descargar": comportamiento original ──
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, 'Estudiantes')
 
@@ -121,11 +194,10 @@ export function exportarExcelNormal(estudiantes, opciones = {}) {
  * @param {Object} [opciones]
  * @param {string} [opciones.anio]
  * @param {string} [opciones.periodo]
+ * @param {'ver'|'descargar'} [opciones.modo]  – 'ver' abre vista previa, 'descargar' baja el .xlsx
  */
 export function exportarExcelDetalle(estudiantes, opciones = {}) {
-    const { anio = '2026', periodo = '1' } = opciones
-
-    const wb = XLSX.utils.book_new()
+    const { anio = '2026', periodo = '1', modo = 'descargar' } = opciones
 
     // ── Hoja 1: Todos los estudiantes ──
     const encabezado = [
@@ -171,9 +243,8 @@ export function exportarExcelDetalle(estudiantes, opciones = {}) {
         { s: { r: 3, c: 0 }, e: { r: 3, c: 9 } },
     ]
     autoAncho(wsTodos, [...filasMeta, ...filasTodos])
-    XLSX.utils.book_append_sheet(wb, wsTodos, 'Todos')
 
-    // ── Hojas por materia ──
+    // ── Hojas por materia (se usan tanto para vista previa como descarga) ──
     const porMateria = estudiantes.reduce((acc, est) => {
         const key = `${est.materia}_${est.grupo}`
         if (!acc[key]) {
@@ -183,9 +254,7 @@ export function exportarExcelDetalle(estudiantes, opciones = {}) {
         return acc
     }, {})
 
-    const nombresUsados = new Set()
-
-    Object.values(porMateria).forEach(({ nombre, grupo, estudiantes: lista }) => {
+    const hojasPorMateria = Object.values(porMateria).map(({ nombre, grupo, estudiantes: lista }) => {
         const enc = ['N°', 'Código', 'Nombre', 'Carrera', 'Grupo', 'Docente', 'Correo', 'Celular']
 
         const meta = [
@@ -217,11 +286,30 @@ export function exportarExcelDetalle(estudiantes, opciones = {}) {
         ]
         autoAncho(ws, [...meta, ...filas])
 
+        return { nombre: `${nombre} G${grupo}`, grupo, ws }
+    })
+
+    // ── Modo "ver": vista previa en pestaña nueva (hoja "Todos" + una por materia) ──
+    if (modo === 'ver') {
+        const hojasPreview = [
+            { titulo: 'Todos los estudiantes', ws: wsTodos },
+            ...hojasPorMateria.map((h) => ({ titulo: h.nombre, ws: h.ws })),
+        ]
+        abrirVistaPrevia(`Vista previa – Talleres (detalle) ${periodo}/${anio}`, hojasPreview)
+        return
+    }
+
+    // ── Modo "descargar": comportamiento original ──
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, wsTodos, 'Todos')
+
+    const nombresUsados = new Set()
+    hojasPorMateria.forEach(({ nombre, ws }) => {
         // Nombre de hoja: materia + grupo (máx 31 chars). Sufijo si colisiona.
-        let nombreHoja = `${nombre} G${grupo}`.substring(0, 31)
+        let nombreHoja = nombre.substring(0, 31)
         let sufijo = 2
         while (nombresUsados.has(nombreHoja)) {
-            nombreHoja = `${nombre} G${grupo}`.substring(0, 28) + `-${sufijo}`
+            nombreHoja = nombre.substring(0, 28) + `-${sufijo}`
             sufijo++
         }
         nombresUsados.add(nombreHoja)

@@ -26,7 +26,7 @@
           </p>
         </div>
 
-        <!-- Zona derecha: badge + botones exportación -->
+        <!-- Zona derecha: badge + botón Generar -->
         <div class="flex flex-wrap items-center gap-2">
 
           <!-- Badge total -->
@@ -37,44 +37,177 @@
             {{ estudiantesFiltrados.length }} estudiante{{ estudiantesFiltrados.length !== 1 ? 's' : '' }}
           </div>
 
-          <!-- Botón Excel Normal -->
-          <button
-            @click="exportarNormal"
-            :disabled="!estudiantesFiltrados.length"
-            title="Exportar lista básica a Excel"
-            class="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 hover:bg-emerald-100 active:bg-emerald-200 border border-emerald-200 text-emerald-700 text-sm font-semibold px-4 py-1.5 transition disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M3 10h18M3 14h18M10 3v18M6 3h12a1 1 0 011 1v16a1 1 0 01-1 1H6a1 1 0 01-1-1V4a1 1 0 011-1z" />
-            </svg>
-            Excel
-          </button>
+          <!-- ===== Botón GENERAR (agrupa Excel / Excel+Contacto / Reporte PDF) ===== -->
+          <div class="relative" ref="generarDropdownRef">
 
-          <!-- Botón Excel Detalle + Contacto -->
-          <button
-            @click="exportarDetalle"
-            :disabled="!estudiantesFiltrados.length"
-            title="Exportar lista detallada con datos de contacto"
-            class="inline-flex items-center gap-1.5 rounded-full bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-sm font-semibold px-4 py-1.5 transition shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-            </svg>
-            Excel + Contacto
-          </button>
+            <div
+              class="inline-flex rounded-full overflow-hidden border border-emerald-700/30 shadow-sm shadow-emerald-900/10"
+              :class="!estudiantesFiltrados.length ? 'opacity-40 pointer-events-none' : ''"
+            >
+              <!-- Botón principal -->
+              <button
+                @click.stop="mostrarMenuGenerar = !mostrarMenuGenerar"
+                class="inline-flex items-center gap-1.5 px-4 py-1.5 text-sm font-semibold
+                       bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white
+                       transition-all duration-150"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                Generar
+              </button>
 
-          <!-- Botón Reporte PDF -->
-          <button
-            @click="generarReporte"
-            :disabled="!estudiantesFiltrados.length"
-            title="Generar reporte PDF de alumnos inscritos por materia"
-            class="inline-flex items-center gap-1.5 rounded-full bg-slate-700 hover:bg-slate-800 active:bg-slate-900 text-white text-sm font-semibold px-4 py-1.5 transition shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            Reporte PDF
-          </button>
+              <!-- Flecha -->
+              <button
+                @click.stop="mostrarMenuGenerar = !mostrarMenuGenerar"
+                class="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white
+                       border-l border-emerald-500/50 transition-all duration-150"
+                aria-label="Más opciones"
+              >
+                <svg
+                  width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                  :style="mostrarMenuGenerar ? 'transform: rotate(180deg);' : ''"
+                  style="transition: transform 0.15s"
+                >
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
+              </button>
+            </div>
+
+            <!-- Backdrop para cerrar al hacer click fuera -->
+            <div v-if="mostrarMenuGenerar" class="fixed inset-0 z-40" @click="mostrarMenuGenerar = false" />
+
+            <!-- Menú desplegable -->
+            <Transition
+              enter-active-class="transition-all duration-150 ease-out"
+              enter-from-class="opacity-0 scale-95 -translate-y-1"
+              enter-to-class="opacity-100 scale-100 translate-y-0"
+              leave-active-class="transition-all duration-100 ease-in"
+              leave-from-class="opacity-100 scale-100 translate-y-0"
+              leave-to-class="opacity-0 scale-95 -translate-y-1"
+            >
+              <div
+                v-if="mostrarMenuGenerar"
+                class="absolute right-0 top-full mt-1.5 z-50
+                       bg-white border border-slate-200 rounded-xl
+                       shadow-xl overflow-hidden w-72"
+              >
+                <!-- ── Lista de estudiantes (Excel simple) ── -->
+                <div class="px-4 pt-3 pb-1">
+                  <p class="text-[0.65rem] font-semibold tracking-widest uppercase text-slate-400">
+                    Lista de estudiantes
+                  </p>
+                </div>
+
+                <button
+                  @click="exportarNormal('ver'); mostrarMenuGenerar = false"
+                  class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors text-left"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-slate-400 shrink-0">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                    <circle cx="12" cy="12" r="3" />
+                  </svg>
+                  <div>
+                    <div class="font-medium leading-tight">Ver lista</div>
+                    <div class="text-xs text-slate-400 mt-0.5">Vista previa rápida</div>
+                  </div>
+                </button>
+
+                <button
+                  @click="exportarNormal('descargar'); mostrarMenuGenerar = false"
+                  class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors text-left"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-slate-400 shrink-0">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="7 10 12 15 17 10" />
+                    <line x1="12" y1="15" x2="12" y2="3" />
+                  </svg>
+                  <div>
+                    <div class="font-medium leading-tight">Descargar Excel</div>
+                    <div class="text-xs text-slate-400 mt-0.5">Nombre, código y carrera</div>
+                  </div>
+                </button>
+
+                <div class="border-t border-slate-100 mx-4"></div>
+
+                <!-- ── Lista con datos de contacto (Excel detalle) ── -->
+                <div class="px-4 pt-3 pb-1">
+                  <p class="text-[0.65rem] font-semibold tracking-widest uppercase text-slate-400">
+                    Lista con datos de contacto
+                  </p>
+                </div>
+
+                <button
+                  @click="exportarDetalle('ver'); mostrarMenuGenerar = false"
+                  class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors text-left"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-slate-400 shrink-0">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                    <circle cx="12" cy="12" r="3" />
+                  </svg>
+                  <div>
+                    <div class="font-medium leading-tight">Ver lista</div>
+                    <div class="text-xs text-slate-400 mt-0.5">Incluye correo y celular</div>
+                  </div>
+                </button>
+
+                <button
+                  @click="exportarDetalle('descargar'); mostrarMenuGenerar = false"
+                  class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors text-left"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-slate-400 shrink-0">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="7 10 12 15 17 10" />
+                    <line x1="12" y1="15" x2="12" y2="3" />
+                  </svg>
+                  <div>
+                    <div class="font-medium leading-tight">Descargar Excel</div>
+                    <div class="text-xs text-slate-400 mt-0.5">Con datos de contacto</div>
+                  </div>
+                </button>
+
+                <div class="border-t border-slate-100 mx-4"></div>
+
+                <!-- ── Reporte por materia (PDF) ── -->
+                <div class="px-4 pt-3 pb-1">
+                  <p class="text-[0.65rem] font-semibold tracking-widest uppercase text-slate-400">
+                    Reporte por materia
+                  </p>
+                </div>
+
+                <button
+                  @click="generarReporte('ver'); mostrarMenuGenerar = false"
+                  class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors text-left"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-slate-400 shrink-0">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                    <circle cx="12" cy="12" r="3" />
+                  </svg>
+                  <div>
+                    <div class="font-medium leading-tight">Ver PDF</div>
+                    <div class="text-xs text-slate-400 mt-0.5">Abrir en nueva pestaña</div>
+                  </div>
+                </button>
+
+                <button
+                  @click="generarReporte('descargar'); mostrarMenuGenerar = false"
+                  class="w-full flex items-center gap-3 px-4 py-2.5 pb-3 text-sm text-slate-700 hover:bg-slate-50 transition-colors text-left"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-slate-400 shrink-0">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="7 10 12 15 17 10" />
+                    <line x1="12" y1="15" x2="12" y2="3" />
+                  </svg>
+                  <div>
+                    <div class="font-medium leading-tight">Descargar PDF</div>
+                    <div class="text-xs text-slate-400 mt-0.5">Guardar en tu equipo</div>
+                  </div>
+                </button>
+              </div>
+            </Transition>
+
+          </div>
+          <!-- ===== FIN Botón GENERAR ===== -->
 
         </div>
       </div>
@@ -531,6 +664,10 @@ const modalVisible           = ref(false)
 const estudianteSeleccionado = ref({})
 const contactoData           = ref(null)
 
+// Menú desplegable del botón "Generar"
+const mostrarMenuGenerar = ref(false)
+const generarDropdownRef = ref(null)
+
 // anio/periodo arrancan en null: el backend calcula la gestión actual
 // automáticamente (PeriodoAcademicoService) en la primera carga.
 // El usuario puede después cambiarlos con los selects — en ese caso
@@ -755,25 +892,31 @@ const cerrarModal = () => {
 
 // ─────────────────────────────────────────────
 // Acciones – exportación
+// El parámetro `modo` puede ser 'ver' (abrir en nueva pestaña,
+// usando window.open sobre un blob) o 'descargar' (forzar
+// descarga con un <a download>). Los servicios deben soportarlo.
 // ─────────────────────────────────────────────
-const exportarNormal = () => {
+const exportarNormal = (modo = 'descargar') => {
   exportarExcelNormal(estudiantesFiltrados.value, {
     anio:    filtros.anio,
     periodo: filtros.periodo,
+    modo,
   })
 }
 
-const exportarDetalle = () => {
+const exportarDetalle = (modo = 'descargar') => {
   exportarExcelDetalle(estudiantesFiltrados.value, {
     anio:    filtros.anio,
     periodo: filtros.periodo,
+    modo,
   })
 }
 
-const generarReporte = () => {
+const generarReporte = (modo = 'descargar') => {
   generarReporteInscritos(estudiantesFiltrados.value, {
     anio:    filtros.anio,
     periodo: filtros.periodo,
+    action:  modo === 'ver' ? 'open' : 'save',   // ← el fix
   })
 }
 </script>

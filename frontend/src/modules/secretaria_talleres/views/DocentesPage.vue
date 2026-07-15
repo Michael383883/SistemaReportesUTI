@@ -24,15 +24,89 @@
           <span class="bg-teal-50 text-teal-700 text-xs font-semibold px-2.5 py-1 rounded-full border border-teal-200">
             {{ docentesFiltrados.length }} docentes
           </span>
-          <button
-            @click="exportarExcel"
-            class="flex items-center gap-1.5 px-3 py-1.5 bg-slate-600 text-white text-sm rounded-lg shadow-sm hover:bg-green-600 transition-colors duration-300"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M19 2H8c-1.1 0-2 .9-2 2v4H5c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM9.5 17l1.8-3-1.7-3h1.8l.8 1.7.8-1.7h1.8l-1.7 3 1.8 3h-1.8l-.9-1.8-.9 1.8H9.5z"/>
-            </svg>
-            <span>Exportar</span>
-          </button>
+
+          <!-- ===== Botón EXPORTAR (Ver / Descargar) ===== -->
+          <div class="relative" ref="exportarDropdownRef">
+            <div
+              class="inline-flex rounded-lg overflow-hidden shadow-sm"
+              :class="!docentesFiltrados.length ? 'opacity-40 pointer-events-none' : ''"
+            >
+              <!-- Botón principal -->
+              <button
+                @click.stop="mostrarMenuExportar = !mostrarMenuExportar"
+                class="flex items-center gap-1.5 px-3 py-1.5 bg-slate-600 text-white text-sm hover:bg-green-600 transition-colors duration-300"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M19 2H8c-1.1 0-2 .9-2 2v4H5c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM9.5 17l1.8-3-1.7-3h1.8l.8 1.7.8-1.7h1.8l-1.7 3 1.8 3h-1.8l-.9-1.8-.9 1.8H9.5z"/>
+                </svg>
+                <span>Exportar</span>
+              </button>
+
+              <!-- Flecha -->
+              <button
+                @click.stop="mostrarMenuExportar = !mostrarMenuExportar"
+                class="px-2 py-1.5 bg-slate-600 hover:bg-green-600 text-white border-l border-slate-500/50 transition-colors duration-300"
+                aria-label="Más opciones"
+              >
+                <svg
+                  width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                  :style="mostrarMenuExportar ? 'transform: rotate(180deg);' : ''"
+                  style="transition: transform 0.15s"
+                >
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
+              </button>
+            </div>
+
+            <!-- Backdrop para cerrar al hacer click fuera -->
+            <div v-if="mostrarMenuExportar" class="fixed inset-0 z-40" @click="mostrarMenuExportar = false" />
+
+            <!-- Menú desplegable -->
+            <Transition
+              enter-active-class="transition-all duration-150 ease-out"
+              enter-from-class="opacity-0 scale-95 -translate-y-1"
+              enter-to-class="opacity-100 scale-100 translate-y-0"
+              leave-active-class="transition-all duration-100 ease-in"
+              leave-from-class="opacity-100 scale-100 translate-y-0"
+              leave-to-class="opacity-0 scale-95 -translate-y-1"
+            >
+              <div
+                v-if="mostrarMenuExportar"
+                class="absolute right-0 top-full mt-1.5 z-50 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden w-64"
+              >
+                <button
+                  @click="exportarExcel('ver'); mostrarMenuExportar = false"
+                  class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors text-left"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-slate-400 shrink-0">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                    <circle cx="12" cy="12" r="3" />
+                  </svg>
+                  <div>
+                    <div class="font-medium leading-tight">Ver lista</div>
+                    <div class="text-xs text-slate-400 mt-0.5">Vista previa rápida</div>
+                  </div>
+                </button>
+
+                <button
+                  @click="exportarExcel('descargar'); mostrarMenuExportar = false"
+                  class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors text-left"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-slate-400 shrink-0">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="7 10 12 15 17 10" />
+                    <line x1="12" y1="15" x2="12" y2="3" />
+                  </svg>
+                  <div>
+                    <div class="font-medium leading-tight">Descargar Excel</div>
+                    <div class="text-xs text-slate-400 mt-0.5">Datos completos de docentes</div>
+                  </div>
+                </button>
+              </div>
+            </Transition>
+          </div>
+          <!-- ===== FIN Botón EXPORTAR ===== -->
+
         </div>
       </div>
     </div>
@@ -366,6 +440,10 @@ const docenteHorarioSeleccionado = ref(null)
 const modoModal = ref('detalle')
 const origenHorario = ref(null) // 'tabla' o 'detalle'
 
+// Menú desplegable del botón "Exportar"
+const mostrarMenuExportar = ref(false)
+const exportarDropdownRef = ref(null)
+
 // anio/periodo arrancan en null: el backend calcula la gestión actual
 // automáticamente (PeriodoAcademicoService) en la primera carga.
 // El usuario puede después cambiarlos con los selects — en ese caso
@@ -550,7 +628,11 @@ function limpiarFiltros() {
   filtroGrado.value = ''
 }
 
-function exportarExcel() {
+/**
+ * Arma la hoja (worksheet) de docentes filtrados. Se usa tanto para
+ * la vista previa ('ver') como para la descarga real ('descargar').
+ */
+function construirHojaDocentes() {
   const datos = docentesFiltrados.value.map(d => ({
     'Código': d.docente || '',
     'Nombre': formatNombre(d.nombre_docente),
@@ -577,12 +659,73 @@ function exportarExcel() {
     { wch: 18 }, // Carga
   ]
 
-  const libro = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(libro, hoja, 'Docentes')
+  return hoja
+}
 
+/**
+ * Abre una vista previa HTML de la hoja en una pestaña nueva. Un
+ * .xlsx no se puede "mostrar" inline en el navegador (no es un
+ * formato renderizable como el PDF), así que para el modo 'ver'
+ * generamos una tabla HTML equivalente en vez de descargar el archivo.
+ */
+function abrirVistaPreviaDocentes(hoja, gestionLabel) {
+  const ventana = window.open('', '_blank')
+
+  if (!ventana) {
+    alert('Tu navegador bloqueó la ventana de vista previa. Habilita las ventanas emergentes para este sitio e inténtalo de nuevo.')
+    return
+  }
+
+  const tablaHtml = XLSX.utils.sheet_to_html(hoja, { editable: false, header: '', footer: '' })
+
+  ventana.document.write(`
+    <!DOCTYPE html>
+    <html lang="es">
+    <head>
+      <meta charset="utf-8" />
+      <title>Vista previa – Docentes ${gestionLabel}</title>
+      <style>
+        body { font-family: Arial, Helvetica, sans-serif; padding: 24px; color: #1e293b; }
+        h1 { font-size: 15px; margin: 0 0 16px; }
+        table { border-collapse: collapse; width: 100%; font-size: 12px; }
+        td, th { border: 1px solid #e2e8f0; padding: 6px 10px; text-align: left; white-space: nowrap; }
+        th { background: #f1f5f9; font-weight: 600; }
+        .toolbar { margin-bottom: 16px; }
+        .toolbar button {
+          background: #2563eb; color: #fff; border: none; border-radius: 8px;
+          padding: 8px 16px; font-size: 13px; font-weight: 600; cursor: pointer;
+        }
+        .toolbar button:hover { background: #1d4ed8; }
+      </style>
+    </head>
+    <body>
+      <h1>Docentes – Gestión ${gestionLabel}</h1>
+      <div class="toolbar">
+        <button onclick="window.print()">Imprimir / Guardar como PDF</button>
+      </div>
+      ${tablaHtml}
+    </body>
+    </html>
+  `)
+  ventana.document.close()
+}
+
+/**
+ * @param {'ver'|'descargar'} modo
+ */
+function exportarExcel(modo = 'descargar') {
+  const hoja = construirHojaDocentes()
   const gestion = filtros.periodo && filtros.anio
     ? `${filtros.periodo}-${filtros.anio}`
     : new Date().toISOString().slice(0, 10)
+
+  if (modo === 'ver') {
+    abrirVistaPreviaDocentes(hoja, gestion)
+    return
+  }
+
+  const libro = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(libro, hoja, 'Docentes')
   XLSX.writeFile(libro, `docentes_${gestion}.xlsx`)
 }
 
