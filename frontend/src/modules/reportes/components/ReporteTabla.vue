@@ -160,11 +160,21 @@ async function verPdfConFallback(nro, descargar) {
   try {
     await verPdfResolucion(nro, descargar)
   } catch (e) {
+    console.warn('[resoluciones] fallo, probando clasificación →', e.response?.status, e.response?.data)
     try {
       await verPdfClasificacion(nro, props.codDocente, descargar)
     } catch (e2) {
-      alert('No se encontró el PDF en ninguna de las dos fuentes.')
+  let backendMsg = null
+  try {
+    if (e2.response?.data instanceof Blob) {
+      backendMsg = JSON.parse(await e2.response.data.text())
+    } else {
+      backendMsg = e2.response?.data
     }
+  } catch (_) {}
+  console.error('[clasificacion] también falló →', e2.response?.status, backendMsg, e2.config?.url)
+  alert('No se encontró el PDF en ninguna de las dos fuentes.')
+}
   }
 }
 
