@@ -26,31 +26,86 @@
 
       <div class="grid grid-cols-2 gap-4">
         <div>
-          <label class="block text-[13px] font-medium text-gray-700 mb-1.5">Año *</label>
+          <label class="block text-[11px] font-medium text-gray-600 mb-0.5">
+            Año *
+          </label>
+
           <input
             v-model.number="anio"
-            type="number"
-            :placeholder="String(anioActual)"
-            class="w-full px-3.5 py-2.5 text-[14px] border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-100"
-            :class="errores.anio ? 'border-red-300' : 'border-gray-200 focus:border-blue-400'"
+            type="text"
+            inputmode="numeric"
+            placeholder="Ej. 2023"
+            class="w-full px-2.5 py-1.5 text-[13px] border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            :class="errores.anio ? 'border-red-300' : 'border-gray-300'"
           />
-          <p v-if="errores.anio" class="text-[11px] text-red-500 mt-1">{{ errores.anio }}</p>
+
+          <p v-if="errores.anio" class="text-[11px] text-red-500 mt-1">
+            {{ errores.anio }}
+          </p>
         </div>
-        <div>
-          <label class="block text-[13px] font-medium text-gray-700 mb-1.5">Periodo *</label>
-          <select
-            v-model.number="periodo"
-            class="w-full px-3.5 py-2.5 text-[14px] border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-100"
-            :class="errores.periodo ? 'border-red-300' : 'border-gray-200 focus:border-blue-400'"
-          >
-            <option :value="null" disabled>Selecciona...</option>
-            <option :value="1">Periodo 1</option>
-            <option :value="2">Periodo 2</option>
-            <option :value="3">Periodo 3</option>
-            <option :value="4">Periodo 4</option>
-          </select>
-          <p v-if="errores.periodo" class="text-[11px] text-red-500 mt-1">{{ errores.periodo }}</p>
-        </div>
+
+        <div class="relative">
+  <label class="block text-[11px] font-medium text-gray-600 mb-0.5">
+    Periodo *
+  </label>
+
+  <div class="relative">
+    <input
+      v-model.number="periodo"
+      type="text"
+      inputmode="numeric"
+      placeholder="Ej. 1"
+      class="w-full px-2.5 py-1.5 pr-8 text-[13px] border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+      :class="errores.periodo ? 'border-red-300' : 'border-gray-300'"
+      @focus="periodoDropdownOpen = true"
+      @blur="onBlurPeriodo"
+    />
+
+    <button
+      type="button"
+      tabindex="-1"
+      @mousedown.prevent="togglePeriodoDropdown"
+      class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+    >
+      <svg
+        class="w-4 h-4"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+        stroke-width="2"
+      >
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          d="M19 9l-7 7-7-7"
+        />
+      </svg>
+    </button>
+  </div>
+
+  <!-- Dropdown -->
+  <div
+    v-if="periodoDropdownOpen"
+    class="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden"
+  >
+    <button
+      v-for="opcion in [1, 2, 3, 4]"
+      :key="opcion"
+      type="button"
+      @mousedown.prevent="seleccionarPeriodo(opcion)"
+      class="w-full text-left px-3 py-2 text-[13px] text-gray-700 hover:bg-blue-50 transition-colors"
+      :class="periodo === opcion ? 'bg-blue-50 text-blue-600 font-medium' : ''"
+    >
+       {{ opcion }}
+    </button>
+  </div>
+
+  <p v-if="errores.periodo" class="text-[11px] text-red-500 mt-1">
+    {{ errores.periodo }}
+  </p>
+</div>
+
+
       </div>
 
       <!-- El PDF ya se seleccionó en el paso anterior; aquí solo se muestra como referencia -->
@@ -125,20 +180,39 @@ const props = defineProps({
 
 const emit = defineEmits(['guardar', 'guardar-asignar', 'back'])
 
-const anioActual = new Date().getFullYear()
-
 const numero      = ref(props.initialNumero || '')
 const descripcion = ref(props.initialDescripcion || '')
-const anio         = ref(props.initialAnio || anioActual)
+const anio         = ref(props.initialAnio || null)
 const periodo      = ref(props.initialPeriodo || null)
 const accion       = ref(null)
 const errores      = ref({})
+
+const periodoDropdownOpen = ref(false);
+
+const seleccionarPeriodo = (valor) => {
+  periodo.value = valor;
+  periodoDropdownOpen.value = false;
+};
+
+const togglePeriodoDropdown = () => {
+  periodoDropdownOpen.value = !periodoDropdownOpen.value;
+};
+
+const onBlurPeriodo = () => {
+  setTimeout(() => {
+    periodoDropdownOpen.value = false;
+  }, 150);
+};
 
 function validar() {
   errores.value = { ...errores.value, numero: '', anio: '', periodo: '' }
   if (!numero.value.trim()) errores.value.numero = 'El número de resolución es obligatorio.'
   if (!anio.value) errores.value.anio = 'El año es obligatorio.'
-  if (!periodo.value) errores.value.periodo = 'Selecciona un periodo.'
+  if (!periodo.value) {
+    errores.value.periodo = 'Selecciona o ingresa un periodo.'
+  } else if (![1, 2, 3, 4].includes(Number(periodo.value))) {
+    errores.value.periodo = 'El periodo debe ser 1, 2, 3 o 4.'
+  }
   // Limpia las claves vacías para que v-if deje de mostrarlas
   Object.keys(errores.value).forEach(k => { if (!errores.value[k]) delete errores.value[k] })
   return Object.keys(errores.value).length === 0
