@@ -1,0 +1,239 @@
+// composables/useReporteInscritosTotales.js
+// Genera el PDF académico de RESUMEN DE TOTALES de inscritos
+// (formato institucional UMSS), con jsPDF + jspdf-autotable.
+// Solo incluye la matriz Docente × Carrera con totales de inscritos.
+
+import { ref } from 'vue'
+import { jsPDF } from 'jspdf'
+import autoTable from 'jspdf-autotable'
+
+// ── Paleta institucional ─────────────────────────────────────────────────
+const C_BLACK = [0, 0, 0]
+const C_WHITE = [255, 255, 255]
+const C_HEAD_BG = [211, 211, 211]
+const C_GRAY_LINE = [140, 140, 140]
+const C_ZERO_TEXT = [150, 150, 150]
+
+// ── Helpers de documento ─────────────────────────────────────────────────
+function crearDocumento() {
+    return new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' })
+}
+
+function fechaFormateada() {
+    const d = new Date()
+    const dia = String(d.getDate()).padStart(2, '0')
+    const mes = String(d.getMonth() + 1).padStart(2, '0')
+    const anio = d.getFullYear()
+    const hora = d.toLocaleString('en-US', {
+        hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true,
+    })
+    return `${dia}/${mes}/${anio} ${hora}`
+}
+
+function drawPageHeader(doc, { titulo, anio, periodo, fechaActual, notaSuperior }) {
+    const PAGE_W = doc.internal.pageSize.getWidth()
+    const ML = 8
+    const MR = 8
+    const HEADER_H = 24
+
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(6)
+    doc.setTextColor(...C_BLACK)
+    doc.text('UNIVERSIDAD MAYOR DE SAN SIMON', ML, 8)
+    doc.text('FACULTAD DE CIENCIAS ECONOMICAS', ML, 10)
+
+    doc.setFontSize(12.5)
+    doc.text(titulo, PAGE_W / 2, 9, { align: 'center' })
+    doc.setFontSize(10.5)
+    doc.text('FACULTAD DE CIENCIAS ECONOMICAS', PAGE_W / 2, 13.5, { align: 'center' })
+
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(10)
+    doc.setTextColor(...C_BLACK)
+    doc.text(`Gestión Académica ${periodo}/${anio}`, PAGE_W / 2, 19.5, { align: 'center' })
+
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(7)
+    doc.text(fechaActual, PAGE_W - MR, 19.5, { align: 'right' })
+    doc.text(notaSuperior ?? '', ML, 19.5)
+
+    return HEADER_H
+}
+
+function drawFooters(doc, fechaActual) {
+    const PAGE_W = doc.internal.pageSize.getWidth()
+    const PAGE_H = doc.internal.pageSize.getHeight()
+    const ML = 8
+    const MR = 8
+    const total = doc.internal.getNumberOfPages()
+
+    for (let i = 1; i <= total; i++) {
+        doc.setPage(i)
+        const fy = PAGE_H - 5
+        doc.setDrawColor(...C_GRAY_LINE)
+        doc.setLineWidth(0.2)
+        doc.line(ML, fy - 2, PAGE_W - MR, fy - 2)
+        doc.setFont('helvetica', 'normal')
+        doc.setFontSize(6.5)
+        doc.setTextColor(80, 80, 80)
+        doc.text('Procesado UTI - Facultad de Ciencias Economicas', ML, fy)
+        doc.text(`Página ${i} de ${total}`, PAGE_W / 2, fy, { align: 'center' })
+        doc.text(fechaActual, PAGE_W - MR, fy, { align: 'right' })
+    }
+}
+
+/**
+ * Devuelve la salida final del PDF según el modo:
+ * - 'ver': redirige una ventana YA abierta (pre-abierta en el clic del
+ *   usuario) hacia el blob del PDF. Si no hay ventana pre-abierta, intenta
+ *   abrir una nueva (puede ser bloqueada por el navegador si no hay gesto
+ *   de usuario directo). Si falla, cae a descarga como último recurso.
+ * - 'descargar': dispara la descarga directa.
+ */
+function finalizarSalida(doc, filename, modo, ventanaPreabierta) {
+    if (modo === 'ver') {
+        const blob = doc.output('blob')
+        const url = URL.createObjectURL(blob)
+
+        if (ventanaPreabierta && !ventanaPreabierta.closed) {
+            ventanaPreabierta.location.href = url
+        } else {
+            const ventana = window.open(url, '_blank')
+            if (!ventana) {
+                // Popup bloqueado y no había ventana pre-abierta: fallback a descarga
+                doc.save(filename)
+                URL.revokeObjectURL(url)
+                return
+            }
+        }
+
+        setTimeout(() => URL.revokeObjectURL(url), 60_000)
+    } else {
+        doc.save(filename)
+    }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// RESUMEN DE TOTALES — matriz Docente × Carrera
+// ────────────────────────────────────────────────────────────────────────────
+function generarResumenTotales(data, anio, periodo, modo = 'descargar', ventanaPreabierta = null) {
+    const doc = crearDocumento()
+    const PAGE_W = doc.internal.pageSize.getWidth()
+    const ML = 8
+    const MR = 8
+    const CW = PAGE_W - ML - MR
+    const fechaActual = fechaFormateada()
+    const TITULO = 'RESUMEN DE INSCRITOS — SOLO TOTALES'
+    const NOTA = 'Cantidades de inscritos por docente y carrera, sin detalle de estudiantes.'
+    const HEADER_H = drawPageHeader(doc, { titulo: TITULO, anio, periodo, fechaActual, notaSuperior: NOTA })
+
+    // ── Carreras dinámicas (según aparición en los datos) ────────────────────
+    const carrerasSet = []
+    data.forEach(d => d.carreras.forEach(c => {
+        if (!carrerasSet.includes(c.carrera)) carrerasSet.push(c.carrera)
+    }))
+    const carreras = carrerasSet.length ? carrerasSet : ['ADM', 'ECO', 'CCP', 'COM', 'FIN']
+
+    const totalGlobal = data.reduce((s, d) => s + d.total_inscritos, 0)
+
+    // ── Tabla: matriz Docente × Carrera + TOTAL ──────────────────────────────
+    const headMatriz = [['N°', 'CÓDIGO', 'DOCENTE', ...carreras, 'TOTAL']]
+    const bodyMatriz = data.map((docente, idx) => {
+        const totPorCarrera = {}
+        docente.carreras.forEach(c => { totPorCarrera[c.carrera] = c.subtotal })
+
+        return [
+            String(idx + 1),
+            docente.cod_docente,
+            `${docente.apellidos}, ${docente.nombres}`,
+            ...carreras.map(c => {
+                const val = totPorCarrera[c] ?? 0
+                return val > 0 ? String(val) : '—'
+            }),
+            String(docente.total_inscritos),
+        ]
+    })
+
+    bodyMatriz.push([
+        { content: '', styles: { fillColor: C_WHITE, lineWidth: 0 } },
+        { content: '', styles: { fillColor: C_WHITE, lineWidth: 0 } },
+        { content: 'TOTAL GENERAL', styles: { fontStyle: 'bold', fillColor: C_HEAD_BG, lineWidth: 0 } },
+        ...carreras.map(c => {
+            const sum = data.reduce((s, d) => {
+                const car = d.carreras.find(x => x.carrera === c)
+                return s + (car?.subtotal ?? 0)
+            }, 0)
+            return { content: sum > 0 ? String(sum) : '—', styles: { fontStyle: 'bold', halign: 'center', fillColor: C_HEAD_BG, lineWidth: 0 } }
+        }),
+        { content: String(totalGlobal), styles: { fontStyle: 'bold', halign: 'center', fillColor: C_HEAD_BG, lineWidth: 0 } },
+    ])
+
+    autoTable(doc, {
+        startY: HEADER_H,
+        margin: { left: ML, right: MR, top: HEADER_H, bottom: 12 },
+        tableWidth: CW,
+        head: headMatriz,
+        body: bodyMatriz,
+        alternateRowStyles: { fillColor: C_WHITE },
+        styles: {
+            font: 'helvetica', fontSize: 7,
+            cellPadding: { top: 0.7, bottom: 0.7, left: 1.5, right: 1.5 },
+            textColor: C_BLACK, lineColor: C_GRAY_LINE, lineWidth: { top: 0, right: 0, bottom: 0.15, left: 0 },
+            fillColor: C_WHITE, halign: 'center', valign: 'middle',
+        },
+        headStyles: {
+            fillColor: C_HEAD_BG, textColor: C_BLACK, fontStyle: 'bold',
+            fontSize: 7.2, halign: 'center', valign: 'middle',
+            lineColor: C_GRAY_LINE, lineWidth: { top: 0, right: 0, bottom: 0.3, left: 0 },
+        },
+        columnStyles: {
+            0: { cellWidth: 9 },
+            1: { cellWidth: 18, font: 'courier' },
+            2: { cellWidth: 55, halign: 'left' },
+        },
+        didParseCell(data) {
+            if (data.section !== 'body') return
+            const raw = data.row.raw
+            const isTotalRow = Array.isArray(raw) && typeof raw[2] === 'object' && raw[2]?.content === 'TOTAL GENERAL'
+            if (isTotalRow) return
+            if (data.column.index >= 3 && data.cell.raw === '—') {
+                data.cell.styles.textColor = C_ZERO_TEXT
+            }
+        },
+        didDrawPage() {
+            if (doc.internal.getCurrentPageInfo().pageNumber > 1) {
+                drawPageHeader(doc, { titulo: TITULO, anio, periodo, fechaActual, notaSuperior: NOTA })
+            }
+        },
+    })
+
+    drawFooters(doc, fechaActual)
+
+    const filename = `Resumen_Totales_Inscritos_${anio}_${periodo}.pdf`
+    finalizarSalida(doc, filename, modo, ventanaPreabierta)
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Composable público — SOLO resumen de totales
+// ────────────────────────────────────────────────────────────────────────────
+export function useReporteInscritosTotales() {
+    const generandoResumen = ref(false)
+
+    async function exportarResumenTotales(data, anio, periodo, modo = 'descargar', ventanaPreabierta = null) {
+        if (!data?.length) {
+            if (ventanaPreabierta && !ventanaPreabierta.closed) ventanaPreabierta.close()
+            return
+        }
+        generandoResumen.value = true
+        try {
+            generarResumenTotales(data, anio, periodo, modo, ventanaPreabierta)
+        } finally {
+            generandoResumen.value = false
+        }
+    }
+
+    return {
+        generandoResumen,
+        exportarResumenTotales,
+    }
+}

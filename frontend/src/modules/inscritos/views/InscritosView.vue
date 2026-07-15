@@ -1,8 +1,8 @@
 <template>
-  <div class="min-h-screen bg-slate-100 pb-12">
+  <div class="min-h-screen bg-slate-100">
 
     <!-- HEADER -->
-    <div class="flex items-start justify-between mb-3 px-8 pt-4">
+    <div class="flex items-start justify-between mb-3">
       <h1 class="text-xl font-bold text-black tracking-tight m-0 mb-0.5">
         Lista de Inscritos
       </h1>
@@ -12,7 +12,7 @@
     </div>
 
     <!-- FILTROS -->
-    <div class="border-b border-slate-700 px-8 py-2.5 flex flex-wrap gap-3 items-end">
+    <div class="border-b border-slate-700 px-8 flex flex-wrap gap-3 items-end">
 
       <!-- Año -->
       <div class="flex flex-col gap-1.5">
@@ -38,8 +38,8 @@
                  transition-all duration-150
                  focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
         >
-          <option :value="1">1° Semestre</option>
-          <option :value="2">2° Semestre</option>
+          <option :value="1">1</option>
+          <option :value="2">2</option>
         </select>
       </div>
 
@@ -90,62 +90,181 @@
         </div>
       </div>
 
-      <!-- Botones PDF (solo visibles cuando hay datos) -->
-      <template v-if="data.length">
-        <div class="flex flex-col">
-          <label class="text-[0.68rem] invisible">PDF</label>
-          <div class="flex gap-2">
+      <!-- Botón PDF con menú desplegable -->
+      <div class="flex flex-col" ref="pdfDropdownRef">
+        <label class="text-[0.68rem] invisible">PDF</label>
 
-            <!-- PDF Lista completa -->
+        <div class="relative">
+
+          <!-- Botón partido: ambos abren el menú -->
+          <div
+            class="inline-flex rounded-lg overflow-visible border border-red-700/40 shadow-lg shadow-red-900/20"
+            :class="(loadingPdf || data.length === 0) ? 'opacity-40 pointer-events-none' : ''"
+          >
+            <!-- Botón principal -->
             <button
-              @click="handleListaCompleta"
-              :disabled="generandoLista"
-              title="PDF con la lista completa de estudiantes por docente"
-              class="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold
+              @click.stop="mostrarMenuPdf = !mostrarMenuPdf"
+              class="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold
                      bg-red-700 hover:bg-red-600 active:bg-red-800 text-white
-                     transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed
-                     border border-red-700/40 shadow-lg shadow-red-900/20"
+                     transition-all duration-150"
             >
-              <svg :class="generandoLista ? 'animate-spin' : ''" width="15" height="15" viewBox="0 0 24 24"
-                   fill="none" stroke="currentColor" stroke-width="2">
-                <template v-if="generandoLista">
-                  <circle cx="12" cy="12" r="9"/>
-                  <path d="M12 3a9 9 0 0 1 9 9" stroke-linecap="round"/>
+              <svg
+                :class="loadingPdf ? 'animate-spin' : ''"
+                width="15"
+                height="15"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <template v-if="loadingPdf">
+                  <circle cx="12" cy="12" r="9" />
+                  <path d="M12 3a9 9 0 0 1 9 9" stroke-linecap="round" />
                 </template>
                 <template v-else>
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                  <polyline points="14 2 14 8 20 8"/>
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
                 </template>
               </svg>
-              {{ generandoLista ? 'Generando...' : 'PDF Lista' }}
+
+              Generar PDF
             </button>
 
-            <!-- PDF Solo totales -->
+            <!-- Flecha -->
             <button
-              @click="handleResumenTotales"
-              :disabled="generandoResumen"
-              title="PDF con solo totales y cantidades por docente"
-              class="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold
-                     bg-emerald-800 hover:bg-emerald-700 active:bg-emerald-900 text-white
-                     transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed
-                     border border-emerald-800/40 shadow-lg shadow-emerald-900/20"
+              @click.stop="mostrarMenuPdf = !mostrarMenuPdf"
+              class="px-2.5 py-2 bg-red-700 hover:bg-red-600 active:bg-red-800 text-white
+                     border-l border-red-600/60 transition-all duration-150"
+              aria-label="Más opciones de PDF"
             >
-              <svg :class="generandoResumen ? 'animate-spin' : ''" width="15" height="15" viewBox="0 0 24 24"
-                   fill="none" stroke="currentColor" stroke-width="2">
-                <template v-if="generandoResumen">
-                  <circle cx="12" cy="12" r="9"/>
-                  <path d="M12 3a9 9 0 0 1 9 9" stroke-linecap="round"/>
-                </template>
-                <template v-else>
-                  <path d="M9 17v-2m3 2v-4m3 4v-6M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-                </template>
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+                :style="mostrarMenuPdf ? 'transform: rotate(180deg);' : ''"
+                style="transition: transform 0.15s"
+              >
+                <polyline points="6 9 12 15 18 9" />
               </svg>
-              {{ generandoResumen ? 'Generando...' : 'PDF Totales' }}
             </button>
-
           </div>
+
+          <!-- Backdrop -->
+          <div
+            v-if="mostrarMenuPdf"
+            class="fixed inset-0 z-40"
+            @click="mostrarMenuPdf = false"
+          />
+
+          <!-- Menú desplegable -->
+          <Transition
+            enter-active-class="transition-all duration-150 ease-out"
+            enter-from-class="opacity-0 scale-95 -translate-y-1"
+            enter-to-class="opacity-100 scale-100 translate-y-0"
+            leave-active-class="transition-all duration-100 ease-in"
+            leave-from-class="opacity-100 scale-100 translate-y-0"
+            leave-to-class="opacity-0 scale-95 -translate-y-1"
+          >
+            <div
+              v-if="mostrarMenuPdf"
+              class="absolute right-0 top-full mt-1.5 z-50
+                     bg-white border border-slate-200 rounded-xl
+                     shadow-xl overflow-hidden w-64"
+            >
+              <!-- Lista completa -->
+              <div class="px-4 pt-3 pb-1">
+                <p class="text-[0.65rem] font-semibold tracking-widest uppercase text-slate-400">
+                  Lista completa de estudiantes
+                </p>
+              </div>
+
+              <!-- Ver PDF Lista -->
+              <button
+                @click="generarPDFLista('ver'); mostrarMenuPdf = false"
+                class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700
+                       hover:bg-slate-50 transition-colors text-left"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2" class="text-slate-400 shrink-0">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+                <div>
+                  <div class="font-medium leading-tight">Ver PDF Lista</div>
+                  <div class="text-xs text-slate-400 mt-0.5">Abrir en nueva pestaña</div>
+                </div>
+              </button>
+
+              <!-- Descargar PDF Lista -->
+              <button
+                @click="generarPDFLista('descargar'); mostrarMenuPdf = false"
+                class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700
+                       hover:bg-slate-50 transition-colors text-left"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2" class="text-slate-400 shrink-0">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+                <div>
+                  <div class="font-medium leading-tight">Descargar PDF Lista</div>
+                  <div class="text-xs text-slate-400 mt-0.5">Guardar en tu equipo</div>
+                </div>
+              </button>
+
+              <div class="border-t border-slate-100 mx-4"></div>
+
+              <!-- Resumen de totales -->
+              <div class="px-4 pt-3 pb-1">
+                <p class="text-[0.65rem] font-semibold tracking-widest uppercase text-slate-400">
+                  Solo totales por docente
+                </p>
+              </div>
+
+              <!-- Ver PDF Totales -->
+              <button
+                @click="generarPDFTotales('ver'); mostrarMenuPdf = false"
+                class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700
+                       hover:bg-slate-50 transition-colors text-left"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2" class="text-slate-400 shrink-0">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+                <div>
+                  <div class="font-medium leading-tight">Ver PDF Totales</div>
+                  <div class="text-xs text-slate-400 mt-0.5">Abrir en nueva pestaña</div>
+                </div>
+              </button>
+
+              <!-- Descargar PDF Totales -->
+              <button
+                @click="generarPDFTotales('descargar'); mostrarMenuPdf = false"
+                class="w-full flex items-center gap-3 px-4 py-2.5 pb-3 text-sm text-slate-700
+                       hover:bg-slate-50 transition-colors text-left"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2" class="text-slate-400 shrink-0">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+                <div>
+                  <div class="font-medium leading-tight">Descargar PDF Totales</div>
+                  <div class="text-xs text-slate-400 mt-0.5">Guardar en tu equipo</div>
+                </div>
+              </button>
+            </div>
+          </Transition>
+
         </div>
-      </template>
+      </div>
+
     </div>
 
     <!-- ERROR -->
@@ -206,25 +325,28 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import DocenteInscritosCard from '../components/DocenteInscritosCard.vue'
 import { useInscritos } from '../composables/useInscritos'
-import { useReporteInscritos } from '../composables/useReporteInscritos'
+import { useReporteInscritosLista } from '../composables/useReporteInscritosLista'
+import { useReporteInscritosTotales } from '../composables/useReporteInscritosTotales'
 
 // ─── Sin onMounted: no carga automática al entrar ───────────────────────────
 const { data, loading, error, fetchInscritos } = useInscritos()
-const {
-  generandoLista,
-  generandoResumen,
-  exportarListaCompleta,
-  exportarResumenTotales,
-} = useReporteInscritos()
+const { generandoLista, exportarListaCompleta } = useReporteInscritosLista()
+const { generandoResumen, exportarResumenTotales } = useReporteInscritosTotales()
 
 const filtros = ref({
   anio: new Date().getFullYear(),
   periodo: 1,
 })
 const busqueda = ref('')
+
+const mostrarMenuPdf = ref(false)
+const pdfDropdownRef = ref(null)
+
+// El botón muestra "cargando" si cualquiera de los dos PDF se está generando
+const loadingPdf = computed(() => generandoLista.value || generandoResumen.value)
 
 const totalGlobal = computed(() =>
   data.value.reduce((s, d) => s + (d.total_inscritos ?? 0), 0)
@@ -236,6 +358,15 @@ const fechaActual = computed(() =>
     hour: '2-digit', minute: '2-digit',
   })
 )
+
+// Cierra el menú al hacer click fuera
+function onClickFuera(e) {
+  if (pdfDropdownRef.value && !pdfDropdownRef.value.contains(e.target)) {
+    mostrarMenuPdf.value = false
+  }
+}
+onMounted(() => document.addEventListener('click', onClickFuera))
+onBeforeUnmount(() => document.removeEventListener('click', onClickFuera))
 
 async function verTodos() {
   busqueda.value = ''
@@ -249,7 +380,6 @@ async function handleBuscar() {
     return
   }
   if (/^\d+$/.test(q)) {
-    // Búsqueda por código: carga todos y filtra, o puedes tener un endpoint específico
     await fetchInscritos(filtros.value.anio, filtros.value.periodo)
     data.value = data.value.filter(d => d.cod_docente === q)
   } else {
@@ -260,11 +390,21 @@ async function handleBuscar() {
   }
 }
 
-function handleListaCompleta() {
-  exportarListaCompleta(data.value, filtros.value.anio, filtros.value.periodo)
+async function generarPDFLista(modo = 'descargar') {
+  mostrarMenuPdf.value = false
+  let ventana = null
+  if (modo === 'ver') {
+    ventana = window.open('', '_blank')
+  }
+  await exportarListaCompleta(data.value, filtros.value.anio, filtros.value.periodo, modo, ventana)
 }
 
-function handleResumenTotales() {
-  exportarResumenTotales(data.value, filtros.value.anio, filtros.value.periodo)
+async function generarPDFTotales(modo = 'descargar') {
+  mostrarMenuPdf.value = false
+  let ventana = null
+  if (modo === 'ver') {
+    ventana = window.open('', '_blank')
+  }
+  await exportarResumenTotales(data.value, filtros.value.anio, filtros.value.periodo, modo, ventana)
 }
 </script>

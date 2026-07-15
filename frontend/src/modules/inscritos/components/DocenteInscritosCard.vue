@@ -6,21 +6,12 @@
       <div class="flex-1 min-w-0">
        
         <h2 class="font-bold text-base truncate leading-tight mt-0.5">
-          {{ docente.apellidos }} {{ docente.nombres }}
+          {{ docente.apellidos }} {{ docente.nombres }} - {{ docente.cod_docente }} 
         </h2>
-        <span class="text-xs text-white/60 tracking-wide uppercase block">Cód. {{ docente.cod_docente }}</span>
+        
       </div>
-      <div class="flex flex-col items-center bg-white/10 rounded-xl px-4 py-2 shrink-0">
-        <span class="text-2xl font-extrabold leading-none">{{ docente.total_inscritos }}</span>
-        <span class="text-[10px] uppercase tracking-widest text-white/70 mt-0.5">inscritos</span>
-      </div>
-      <div
-        v-if="docente.total_examen_mesa"
-        class="flex flex-col items-center bg-amber-400/20 rounded-xl px-4 py-2 shrink-0"
-      >
-        <span class="text-2xl font-extrabold leading-none text-amber-200">{{ docente.total_examen_mesa }}</span>
-        <span class="text-[10px] uppercase tracking-widest text-amber-200/80 mt-0.5">ex. mesa</span>
-      </div>
+      
+      
     </div>
 
     <!-- ── Grilla de carreras ─────────────────────────────── -->
@@ -38,7 +29,7 @@
           >
             {{ carrera.carrera }}
           </span>
-          <span class="text-[11px] text-slate-400 flex-1 truncate">P.{{ carrera.plan }}</span>
+          <span class="text-[11px] text-slate-400 flex-1 truncate">Codigo: {{ carrera.plan }}</span>
           <span
             class="text-lg font-extrabold tabular-nums"
             :class="colorClasses[carrera.carrera.toLowerCase()]?.num ?? 'text-slate-700'"
