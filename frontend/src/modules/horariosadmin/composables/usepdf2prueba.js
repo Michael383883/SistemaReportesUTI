@@ -132,10 +132,8 @@ export function generarPDFResumenDos(
     const MR = 8
     const CW = PAGE_W - ML - MR
 
-    const fechaActual = new Date().toLocaleString('en-US', {
-        month: 'numeric', day: 'numeric', year: 'numeric',
-        hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true,
-    })
+    const d = new Date()
+    const fechaActual = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()} ${d.toLocaleString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true })}`
 
     const gestionLabel = `${periodo}/${anio}`
     const HEADER_H = 24

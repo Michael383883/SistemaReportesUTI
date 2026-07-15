@@ -208,10 +208,8 @@ export function generarPDF(reporte, opts = {}) {
                 { align: 'center' },
             )
 
-            const ahora = new Date().toLocaleString('es-BO', {
-                dateStyle: 'short',
-                timeStyle: 'short',
-            })
+            const now = new Date()
+            const ahora = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()} ${now.toLocaleString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`
             doc.text(ahora, PAGE_W - MARGIN_R, footerY, { align: 'right' })
         },
     })

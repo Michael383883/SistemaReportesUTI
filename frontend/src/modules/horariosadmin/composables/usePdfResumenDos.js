@@ -18,43 +18,43 @@ export function generarPDFResumenDos(docentes = [], { anio, periodo } = {}) {
         return String(label).slice(0, 2).toUpperCase()
     }
 
-    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'letter' })
+    // ── Documento en VERTICAL (portrait) ──────────────────────────────────────
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' })
 
     const PAGE_W = doc.internal.pageSize.getWidth()
     const PAGE_H = doc.internal.pageSize.getHeight()
-    const ML = 8
-    const MR = 8
+    // Márgenes reducidos para aprovechar mejor el ancho disponible en vertical
+    const ML = 6
+    const MR = 6
     const CW = PAGE_W - ML - MR
 
-    const fechaActual = new Date().toLocaleString('en-US', {
-        month: 'numeric', day: 'numeric', year: 'numeric',
-        hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true,
-    })
+    const d = new Date()
+    const fechaActual = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()} ${d.toLocaleString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true })}`
 
     const gestionLabel = `${periodo}/${anio}`
-    const HEADER_H = 24
+    const HEADER_H = 22
 
     function drawPageHeader() {
         doc.setFont('helvetica', 'bold')
         doc.setFontSize(6)
         doc.setTextColor(...C_BLACK)
-        doc.text('UNIVERSIDAD MAYOR DE SAN SIMON', ML, 8)
-        doc.text('FACULTAD DE CIENCIAS ECONOMICAS', ML, 10)
+        doc.text('UNIVERSIDAD MAYOR DE SAN SIMON', ML, 7)
+        doc.text('FACULTAD DE CIENCIAS ECONOMICAS', ML, 9)
 
-        doc.setFontSize(12.5)
-        doc.text('CARGA HORARIA DOCENTES - RESUMEN', PAGE_W / 2, 9, { align: 'center' })
-        doc.setFontSize(10.5)
-        doc.text('FACULTAD DE CIENCIAS ECONOMICAS', PAGE_W / 2, 13.5, { align: 'center' })
+        doc.setFontSize(11.5)
+        doc.text('CARGA HORARIA DOCENTES - RESUMEN', PAGE_W / 2, 8, { align: 'center' })
+        doc.setFontSize(9.5)
+        doc.text('FACULTAD DE CIENCIAS ECONOMICAS', PAGE_W / 2, 12, { align: 'center' })
 
         doc.setFont('helvetica', 'bold')
-        doc.setFontSize(10)
+        doc.setFontSize(9)
         doc.setTextColor(...C_BLACK)
-        doc.text(`Gestión Académica ${gestionLabel}`, PAGE_W / 2, 19.5, { align: 'center' })
+        doc.text(`Gestión Académica ${gestionLabel}`, PAGE_W / 2, 17.5, { align: 'center' })
 
         doc.setFont('helvetica', 'normal')
-        doc.setFontSize(7)
-        doc.text(fechaActual, PAGE_W - MR, 19.5, { align: 'right' })
-        doc.text('Vista resumida por materia y grupo · Incluye Grupos Compartidos.', ML, 19.5)
+        doc.setFontSize(6.5)
+        doc.text(fechaActual, PAGE_W - MR, 17.5, { align: 'right' })
+        doc.text('Vista resumida por materia y grupo · Incluye Grupos Compartidos.', ML, 17.5)
 
         return HEADER_H
     }
@@ -86,20 +86,20 @@ export function generarPDFResumenDos(docentes = [], { anio, periodo } = {}) {
     // insertarse manualmente una vez por cada docente.
     function makeSubHead() {
         return [
-            'PLAN - NIV', 'MATERIA', 'GRP',
+            'PLAN-NIV', 'MATERIA', 'GRP',
             ...dias.map(abrevDia),
             'CH', 'INS.', 'COMP.',
         ].map(label => ({
             content: label,
             styles: {
                 fontStyle: 'bold',
-                fontSize: 6.8,
+                fontSize: 6.3,
                 halign: 'center',
                 fillColor: C_HEAD_BG,
                 textColor: C_BLACK,
                 lineWidth: { top: 0, right: 0, bottom: 0.3, left: 0 },
                 lineColor: C_GRAY_LINE,
-                cellPadding: { top: 1.5, bottom: 1.5, left: 1.5, right: 1.5 },
+                cellPadding: { top: 1, bottom: 1, left: 1, right: 1 },
             },
         }))
     }
@@ -110,17 +110,17 @@ export function generarPDFResumenDos(docentes = [], { anio, periodo } = {}) {
         const docente = docentes[di]
         const materiasAgrupadas = agruparPorMateriaGrupo(docente.horarios ?? [])
 
-        // Nombre del docente — texto normal (sin negrita), separador entre bloques
+        // Nombre del docente — texto normal (sin negrita), separador compacto entre bloques
         body.push([{
             content: `${docente.docente}  ${(docente.apellidos ?? '').toUpperCase()} ${(docente.nombres ?? '').toUpperCase()}`,
             colSpan: nCols,
             styles: {
                 fontStyle: 'normal',
-                fontSize: 8.5,
+                fontSize: 7.8,
                 halign: 'left',
                 fillColor: C_WHITE,
                 lineWidth: 0,
-                cellPadding: { top: di === 0 ? 1.5 : 3.5, bottom: 1, left: 1.5, right: 1.5 },
+                cellPadding: { top: di === 0 ? 1 : 2, bottom: 0.6, left: 1, right: 1 },
             },
         }])
 
@@ -166,11 +166,11 @@ export function generarPDFResumenDos(docentes = [], { anio, periodo } = {}) {
         const filaTotal = []
         for (let c = 0; c < nCols; c++) {
             if (c === idxCH - 1) {
-                filaTotal.push({ content: 'TOTAL', styles: { halign: 'right', fontStyle: 'bold', fontSize: 8, fillColor: C_WHITE, lineWidth: 0 } })
+                filaTotal.push({ content: 'TOTAL', styles: { halign: 'right', fontStyle: 'bold', fontSize: 7, fillColor: C_WHITE, lineWidth: 0 } })
             } else if (c === idxCH) {
-                filaTotal.push({ content: String(totalCH), styles: { halign: 'center', fontStyle: 'bold', fontSize: 8, fillColor: C_WHITE, lineWidth: 0 } })
+                filaTotal.push({ content: String(totalCH), styles: { halign: 'center', fontStyle: 'bold', fontSize: 7, fillColor: C_WHITE, lineWidth: 0 } })
             } else if (c === idxIns) {
-                filaTotal.push({ content: String(totalInscritos), styles: { halign: 'center', fontStyle: 'bold', fontSize: 8, fillColor: C_WHITE, lineWidth: 0 } })
+                filaTotal.push({ content: String(totalInscritos), styles: { halign: 'center', fontStyle: 'bold', fontSize: 7, fillColor: C_WHITE, lineWidth: 0 } })
             } else {
                 filaTotal.push({ content: '', styles: { fillColor: C_WHITE, lineWidth: 0 } })
             }
@@ -180,12 +180,13 @@ export function generarPDFResumenDos(docentes = [], { anio, periodo } = {}) {
 
     drawPageHeader()
 
-    const PLAN_W = 24
-    const MATERIA_W = 55
-    const GRUPO_W = 10
-    const CH_W = 10
-    const INS_W = 12
-    const COMP_W = 16
+    // ── Anchos recalculados para el ancho disponible en vertical ──────────────
+    const PLAN_W = 18
+    const MATERIA_W = 40
+    const GRUPO_W = 7
+    const CH_W = 7
+    const INS_W = 9
+    const COMP_W = 12
     const fixedW = PLAN_W + MATERIA_W + GRUPO_W + CH_W + INS_W + COMP_W
     const diaW = Math.max(14, (CW - fixedW) / dias.length)
 
@@ -203,7 +204,7 @@ export function generarPDFResumenDos(docentes = [], { anio, periodo } = {}) {
 
     autoTable(doc, {
         startY: HEADER_H,
-        margin: { left: ML, right: MR, top: HEADER_H, bottom: 12 },
+        margin: { left: ML, right: MR, top: HEADER_H, bottom: 10 },
         tableWidth: CW,
         // ✅ Head GLOBAL: se dibuja una sola vez al inicio de cada página,
         // no una vez por cada docente. Ahorra mucho espacio vertical.
@@ -212,8 +213,9 @@ export function generarPDFResumenDos(docentes = [], { anio, periodo } = {}) {
         body,
         alternateRowStyles: { fillColor: C_WHITE },
         styles: {
-            font: 'helvetica', fontSize: 6.8,
-            cellPadding: { top: 1, bottom: 1, left: 1.5, right: 1.5 },
+            font: 'helvetica', fontSize: 6.3,
+            // Padding reducido para minimizar el espacio en blanco entre filas
+            cellPadding: { top: 0.6, bottom: 0.6, left: 1, right: 1 },
             textColor: C_BLACK, lineColor: C_GRAY_LINE, lineWidth: 0,
             fillColor: C_WHITE,
             overflow: 'linebreak', valign: 'top',
