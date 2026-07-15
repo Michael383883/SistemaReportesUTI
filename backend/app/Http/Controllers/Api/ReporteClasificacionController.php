@@ -170,20 +170,19 @@ class ReporteClasificacionController extends Controller
         if ($codDocente) {
             $query->where('ccd.COD_DOCENTE', $codDocente);
         }
-
-        $row = $query->select('ccd.ID_CLASIFICACION_DOCENTE')->first();
+        $row = $query->select('cdoc.ID_DOCUMENTO')->first();
 
         if (!$row) {
             return response()->json([
                 'ok' => false,
                 'error' => 'No se encontró clasificación docente para ese número',
                 'nro_buscado' => $nro,
-            ], 200); // ← corregido: antes era 404, ahora 200 (no es un error real, solo "no está en esta fuente")
+            ], 200);
         }
 
         return response()->json([
             'ok' => true,
-            'id' => $row->ID_CLASIFICACION_DOCENTE,
+            'id' => $row->ID_DOCUMENTO,
         ]);
     }
 }
