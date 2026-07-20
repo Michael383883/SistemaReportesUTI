@@ -540,4 +540,290 @@ class ReporteDocenteController extends Controller
         ]);
     }
 
+
+
+    /**
+     * Segunda versión de materiasDictadas().
+     *
+     * Diferencia clave respecto al original:
+     * - Se agrega LEFT JOIN a GRUPOS_COMPARTIDOS (igual que en el endpoint
+     *   de horarios) para saber, de forma real, si un grupo/materia es
+     *   compartido y con qué se comparte.
+     * - Se agrega la columna `comparte`, que trae el dato de GRUPOS_COMPARTIDOS
+     *   (GC.COMPARTIDO) en vez de la heurística vieja (GRUPO > '30' AND PERIODO IN ('3','4')).
+     * - Se deja la columna vieja `compartido` tal cual, para no romper nada
+     *   que ya dependa de ella en el frontend. Puedes eliminarla después de
+     *   validar que `comparte` la reemplaza correctamente.
+     *
+     * OJO: asumí que GC.COMPARTIDO trae el valor útil a mostrar (código o
+     * nombre de la materia/grupo con el que se comparte) y que GC.COMP es
+     * el flag "sí/no comparte". Si la semántica real de esos campos es otra,
+     * ajusta el SELECT de abajo (marcado con //*** AJUSTAR ***).
+     */
+    public function materiasDictadasCompartidas(Request $request)
+    {
+        $request->validate([
+            'docente' => 'required|numeric',
+            'anio' => 'nullable|numeric',
+            'periodo' => 'nullable|string|in:1,2,3,4',
+            'anio_hasta' => 'nullable|numeric',
+            'periodo_hasta' => 'nullable|string|in:1,2,3,4',
+            'materia' => 'nullable|string|max:60',
+            'grupo' => 'nullable|string|max:2',
+
+            'habilitar_restriccion' => 'nullable|boolean',
+            'anio_habilitado' => 'required_if:habilitar_restriccion,true|nullable|numeric',
+            'periodo_habilitado' => 'required_if:habilitar_restriccion,true|nullable|string|in:1,2,3,4',
+        ]);
+
+        $docente = $request->docente;
+        $anio = $request->anio;
+        $periodo = $request->periodo;
+        $anioHasta = $request->anio_hasta;
+        $periodoHasta = $request->periodo_hasta;
+        $materia = $request->materia;
+        $grupo = $request->grupo;
+
+        $habilitarRestriccion = $request->boolean('habilitar_restriccion');
+        $anioHabilitado = $request->anio_habilitado;
+        $periodoHabilitado = $request->periodo_habilitado;
+
+        // CONSULTAR DOCENTE
+        $docenteInfo = DB::connection('sqlsrv')->selectOne("
+        SELECT CODIGO, NOMBRES, APELLIDOS
+        FROM DOCENTES
+        WHERE CODIGO = ?
+    ", [$docente]);
+
+        if (!$docenteInfo) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Docente no encontrado'
+            ], 404);
+        }
+
+        // ── Rango temporal ──────────────────────────────────────────────
+        $ordenDesde = null;
+        $ordenHasta = null;
+        $filtroSoloAnioExacto = false;
+
+        if ($anio && !$periodo && !$anioHasta) {
+            $filtroSoloAnioExacto = true;
+        } elseif ($anio) {
+            $ordenDesde = $this->ordenTemporal((int) $anio, $periodo);
+            $ordenHasta = $anioHasta
+                ? $this->ordenTemporal((int) $anioHasta, $periodoHasta ?? '3')
+                : $this->ordenTemporal((int) $anio, '3');
+        }
+
+        $materiaEsCodigo = $materia && preg_match('/^\d+$/', $materia);
+
+        $filtroAnioExacto = $filtroSoloAnioExacto ? "AND GRUPOS.ANIO = :anio" : "";
+
+        $filtroRango = ($ordenDesde !== null)
+            ? "AND (
+            (GRUPOS.ANIO * 10 + CASE
+                WHEN GRUPOS.PERIODO = '1' THEN 1
+                WHEN GRUPOS.PERIODO = '4' THEN 2
+                WHEN GRUPOS.PERIODO = '2' THEN 3
+                WHEN GRUPOS.PERIODO = '3' THEN 4
+                ELSE 1
+            END)
+            BETWEEN :orden_desde AND :orden_hasta
+        )"
+            : "";
+
+        $filtroMateria = "";
+        if ($materia) {
+            $filtroMateria = $materiaEsCodigo
+                ? "AND GRUPOS.MATERIA = :materia"
+                : "AND MATERIAS.NOMBRE LIKE :materia_like";
+        }
+
+        $filtroGrupo = $grupo ? "AND GRUPOS.GRUPO = :grupo" : "";
+
+        $bindings = ['docente' => $docente];
+
+        if ($filtroSoloAnioExacto) {
+            $bindings['anio'] = $anio;
+        }
+        if ($ordenDesde !== null) {
+            $bindings['orden_desde'] = $ordenDesde;
+            $bindings['orden_hasta'] = $ordenHasta;
+        }
+        if ($materia) {
+            if ($materiaEsCodigo) {
+                $bindings['materia'] = $materia;
+            } else {
+                $bindings['materia_like'] = '%' . $materia . '%';
+            }
+        }
+        if ($grupo) {
+            $bindings['grupo'] = $grupo;
+        }
+
+        // ── Exclusión dinámica de periodos aún no concluidos ────────────
+        $noConcluidos = $this->periodosNoConcluidos();
+        $claveHabilitada = null;
+        $restriccionFueHabilitada = false;
+
+        if ($habilitarRestriccion && $anioHabilitado && $periodoHabilitado) {
+            $claveHabilitada = "{$anioHabilitado}-{$periodoHabilitado}";
+
+            if (in_array($claveHabilitada, $noConcluidos, true)) {
+                $noConcluidos = array_values(array_diff($noConcluidos, [$claveHabilitada]));
+                $restriccionFueHabilitada = true;
+            }
+        }
+
+        $filtroNoConcluidos = "";
+
+        if (!empty($noConcluidos)) {
+            $placeholders = [];
+            foreach ($noConcluidos as $i => $valor) {
+                $key = "excl_{$i}";
+                $placeholders[] = ":{$key}";
+                $bindings[$key] = $valor;
+            }
+
+            $filtroNoConcluidos = "AND (
+            CONVERT(VARCHAR(4), GRUPOS.ANIO) + '-' + GRUPOS.PERIODO
+        ) NOT IN (" . implode(',', $placeholders) . ")";
+        }
+
+        $materias = DB::connection('sqlsrv')->select("
+ 
+        SELECT
+            ROW_NUMBER() OVER (
+                ORDER BY
+                    GRUPOS.ANIO,
+                    CASE
+                        WHEN GRUPOS.PERIODO = '1' THEN 1
+                        WHEN GRUPOS.PERIODO = '4' THEN 2
+                        WHEN GRUPOS.PERIODO = '2' THEN 3
+                        WHEN GRUPOS.PERIODO = '3' THEN 4
+                        ELSE 5
+                    END,
+                    GRUPOS.GRUPO ASC,
+                    GRUPOS.MATERIA,
+                    GRUPOS.[PLAN]
+            ) AS nro,
+ 
+            DOCENTES.CODIGO,
+            (DOCENTES.APELLIDOS + ' ' + DOCENTES.NOMBRES) AS docente,
+ 
+            CONVERT(VARCHAR(4), GRUPOS.ANIO) + '/' +
+            CASE
+                WHEN GRUPOS.PERIODO = '3' THEN '3 - Verano'
+                WHEN GRUPOS.PERIODO = '4' THEN '4 - Invierno'
+                ELSE GRUPOS.PERIODO
+            END AS gestion,
+ 
+            CASE
+                WHEN [PLANES].NOMBRE LIKE '%ADMINISTRACION%' THEN 'ADM'
+                WHEN [PLANES].NOMBRE LIKE '%COMERCIAL%' THEN 'COM'
+                WHEN [PLANES].NOMBRE LIKE '%FINANCIERA%' THEN 'FIN'
+                WHEN [PLANES].NOMBRE LIKE '%ECONOMIA%' THEN 'ECO'
+                WHEN [PLANES].NOMBRE LIKE '%CONTADURIA%' THEN 'CON'
+                ELSE LEFT([PLANES].NOMBRE, 3)
+            END AS plan_abrev,
+ 
+            GRUPOS.MATERIA + ' ' + ISNULL(MATERIAS.NOMBRE, 'SIN NOMBRE') AS materia,
+ 
+            -- Heurística vieja, se deja por compatibilidad
+            CASE
+                WHEN GRUPOS.GRUPO > '30'
+                     AND GRUPOS.PERIODO IN ('3','4')
+                THEN 'COMPARTIDO'
+                ELSE ''
+            END AS compartido,
+ 
+            -- *** NUEVO: dato real de GRUPOS_COMPARTIDOS (AJUSTAR si la semántica difiere) ***
+            ISNULL(GC.COMP, '')        AS comp,
+            ISNULL(GC.COMPARTIDO, '')  AS comparte,
+            GC.ORDEN                    AS orden_comparte,
+ 
+            GRUPOS.GRUPO AS grp,
+            GRUPOS.RESOLUCION,
+            GRUPOS.DESIGNACION,
+            GRUPOS.TIEMPO,
+            GRUPOS.TIPO_INGRESO,
+            GRUPOS.ANIO,
+            GRUPOS.PERIODO,
+            GRUPOS.[PLAN]
+ 
+        FROM GRUPOS
+ 
+        INNER JOIN DOCENTES
+            ON DOCENTES.CODIGO = GRUPOS.DOCENTE
+ 
+        INNER JOIN MATERIAS
+            ON MATERIAS.CODIGO = GRUPOS.MATERIA
+            AND MATERIAS.ANIO = GRUPOS.ANIO
+            AND MATERIAS.PERIODO = GRUPOS.PERIODO
+            AND MATERIAS.[PLAN] = GRUPOS.[PLAN]
+ 
+        LEFT JOIN [PLANES]
+            ON [PLANES].CODIGO = GRUPOS.[PLAN]
+            AND [PLANES].ANIO = GRUPOS.ANIO
+ 
+        -- *** NUEVO: join real de compartidos ***
+        LEFT JOIN GRUPOS_COMPARTIDOS AS GC
+            ON GC.[PLAN] = GRUPOS.[PLAN]
+            AND GC.MATERIA = GRUPOS.MATERIA
+            AND GC.GRUPO = GRUPOS.GRUPO
+            AND GC.PRIMARIO = GRUPOS.PRIMARIO
+ 
+        WHERE DOCENTES.CODIGO = :docente
+          AND GRUPOS.PRIMARIO = 'Y'
+          AND GRUPOS.TIPO = 'N'
+ 
+          {$filtroNoConcluidos}
+          {$filtroAnioExacto}
+          {$filtroRango}
+          {$filtroMateria}
+          {$filtroGrupo}
+ 
+        ORDER BY
+            GRUPOS.ANIO,
+            CASE
+                WHEN GRUPOS.PERIODO = '1' THEN 1
+                WHEN GRUPOS.PERIODO = '4' THEN 2
+                WHEN GRUPOS.PERIODO = '2' THEN 3
+                WHEN GRUPOS.PERIODO = '3' THEN 4
+                ELSE 5
+            END ASC,
+            GRUPOS.GRUPO ASC,
+            GRUPOS.MATERIA,
+            GRUPOS.[PLAN]
+ 
+    ", $bindings);
+
+        return response()->json([
+            'success' => true,
+
+            'docente' => [
+                'codigo' => $docenteInfo->CODIGO,
+                'nombre' => trim($docenteInfo->APELLIDOS . ' ' . $docenteInfo->NOMBRES),
+            ],
+
+            'anio_filtro' => $anio ?? 'todos',
+            'periodo_filtro' => $periodo ?? null,
+            'anio_hasta_filtro' => $anioHasta ?? null,
+            'periodo_hasta_filtro' => $periodoHasta ?? null,
+            'materia_filtro' => $materia ?? 'todas',
+            'grupo_filtro' => $grupo ?? 'todos',
+
+            'restriccion' => [
+                'periodos_no_concluidos' => $this->periodosNoConcluidos(),
+                'habilitacion_solicitada' => $claveHabilitada,
+                'habilitacion_aplicada' => $restriccionFueHabilitada,
+            ],
+
+            'total' => count($materias),
+            'materias' => $materias,
+        ]);
+    }
+
+
 }

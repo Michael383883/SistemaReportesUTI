@@ -105,8 +105,9 @@ Route::prefix('admin/dashboard')->group(function () {
 */
 Route::apiResource('docentes', DocenteController::class);
 
-Route::post('/reporte-docente', [ReporteDocenteController::class, 'materiasDictadas']);
+Route::post('/reporte-docente', [ReporteDocenteController::class, 'materiasDictadasCompartidas']);
 Route::get('/reporte-horario', [ReporteDocenteController::class, 'horario']);
+//Route::post('/reporte-docente2', [ReporteDocenteController::class, 'materiasDictadasCompartidas']);
 
 
 /*
