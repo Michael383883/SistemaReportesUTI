@@ -9,7 +9,6 @@ const C_GRAY_LINE = [140, 140, 140]
 const C_ZERO_TEXT = [150, 150, 150]
 
 // ── Convierte código numérico de plan a abreviación de carrera ───────────────
-// Solo la sigla, sin turno/nivel. Ej: 109401 → "ADM", 126091 → "FIN"
 const PLAN_MAP = {
     '089801': 'CON',
     '109401': 'ADM',
@@ -26,6 +25,24 @@ function planAAbreviacion(plan) {
     const base = s.slice(0, 6)
     if (PLAN_MAP[base]) return PLAN_MAP[base]
     return s
+}
+
+// ── Función para determinar el valor de C ──
+function getValorC(mat) {
+    const compTexto = mat.COMPARTIDO ?? ''
+    const comp = mat.COMP ?? ''
+    
+    if (compTexto !== '' && String(comp) === '1') return 1
+    if (compTexto !== '' && String(comp) === '0') return 0
+    if (compTexto === '') return 0
+    return 0
+}
+
+// ── Función para determinar la CH a mostrar ──
+function chMostrada(mat) {
+    const c = getValorC(mat)
+    if (c === 1) return 0
+    return Number(mat.CARGA_HORARIA) || 0
 }
 
 /**
@@ -103,15 +120,19 @@ export function generarPDFResumen(docentes = [], { anio, periodo, modo = 'descar
             content: `${docente.docente}  ${(docente.apellidos ?? '').toUpperCase()} ${(docente.nombres ?? '').toUpperCase()}`,
             colSpan: 7,
             styles: {
-                fontStyle: 'normal', fontSize: 8.5, halign: 'left',
-                fillColor: C_WHITE, lineWidth: 0,
+                fontStyle: 'normal', 
+                fontSize: 8.5, 
+                halign: 'left',
+                fillColor: C_WHITE, 
+                lineWidth: 0,
                 cellPadding: { top: di === 0 ? 1.5 : 3.5, bottom: 1, left: 1.5, right: 1.5 },
             },
         }])
 
         for (const mat of materias) {
             const compTexto = mat.COMPARTIDO ?? ''
-            const cFlag = Number(mat.COMP) || 0
+            const c = getValorC(mat)
+            const chValue = chMostrada(mat)
             const materiaTexto = [mat.MATERIA, mat.NOMBRE].filter(Boolean).join(' ')
 
             let planTexto
@@ -126,40 +147,33 @@ export function generarPDFResumen(docentes = [], { anio, periodo, modo = 'descar
                 planTexto,
                 materiaTexto,
                 mat.GRUPO ?? '',
-                String(mat.CARGA_HORARIA ?? ''),
+                String(chValue),  // 🔥 Usar chMostrada()
                 String(mat.TOTAL_NORMAL ?? ''),
-                String(cFlag),
+                String(c),
                 compTexto,
             ])
         }
 
-        let compartidaContada = false
-        let chCompartida = 0
-        let chNormal = 0
+        // ── 🔥 CALCULAR TOTALES CORRECTAMENTE ──
+        let totalCH = 0
+        let totalInscN = 0
+        const gruposVistosInsc = new Set()
 
         for (const mat of materias) {
-            const esCompartida = mat.COMPARTIDO !== undefined && mat.COMPARTIDO !== null && mat.COMPARTIDO !== ''
-            if (esCompartida) {
-                if (!compartidaContada) {
-                    chCompartida = Number(mat.CARGA_HORARIA) || 0
-                    compartidaContada = true
-                }
-            } else {
-                chNormal += Number(mat.CARGA_HORARIA) || 0
+            // CH: sumar usando chMostrada()
+            totalCH += chMostrada(mat)
+
+            // INSC-N: una sola vez por materia+grupo+nivel
+            const clave = `${mat.CARRERA ?? ''}_${mat.GRUPO ?? ''}_${mat.MATERIA ?? ''}_${mat.NIVEL ?? ''}`
+            if (!gruposVistosInsc.has(clave)) {
+                gruposVistosInsc.add(clave)
+                totalInscN += Number(mat.TOTAL_NORMAL) || 0
             }
         }
 
-        const totalCH = chNormal + chCompartida
-
-        const totalInscN = materias.reduce(
-            (acc, mat) => acc + (Number(mat.TOTAL_NORMAL) || 0),
-            0
-        )
-
         body.push([
             { content: '', colSpan: 1, styles: { fillColor: C_WHITE, lineWidth: 0 } },
-            { content: '', colSpan: 1, styles: { fillColor: C_WHITE, lineWidth: 0 } },
-            { content: 'TOTAL', colSpan: 1, styles: { halign: 'right', fontStyle: 'bold', fontSize: 8, fillColor: C_WHITE, lineWidth: 0 } },
+            { content: 'TOTAL', colSpan: 2, styles: { halign: 'right', fontStyle: 'bold', fontSize: 8, fillColor: C_WHITE, lineWidth: 0 } },
             { content: String(totalCH), colSpan: 1, styles: { halign: 'center', fontStyle: 'bold', fontSize: 8, fillColor: C_WHITE, lineWidth: 0 } },
             { content: String(totalInscN), colSpan: 1, styles: { halign: 'center', fontStyle: 'bold', fontSize: 8, fillColor: C_WHITE, lineWidth: 0 } },
             { content: '', colSpan: 1, styles: { fillColor: C_WHITE, lineWidth: 0 } },
@@ -173,36 +187,48 @@ export function generarPDFResumen(docentes = [], { anio, periodo, modo = 'descar
         startY: HEADER_H,
         margin: { left: ML, right: MR, top: HEADER_H, bottom: 12 },
         tableWidth: CW,
-        head: [['DOC. PLAN', 'MATERIA', 'GRP', 'CH', 'INSC-N', 'C', 'COMPARTIDO']],
+        head: [['PLAN-NVL', 'MATERIA', 'GRP', 'CH', 'INSC-N', 'C', 'COMPARTIDO']],
         body,
         alternateRowStyles: { fillColor: C_WHITE },
         styles: {
-            font: 'helvetica', fontSize: 7,
-            cellPadding: { top: 0.5, bottom: 0.5, left: 1.5, right: 1.5 },
-            textColor: C_BLACK, lineColor: C_GRAY_LINE, lineWidth: 0,
+            font: 'helvetica', 
+            fontSize: 6.5,  //  Reducido para que quepa mejor
+            cellPadding: { top: 0.4, bottom: 0.4, left: 1, right: 1 },
+            textColor: C_BLACK, 
+            lineColor: C_GRAY_LINE, 
+            lineWidth: 0,
             fillColor: C_WHITE,
-            overflow: 'linebreak', valign: 'middle',
+            overflow: 'linebreak', 
+            valign: 'middle',
         },
         headStyles: {
-            fillColor: C_HEAD_BG, textColor: C_BLACK, fontStyle: 'bold',
-            fontSize: 7, halign: 'left', valign: 'middle',
-            lineColor: C_GRAY_LINE, lineWidth: { top: 0, right: 0, bottom: 0.3, left: 0 },
+            fillColor: C_HEAD_BG, 
+            textColor: C_BLACK, 
+            fontStyle: 'bold',
+            fontSize: 6.5,
+            halign: 'center',
+            valign: 'middle',
+            lineColor: C_GRAY_LINE, 
+            lineWidth: { top: 0, right: 0, bottom: 0.3, left: 0 },
+            cellPadding: { top: 0.6, bottom: 0.6, left: 0.5, right: 0.5 },
         },
         columnStyles: {
-            0: { cellWidth: 25 },
-            1: { cellWidth: 80 },
-            2: { cellWidth: 12, halign: 'center' },
-            3: { cellWidth: 12, halign: 'center' },
+            0: { cellWidth: 16, halign: 'left', cellPadding: { top: 0.3, bottom: 0.3, left: 0.5, right: 0.3 } },  // 🔥 Achicado
+            1: { cellWidth: 60, halign: 'left', cellPadding: { top: 0.3, bottom: 0.3, left: 0.3, right: 0.5 } },  // 🔥 Ajustado
+            2: { cellWidth: 10, halign: 'center' },
+            3: { cellWidth: 10, halign: 'center' },
             4: { cellWidth: 14, halign: 'center' },
-            5: { cellWidth: 10, halign: 'center' },
-            6: { cellWidth: 'auto' },
+            5: { cellWidth: 8, halign: 'center' },
+            6: { cellWidth: 'auto', halign: 'left' },
         },
         didParseCell(data) {
             if (data.section === 'head') {
                 if ([2, 3, 4, 5].includes(data.column.index)) {
                     data.cell.styles.halign = 'center'
                 }
-                if (data.column.index === 0) data.cell.styles.fontSize = 6
+                if (data.column.index === 0) {
+                    data.cell.styles.fontSize = 6.5
+                }
                 return
             }
 
@@ -225,7 +251,7 @@ export function generarPDFResumen(docentes = [], { anio, periodo, modo = 'descar
 
             if (col === 0) {
                 data.cell.styles.fontStyle = 'normal'
-                data.cell.styles.fontSize = 6.5
+                data.cell.styles.fontSize = 6.5  //  Fuente más pequeña para PLAN
             }
 
             if (col === 5 && data.cell.raw === '0') {
@@ -241,11 +267,11 @@ export function generarPDFResumen(docentes = [], { anio, periodo, modo = 'descar
         didDrawCell(data) {
             if (data.section === 'head' && data.column.index === 4) {
                 doc.setFont('helvetica', 'bold')
-                doc.setFontSize(7)
+                doc.setFontSize(6.5)
                 const label = 'INSC-N'
                 const textW = doc.getTextWidth(label)
                 const cx = data.cell.x + data.cell.width / 2
-                const lineY = data.cell.y + data.cell.height / 2 + 1.4
+                const lineY = data.cell.y + data.cell.height / 2 + 1.2
                 doc.setDrawColor(...C_BLACK)
                 doc.setLineWidth(0.2)
                 doc.line(cx - textW / 2, lineY, cx + textW / 2, lineY)

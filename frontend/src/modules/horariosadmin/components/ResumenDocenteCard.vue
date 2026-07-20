@@ -1,20 +1,18 @@
 <template>
   <div
-    class="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm mb-6 break-inside-avoid"
+    class="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl overflow-hidden shadow-sm mb-6 break-inside-avoid"
   >
-    <!-- Header Docente: código + nombre en una sola línea (igual al completo) -->
-     <div
-  class="flex justify-between items-center px-5 py-3 bg-slate-800 text-white"
->
+    <!-- Header Docente -->
+    <div
+      class="flex justify-between items-center px-5 py-1 bg-slate-800 text-white"
+    >
       <div class="flex flex-col min-w-0">
-        <h2 class="text-[15px] font-bold truncate">
-          {{ docente.apellidos }} {{ docente.nombres }} - {{ docente.docente }}
+        <h2 class="text-[12px] font-bold truncate">
+         {{ docente.docente }} - {{ docente.apellidos }} {{ docente.nombres }} 
         </h2>
-        
       </div>
 
       <div class="flex items-center gap-3 shrink-0 ml-4">
-        
         <div
           class="text-xs bg-white/10 border border-white/20 rounded-md px-3 py-1"
         >
@@ -23,29 +21,31 @@
       </div>
     </div>
 
-    <!-- Tabla resumen (sin columnas de día/hora/aula) -->
+    <!-- Tabla resumen -->
     <div class="overflow-x-auto">
       <table class="w-full border-collapse text-xs" style="table-layout: auto;">
         <thead>
-          <tr class="bg-slate-50 border-b-2 border-slate-200">
-            <!-- Plan / Niv combinados (igual al completo) -->
-            <th class="px-2 py-2 text-center text-[11px] font-bold uppercase tracking-wider text-slate-600 whitespace-nowrap">
+          <tr class="bg-slate-50 dark:bg-slate-800 border-b-2 border-slate-200 dark:border-slate-700">
+            <th class="px-2 py-2 text-center text-[11px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 whitespace-nowrap">
               Plan - Niv
             </th>
-            <th class="px-2 py-2 text-left text-[11px] font-bold uppercase tracking-wider text-slate-600 min-w-[160px]">
+            <th class="px-2 py-2 text-left text-[11px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 min-w-[160px]">
               Materia
             </th>
-            <th class="px-2 py-2 text-center text-[11px] font-bold uppercase tracking-wider text-slate-600">
+            <th class="px-2 py-2 text-center text-[11px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400">
               Grp
             </th>
-            <th class="px-2 py-2 text-center text-[11px] font-bold uppercase tracking-wider text-slate-600">
+            <th class="px-2 py-2 text-center text-[11px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400">
               CH
             </th>
-            <th class="px-2 py-2 text-center text-[11px] font-bold uppercase tracking-wider text-slate-600">
+            <th class="px-2 py-2 text-center text-[11px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400">
               Ins.
             </th>
-            <th class="px-2 py-2 text-center text-[11px] font-bold uppercase tracking-wider text-slate-600">
-              Comp.
+            <th class="px-2 py-2 text-center text-[11px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400">
+              C
+            </th>
+            <th class="px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 min-w-[150px]">
+              Compartido
             </th>
           </tr>
         </thead>
@@ -54,10 +54,10 @@
           <tr
             v-for="(mat, i) in docente.materias"
             :key="i"
-            class="border-b border-slate-100 hover:bg-slate-50"
-            :class="{ 'ring-1 ring-inset ring-amber-300': mat.COMPARTIDO }"
+            class="border-b border-slate-200 dark:border-slate-700 transition-colors"
+            :class="filaClase(mat, i)"
           >
-            <!-- Plan + Nivel juntos como badge (igual al completo) -->
+            <!-- Plan + Nivel -->
             <td class="px-2 py-1.5 text-center">
               <span
                 class="inline-block px-2 py-0.5 rounded-full text-[11px] font-bold border whitespace-nowrap"
@@ -71,76 +71,88 @@
               </span>
             </td>
 
-            <!-- Materia: nombre arriba, código abajo (igual al completo) -->
+            <!-- Materia -->
             <td class="px-3 py-1.5">
-              <span class="block font-semibold text-slate-800 leading-snug text-[12px]">
-                {{ mat.NOMBRE }}
-              </span>
-              <span class="block text-[10px] font-semibold text-slate-400">
-                {{ mat.MATERIA }}
+              <span class="text-slate-800 dark:text-slate-100 font-medium truncate">
+               {{ mat.MATERIA }} - {{ mat.NOMBRE }}
               </span>
             </td>
 
             <!-- Grupo -->
-            <td class="text-center px-2 py-1.5 font-semibold text-slate-600">
+            <td class="text-center px-2 py-1.5 font-semibold text-slate-600 dark:text-slate-300">
               {{ mat.GRUPO }}
             </td>
 
             <!-- CH -->
             <td class="text-center px-2 py-1.5">
               <span
-                class="inline-block px-2 py-1 rounded-md bg-blue-50 text-blue-700 border border-blue-200 font-bold"
+                class="inline-block px-2 py-1 rounded-md bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700 font-bold"
               >
-                {{ mat.CARGA_HORARIA }}
+                {{ chMostrada(mat) }}
               </span>
             </td>
 
             <!-- Inscritos -->
-            <td class="text-center px-2 py-1.5 font-semibold text-slate-600">
+            <td class="text-center px-2 py-1.5 font-semibold text-slate-600 dark:text-slate-300">
               {{ mat.TOTAL_NORMAL ?? '—' }}
             </td>
 
-            <!-- Compartido (igual al completo) -->
+            <!-- C: badge origen (0) / derivada (1) -->
             <td class="text-center px-2 py-1.5">
               <span
-                v-if="mat.COMP"
-                class="inline-block px-2 py-1 text-[10px] font-semibold rounded bg-amber-100 text-amber-800 border border-amber-300"
-                :title="mat.COMPARTIDO"
+                v-if="esCompartido(mat)"
+                class="inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-extrabold border"
+                :class="esOrigen(mat)
+                  ? 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-900/40 dark:text-amber-300 dark:border-amber-600'
+                  : 'bg-purple-100 text-purple-800 border-purple-300 dark:bg-purple-900/40 dark:text-purple-300 dark:border-purple-600'"
               >
                 {{ mat.COMP }}
               </span>
-              <span v-else class="text-slate-300">—</span>
+              <span v-else class="text-slate-300 dark:text-slate-600">—</span>
+            </td>
+
+            <!-- Compartido: texto descriptivo -->
+            <td class="px-3 py-1.5">
+              <span
+                v-if="esCompartido(mat)"
+                class="text-[10.5px] font-semibold"
+                :class="esOrigen(mat)
+                  ? 'text-amber-700 dark:text-amber-300'
+                  : 'text-purple-700 dark:text-purple-300'"
+              >
+                {{ mat.COMPARTIDO }}
+              </span>
+              <span v-else class="text-slate-300 dark:text-slate-600">—</span>
             </td>
           </tr>
         </tbody>
 
         <tfoot>
-          <tr class="bg-slate-50 border-t-2 border-slate-200">
+          <tr class="bg-slate-100 dark:bg-slate-800 border-t-2 border-slate-200 dark:border-slate-700">
             <td
               colspan="3"
-              class="text-right px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-slate-600"
+              class="text-right px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300"
             >
               Total
             </td>
-            <!-- CH igual al completo -->
             <td class="text-center py-2.5">
-              <span class="inline-block px-3 py-1 rounded-md bg-blue-100 text-blue-800 border border-blue-300 text-sm font-extrabold">
-                {{ totalChReal }} CH
+              <span class="inline-block px-3 py-1 rounded-md bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300 border border-blue-300 dark:border-blue-700 text-sm font-extrabold">
+                {{ totalChReal }} 
               </span>
             </td>
-            <!-- Total inscritos -->
             <td class="text-center py-2.5">
-              <span class="inline-block px-3 py-1 rounded-md bg-slate-100 text-slate-700 border border-slate-300 text-sm font-extrabold">
+              <span class="inline-block px-3 py-1 rounded-md bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-600 text-sm font-extrabold">
                 {{ totalInscritos }}
               </span>
             </td>
-            <td />
+            <td colspan="2" />
           </tr>
         </tfoot>
       </table>
     </div>
   </div>
 </template>
+
 <script setup>
 import { computed } from 'vue'
 import { useHorarioResumen } from '../composables/useHorarioResumen'
@@ -151,29 +163,56 @@ const props = defineProps({
   docente: { type: Object, required: true },
 })
 
-// CH real: cada grupo compartido (identificado por MATERIA) cuenta
-// UNA sola vez, aunque el docente tenga varios grupos compartidos
-// distintos e independientes entre sí. El resto (no compartidas) suma normal.
-const totalChReal = computed(() => {
-  const materiasCompartidasVistas = new Set()
-  let chCompartida = 0
-  let chNormal = 0
+function norm(v) {
+  if (v === null || v === undefined) return ''
+  return String(v).trim()
+}
 
-  for (const mat of props.docente.materias ?? []) {
-    const esCompartida = mat.COMPARTIDO !== undefined && mat.COMPARTIDO !== null && mat.COMPARTIDO !== ''
+function esCompartido(mat) {
+  return norm(mat.COMPARTIDO) !== ''
+}
 
-    if (esCompartida) {
-      const claveGrupo = mat.MATERIA // identifica el grupo compartido específico
-      if (!materiasCompartidasVistas.has(claveGrupo)) {
-        chCompartida += Number(mat.CARGA_HORARIA) || 0
-        materiasCompartidasVistas.add(claveGrupo)
-      }
-    } else {
-      chNormal += Number(mat.CARGA_HORARIA) || 0
+// Origen = 0 (materia "madre" que reparte carga a otra carrera)
+// Derivada = 1 (materia que recibe/comparte carga desde el origen)
+function esOrigen(mat) {
+  return norm(mat.COMP) === '0'
+}
+
+// CH a mostrar en la fila: si es "derivada" (COMP = 1) se muestra 0,
+// porque su carga horaria ya está contabilizada en la fila "origen"
+// (COMP = 0) del mismo grupo compartido. El resto muestra su CH real.
+function chMostrada(mat) {
+  if (norm(mat.COMP) === '1') return 0
+  return mat.CARGA_HORARIA
+}
+
+// Clase de fila:
+// - Si la materia es compartida (origen/derivada), se conserva el acento
+//   ámbar/morado con borde lateral, tal como ya lo tenía esta tabla.
+// - Si NO es compartida, se aplica el mismo intercalado blanco/gris
+//   (zebra striping) que usa la tabla base, en modo claro y oscuro.
+function filaClase(mat, i) {
+  if (esCompartido(mat)) {
+    if (esOrigen(mat)) {
+      return 'bg-amber-50/70 dark:bg-amber-900/10 border-l-4 border-l-amber-400 dark:border-l-amber-500 hover:bg-amber-100/70 dark:hover:bg-amber-900/20'
     }
+    return 'bg-purple-50/70 dark:bg-purple-900/10 border-l-4 border-l-purple-400 dark:border-l-purple-500 hover:bg-purple-100/70 dark:hover:bg-purple-900/20'
   }
 
-  return chNormal + chCompartida
+  return i % 2 === 0
+    ? 'bg-white dark:bg-slate-900 hover:bg-blue-50 dark:hover:bg-slate-700/60'
+    : 'bg-gray-100 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-slate-700/60'
+}
+
+// CH real: se suma exactamente lo mismo que se muestra en la columna CH
+// de cada fila (chMostrada). Es decir: las filas "derivada" (COMP = 1)
+// aportan 0 (su carga ya está contada en la fila "origen" del grupo
+// compartido) y el resto suma su CARGA_HORARIA real.
+const totalChReal = computed(() => {
+  return (props.docente.materias ?? []).reduce(
+    (acc, mat) => acc + (Number(chMostrada(mat)) || 0),
+    0
+  )
 })
 
 // Total inscritos: suma directa de todas las filas, sin filtrar

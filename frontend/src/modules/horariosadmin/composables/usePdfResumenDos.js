@@ -7,6 +7,24 @@ const C_BLACK = [0, 0, 0]
 const C_WHITE = [255, 255, 255]
 const C_HEAD_BG = [211, 211, 211]
 const C_GRAY_LINE = [140, 140, 140]
+const C_DAY_SEPARATOR = [180, 180, 180]
+
+// ── Función para determinar si una materia es compartida y su tipo ──
+function getTipoCompartido(mat) {
+    const compTexto = mat.compartido ?? ''
+    const comp = mat.comp ?? ''
+    
+    if (compTexto !== '' && String(comp) === '1') return 'derivada'
+    if (compTexto !== '' && String(comp) === '0') return 'origen'
+    return 'normal'
+}
+
+// ── Función para determinar la CH a mostrar ──
+function chMostrada(mat) {
+    const tipo = getTipoCompartido(mat)
+    if (tipo === 'derivada') return 0
+    return Number(mat.carga) || 0
+}
 
 export function generarPDFResumenDos(docentes = [], { anio, periodo } = {}) {
     const { agruparPorMateriaGrupo, DIAS_ORDEN, DIAS_LABEL } = useHorarioAdmin()
@@ -18,12 +36,10 @@ export function generarPDFResumenDos(docentes = [], { anio, periodo } = {}) {
         return String(label).slice(0, 2).toUpperCase()
     }
 
-    // ── Documento en VERTICAL (portrait) ──────────────────────────────────────
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' })
 
     const PAGE_W = doc.internal.pageSize.getWidth()
     const PAGE_H = doc.internal.pageSize.getHeight()
-    // Márgenes reducidos para aprovechar mejor el ancho disponible en vertical
     const ML = 6
     const MR = 6
     const CW = PAGE_W - ML - MR
@@ -81,9 +97,6 @@ export function generarPDFResumenDos(docentes = [], { anio, periodo } = {}) {
     const idxIns = 4 + dias.length
     const idxComp = 5 + dias.length
 
-    // Encabezado de columnas GLOBAL — se repite automáticamente al inicio
-    // de cada página gracias a `head` + `showHead: 'everyPage'`, en vez de
-    // insertarse manualmente una vez por cada docente.
     function makeSubHead() {
         return [
             'PLAN-NIV', 'MATERIA', 'GRP',
@@ -99,18 +112,20 @@ export function generarPDFResumenDos(docentes = [], { anio, periodo } = {}) {
                 textColor: C_BLACK,
                 lineWidth: { top: 0, right: 0, bottom: 0.3, left: 0 },
                 lineColor: C_GRAY_LINE,
-                cellPadding: { top: 1, bottom: 1, left: 1, right: 1 },
+                cellPadding: { top: 0.8, bottom: 0.8, left: 0.3, right: 0.3 },
             },
         }))
     }
 
     const body = []
 
+    // 🔥 Guardar las filas que son TOTAL para identificar dónde NO dibujar líneas
+    const totalRowIndices = []
+
     for (let di = 0; di < docentes.length; di++) {
         const docente = docentes[di]
         const materiasAgrupadas = agruparPorMateriaGrupo(docente.horarios ?? [])
 
-        // Nombre del docente — texto normal (sin negrita), separador compacto entre bloques
         body.push([{
             content: `${docente.docente}  ${(docente.apellidos ?? '').toUpperCase()} ${(docente.nombres ?? '').toUpperCase()}`,
             colSpan: nCols,
@@ -124,10 +139,9 @@ export function generarPDFResumenDos(docentes = [], { anio, periodo } = {}) {
             },
         }])
 
-        let chCompartida = 0
-        let compartidaContada = false
-        let chNormal = 0
+        let totalCH = 0
         let totalInscritos = 0
+        const gruposVistosInsc = new Set()
 
         for (const mat of materiasAgrupadas) {
             const planNiv = [mat.carrera, mat.nivel].filter(Boolean).join(' - ')
@@ -143,25 +157,27 @@ export function generarPDFResumenDos(docentes = [], { anio, periodo } = {}) {
                 fila.push(texto)
             }
 
-            fila.push(String(mat.carga ?? ''))
+            const chValue = chMostrada(mat)
+            fila.push(String(chValue))
             fila.push(String(mat.inscritos ?? ''))
-            fila.push(mat.comp ? String(mat.comp) : '—')
+            
+            const tipo = getTipoCompartido(mat)
+            let compDisplay
+            if (tipo === 'origen') compDisplay = '0'
+            else if (tipo === 'derivada') compDisplay = '1'
+            else compDisplay = '0'  // 🔥 Cambiado: normal también muestra '0'
+            fila.push(compDisplay)
 
             body.push(fila)
 
-            const esCompartida = mat.compartido !== undefined && mat.compartido !== null && mat.compartido !== ''
-            if (esCompartida) {
-                if (!compartidaContada) {
-                    chCompartida = Number(mat.carga) || 0
-                    compartidaContada = true
-                }
-            } else {
-                chNormal += Number(mat.carga) || 0
-            }
-            totalInscritos += Number(mat.inscritos) || 0
-        }
+            totalCH += chValue
 
-        const totalCH = chNormal + chCompartida
+            const clave = `${mat.carrera ?? ''}_${mat.grupo ?? ''}_${mat.materia ?? ''}_${mat.nivel ?? ''}`
+            if (!gruposVistosInsc.has(clave)) {
+                gruposVistosInsc.add(clave)
+                totalInscritos += Number(mat.inscritos) || 0
+            }
+        }
 
         const filaTotal = []
         for (let c = 0; c < nCols; c++) {
@@ -175,14 +191,15 @@ export function generarPDFResumenDos(docentes = [], { anio, periodo } = {}) {
                 filaTotal.push({ content: '', styles: { fillColor: C_WHITE, lineWidth: 0 } })
             }
         }
+        // 🔥 Guardar el índice de la fila TOTAL
+        totalRowIndices.push(body.length)
         body.push(filaTotal)
     }
 
     drawPageHeader()
 
-    // ── Anchos recalculados para el ancho disponible en vertical ──────────────
-    const PLAN_W = 18
-    const MATERIA_W = 40
+    const PLAN_W = 12
+    const MATERIA_W = 44
     const GRUPO_W = 7
     const CH_W = 7
     const INS_W = 9
@@ -191,41 +208,65 @@ export function generarPDFResumenDos(docentes = [], { anio, periodo } = {}) {
     const diaW = Math.max(14, (CW - fixedW) / dias.length)
 
     const columnStyles = {
-        0: { cellWidth: PLAN_W },
-        1: { cellWidth: MATERIA_W },
+        0: { 
+            cellWidth: PLAN_W, 
+            halign: 'left', 
+            cellPadding: { top: 0.3, bottom: 0.3, left: 0.3, right: 0.3 }
+        },
+        1: { 
+            cellWidth: MATERIA_W, 
+            halign: 'left', 
+            cellPadding: { top: 0.3, bottom: 0.3, left: 0.3, right: 0.3 }
+        },
         2: { cellWidth: GRUPO_W, halign: 'center' },
         [idxCH]: { cellWidth: CH_W, halign: 'center' },
         [idxIns]: { cellWidth: INS_W, halign: 'center' },
         [idxComp]: { cellWidth: COMP_W, halign: 'center' },
     }
+    
     dias.forEach((_, i) => {
-        columnStyles[3 + i] = { cellWidth: diaW, halign: 'center' }
+        const colIndex = 3 + i
+        const isLastDay = i === dias.length - 1
+        columnStyles[colIndex] = { 
+            cellWidth: diaW, 
+            halign: 'center',
+            lineWidth: { 
+                top: 0, 
+                right: isLastDay ? 0 : 0.3,
+                bottom: 0, 
+                left: 0 
+            },
+            lineColor: C_DAY_SEPARATOR,
+        }
     })
 
     autoTable(doc, {
         startY: HEADER_H,
         margin: { left: ML, right: MR, top: HEADER_H, bottom: 10 },
         tableWidth: CW,
-        // ✅ Head GLOBAL: se dibuja una sola vez al inicio de cada página,
-        // no una vez por cada docente. Ahorra mucho espacio vertical.
         head: [makeSubHead()],
         showHead: 'everyPage',
         body,
         alternateRowStyles: { fillColor: C_WHITE },
         styles: {
             font: 'helvetica', fontSize: 6.3,
-            // Padding reducido para minimizar el espacio en blanco entre filas
-            cellPadding: { top: 0.6, bottom: 0.6, left: 1, right: 1 },
+            cellPadding: { top: 0.4, bottom: 0.4, left: 0.5, right: 0.5 },
             textColor: C_BLACK, lineColor: C_GRAY_LINE, lineWidth: 0,
             fillColor: C_WHITE,
             overflow: 'linebreak', valign: 'top',
         },
         columnStyles,
         didParseCell(data) {
+            if (data.section === 'head') {
+                if (data.column.index === 0) {
+                    data.cell.styles.fontSize = 5.5
+                }
+                return
+            }
+
             if (data.section !== 'body') return
 
             const raw = data.row.raw
-            // Fila de datos: array de strings
             const isDataRow = Array.isArray(raw) && raw.length === nCols && typeof raw[0] === 'string'
                 && typeof raw[1] === 'string'
             if (!isDataRow) return
@@ -240,6 +281,35 @@ export function generarPDFResumenDos(docentes = [], { anio, periodo } = {}) {
 
             if (col === 1) {
                 data.cell.styles.fontStyle = 'normal'
+            }
+            
+            if (col === 0) {
+                data.cell.styles.fontSize = 5.5
+            }
+        },
+        // 🔥 Dibujar líneas verticales separadoras entre días (sin llegar a TOTAL)
+        didDrawCell(data) {
+            // Solo para celdas del cuerpo (body)
+            if (data.section !== 'body') return
+            
+            const rowIndex = data.row.index
+            const col = data.column.index
+            
+            // 🔥 Si es una fila TOTAL, NO dibujar líneas verticales
+            if (totalRowIndices.includes(rowIndex)) return
+            
+            const dayStartCol = 3
+            const dayEndCol = 3 + dias.length - 1
+            
+            // Si es una columna de día y NO es el último día
+            if (col >= dayStartCol && col < dayEndCol) {
+                const x = data.cell.x + data.cell.width
+                const y1 = data.cell.y
+                const y2 = data.cell.y + data.cell.height
+                
+                doc.setDrawColor(...C_DAY_SEPARATOR)
+                doc.setLineWidth(0.3)
+                doc.line(x, y1, x, y2)
             }
         },
         didDrawPage(data) {

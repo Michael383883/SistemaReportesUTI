@@ -1,19 +1,17 @@
 <template>
   <div
-    class="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm mb-6 break-inside-avoid"
+    class="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl overflow-hidden shadow-sm mb-6 break-inside-avoid"
   >
     <!-- Header -->
-     <div
-  class="flex justify-between items-center px-5 py-3 bg-slate-800 text-white"
->
+    <div
+      class="flex justify-between items-center px-5 py-1 bg-slate-800 text-white"
+    >
       <div class="flex flex-col min-w-0">
         <h2 class="text-[15px] font-bold truncate">
-          {{ docente.apellidos }} {{ docente.nombres }} - {{ docente.docente }}
+         {{ docente.docente }} - {{ docente.apellidos }} {{ docente.nombres }} 
         </h2>
-        
       </div>
       <div class="flex items-center gap-3 shrink-0 ml-4">
-        
         <div class="text-xs bg-white/10 border border-white/20 rounded-md px-3 py-1">
           {{ filasAgrupadas.length }} materias
         </div>
@@ -24,29 +22,27 @@
     <div class="overflow-x-auto">
       <table class="w-full border-collapse text-xs" style="table-layout: auto;">
         <thead>
-          <tr class="bg-slate-50 border-b-2 border-slate-200">
-
-            <th class="px-2 py-2 text-center text-[11px] font-bold uppercase tracking-wider text-slate-600">
-             Plan - Nvl
+          <tr class="bg-slate-100 dark:bg-slate-800 border-b-2 border-slate-200 dark:border-slate-700">
+            <th class="px-2 py-2 text-center text-[10.5px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              Plan - Nvl
             </th>
-
-            <th class="px-2 py-2 text-left text-[11px] font-bold uppercase tracking-wider text-slate-600 min-w-[150px]">
+            <th class="px-2 py-2 text-left text-[10.5px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
               Materia
             </th>
-            
-            <th class="px-2 py-2 text-center text-[11px] font-bold uppercase tracking-wider text-slate-600">
+            <th class="px-2 py-2 text-center text-[10.5px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
               Grp
             </th>
-            <th class="px-2 py-2 text-center text-[11px] font-bold uppercase tracking-wider text-slate-600">
-              CH
+
+            <th class="px-2 py-2 text-center text-[10.5px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              Insc.
             </th>
-            <th class="px-2 py-2 text-center text-[11px] font-bold uppercase tracking-wider text-slate-600">
-              Inscritos
-            </th>
-            <th class="px-2 py-2 text-left text-[11px] font-bold uppercase tracking-wider text-slate-600 min-w-[220px]">
+            <th class="px-3 py-2 text-left text-[10.5px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 min-w-[220px]">
               Comparte con
             </th>
-            <th class="px-2 py-2 text-center text-[11px] font-bold uppercase tracking-wider text-slate-600">
+            <th class="px-2 py-2 text-center text-[10.5px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              CH
+            </th>
+            <th class="px-2 py-2 text-center text-[10.5px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
               Ins. Total
             </th>
           </tr>
@@ -56,11 +52,13 @@
           <tr
             v-for="(fila, i) in filasAgrupadas"
             :key="i"
-            class="border-b border-slate-100 hover:bg-slate-50 transition-colors"
+            :class="i % 2 === 0 ? 'bg-white dark:bg-slate-900' : 'bg-gray-100 dark:bg-slate-800'"
+            class="border-b border-slate-200 dark:border-slate-700 hover:bg-blue-50 dark:hover:bg-slate-700/60 transition-colors"
           >
-          <td class="text-center px-2 py-2">
+            <!-- Plan - Nivel -->
+            <td class="text-center px-2 py-1.5 align-top">
               <span
-                class="inline-block px-2 py-0.5 rounded-full text-[11px] font-bold border"
+                class="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold border whitespace-nowrap"
                 :style="{
                   background: colorCarrera(fila.principal.CARRERA).bg,
                   color: colorCarrera(fila.principal.CARRERA).text,
@@ -71,81 +69,69 @@
               </span>
             </td>
 
-            <td class="px-3 py-2">
-              <span class="font-semibold text-slate-800 text-[12px] leading-tight">
+            <!-- Materia: código + nombre en una sola línea, compacto -->
+            <td class="px-3 py-1.5 align-top max-w-[220px]">
+              <span class="block font-semibold text-slate-800 dark:text-slate-100 text-[11px] leading-tight truncate" :title="fila.principal.NOMBRE">
+                <span class="text-slate-800 dark:text-slate-100 font-medium">{{ fila.principal.MATERIA }}</span>
                 {{ fila.principal.NOMBRE }}
-              </span>
-              <br />
-              <span class="text-[10px] font-semibold text-slate-400">
-                {{ fila.principal.MATERIA }}
               </span>
             </td>
 
-            
-
-            <td class="text-center px-2 py-2 font-semibold text-slate-600">
+            <!-- Grupo -->
+            <td class="text-center px-2 py-1.5 align-top font-semibold text-slate-600 dark:text-slate-300">
               {{ fila.principal.GRUPO }}
             </td>
 
-            <td class="text-center px-2 py-2">
-              <span class="inline-block px-2 py-1 rounded-md bg-blue-50 text-blue-700 border border-blue-200 font-bold">
+            <!-- Inscritos -->
+            <td class="text-center px-2 py-1.5 align-top font-semibold text-slate-700 dark:text-slate-200">
+              {{ fila.principal.TOTAL_NORMAL ?? '—' }}
+            </td>
+
+            <!-- Comparte con -->
+            <td class="px-3 py-1.5 align-top">
+              <div v-if="fila.hermanas && fila.hermanas.length" class="flex flex-col gap-1">
+                <div
+                  v-for="(h, hi) in fila.hermanas"
+                  :key="hi"
+                  class="flex items-center gap-1.5 flex-wrap text-[10.5px] leading-snug"
+                >
+                  <span
+                    class="inline-block px-1 py-0.5 rounded text-[9.5px] font-bold border whitespace-nowrap shrink-0"
+                    :style="{
+                      background: colorCarrera(h.CARRERA).bg,
+                      color: colorCarrera(h.CARRERA).text,
+                      borderColor: colorCarrera(h.CARRERA).border,
+                    }"
+                  >
+                    {{ h.CARRERA }} - {{ h.NIVEL }}
+                  </span>
+                  <span class="text-slate-800 dark:text-slate-100 font-medium truncate">
+                    {{ h.MATERIA }} - {{ h.NOMBRE }}
+                  </span>
+                  <span class="text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                    · Grp {{ h.GRUPO }} · Ins: {{ h.TOTAL_NORMAL ?? '—' }}
+                  </span>
+                </div>
+
+                <span class="text-[10px] w-fit mt-0.5">
+                  <span class="font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30 px-1.5 py-0.5 rounded border border-amber-200 dark:border-amber-700">
+                    Suma: {{ resumenSuma(fila) }} = {{ calcularTotal(fila) }}
+                  </span>
+                </span>
+              </div>
+              <span v-else class="text-slate-300 dark:text-slate-600">—</span>
+            </td>
+
+            <!-- CH -->
+            <td class="text-center px-2 py-1.5 align-top">
+              <span class="inline-block px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700 font-bold text-[11px]">
                 {{ fila.principal.CARGA_HORARIA }}
               </span>
             </td>
 
-            <td class="text-center px-2 py-2">
-              <div class="flex flex-col items-center">
-                <span class="font-semibold text-slate-700">
-                  {{ fila.principal.TOTAL_NORMAL ?? '—' }}
-                </span>
-              </div>
-            </td>
-<td class="px-3 py-2">
-  <div v-if="fila.hermanas && fila.hermanas.length" class="flex flex-col gap-2">
-    <!-- Contenedor en fila, con wrap automático cuando no hay espacio -->
-    <div class="flex flex-row flex-wrap gap-3">
-      <div
-        v-for="(h, hi) in fila.hermanas"
-        :key="hi"
-        class="flex flex-col gap-0.5 border border-slate-600/40 rounded-md px-2 py-1 bg-white/5 min-w-[140px]"
-      >
-        <span class="text-[11px] font-semibold text-slate-700">
-          {{ h.NOMBRE }}
-        </span>
-        <div class="flex items-center gap-2 flex-wrap">
-          <span class="text-[10px] text-slate-800">
-            {{ h.MATERIA }} - Ins: {{ h.TOTAL_NORMAL ?? '—' }}
-          </span>
-          <span
-            class="inline-block px-1.5 py-0.5 rounded-full text-[10px] font-bold border whitespace-nowrap"
-            :style="{
-              background: colorCarrera(h.CARRERA).bg,
-              color: colorCarrera(h.CARRERA).text,
-              borderColor: colorCarrera(h.CARRERA).border,
-            }"
-          >
-            {{ h.CARRERA }} - {{ h.NIVEL }}
-          </span>
-        </div>
-        <span class="text-[10px] w-fit">
-          <span class="font-bold text-black">Grp: {{ h.GRUPO }}</span>
-        </span>
-      </div>
-    </div>
-
-    <span class="text-[10px] w-fit">
-      <span class="font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
-        Suma: {{ resumenSuma(fila) }} = {{ calcularTotal(fila) }}
-      </span>
-    </span>
-  </div>
-  <span v-else class="text-slate-300 text-center block">—</span>
-</td>
-
-            <td class="text-center px-2 py-2">
-              <span
-                class="inline-block px-2 py-1 rounded-md font-bold border text-sm bg-slate-50 text-slate-700 border-slate-200"
-              >
+            <!-- Ins. Total -->
+            <td class="text-center px-2 py-1.5 align-top">
+              <span class="inline-block px-2 py-0.5 rounded-md font-bold border text-[12px] bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-600">
                 {{ calcularTotal(fila) }}
               </span>
             </td>
@@ -153,19 +139,18 @@
         </tbody>
 
         <tfoot>
-          <tr class="bg-slate-50 border-t-2 border-slate-200">
-            <td colspan="3" class="text-right px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-slate-600">
+          <tr class="bg-slate-100 dark:bg-slate-800 border-t-2 border-slate-200 dark:border-slate-700">
+            <td colspan="5" class="text-right px-4 py-2 text-[11px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300">
               Total
             </td>
-            <td class="text-center py-2.5">
-              <span class="inline-block px-3 py-1 rounded-md bg-blue-100 text-blue-800 border border-blue-300 text-sm font-extrabold">
-                {{ totalChReal }} CH
+            <td class="text-center py-2">
+              <span class="inline-block px-2.5 py-1 rounded-md bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300 border border-blue-300 dark:border-blue-700 text-[12px] font-extrabold">
+                {{ totalChReal }}
               </span>
             </td>
-            <td class="text-center py-2.5 text-[10px] text-slate-400 italic">—</td>
-            <td class="text-center py-2.5 text-[10px] text-slate-400 italic">—</td>
-            <td class="text-center py-2.5">
-              <span class="inline-block px-3 py-1 rounded-md bg-blue-100 text-blue-800 border border-blue-300 text-sm font-extrabold">
+
+            <td class="text-center py-2">
+              <span class="inline-block px-2.5 py-1 rounded-md bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300 border border-blue-300 dark:border-blue-700 text-[12px] font-extrabold">
                 {{ totalGeneral }}
               </span>
             </td>

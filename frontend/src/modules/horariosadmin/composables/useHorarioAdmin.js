@@ -112,14 +112,8 @@ export function useHorarioAdmin() {
         return COLORES_CARRERA[carrera] || COLORES_CARRERA.NN
     }
 
-    const DIAS_ORDEN = [
-        'LU',
-        'MA',
-        'MI',
-        'JU',
-        'VI',
-        'SA',
-    ]
+    // ── Días de la semana (códigos de 2 letras) ──────────────────────────────
+    const DIAS_ORDEN = ['LU', 'MA', 'MI', 'JU', 'VI', 'SA']
 
     const DIAS_LABEL = {
         LU: 'Lunes',
@@ -128,6 +122,80 @@ export function useHorarioAdmin() {
         JU: 'Jueves',
         VI: 'Viernes',
         SA: 'Sábado',
+    }
+
+    // 🔥 MAPA DE ABREVIATURAS - Para normalizar cualquier formato de día
+    const ABREV_DIA_MAP = {
+        // Nombres completos en español
+        'lunes': 'LU',
+        'martes': 'MA',
+        'miercoles': 'MI',
+        'jueves': 'JU',
+        'viernes': 'VI',
+        'sabado': 'SA',
+        'domingo': 'DO',
+        // Con mayúscula inicial
+        'Lunes': 'LU',
+        'Martes': 'MA',
+        'Miercoles': 'MI',
+        'Jueves': 'JU',
+        'Viernes': 'VI',
+        'Sabado': 'SA',
+        'Domingo': 'DO',
+        // Códigos de 2 letras (ya vienen así)
+        'LU': 'LU',
+        'MA': 'MA',
+        'MI': 'MI',
+        'JU': 'JU',
+        'VI': 'VI',
+        'SA': 'SA',
+        'DO': 'DO',
+        // Códigos de 3 letras (posible formato alternativo)
+        'LUN': 'LU',
+        'MAR': 'MA',
+        'MIE': 'MI',
+        'JUE': 'JU',
+        'VIE': 'VI',
+        'SAB': 'SA',
+        'DOM': 'DO',
+        // En inglés
+        'monday': 'LU',
+        'tuesday': 'MA',
+        'wednesday': 'MI',
+        'thursday': 'JU',
+        'friday': 'VI',
+        'saturday': 'SA',
+        'sunday': 'DO',
+        'Monday': 'LU',
+        'Tuesday': 'MA',
+        'Wednesday': 'MI',
+        'Thursday': 'JU',
+        'Friday': 'VI',
+        'Saturday': 'SA',
+        'Sunday': 'DO',
+        // Códigos de 3 letras en inglés
+        'MON': 'LU',
+        'TUE': 'MA',
+        'WED': 'MI',
+        'THU': 'JU',
+        'FRI': 'VI',
+        'SAT': 'SA',
+        'SUN': 'DO',
+    }
+
+    // 🔥 Función para normalizar/abreviar un día a código de 2 letras
+    function abreviaturaDia(dia) {
+        if (!dia) return '??'
+        const key = String(dia).trim()
+        // Buscar en el mapa (case insensitive)
+        const lowerKey = key.toLowerCase()
+        for (const [k, v] of Object.entries(ABREV_DIA_MAP)) {
+            if (k.toLowerCase() === lowerKey) {
+                return v
+            }
+        }
+        // Fallback: tomar primeras 2 letras en mayúscula
+        return key.slice(0, 2).toUpperCase()
     }
 
     function agruparPorMateriaGrupo(horarios = []) {
@@ -154,8 +222,11 @@ export function useHorarioAdmin() {
 
             const item = mapa.get(key)
 
+            // 🔥 Normalizar el día antes de guardarlo
+            const diaNormalizado = abreviaturaDia(h.DIA)
+
             item.sesiones.push({
-                dia: h.DIA,
+                dia: diaNormalizado,  // 🔥 Guardar el día normalizado (LU, MA, MI, etc.)
                 horario: h.HORARIO,
                 ambiente: h.AMBIENTE,
                 ch: Number(h.CARGA_HORARIA || 0),
@@ -178,5 +249,6 @@ export function useHorarioAdmin() {
         agruparPorMateriaGrupo,
         DIAS_LABEL,
         DIAS_ORDEN,
+        abreviaturaDia,  // 🔥 Exportar la función para usarla en otros archivos
     }
 }

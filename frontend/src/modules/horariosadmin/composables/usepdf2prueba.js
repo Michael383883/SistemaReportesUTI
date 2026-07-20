@@ -148,7 +148,7 @@ export function generarPDFResumenDos(
         doc.setFontSize(12.5)
         doc.text('RESUMEN DE CARGA HORARIA', PAGE_W / 2, 9, { align: 'center' })
         doc.setFontSize(10.5)
-        doc.text('Detalle con materias compartidas', PAGE_W / 2, 13.5, { align: 'center' })
+        doc.text('FACULTAD DE CIENCIAS ECONOMICAS', PAGE_W / 2, 13.5, { align: 'center' })
 
         doc.setFont('helvetica', 'bold')
         doc.setFontSize(10)
@@ -210,7 +210,7 @@ export function generarPDFResumenDos(
             const compTexto = hermanas
                 .map(h => {
                     const hMateriaTexto = [h.MATERIA, h.NOMBRE].filter(Boolean).join(' ')
-                    return `${hMateriaTexto} (${h.CARRERA ?? ''} - ${h.NIVEL ?? ''}) · Grp ${h.GRUPO ?? ''} · Ins: ${h.TOTAL_NORMAL ?? 0}`
+                    return `${h.CARRERA ?? ''} - ${h.NIVEL ?? ''} · ${hMateriaTexto} · Grp ${h.GRUPO ?? ''} · Ins: ${h.TOTAL_NORMAL ?? 0}`
                 })
                 .join('\n')
 
@@ -246,7 +246,7 @@ export function generarPDFResumenDos(
         startY: HEADER_H,
         margin: { left: ML, right: MR, top: HEADER_H, bottom: 12 },
         tableWidth: CW,
-        head: [['NIVEL', 'MATERIA', 'GRP', 'CH', 'INSC.', 'COMPARTE CON', 'INS. TOT.']],
+        head: [['PLAN-NVL', 'MATERIA', 'GRP', 'CH', 'INSC.', 'COMPARTE CON', 'INS. TOT.']],
         body,
         alternateRowStyles: { fillColor: C_WHITE },
         styles: {

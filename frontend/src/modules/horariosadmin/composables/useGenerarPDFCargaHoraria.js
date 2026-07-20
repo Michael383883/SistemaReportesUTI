@@ -6,10 +6,8 @@ const C_BLACK = [0, 0, 0]
 const C_WHITE = [255, 255, 255]
 const C_HEAD_BG = [211, 211, 211]
 const C_GRAY_LINE = [140, 140, 140]
-const C_ZERO_TEXT = [150, 150, 150]
 
 // ── Convierte código numérico de plan a abreviación de carrera ───────────────
-// Solo la sigla, sin turno/nivel. Ej: 109401 → "ADM", 126091 → "FIN"
 const PLAN_MAP = {
     '089801': 'CON',
     '109401': 'ADM',
@@ -18,18 +16,44 @@ const PLAN_MAP = {
     '059801': 'ECO',
 }
 
-function planAAbreviacion(plan) {
+function getAbreviaturaPlan(plan) {
     if (!plan) return ''
     const s = String(plan).trim()
-    // Si ya viene como sigla texto, devolver tal cual
     if (/^[A-Z]{2,4}$/i.test(s)) return s.toUpperCase()
-    // Coincidencia exacta
     if (PLAN_MAP[s]) return PLAN_MAP[s]
-    // Coincidencia por primeros 6 caracteres (variantes de turno al final)
     const base = s.slice(0, 6)
     if (PLAN_MAP[base]) return PLAN_MAP[base]
-    // Fallback
     return s
+}
+
+// ── Determina el valor de C según la lógica del componente Vue ──
+function getValorC(h) {
+    const compTexto = h.COMPARTIDO ?? h.comp ?? ''
+    const comp = h.COMP ?? h.C ?? ''
+    
+    // Si tiene COMPARTIDO y COMP === '1' → C = 1 (derivada/recibe)
+    if (compTexto !== '' && String(comp) === '1') {
+        return 1
+    }
+    // Si tiene COMPARTIDO y COMP === '0' → C = 0 (origen/comparte)
+    if (compTexto !== '' && String(comp) === '0') {
+        return 0
+    }
+    // Si no tiene COMPARTIDO → C = 0 (normal)
+    if (compTexto === '') {
+        return 0
+    }
+    // Fallback
+    return 0
+}
+
+// ── Determina si la fila debe mostrar CH en 0 ──
+function chMostrada(h) {
+    const c = getValorC(h)
+    // Si C = 1 (derivada/recibe), mostrar 0
+    if (c === 1) return 0
+    // Si C = 0 (origen/comparte o normal), mostrar su CH real
+    return Number(h.CARGA_HORARIA) || 0
 }
 
 export function generarPDFCargaHoraria(docentes = [], { anio, periodo } = {}) {
@@ -51,7 +75,7 @@ export function generarPDFCargaHoraria(docentes = [], { anio, periodo } = {}) {
         doc.setFont('helvetica', 'bold')
         doc.setFontSize(6)
         doc.setTextColor(...C_BLACK)
-        doc.text('UNIVERSIDAD MAYOR DE SAN SIMON', ML, 8)
+        doc.text('UNIVERSIDAD MAYOR DE SAN SIMON', ML, 7)
         doc.text('FACULTAD DE CIENCIAS ECONOMICAS', ML, 10)
 
         doc.setFontSize(12.5)
@@ -89,14 +113,12 @@ export function generarPDFCargaHoraria(docentes = [], { anio, periodo } = {}) {
         }
     }
 
-    // ── Construye el cuerpo completo (todos los docentes en una sola tabla) ──
     const body = []
 
     for (let di = 0; di < docentes.length; di++) {
         const docente = docentes[di]
         const horarios = docente.horarios ?? []
 
-        // Fila con el nombre del docente
         body.push([{
             content: `${docente.docente}  ${(docente.apellidos ?? '').toUpperCase()} ${(docente.nombres ?? '').toUpperCase()}`,
             colSpan: 10,
@@ -107,59 +129,52 @@ export function generarPDFCargaHoraria(docentes = [], { anio, periodo } = {}) {
             },
         }])
 
-        // Filas de horarios
         for (const h of horarios) {
             const compTexto = h.COMPARTIDO ?? h.comp ?? ''
-            const cFlag = h.C ?? (compTexto.toLowerCase().startsWith('comparte de') ? 1 : 0)
+            const c = getValorC(h)
             const materiaTexto = [h.MATERIA, h.NOMBRE].filter(Boolean).join(' ')
 
-            // Col 0: carrera + grupo → "ADM - 20", "FIN - 29"
-            const planAbrev = planAAbreviacion(h.PLAN ?? '')
-            const planGrupo = planAbrev ? `${planAbrev} - ${h.GRUPO ?? ''}` : (h.GRUPO ?? '')
+            const planAbrev = getAbreviaturaPlan(h.PLAN ?? '')
+            const nivel = h.NIVEL ?? ''
+            const planNivel = nivel ? `${planAbrev} - ${nivel}` : planAbrev
+
+            // CH a mostrar: si C=1 mostrar 0, si C=0 mostrar su CH real
+            const chValue = chMostrada(h)
 
             body.push([
-                planGrupo,          // 0: carrera - grupo
-                materiaTexto,       // 1: MATERIA
-                '',                 // 2: GRP (vacío, ya incluido en col 0)
-                h.DIA ?? '',        // 3: DIA
-                h.AMBIENTE ?? '',   // 4: AULA
-                h.HORARIO ?? '',    // 5: HORA
-                h.CARGA_HORARIA ?? '', // 6: CH
-                h.TOTAL_NORMAL ?? '', // 7: INSC-N
-                String(cFlag),      // 8: C
-                compTexto,          // 9: COMPARTIDO
+                planNivel,
+                materiaTexto,
+                h.GRUPO ?? '',
+                h.DIA ?? '',
+                h.AMBIENTE ?? '',
+                h.HORARIO ?? '',
+                String(chValue),  // CH: 0 si es derivada (C=1), o su valor real
+                h.TOTAL_NORMAL ?? '',
+                String(c),
+                compTexto,
             ])
         }
 
-        // ── Calcular totales ────────────────────────────────────────────────
-        // CH: suma solo filas con C=0 (excluye "Comparte de...")
-        // INSC-N: una sola vez por combinación materia+grupo (no repetir por día)
-        //         y solo de filas con C=0
-
-        const totalCH = horarios
-            .filter(h => {
-                const comp = h.COMPARTIDO ?? h.comp ?? ''
-                const c = h.C ?? (comp.toLowerCase().startsWith('comparte de') ? 1 : 0)
-                return Number(c) === 0
-            })
-            .reduce((acc, h) => acc + Number(h.CARGA_HORARIA ?? 0), 0)
-
-        // Para INSC-N: agrupar por MATERIA+GRUPO y tomar un solo valor de inscritos
-        const gruposVistos = new Set()
+        // ── CALCULAR TOTALES ──
+        // Usamos la misma lógica que el componente Vue:
+        // totalChReal = suma de chMostrada() de todas las filas
+        // totalInscritos = suma de TOTAL_NORMAL de todas las filas (sin duplicar)
+        let totalCH = 0
         let totalInscN = 0
-        for (const h of horarios) {
-            const comp = h.COMPARTIDO ?? h.comp ?? ''
-            const c = h.C ?? (comp.toLowerCase().startsWith('comparte de') ? 1 : 0)
-            if (Number(c) !== 0) continue // excluir compartidos recibidos
+        const gruposVistosInsc = new Set()
 
-            const clave = `${h.MATERIA ?? ''}_${h.GRUPO ?? ''}`
-            if (!gruposVistos.has(clave)) {
-                gruposVistos.add(clave)
-                totalInscN += Number(h.TOTAL_NORMAL ?? 0)
+        for (const h of horarios) {
+            // Sumar CH usando la misma lógica que chMostrada()
+            totalCH += chMostrada(h)
+
+            // INSC-N: una sola vez por materia+grupo+nivel
+            const clave = `${h.PLAN ?? ''}_${h.GRUPO ?? ''}_${h.MATERIA ?? ''}_${h.NIVEL ?? ''}`
+            if (!gruposVistosInsc.has(clave)) {
+                gruposVistosInsc.add(clave)
+                totalInscN += Number(h.TOTAL_NORMAL) || 0
             }
         }
 
-        // Fila TOTAL alineada: TOTAL en col 5 (HORA), valor CH en col 6, INSC-N en col 7
         body.push([
             { content: '', colSpan: 1, styles: { fillColor: C_WHITE, lineWidth: 0 } },
             { content: '', colSpan: 1, styles: { fillColor: C_WHITE, lineWidth: 0 } },
@@ -174,16 +189,14 @@ export function generarPDFCargaHoraria(docentes = [], { anio, periodo } = {}) {
         ])
     }
 
-    // Encabezado de la primera página
     drawPageHeader()
 
     autoTable(doc, {
         startY: HEADER_H,
         margin: { left: ML, right: MR, top: HEADER_H, bottom: 12 },
         tableWidth: CW,
-        head: [['DOC. PLAN', 'MATERIA', 'GRP', 'DIA', 'AULA', 'HORA', 'CH', 'INSC-N', 'C', 'COMPARTIDO']],
+        head: [['PLAN-NVL', 'MATERIA', 'GRP', 'DIA', 'AULA', 'HORA', 'CH', 'INSC-N', 'C', 'COMPARTIDO']],
         body,
-        // Sin filas alternadas
         alternateRowStyles: { fillColor: C_WHITE },
         styles: {
             font: 'helvetica', fontSize: 7,
@@ -193,29 +206,33 @@ export function generarPDFCargaHoraria(docentes = [], { anio, periodo } = {}) {
             overflow: 'linebreak', valign: 'middle',
         },
         headStyles: {
-            fillColor: C_HEAD_BG, textColor: C_BLACK, fontStyle: 'bold',
-            fontSize: 7, halign: 'left', valign: 'middle',
-            lineColor: C_GRAY_LINE, lineWidth: { top: 0, right: 0, bottom: 0.3, left: 0 },
+            fillColor: C_HEAD_BG, 
+            textColor: C_BLACK, 
+            fontStyle: 'bold',
+            fontSize: 6.5,
+            halign: 'center',
+            valign: 'middle',
+            lineColor: C_GRAY_LINE, 
+            lineWidth: { top: 0, right: 0, bottom: 0.3, left: 0 },
+            cellPadding: { top: 0.8, bottom: 0.8, left: 0.5, right: 0.5 },
         },
         columnStyles: {
-            0: { cellWidth: 20 },
-            1: { cellWidth: 58 },
-            2: { cellWidth: 9, halign: 'center' },
-            3: { cellWidth: 9, halign: 'center' },
-            4: { cellWidth: 16, halign: 'center' },
-            5: { cellWidth: 24, halign: 'center' },
-            6: { cellWidth: 8, halign: 'center' },
-            7: { cellWidth: 13, halign: 'center' },
-            8: { cellWidth: 8, halign: 'center' },
-            9: { cellWidth: 'auto' },
+            0: { cellWidth: 12, halign: 'left', cellPadding: { top: 0.5, bottom: 0.5, left: 0.5, right: 0.5 } },
+            1: { cellWidth: 60, halign: 'left', cellPadding: { top: 0.5, bottom: 0.5, left: 0.5, right: 0.5 } },
+            2: { cellWidth: 8, halign: 'center' },
+            3: { cellWidth: 8, halign: 'center' },
+            4: { cellWidth: 12, halign: 'center' },
+            5: { cellWidth: 18, halign: 'center' },
+            6: { cellWidth: 7, halign: 'center' },
+            7: { cellWidth: 10, halign: 'center' },
+            8: { cellWidth: 7, halign: 'center' },
+            9: { cellWidth: 'auto', halign: 'left' },
         },
         didParseCell(data) {
             if (data.section === 'head') {
-                if ([2, 3, 4, 5, 6, 7, 8].includes(data.column.index)) {
-                    data.cell.styles.halign = 'center'
+                if (data.column.index === 0) {
+                    data.cell.styles.fontSize = 5.5
                 }
-                if (data.column.index === 1) data.cell.styles.halign = 'center'
-                if (data.column.index === 0) data.cell.styles.fontSize = 6
                 return
             }
 
@@ -225,26 +242,22 @@ export function generarPDFCargaHoraria(docentes = [], { anio, periodo } = {}) {
             const isDataRow = Array.isArray(raw) && raw.length === 10
             if (!isDataRow) return
 
-            // Saltar filas de cabecera docente o total (tienen objetos con colSpan)
             const firstCell = raw[0]
             if (typeof firstCell === 'object' && firstCell !== null && 'colSpan' in firstCell) return
 
             const col = data.column.index
 
-            // Líneas horizontales solo desde columna DIA (índice 3) en adelante
             if (col <= 2) {
                 data.cell.styles.lineWidth = { top: 0, right: 0, bottom: 0, left: 0 }
             } else {
                 data.cell.styles.lineWidth = { top: 0, right: 0, bottom: 0.2, left: 0 }
             }
 
-            // Col 0: texto normal
             if (col === 0) {
                 data.cell.styles.fontStyle = 'normal'
                 data.cell.styles.fontSize = 6.5
             }
 
-            // COMPARTIDO: texto negro normal
             if (col === 9 && data.cell.raw) {
                 data.cell.styles.textColor = C_BLACK
                 data.cell.styles.fontStyle = 'normal'
@@ -252,22 +265,24 @@ export function generarPDFCargaHoraria(docentes = [], { anio, periodo } = {}) {
             }
         },
         didDrawCell(data) {
-            // Subrayado manual para el encabezado "INSC-N"
             if (data.section === 'head' && data.column.index === 7) {
                 doc.setFont('helvetica', 'bold')
-                doc.setFontSize(7)
+                doc.setFontSize(6.5)
                 const label = 'INSC-N'
                 const textW = doc.getTextWidth(label)
                 const cx = data.cell.x + data.cell.width / 2
-                const lineY = data.cell.y + data.cell.height / 2 + 1.4
+                const lineY = data.cell.y + data.cell.height / 2 + 1.2
                 doc.setDrawColor(...C_BLACK)
                 doc.setLineWidth(0.2)
                 doc.line(cx - textW / 2, lineY, cx + textW / 2, lineY)
             }
         },
-        didAddPage(data) {
-            drawPageHeader()
-            data.settings.margin.top = HEADER_H
+        didDrawPage(data) {
+            const pageNumber = doc.internal.getCurrentPageInfo().pageNumber
+            if (pageNumber > 1) {
+                drawPageHeader()
+                data.settings.margin.top = HEADER_H
+            }
         },
     })
 
