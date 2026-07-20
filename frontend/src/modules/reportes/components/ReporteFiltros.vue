@@ -213,6 +213,7 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import { generarPDF } from '../composables/useGenerarPDF'
 import { generarPDFConTipoIngreso } from '../composables/useGenerarPDFConTipoIngreso'
+import { generarPDFCompartido } from '../composables/useGenerarPDFCompartido'
 
 const props = defineProps({
   anio:      { type: [Number, String], default: null }, // ej: 2016 o "2016/1"
@@ -296,6 +297,33 @@ const pdfOpciones = [
                <rect x="6" y="14" width="12" height="8"/>
              </svg>`,
   },
+  { action: 'divider' },
+  {
+    action: 'open-compartido',
+    label:  'Ver reporte con compartidos',
+    icon:   `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+               <path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/>
+               <path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>
+             </svg>`,
+  },
+  {
+    action: 'save-compartido',
+    label:  'Descargar con compartidos',
+    icon:   `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+               <polyline points="7 10 12 15 17 10"/>
+               <line x1="12" y1="15" x2="12" y2="3"/>
+             </svg>`,
+  },
+  {
+    action: 'print-compartido',
+    label:  'Imprimir con compartidos',
+    icon:   `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+               <polyline points="6 9 6 2 18 2 18 9"/>
+               <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+               <rect x="6" y="14" width="12" height="8"/>
+             </svg>`,
+  },
 ]
 
 const toggleMenu = () => { menuOpen.value = !menuOpen.value }
@@ -315,6 +343,10 @@ const onPDF = (action) => {
   if (action === 'open-tipo-ingreso')   return generarPDFConTipoIngreso(props.reporte, { action: 'open' })
   if (action === 'save-tipo-ingreso')   return generarPDFConTipoIngreso(props.reporte, { action: 'save' })
   if (action === 'print-tipo-ingreso')  return generarPDFConTipoIngreso(props.reporte, { action: 'print' })
+
+  if (action === 'open-compartido')     return generarPDFCompartido(props.reporte, { action: 'open' })
+  if (action === 'save-compartido')     return generarPDFCompartido(props.reporte, { action: 'save' })
+  if (action === 'print-compartido')    return generarPDFCompartido(props.reporte, { action: 'print' })
 
   generarPDF(props.reporte, { action })
 }

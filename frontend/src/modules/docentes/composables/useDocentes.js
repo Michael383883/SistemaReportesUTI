@@ -49,12 +49,30 @@ export function useDocentes() {
         }
     }
 
-    
+    // Prioridad de relevancia: apellido primero, luego nombre, luego código.
+    // 0 = apellido empieza con el texto buscado (lo más relevante)
+    // 1 = nombre empieza con el texto buscado
+    // 2 = apellido contiene el texto buscado
+    // 3 = nombre contiene el texto buscado
+    // 4 = código contiene el texto buscado
+    const relevancia = (d, q) => {
+        const apellido = d.apellidos.toLowerCase()
+        const nombre = d.nombres.toLowerCase()
+        const codigo = String(d.codigo).toLowerCase()
+
+        if (apellido.startsWith(q)) return 0
+        if (nombre.startsWith(q)) return 1
+        if (apellido.includes(q)) return 2
+        if (nombre.includes(q)) return 3
+        if (codigo.includes(q)) return 4
+        return 5
+    }
+
     const filteredDocentes = computed(() => {
         const q = searchQuery.value.trim().toLowerCase()
         if (!q) return docentes.value
 
-        return docentes.value.filter((d) => {
+        const filtrados = docentes.value.filter((d) => {
             const fullName = `${d.nombres} ${d.apellidos}`.toLowerCase()
             return (
                 d.nombres.toLowerCase().includes(q) ||
@@ -63,6 +81,8 @@ export function useDocentes() {
                 String(d.codigo).includes(q)
             )
         })
+
+        return filtrados.sort((a, b) => relevancia(a, q) - relevancia(b, q))
     })
 
     const selectDocente = (docente) => {

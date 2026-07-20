@@ -8,32 +8,49 @@
           Reporte de Docente</h1>
         <p class="text-xs text-slate-400 m-0">Materias dictadas registradas en el SISS a partir de 2001</p>
       </div>
+
+      <!-- Toggle Version 2 (Compartidos) -->
+      <button
+        type="button"
+        @click="onToggleVersion"
+        :disabled="loading || loadingCom"
+        class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors"
+        :class="verCompartidos
+          ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-500'
+          : 'bg-slate-800/40 border-slate-700 text-slate-300 hover:bg-slate-800'"
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/>
+          <path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>
+        </svg>
+        {{ verCompartidos ? 'Versión 2 (Compartidos)' : 'Ver versión 2 (Compartidos)' }}
+      </button>
     </div>
 
     <!-- Error -->
     <div
-      v-if="error"
+      v-if="errorActivo"
       class="flex items-center gap-2 px-3.5 py-2.5 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm mb-5"
     >
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
       </svg>
-      {{ error }}
+      {{ errorActivo }}
     </div>
 
     <!-- Loading skeleton -->
-    <div v-if="loading" class="space-y-3 animate-pulse">
+    <div v-if="loadingActivo" class="space-y-3 animate-pulse">
       <div class="h-24 rounded-xl bg-slate-800 border border-slate-700"/>
       <div class="h-10 rounded-lg bg-slate-800/60 border border-slate-700/50"/>
       <div class="h-64 rounded-xl bg-slate-800 border border-slate-700"/>
     </div>
 
     <!-- Reporte cargado -->
-    <template v-else-if="reporte">
+    <template v-else-if="reporteActivo">
       <!-- Header del docente -->
       <ReporteHeader
-        :reporte="reporte"
-        :loading="loading"
+        :reporte="reporteActivo"
+        :loading="loadingActivo"
         @volver="$router.back()"
         @toggle-restriccion="onToggleRestriccion"
       />
@@ -45,18 +62,19 @@
           v-model:anio-hasta="anioHastaFiltro"
           v-model:materia="materiaFiltro"
           v-model:grupo="grupoFiltro"
-          :loading="loading"
-          :reporte="reporte"
+          :loading="loadingActivo"
+          :reporte="reporteActivo"
           @generar="reGenerar"
         />
       </div>
 
-      <!-- Tabla -->
-      <ReporteTabla :materias="reporte.materias" />
+      <!-- Tabla: normal o de compartidos según la versión activa -->
+      <ReporteTablaCom v-if="verCompartidos" :materias="reporteActivo.materias" />
+      <ReporteTabla    v-else              :materias="reporteActivo.materias" />
     </template>
 
     <!-- Empty -->
-    <div v-else-if="!loading && !error" class="flex flex-col items-center justify-center py-20 text-center text-slate-400">
+    <div v-else-if="!loadingActivo && !errorActivo" class="flex flex-col items-center justify-center py-20 text-center text-slate-400">
       <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" class="mb-3">
         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
         <polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/>
@@ -70,17 +88,32 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useReporte } from '../composables/useReporte'
+import { useReporteCom } from '../composables/useReporteCom'
 import ReporteHeader  from '../components/ReporteHeader.vue'
 import ReporteFiltros from '../components/ReporteFiltros.vue'
 import ReporteTabla   from '../components/ReporteTabla.vue'
+import ReporteTablaCom   from '../components/ReporteTablaCom.vue'
 
 const route  = useRoute()
 const router = useRouter()
 
+// Version 1: reporte normal
 const { reporte, loading, error, generarReporte } = useReporte()
+
+// Version 2: reporte de compartidos
+const { reporte: reporteCom, loading: loadingCom, error: errorCom, generarReporte: generarReporteCom } = useReporteCom()
+
+// Cuál versión se muestra actualmente
+const verCompartidos = ref(false)
+
+// Datos "activos" según la versión elegida — todo el template los usa a través
+// de estos computed en vez de referenciar reporte/reporteCom directamente
+const reporteActivo  = computed(() => verCompartidos.value ? reporteCom.value  : reporte.value)
+const loadingActivo  = computed(() => verCompartidos.value ? loadingCom.value  : loading.value)
+const errorActivo    = computed(() => verCompartidos.value ? errorCom.value    : error.value)
 
 // anioFiltro guarda el string crudo, ej: "2016" o "2016/1" (lo que el usuario tipeó)
 const anioFiltro      = ref(null)
@@ -106,6 +139,24 @@ function parseAnioPeriodo(valorCrudo) {
 
   const [, anioStr, periodoStr] = match
   return { anio: Number(anioStr), periodo: periodoStr || null }
+}
+
+// Arma los parámetros actuales de filtros/restricción para llamar a generarReporte(Com)
+function paramsActuales() {
+  const { anio: anioNum, periodo }                   = parseAnioPeriodo(anioFiltro.value)
+  const { anio: anioHastaNum, periodo: periodoHasta } = parseAnioPeriodo(anioHastaFiltro.value)
+
+  return {
+    anio: anioNum,
+    periodo,
+    anioHasta: anioHastaNum,
+    periodoHasta,
+    materia: materiaFiltro.value,
+    grupo: grupoFiltro.value,
+    habilitarRestriccion: habilitarRestriccion.value,
+    anioHabilitado:       anioHabilitado.value,
+    periodoHabilitado:    periodoHabilitado.value,
+  }
 }
 
 onMounted(async () => {
@@ -143,7 +194,7 @@ const reGenerar = async ({ anio, periodo, anioHasta, periodoHasta, materia, grup
   const anioQuery      = periodo      ? `${anio}/${periodo}`           : (anio ?? null)
   const anioHastaQuery = periodoHasta ? `${anioHasta}/${periodoHasta}` : (anioHasta ?? null)
 
- 
+
   router.replace({
     query: {
       codigo,
@@ -154,15 +205,21 @@ const reGenerar = async ({ anio, periodo, anioHasta, periodoHasta, materia, grup
     }
   })
 
-
-  await generarReporte(codigo, {
+  const payload = {
     anio, periodo, anioHasta, periodoHasta, materia, grupo,
     // Se reenvía el estado de habilitación vigente, para que no se pierda
     // al cambiar otros filtros (año, materia, grupo, etc.)
     habilitarRestriccion: habilitarRestriccion.value,
     anioHabilitado:       anioHabilitado.value,
     periodoHabilitado:    periodoHabilitado.value,
-  })
+  }
+
+  // Regenera la versión que está visible actualmente
+  if (verCompartidos.value) {
+    await generarReporteCom(codigo, payload)
+  } else {
+    await generarReporte(codigo, payload)
+  }
 }
 
 // ── Click en el botón de ReporteHeader ──────────────────────────────────────
@@ -175,19 +232,26 @@ const onToggleRestriccion = async ({ anio, periodo, habilitar }) => {
   const codigo = route.query.codigo
   if (!codigo) return
 
-  const { anio: anioNum, periodo: periodoActual }                   = parseAnioPeriodo(anioFiltro.value)
-  const { anio: anioHastaNum, periodo: periodoHastaActual }         = parseAnioPeriodo(anioHastaFiltro.value)
+  const params = paramsActuales()
 
-  await generarReporte(codigo, {
-    anio: anioNum,
-    periodo: periodoActual,
-    anioHasta: anioHastaNum,
-    periodoHasta: periodoHastaActual,
-    materia: materiaFiltro.value,
-    grupo: grupoFiltro.value,
-    habilitarRestriccion: habilitarRestriccion.value,
-    anioHabilitado:       anioHabilitado.value,
-    periodoHabilitado:    periodoHabilitado.value,
-  })
+  if (verCompartidos.value) {
+    await generarReporteCom(codigo, params)
+  } else {
+    await generarReporte(codigo, params)
+  }
+}
+
+// ── Click en el botón "Versión 2 (Compartidos)" ─────────────────────────────
+// Cambia qué tabla se muestra. Si el reporte de compartidos todavía no fue
+// cargado para el docente/filtros actuales, lo genera antes de mostrarlo.
+const onToggleVersion = async () => {
+  verCompartidos.value = !verCompartidos.value
+
+  const codigo = route.query.codigo
+  if (!codigo) return
+
+  if (verCompartidos.value && !reporteCom.value) {
+    await generarReporteCom(codigo, paramsActuales())
+  }
 }
 </script>

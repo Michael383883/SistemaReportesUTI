@@ -184,7 +184,7 @@ const listaEfectiva = computed(() => {
   const q = localQuery.value.trim().toLowerCase()
   if (!q) return props.docentes
   return props.docentes.filter(d => {
-    const nombre = `${d.nombres} ${d.apellidos}`.toLowerCase()
+    const nombre = `${d.apellidos} ${d.nombres} `.toLowerCase()
     return (
       d.nombres?.toLowerCase().includes(q) ||
       d.apellidos?.toLowerCase().includes(q) ||

@@ -15,29 +15,13 @@
               </svg>
             </div>
             <div class="min-w-0">
-              <h2 class="text-base font-bold text-slate-800 truncate">Horario Semanal</h2>
-              <p class="text-slate-500 text-xs truncate">{{ formatNombre(docente.nombre_docente) }}</p>
+              <h2 class="text-[20px] font-semibold text-slate-800 uppercase tracking-wide truncate">Horario Semanal</h2>
+              <p class="text-slate-600 text-lg font-bold truncate">{{ formatNombre(docente.nombre_docente) }}</p>
             </div>
           </div>
 
           <div class="flex items-center gap-4 flex-shrink-0">
-            <!-- Resumen inline -->
-            <div class="hidden sm:flex items-center gap-4">
-              <div class="text-center">
-                <p class="text-sm font-bold leading-none text-slate-800">{{ materias.length }}</p>
-                <p class="text-[10px] text-slate-400 mt-1">materias</p>
-              </div>
-              <div class="w-px h-6 bg-slate-200" />
-              <div class="text-center">
-                <p class="text-sm font-bold leading-none text-slate-800">{{ docente.horas_total || cargaTotal }}h</p>
-                <p class="text-[10px] text-slate-400 mt-1">totales</p>
-              </div>
-              <div class="w-px h-6 bg-slate-200" />
-              <div class="text-center">
-                <p class="text-sm font-bold leading-none text-slate-800">{{ totalSesiones }}</p>
-                <p class="text-[10px] text-slate-400 mt-1">sesiones</p>
-              </div>
-            </div>
+            
 
             <button @click="$emit('cerrar')" class="text-slate-400 hover:text-slate-600 transition-colors p-1.5 rounded-lg hover:bg-slate-100">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -50,48 +34,85 @@
         <!-- Contenido: la grilla ocupa todo el alto disponible y scrollea internamente -->
         <div class="flex-1 min-h-0 flex flex-col p-5">
 
-          <div v-if="materias.length > 0" class="flex-1 min-h-0 flex flex-col">
+          <div v-if="materiasConHorario.length > 0" class="flex-1 min-h-0 flex flex-col gap-3">
 
             <!-- Grilla semanal con cabecera y columna de hora fijas -->
-            <div class="flex-1 min-h-0 overflow-auto rounded-xl border border-slate-200">
-              <table class="w-full border-collapse min-w-[600px]">
+            <div class="flex-1 min-h-0 overflow-auto rounded-xl border border-slate-300">
+              <table class="w-full border-collapse min-w-[680px]">
                 <thead>
                   <tr>
-                    <th class="sticky top-0 left-0 z-20 w-20 p-2.5 text-[11px] font-medium text-slate-400 text-right border-b border-r border-slate-200 bg-slate-50">
+                    <th class="sticky top-0 left-0 z-20 w-20 p-2.5 text-xs font-bold text-slate-700 text-right border-b-2 border-r-2 border-slate-300 bg-slate-100">
                       Hora
                     </th>
                     <th
                       v-for="dia in DIAS"
                       :key="dia.key"
-                      class="sticky top-0 z-10 p-2.5 text-center border-b border-r last:border-r-0 border-slate-200 bg-slate-50"
+                      class="sticky top-0 z-10 p-2.5 text-center border-b-2 border-r-2 last:border-r-0 border-slate-300 bg-slate-100"
                     >
-                      <p class="text-sm font-semibold text-slate-700">{{ dia.label }}</p>
-                      <p class="text-[11px] text-slate-400">{{ dia.key }}</p>
+                      <p class="text-sm font-bold text-slate-800">{{ dia.label }}</p>
                     </th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr v-for="slot in SLOTS" :key="slot" class="group">
-                    <td class="sticky left-0 z-10 p-2.5 text-[11px] text-slate-400 text-right border-r border-b border-slate-100 bg-slate-50/95 align-middle whitespace-nowrap">
+                    <td class="sticky left-0 z-10 p-2.5 text-[13px] font-bold text-slate-700 text-right border-r-2 border-b border-slate-300 bg-slate-100 align-middle whitespace-nowrap">
                       {{ slot.split(' - ')[0] }}
                     </td>
                     <td
                       v-for="dia in DIAS"
                       :key="dia.key"
-                      class="border-r last:border-r-0 border-b border-slate-100 p-1 align-top"
-                      style="height: 60px; min-width: 110px;"
+                      class="border-r border-r-slate-200 last:border-r-0 border-b border-b-slate-200 p-1 align-top"
+                      style="min-height: 84px; min-width: 130px;"
                     >
-                      <template v-if="gridMap[dia.key] && gridMap[dia.key][slot]">
+                      <template v-if="gridMap[dia.key] && gridMap[dia.key][slot] && gridMap[dia.key][slot].length">
+                        <!-- Celda con 1 sola materia: tarjeta completa -->
                         <div
-                          class="h-full w-full rounded-lg p-2 flex flex-col justify-between cursor-default transition-colors border"
-                          :class="cardClass(gridMap[dia.key][slot].color)"
+                          v-if="gridMap[dia.key][slot].length === 1"
+                          class="h-full w-full rounded-lg pl-2.5 pr-2 py-2 flex flex-col justify-center gap-1.5 cursor-default transition-shadow border-l-4 shadow-sm hover:shadow-md"
+                          :class="cardClass(gridMap[dia.key][slot][0].color)"
                         >
-                          <p class="text-xs font-semibold leading-tight line-clamp-2">
-                            {{ gridMap[dia.key][slot].nombre }}
+                          <p class="text-[12.5px] font-bold leading-snug break-words">
+                            {{ gridMap[dia.key][slot][0].nombre }}
                           </p>
-                          <p class="text-[10px] opacity-70 leading-tight">
-                            {{ gridMap[dia.key][slot].aula }} · Gr. {{ gridMap[dia.key][slot].grupo }}
+                          <p class="flex items-center gap-1 text-[11px] font-semibold leading-tight opacity-90">
+                            <span>Aula {{ gridMap[dia.key][slot][0].aula }} · Gr. {{ gridMap[dia.key][slot][0].grupo }}</span>
                           </p>
+                        </div>
+
+                        <!-- Celda compartida: varias materias en el mismo horario, fusionadas en una sola tarjeta apilada -->
+                        <div
+                          v-else
+                          class="h-full w-full rounded-lg overflow-hidden flex flex-col shadow-sm hover:shadow-md transition-shadow relative divide-y divide-white/70"
+                        >
+                          <div
+                            class="absolute top-1 right-1 z-10 flex items-center gap-0.5 bg-slate-800/90 text-white text-[8px] font-bold px-1.5 py-[1px] rounded-full leading-none"
+                            :title="`${gridMap[dia.key][slot].length} materias comparten este horario`"
+                          >
+                            {{ gridMap[dia.key][slot].length }}×
+                          </div>
+                          <div
+                            v-for="(item, idx) in gridMap[dia.key][slot]"
+                            :key="idx"
+                            class="flex-1 min-h-0 pr-5 flex flex-col justify-center border-l-4"
+                            :class="[
+                              cardClass(item.color),
+                              gridMap[dia.key][slot].length >= 3 ? 'pl-1.5 py-0.5 gap-0' : 'pl-2.5 py-1.5 gap-0.5'
+                            ]"
+                          >
+                            <p
+                              class="font-bold leading-tight truncate"
+                              :class="gridMap[dia.key][slot].length >= 3 ? 'text-[9.5px]' : 'text-[11px]'"
+                              :title="item.nombre"
+                            >
+                              {{ item.nombre }}
+                            </p>
+                            <p
+                              class="font-semibold leading-tight opacity-90 truncate"
+                              :class="gridMap[dia.key][slot].length >= 3 ? 'text-[8.5px]' : 'text-[10px]'"
+                            >
+                              {{ item.aula }} · Gr. {{ item.grupo }}
+                            </p>
+                          </div>
                         </div>
                       </template>
                       <template v-else>
@@ -103,18 +124,6 @@
               </table>
             </div>
 
-            <!-- Leyenda de materias -->
-            <div class="mt-3 flex flex-wrap gap-2 flex-shrink-0">
-              <div
-                v-for="(mat, idx) in materias"
-                :key="idx"
-                class="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-slate-200 text-xs text-slate-600 bg-white"
-              >
-                <span class="w-2 h-2 rounded-full flex-shrink-0" :style="{ background: legendDotColor(idx) }" />
-                <span class="font-medium">{{ mat.nombre }}</span>
-                <span class="text-slate-400">Gr. {{ mat.grupo }}</span>
-              </div>
-            </div>
           </div>
 
           <!-- Sin materias -->
@@ -132,10 +141,8 @@
 
         <!-- Footer -->
         <div class="px-6 py-3.5 border-t border-slate-100 flex-shrink-0 flex items-center justify-between">
-          <span v-if="materias.length > 0" class="text-xs text-slate-400">
-            {{ totalSesiones }} sesiones semanales · {{ materias.length }} materias
-          </span>
-          <span v-else />
+          
+          
           <button
             @click="$emit('cerrar')"
             class="px-5 py-2 text-sm font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
@@ -188,27 +195,41 @@ const SLOTS = [
 /** Colores asignados a cada índice de materia */
 const COLORES = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado']
 
-const LEGEND_DOTS = ['#0d9488', '#2563eb', '#7c3aed', '#d97706', '#e11d48', '#db2777']
-
 // ─── Computed ────────────────────────────────────────────────────────────────
 
 const materias = computed(() => {
   const lista = props.docente?.horario_completo?.materias ?? props.docente?.materias ?? []
-  // Asignar color por índice
-  return lista.map((m, i) => ({ ...m, color: COLORES[i % COLORES.length] }))
+  // Asignar color e identificador único por índice de origen (_uid).
+  // _uid se usa más abajo para no confundir dos materias distintas que
+  // coincidan por casualidad en nombre/grupo/aula (ej. dos secciones de
+  // "CONTABILIDAD II" en distinto Plan-Niv).
+  return lista.map((m, i) => ({ ...m, color: COLORES[i % COLORES.length], _uid: i }))
 })
 
+/**
+ * Solo las materias que tienen al menos una sesión con día y horario definidos.
+ * Evita que la leyenda muestre materias "fantasma" que no aparecen en la grilla.
+ */
+const materiasConHorario = computed(() =>
+  materias.value.filter(m => (m.horarios || []).some(h => h.dia && h.hora_inicio && h.hora_fin))
+)
+
 const cargaTotal = computed(() =>
-  materias.value.reduce((sum, m) => sum + (m.carga_horaria || 0), 0)
+  materiasConHorario.value.reduce((sum, m) => sum + (m.carga_horaria || 0), 0)
 )
 
 const totalSesiones = computed(() =>
-  materias.value.reduce((sum, m) => sum + (m.horarios?.length || 0), 0)
+  materiasConHorario.value.reduce((sum, m) => sum + (m.horarios?.length || 0), 0)
 )
 
 /**
- * Construye un mapa { DIA: { SLOT: { ...materia, aula } } }
+ * Construye un mapa { DIA: { SLOT: [ { ...materia, aula }, ... ] } }
  * para renderizar la grilla en O(1) por celda.
+ *
+ * IMPORTANTE: cada celda ahora es un ARRAY, no un objeto único, porque dos
+ * (o más) materias distintas pueden compartir el mismo día+horario (por
+ * ejemplo, clases combinadas/compartidas entre grupos). Antes, la segunda
+ * materia sobrescribía a la primera y desaparecía de la grilla.
  */
 const gridMap = computed(() => {
   const map = {}
@@ -217,7 +238,7 @@ const gridMap = computed(() => {
     map[d.key] = {}
   })
 
-  materias.value.forEach(mat => {
+  materiasConHorario.value.forEach(mat => {
     mat.horarios?.forEach(h => {
       const diaKey = h.dia?.toUpperCase()
       if (!map[diaKey]) return
@@ -227,14 +248,28 @@ const gridMap = computed(() => {
         ? `${h.hora_inicio} - ${h.hora_fin}`
         : null
 
-      if (slot) {
-        map[diaKey][slot] = {
-          nombre:  mat.nombre,
-          grupo:   mat.grupo,
-          aula:    h.ambiente || 'Sin aula',
-          color:   mat.color,
-        }
+      if (!slot) return
+
+      if (!map[diaKey][slot]) {
+        map[diaKey][slot] = []
       }
+
+      // Evitar que la MISMA materia (mismo _uid, misma fila de origen) se
+      // duplique en la celda si su propio arreglo `horarios` trae una entrada
+      // repetida para este día/franja. Comparar por _uid (no por nombre/grupo/
+      // aula) es clave: dos materias distintas pueden coincidir en esos campos
+      // (ej. dos secciones de "CONTABILIDAD II" con el mismo grupo y aula) y
+      // deben seguir mostrándose ambas.
+      const yaExiste = map[diaKey][slot].some(e => e._uid === mat._uid)
+      if (yaExiste) return
+
+      map[diaKey][slot].push({
+        nombre: mat.nombre,
+        grupo:  mat.grupo,
+        aula:   h.ambiente || 'Sin aula',
+        color:  mat.color,
+        _uid:   mat._uid,
+      })
     })
   })
 
@@ -251,19 +286,19 @@ function formatNombre(nombre) {
     .join(' ')
 }
 
-function legendDotColor(idx) {
-  return LEGEND_DOTS[idx % LEGEND_DOTS.length]
-}
-
-/** Clases Tailwind para las tarjetas dentro de la grilla (tema claro) */
+/**
+ * Clases Tailwind para las tarjetas dentro de la grilla.
+ * Fondo blanco/gris muy claro + borde izquierdo de acento en tono institucional
+ * (sin rellenos saturados) para un aspecto más sobrio y académico.
+ */
 function cardClass(col) {
   return {
-    lunes:     'bg-teal-50   border-teal-200   text-teal-800',
-    martes:    'bg-blue-50   border-blue-200   text-blue-800',
-    miercoles: 'bg-violet-50 border-violet-200 text-violet-800',
-    jueves:    'bg-amber-50  border-amber-200  text-amber-800',
-    viernes:   'bg-rose-50   border-rose-200   text-rose-800',
-    sabado:    'bg-pink-50   border-pink-200   text-pink-800',
-  }[col] || 'bg-slate-50 border-slate-200 text-slate-700'
+    lunes:     'bg-teal-50   border-teal-600   text-teal-800',
+    martes:    'bg-rose-50   border-rose-700   text-rose-800',
+    miercoles: 'bg-indigo-50 border-indigo-700 text-indigo-800',
+    jueves:    'bg-amber-50  border-amber-700  text-amber-800',
+    viernes:   'bg-blue-50   border-blue-700   text-blue-800',
+    sabado:    'bg-violet-50 border-violet-700 text-violet-800',
+  }[col] || 'bg-slate-50 border-slate-400 text-slate-700'
 }
 </script>

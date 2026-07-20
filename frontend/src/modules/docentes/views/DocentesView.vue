@@ -56,7 +56,7 @@
 
           <div class="flex-1 min-w-0">
             <h2 class="text-[16px] font-semibold text-slate-100 m-0 mb-2 tracking-tight">
-              {{ selectedDocente.nombres }} {{ selectedDocente.apellidos }}
+              {{ selectedDocente.apellidos }} {{ selectedDocente.nombres }}
             </h2>
 
             <div class="flex flex-wrap gap-1.5 mb-2.5">

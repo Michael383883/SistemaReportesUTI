@@ -144,11 +144,25 @@ export const docentesService = {
 function transformarHorarios(horarios) {
     if (!Array.isArray(horarios)) return []
 
-    // Agrupar por materia única (materia + grupo + tipo)
+    // Agrupar por SECCIÓN única (materia + grupo + tipo + carrera + nivel)
     const materiasMap = new Map()
 
     horarios.forEach(h => {
-        const key = `${h.materia}_${h.grupo}_${h.tipo}`
+        // La clave debe identificar una SECCIÓN única, no solo una materia.
+        // Dos secciones distintas (ej. una clase "matricial"/compartida entre
+        // carreras) pueden tener el mismo código de materia, el mismo grupo y
+        // el mismo tipo, pero pertenecer a carrera/nivel distintos — en ese
+        // caso son entidades separadas y NO deben fusionarse, aunque su
+        // horario coincida exactamente (es justamente lo que indica el campo
+        // "compartido" del backend).
+        //
+        // Antes: `${h.materia}_${h.grupo}_${h.tipo}`
+        // Esto fusionaba, por ejemplo, "CONTABILIDAD II" (ECO-H, grupo 21)
+        // con "CONTABILIDAD II" (CCP-B, grupo 21) en un solo objeto materia,
+        // porque coincidían en materia+grupo+tipo. Sus horarios (idénticos,
+        // por ser clase compartida) se mezclaban en un mismo arreglo y en el
+        // grid del horario se perdía una de las dos secciones.
+        const key = `${h.materia}_${h.grupo}_${h.tipo}_${h.carrera}_${h.nivel}`
 
         if (!materiasMap.has(key)) {
             materiasMap.set(key, {
