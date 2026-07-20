@@ -530,7 +530,7 @@
         >
 
           <!-- Header del grupo -->
-        <div class="flex items-center justify-between px-6 py-4 bg-slate-800 rounded-t-xl">
+        <div class="flex items-center justify-between px-6 py-2 bg-slate-800 rounded-t-xl">
 
         <div class="flex items-center gap-4 text-white">
 

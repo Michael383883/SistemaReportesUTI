@@ -76,7 +76,7 @@ function drawFooters(doc, fechaActual) {
         doc.setFont('helvetica', 'normal')
         doc.setFontSize(6.5)
         doc.setTextColor(80, 80, 80)
-        doc.text('Procesado UTI - Facultad de Ciencias Economicas', ML, fy)
+        doc.text('Procesado SIA-UTI - Facultad de Ciencias Economicas', ML, fy)
         doc.text(`Página ${i} de ${total}`, PAGE_W / 2, fy, { align: 'center' })
         doc.text(fechaActual, PAGE_W - MR, fy, { align: 'right' })
     }
@@ -124,7 +124,7 @@ function generarResumenTotales(data, anio, periodo, modo = 'descargar', ventanaP
     const CW = PAGE_W - ML - MR
     const fechaActual = fechaFormateada()
     const TITULO = 'RESUMEN DE INSCRITOS — SOLO TOTALES'
-    const NOTA = 'Cantidades de inscritos por docente y carrera, sin detalle de estudiantes.'
+    const NOTA = 'No incluye alumnnos de mesa'
     const HEADER_H = drawPageHeader(doc, { titulo: TITULO, anio, periodo, fechaActual, notaSuperior: NOTA })
 
     // ── Carreras dinámicas (según aparición en los datos) ────────────────────

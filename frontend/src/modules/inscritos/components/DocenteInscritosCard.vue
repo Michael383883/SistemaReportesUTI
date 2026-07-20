@@ -1,193 +1,197 @@
 <template>
-  <div class="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+  <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden shadow-sm mb-3">
 
     <!-- ── Cabecera del docente ──────────────────────────── -->
-    <div class="flex items-center gap-3 px-5 py-4 bg-gradient-to-r from-slate-800 to-slate-700 text-white">
-      <div class="flex-1 min-w-0">
-       
-        <h2 class="font-bold text-base truncate leading-tight mt-0.5">
-          {{ docente.apellidos }} {{ docente.nombres }} - {{ docente.cod_docente }} 
+    <div class="flex items-center justify-between gap-3 px-5 py-1 bg-slate-800 dark:bg-slate-950 text-white">
+      <div class="min-w-0">
+        <h2 class="font-semibold text-sm truncate leading-tight">
+          {{ docente.cod_docente }} - {{ docente.apellidos }} {{ docente.nombres }}
         </h2>
-        
       </div>
-      
-      
-    </div>
 
-    <!-- ── Grilla de carreras ─────────────────────────────── -->
-    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-px bg-slate-100">
-      <div
-        v-for="carrera in docente.carreras"
-        :key="carrera.plan + carrera.carrera"
-        class="bg-white"
-      >
-        <!-- Cabecera carrera (solo muestra total, no desplegable) -->
-        <div class="px-4 py-3 flex items-center gap-2">
-          <span
-            class="text-xs font-extrabold tracking-wider px-2 py-0.5 rounded-md shrink-0"
-            :class="colorClasses[carrera.carrera.toLowerCase()]?.badge ?? 'bg-slate-100 text-slate-600'"
-          >
-            {{ carrera.carrera }}
-          </span>
-          <span class="text-[11px] text-slate-400 flex-1 truncate">Codigo: {{ carrera.plan }}</span>
-          <span
-            class="text-lg font-extrabold tabular-nums"
-            :class="colorClasses[carrera.carrera.toLowerCase()]?.num ?? 'text-slate-700'"
-          >
-            {{ carrera.subtotal }}
-          </span>
-          <span
-            v-if="carrera.subtotal_examen_mesa"
-            class="text-[11px] font-bold text-amber-600 tabular-nums"
-            title="Examen de mesa"
-          >
-            +{{ carrera.subtotal_examen_mesa }}
-          </span>
-        </div>
-
-        <!-- ── Materias dentro de la carrera ─────────────── -->
-        <div class="border-t border-slate-100">
-          <div
-            v-for="materia in carrera.materias"
-            :key="materia.cod_materia + materia.grupo"
-          >
-            <!-- Botón materia -->
-            <button
-              class="w-full text-left px-4 py-2.5 flex items-center gap-2 hover:bg-slate-50 transition-colors border-b border-slate-50"
-              @click="toggleMateria(carrera.plan + materia.cod_materia + materia.grupo)"
-            >
-              <div class="flex-1 min-w-0">
-                <p class="text-[11px] font-semibold text-slate-700 truncate leading-tight">
-                  {{ materia.nom_materia }}
-                </p>
-                <p class="text-[10px] text-slate-400 mt-0.5">
-                  Grupo {{ materia.grupo }} · cód. {{ materia.cod_materia }}
-                </p>
-              </div>
-
-              <!-- Contador inscritos regulares de esta materia -->
-              <span
-                class="text-sm font-extrabold tabular-nums shrink-0"
-                :class="colorClasses[carrera.carrera.toLowerCase()]?.num ?? 'text-slate-700'"
-              >
-                {{ materia.subtotal }}
-              </span>
-
-              <!-- Contador examen de mesa (si tiene) -->
-              <span
-                v-if="materia.subtotal_examen_mesa"
-                class="text-[11px] font-bold text-amber-600 tabular-nums shrink-0"
-                title="Examen de mesa"
-              >
-                +{{ materia.subtotal_examen_mesa }}
-              </span>
-
-              <!-- Chevron -->
-              <svg
-                class="w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform duration-200"
-                :class="{ 'rotate-180': abiertos.has(carrera.plan + materia.cod_materia + materia.grupo) }"
-                fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"
-              >
-                <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
-              </svg>
-            </button>
-
-            <!-- Lista inscritos de la materia -->
-            <Transition
-              enter-active-class="transition-all duration-200 ease-out"
-              enter-from-class="opacity-0 max-h-0"
-              enter-to-class="opacity-100 max-h-96"
-              leave-active-class="transition-all duration-150 ease-in"
-              leave-from-class="opacity-100 max-h-96"
-              leave-to-class="opacity-0 max-h-0"
-            >
-              <div
-                v-if="abiertos.has(carrera.plan + materia.cod_materia + materia.grupo)"
-                class="overflow-hidden bg-slate-50 border-b border-slate-100"
-              >
-                <!-- Inscritos regulares -->
-                <p class="px-5 pt-2 pb-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">
-                  Regulares ({{ materia.subtotal }})
-                </p>
-                <ul class="divide-y divide-slate-100 max-h-60 overflow-y-auto">
-                  <li
-                    v-for="(est, idx) in materia.inscritos"
-                    :key="'r-' + est.codigo"
-                    class="flex items-center gap-2 px-5 py-2 text-xs hover:bg-white"
-                  >
-                    <span class="text-slate-300 w-4 text-right shrink-0 tabular-nums">{{ idx + 1 }}</span>
-                    <span class="font-mono text-slate-400 w-20 shrink-0">{{ est.codigo }}</span>
-                    <span class="text-slate-700 font-medium truncate">{{ est.nombre }}</span>
-                  </li>
-                  <li v-if="!materia.inscritos.length" class="px-5 py-2 text-xs text-slate-400 italic">
-                    Sin inscritos regulares
-                  </li>
-                </ul>
-
-                <!-- Examen de mesa -->
-                <template v-if="materia.subtotal_examen_mesa">
-                  <p class="px-5 pt-3 pb-1 text-[10px] font-bold uppercase tracking-wide text-amber-600 border-t border-slate-200 mt-1">
-                    Examen de mesa ({{ materia.subtotal_examen_mesa }})
-                  </p>
-                  <ul class="divide-y divide-slate-100 max-h-60 overflow-y-auto">
-                    <li
-                      v-for="(est, idx) in materia.inscritos_examen_mesa"
-                      :key="'e-' + est.codigo"
-                      class="flex items-center gap-2 px-5 py-2 text-xs hover:bg-white bg-amber-50/40"
-                    >
-                      <span class="text-slate-300 w-4 text-right shrink-0 tabular-nums">{{ idx + 1 }}</span>
-                      <span class="font-mono text-slate-400 w-20 shrink-0">{{ est.codigo }}</span>
-                      <span class="text-slate-700 font-medium truncate">{{ est.nombre }}</span>
-                    </li>
-                  </ul>
-                </template>
-              </div>
-            </Transition>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ── Fila de totales ────────────────────────────────── -->
-    <div class="flex flex-wrap items-center justify-between gap-2 px-5 py-3 bg-slate-50 border-t border-slate-200">
-      <div class="flex flex-wrap gap-2">
+      <div class="flex flex-wrap gap-1.5 justify-end shrink-0">
         <span
           v-for="carrera in docente.carreras"
-          :key="'tot-' + carrera.carrera + carrera.plan"
-          class="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full"
-          :class="colorClasses[carrera.carrera.toLowerCase()]?.pill ?? 'bg-slate-100 text-slate-600'"
+          :key="'badge-' + carrera.plan + carrera.carrera"
+          class="text-xs font-semibold px-2.5 py-1 rounded-md"
+          :class="colorClasses[carrera.carrera.toLowerCase()]?.pill ?? 'bg-slate-100 text-slate-700'"
         >
-          {{ carrera.carrera }}
-          <span class="font-extrabold">{{ carrera.subtotal }}</span>
-        </span>
-      </div>
-      <div class="flex items-center gap-2">
-        <span class="text-[10px] font-bold tracking-widest uppercase text-slate-400">Total</span>
-        <span class="text-xl font-extrabold bg-blue-100 text-blue-800 px-4 py-0.5 rounded-full tabular-nums">
-          {{ docente.total_inscritos }}
-        </span>
-        <span
-          v-if="docente.total_examen_mesa"
-          class="text-sm font-extrabold bg-amber-100 text-amber-700 px-3 py-0.5 rounded-full tabular-nums"
-          title="Examen de mesa"
-        >
-          +{{ docente.total_examen_mesa }}
+          {{ carrera.carrera }} {{ carrera.subtotal }}
         </span>
       </div>
     </div>
+
+    <!-- ── Tabla de materias ──────────────────────────────── -->
+    <table class="w-full text-sm table-fixed">
+      <colgroup>
+        <col class="w-[58%]" />
+        <col class="w-[12%]" />
+        <col class="w-[16%]" />
+        <col class="w-[16%]" />
+        <col class="w-[18%]" />
+      </colgroup>
+      <thead>
+        <tr class="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
+          <th class="text-left font-medium text-slate-500 dark:text-slate-400 text-xs px-4 py-2">Materia</th>
+          <th class="text-left font-medium text-slate-500 dark:text-slate-400 text-xs px-2 py-2">Área</th>
+          <th class="text-right font-medium text-slate-500 dark:text-slate-400 text-xs px-2 py-2">Regular</th>
+          <th class="text-right font-medium text-slate-500 dark:text-slate-400 text-xs px-2 py-2">Mesa</th>
+          <th class="text-right font-medium text-slate-500 dark:text-slate-400 text-xs px-4 py-2">Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        <template
+          v-for="(item, idx) in materiasFlat"
+          :key="item.key"
+        >
+          <!-- Fila materia (clic para expandir) -->
+          <tr
+            class="border-b cursor-pointer transition-colors"
+            :class="[
+              idx % 2 === 0
+                ? 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800'
+                : 'bg-slate-50 dark:bg-slate-800/60 border-slate-100 dark:border-slate-800',
+              abiertos.has(item.key) ? 'bg-blue-50 dark:bg-slate-700/60' : 'hover:bg-slate-100 dark:hover:bg-slate-700/40'
+            ]"
+            @click="toggleMateria(item.key)"
+          >
+            <td class="px-4 py-2.5">
+              <div class="flex items-center gap-1.5 min-w-0">
+                <svg
+                  class="w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform duration-150"
+                  :class="{ 'rotate-180': abiertos.has(item.key) }"
+                  fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"
+                >
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+                <div class="min-w-0">
+                  <p class="font-medium text-slate-700 dark:text-slate-200 truncate leading-tight text-[13px]">
+                    {{ item.materia.cod_materia }} - {{ item.materia.nom_materia }} - GRP {{ item.materia.grupo }}
+                  </p>
+                </div>
+              </div>
+            </td>
+            <td class="px-2 py-2.5">
+              <span
+                class="text-[11px] font-semibold px-2 py-0.5 rounded-md"
+                :class="colorClasses[item.carrera.carrera.toLowerCase()]?.badge ?? 'bg-slate-100 text-slate-600'"
+              >
+                {{ item.carrera.carrera }}
+              </span>
+            </td>
+            <td class="text-right px-2 py-2.5 tabular-nums text-slate-700 dark:text-slate-200">
+              {{ item.materia.subtotal }}
+            </td>
+            <td class="text-right px-2 py-2.5 tabular-nums text-slate-500 dark:text-slate-400">
+              {{ item.materia.subtotal_examen_mesa || 0 }}
+            </td>
+            <td class="text-right px-4 py-2.5 tabular-nums font-semibold text-slate-800 dark:text-slate-100">
+              {{ item.materia.subtotal + (item.materia.subtotal_examen_mesa || 0) }}
+            </td>
+          </tr>
+
+          <!-- Fila expandida: lista de estudiantes -->
+          <tr v-if="abiertos.has(item.key)" class="border-b border-slate-200 dark:border-slate-700">
+            <td colspan="5" class="p-0 bg-slate-100 dark:bg-slate-800">
+              <div class="px-4 pl-10 py-2 max-h-72 overflow-y-auto">
+
+                <table class="w-full text-xs">
+                  <thead>
+                    <tr class="text-slate-400 dark:text-slate-500">
+                      <th class="text-left font-medium py-1 pr-2 w-16">Código</th>
+                      <th class="text-left font-medium py-1 pr-2">Nombre</th>
+                      <th class="text-right font-medium py-1 w-20">Modalidad</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr
+                      v-for="(est, i) in item.materia.inscritos"
+                      :key="'r-' + est.codigo"
+                      class="border-t border-slate-200 dark:border-slate-700"
+                      :class="i % 2 === 0 ? 'bg-white dark:bg-slate-900' : 'bg-slate-50 dark:bg-slate-800/60'"
+                    >
+                      <td class="py-1.5 pr-2 font-mono text-slate-500 dark:text-slate-400">{{ est.codigo }}</td>
+                      <td class="py-1.5 pr-2 text-slate-700 dark:text-slate-200 truncate">{{ est.nombre }}</td>
+                      <td class="py-1.5 text-right">
+                        <span class="text-[10px] font-semibold px-2 py-0.5 rounded-md"
+                              :class="colorClasses[item.carrera.carrera.toLowerCase()]?.badge ?? 'bg-slate-100 text-slate-600'">
+                          Regular
+                        </span>
+                      </td>
+                    </tr>
+                    <tr
+                      v-for="(est, i) in item.materia.inscritos_examen_mesa"
+                      :key="'e-' + est.codigo"
+                      class="border-t border-slate-200 dark:border-slate-700"
+                      :class="i % 2 === 0 ? 'bg-amber-50/60 dark:bg-amber-900/20' : 'bg-amber-50/30 dark:bg-amber-900/10'"
+                    >
+                      <td class="py-1.5 pr-2 font-mono text-slate-500 dark:text-slate-400">{{ est.codigo }}</td>
+                      <td class="py-1.5 pr-2 text-slate-700 dark:text-slate-200 truncate">{{ est.nombre }}</td>
+                      <td class="py-1.5 text-right">
+                        <span class="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300">
+                          Mesa
+                        </span>
+                      </td>
+                    </tr>
+                    <tr v-if="!item.materia.inscritos?.length && !item.materia.inscritos_examen_mesa?.length">
+                      <td colspan="3" class="py-2 text-center text-slate-400 dark:text-slate-500 italic">
+                        Sin inscritos
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+
+              </div>
+            </td>
+          </tr>
+        </template>
+      </tbody>
+
+      <!-- ── Fila de totales ────────────────────────────────── -->
+      <tfoot>
+        <tr class="bg-slate-100 dark:bg-slate-950 border-t-2 border-slate-200 dark:border-slate-700">
+          <td class="px-4 py-2.5 font-semibold text-slate-700 dark:text-slate-200 text-xs" colspan="2">Total</td>
+          <td class="text-right px-2 py-2.5 font-semibold tabular-nums text-slate-700 dark:text-slate-200">
+            {{ docente.total_inscritos }}
+          </td>
+          <td class="text-right px-2 py-2.5 font-semibold tabular-nums text-slate-500 dark:text-slate-400">
+            {{ docente.total_examen_mesa || 0 }}
+          </td>
+          <td class="text-right px-4 py-2.5 font-bold tabular-nums text-slate-900 dark:text-white">
+            {{ docente.total_inscritos + (docente.total_examen_mesa || 0) }}
+          </td>
+        </tr>
+      </tfoot>
+    </table>
 
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 
 const props = defineProps({
   docente: { type: Object, required: true },
 })
 
-// Ahora el key es: plan + cod_materia + grupo  (nivel materia, no carrera)
+// key único por materia dentro de la carrera (para controlar expandido/colapsado)
 const abiertos = ref(new Set())
+
+function materiaKey(carrera, materia) {
+  return `${carrera.plan}-${materia.cod_materia}-${materia.grupo}`
+}
+
+// Aplana carreras -> materias en un solo array para poder alternar colores de fila
+// de forma consistente (idx % 2) sin que las filas expandidas rompan el patrón.
+const materiasFlat = computed(() =>
+  props.docente.carreras.flatMap((carrera) =>
+    carrera.materias.map((materia) => ({
+      carrera,
+      materia,
+      key: materiaKey(carrera, materia),
+    }))
+  )
+)
 
 function toggleMateria(key) {
   const next = new Set(abiertos.value)
@@ -197,11 +201,11 @@ function toggleMateria(key) {
 }
 
 const colorClasses = {
-  adm: { badge: 'bg-blue-100 text-blue-700',       num: 'text-blue-600',    pill: 'bg-blue-100 text-blue-700'       },
-  eco: { badge: 'bg-emerald-100 text-emerald-700', num: 'text-emerald-600', pill: 'bg-emerald-100 text-emerald-700' },
-  ccp: { badge: 'bg-purple-100 text-purple-700',   num: 'text-purple-600',  pill: 'bg-purple-100 text-purple-700'   },
-  com: { badge: 'bg-orange-100 text-orange-700',   num: 'text-orange-600',  pill: 'bg-orange-100 text-orange-700'   },
-  fin: { badge: 'bg-yellow-100 text-yellow-700',   num: 'text-yellow-600',  pill: 'bg-yellow-100 text-yellow-700'   },
-  nn:  { badge: 'bg-slate-100 text-slate-600',     num: 'text-slate-500',   pill: 'bg-slate-100 text-slate-600'     },
+  adm: { badge: 'bg-blue-100 text-blue-700',       pill: 'bg-blue-100 text-blue-700' },
+  eco: { badge: 'bg-emerald-100 text-emerald-700', pill: 'bg-emerald-100 text-emerald-700' },
+  ccp: { badge: 'bg-purple-100 text-purple-700',   pill: 'bg-purple-100 text-purple-700' },
+  com: { badge: 'bg-orange-100 text-orange-700',   pill: 'bg-orange-100 text-orange-700' },
+  fin: { badge: 'bg-yellow-100 text-yellow-700',   pill: 'bg-yellow-100 text-yellow-700' },
+  nn:  { badge: 'bg-slate-100 text-slate-600',     pill: 'bg-slate-100 text-slate-600' },
 }
 </script>

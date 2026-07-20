@@ -6,9 +6,7 @@
       <h1 class="text-xl font-bold text-black tracking-tight m-0 mb-0.5">
         Lista de Inscritos
       </h1>
-      <span class="text-xs text-black/70">
-        Reporte completo · Gestión {{ filtros.anio }}/{{ filtros.periodo }}
-      </span>
+     
     </div>
 
     <!-- FILTROS -->
@@ -43,7 +41,7 @@
         </select>
       </div>
 
-      <!-- Buscar Docente -->
+      <!-- Buscar Docente (botón unificado: Buscar / Ver todos) -->
       <div class="flex-1 min-w-[260px] flex flex-col gap-1.5">
         <label class="text-[0.68rem] font-semibold tracking-widest uppercase text-slate-400">Buscar Docente</label>
         <div class="flex gap-2">
@@ -60,7 +58,7 @@
             @click="handleBuscar"
             :disabled="loading"
             class="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold
-                   bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-slate-900
+                   bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-slate-100
                    transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed
                    shadow-lg shadow-amber-500/20"
           >
@@ -70,27 +68,25 @@
                 <circle cx="12" cy="12" r="9"/>
                 <path d="M12 3a9 9 0 0 1 9 9" stroke-linecap="round"/>
               </template>
-              <template v-else>
+              <template v-else-if="busqueda.trim()">
                 <circle cx="11" cy="11" r="8"/>
                 <line x1="21" y1="21" x2="16.65" y2="16.65"/>
               </template>
+              <template v-else>
+                <line x1="8" y1="6" x2="21" y2="6"/>
+                <line x1="8" y1="12" x2="21" y2="12"/>
+                <line x1="8" y1="18" x2="21" y2="18"/>
+                <line x1="3" y1="6" x2="3.01" y2="6"/>
+                <line x1="3" y1="12" x2="3.01" y2="12"/>
+                <line x1="3" y1="18" x2="3.01" y2="18"/>
+              </template>
             </svg>
-            {{ loading ? 'Buscando...' : 'Buscar' }}
-          </button>
-          <button
-            @click="verTodos"
-            :disabled="loading"
-            class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium
-                   border border-slate-700 text-slate-400 bg-transparent
-                   hover:bg-white/5 hover:text-slate-200
-                   transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Ver todos
+            {{ loading ? 'Buscando...' : (busqueda.trim() ? 'Buscar' : 'Ver todos') }}
           </button>
         </div>
       </div>
 
-      <!-- Botón PDF con menú desplegable -->
+      <!-- Botón PDF con menú desplegable (redondeado) -->
       <div class="flex flex-col" ref="pdfDropdownRef">
         <label class="text-[0.68rem] invisible">PDF</label>
 
@@ -98,15 +94,15 @@
 
           <!-- Botón partido: ambos abren el menú -->
           <div
-            class="inline-flex rounded-lg overflow-visible border border-red-700/40 shadow-lg shadow-red-900/20"
+            class="inline-flex rounded-full overflow-visible border border-red-700/40 shadow-lg shadow-red-900/20"
             :class="(loadingPdf || data.length === 0) ? 'opacity-40 pointer-events-none' : ''"
           >
             <!-- Botón principal -->
             <button
               @click.stop="mostrarMenuPdf = !mostrarMenuPdf"
-              class="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold
+              class="inline-flex items-center gap-2 pl-5 pr-4 py-2 text-sm font-semibold
                      bg-red-700 hover:bg-red-600 active:bg-red-800 text-white
-                     transition-all duration-150"
+                     rounded-l-full transition-all duration-150"
             >
               <svg
                 :class="loadingPdf ? 'animate-spin' : ''"
@@ -133,8 +129,8 @@
             <!-- Flecha -->
             <button
               @click.stop="mostrarMenuPdf = !mostrarMenuPdf"
-              class="px-2.5 py-2 bg-red-700 hover:bg-red-600 active:bg-red-800 text-white
-                     border-l border-red-600/60 transition-all duration-150"
+              class="px-3 py-2 bg-red-700 hover:bg-red-600 active:bg-red-800 text-white
+                     border-l border-red-600/60 rounded-r-full transition-all duration-150"
               aria-label="Más opciones de PDF"
             >
               <svg
@@ -291,7 +287,7 @@
       class="flex flex-col items-center gap-3 py-24 text-slate-400"
     >
       <span class="text-6xl">📋</span>
-      <p>Seleccioná año y período, luego hacé clic en <strong class="text-slate-600">Buscar</strong> o <strong class="text-slate-600">Ver todos</strong>.</p>
+      <p>Seleccioná año y período, luego hacé clic en <strong class="text-slate-600">Ver todos</strong> o escribí un docente y hacé clic en <strong class="text-slate-600">Buscar</strong>.</p>
     </div>
 
     <!-- CONTENIDO -->
@@ -368,22 +364,15 @@ function onClickFuera(e) {
 onMounted(() => document.addEventListener('click', onClickFuera))
 onBeforeUnmount(() => document.removeEventListener('click', onClickFuera))
 
-async function verTodos() {
-  busqueda.value = ''
-  await fetchInscritos(filtros.value.anio, filtros.value.periodo)
-}
-
+// ─── Botón único: si hay texto de búsqueda filtra, si está vacío trae todos ───
 async function handleBuscar() {
   const q = busqueda.value.trim()
-  if (!q) {
-    await fetchInscritos(filtros.value.anio, filtros.value.periodo)
-    return
-  }
+  await fetchInscritos(filtros.value.anio, filtros.value.periodo)
+  if (!q) return
+
   if (/^\d+$/.test(q)) {
-    await fetchInscritos(filtros.value.anio, filtros.value.periodo)
     data.value = data.value.filter(d => d.cod_docente === q)
   } else {
-    await fetchInscritos(filtros.value.anio, filtros.value.periodo)
     data.value = data.value.filter(d =>
       `${d.apellidos} ${d.nombres}`.toLowerCase().includes(q.toLowerCase())
     )

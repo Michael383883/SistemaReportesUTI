@@ -2,27 +2,32 @@
 <template>
   <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
     <div
-      v-for="card in cards"
+      v-for="(card, idx) in cards"
       :key="card.id"
-      class="relative bg-white rounded-2xl border border-slate-200 p-5 hover:shadow-lg hover:border-slate-300 transition-all duration-300 group cursor-pointer overflow-hidden"
+      class="relative bg-white rounded-2xl border border-slate-200 p-5 hover:shadow-lg hover:-translate-y-0.5 hover:border-slate-300 transition-all duration-300 group cursor-pointer overflow-hidden"
+      :style="{ transitionDelay: loading ? '0ms' : `${idx * 40}ms` }"
       @click="$emit('cardClick', card.id)"
     >
       <!-- Fondo decorativo -->
       <div
-        class="absolute -top-4 -right-4 w-24 h-24 rounded-full opacity-10 group-hover:opacity-20 transition-opacity"
+        class="absolute -top-6 -right-6 w-28 h-28 rounded-full opacity-[0.07] group-hover:opacity-[0.14] group-hover:scale-110 transition-all duration-500"
+        :style="{ backgroundColor: card.bgDecor }"
+      />
+      <!-- Barra de acento superior -->
+      <div
+        class="absolute top-0 left-0 right-0 h-1 scale-x-0 group-hover:scale-x-100 origin-left transition-transform duration-300"
         :style="{ backgroundColor: card.bgDecor }"
       />
 
       <div class="relative">
-        <div class="flex items-start justify-between mb-3">
+        <div class="flex items-start justify-between mb-4">
           <div
-            class="w-12 h-12 rounded-xl flex items-center justify-center"
+            class="w-12 h-12 rounded-xl flex items-center justify-center transition-transform duration-300 group-hover:scale-105"
             :class="card.iconBoxClass"
           >
             <component :is="card.icon" class="w-6 h-6" />
           </div>
 
-          <!-- Badge de categoría -->
           <span
             class="text-xs font-semibold px-2 py-1 rounded-full"
             :class="card.badgeClass"
@@ -33,22 +38,25 @@
 
         <div>
           <template v-if="loading">
-            <div class="h-8 bg-slate-200 rounded animate-pulse w-20 mb-1" />
+            <div class="h-8 bg-slate-200 rounded-lg animate-pulse w-20 mb-2" />
+            <div class="h-3.5 bg-slate-100 rounded animate-pulse w-28" />
           </template>
           <template v-else>
-            <div class="text-3xl font-bold text-slate-800 mb-0.5">
-              {{ typeof card.value === 'number' ? card.value.toLocaleString() : card.value }}
+            <div class="flex items-baseline gap-1.5 mb-0.5">
+              <span class="text-3xl font-bold text-slate-800 tabular-nums">
+                {{ typeof card.value === 'number' ? card.value.toLocaleString('es-BO') : card.value }}
+              </span>
             </div>
+            <p class="text-sm text-slate-500 font-medium">{{ card.label }}</p>
           </template>
-          <p class="text-sm text-slate-500 font-medium">{{ card.label }}</p>
         </div>
 
         <!-- Barra de progreso -->
-        <div class="mt-3 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+        <div class="mt-4 h-1.5 bg-slate-100 rounded-full overflow-hidden">
           <div
-            class="h-full rounded-full transition-all duration-700"
-            :class="card.barClass"
-            :style="{ width: card.percentage + '%' }"
+            class="h-full rounded-full transition-all duration-700 ease-out"
+            :class="[card.barClass, loading && 'w-0']"
+            :style="{ width: loading ? '0%' : card.percentage + '%' }"
           />
         </div>
       </div>
@@ -77,11 +85,10 @@ const cards = computed(() => [
     label: 'Estudiantes Inscritos',
     value: totalEstudiantes.value,
     icon: GraduationCap,
-    // indigo — coherente con blue-50/blue-700 del template
-    bgDecor:      '#1e1b4b',
+    bgDecor:      '#4f46e5', // indigo-600
     iconBoxClass: 'bg-indigo-50 text-indigo-700',
     badgeClass:   'bg-indigo-50 text-indigo-800',
-    barClass:     'bg-indigo-600',
+    barClass:     'bg-gradient-to-r from-indigo-500 to-indigo-600',
     categoria:    'Estudiantes',
     percentage: Math.min((totalEstudiantes.value / 600) * 100, 100)
   },
@@ -90,11 +97,10 @@ const cards = computed(() => [
     label: 'Docentes Activos',
     value: totalDocentes.value,
     icon: Users,
-    // teal — igual al slate-800 header del template (tono frío oscuro)
-    bgDecor:      '#042f2e',
+    bgDecor:      '#0d9488', // teal-600
     iconBoxClass: 'bg-teal-50 text-teal-700',
     badgeClass:   'bg-teal-50 text-teal-800',
-    barClass:     'bg-teal-600',
+    barClass:     'bg-gradient-to-r from-teal-500 to-teal-600',
     categoria:    'Docentes',
     percentage: Math.min((totalDocentes.value / 40) * 100, 100)
   },
@@ -103,11 +109,10 @@ const cards = computed(() => [
     label: 'Talleres Activos',
     value: totalTalleres.value,
     icon: BookOpen,
-    // amber — igual al amber-100/amber-800 de compartidos en el template
-    bgDecor:      '#78350f',
+    bgDecor:      '#f59e0b', // amber-500
     iconBoxClass: 'bg-amber-50 text-amber-700',
     badgeClass:   'bg-amber-50 text-amber-800',
-    barClass:     'bg-amber-500',
+    barClass:     'bg-gradient-to-r from-amber-400 to-amber-500',
     categoria:    'Talleres',
     percentage: Math.min((totalTalleres.value / 30) * 100, 100)
   }

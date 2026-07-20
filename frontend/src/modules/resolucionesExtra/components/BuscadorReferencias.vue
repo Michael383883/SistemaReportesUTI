@@ -35,14 +35,14 @@
     </div>
 
     <!-- Indicador de resultados -->
-    <div class="text-[11px] text-gray-400 mt-1">
-      <span v-if="referenciasFiltradas.length > 0" class="text-blue-600">
+    <div class="text-[11px] text-gray-500 mt-1">
+      <span v-if="referenciasFiltradas.length > 0" class="text-blue-600 font-medium">
         {{ referenciasFiltradas.length }} referencias disponibles
       </span>
-      <span v-else-if="!loading && searchTerm" class="text-gray-400">
+      <span v-else-if="!loading && searchTerm" class="text-gray-500">
         No se encontraron referencias
       </span>
-      <span v-else class="text-gray-400">
+      <span v-else class="text-gray-500">
         Escribe para buscar referencias
       </span>
     </div>
@@ -67,7 +67,7 @@
       style="position: absolute; left: 0;"
     >
       <!-- Cargando -->
-      <div v-if="loading" class="px-3 py-3 text-[12px] text-gray-400 text-center">
+      <div v-if="loading" class="px-3 py-3 text-[12px] text-gray-500 text-center">
         <svg class="w-4 h-4 animate-spin inline mr-2" fill="none" viewBox="0 0 24 24">
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
           <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
@@ -76,22 +76,24 @@
       </div>
 
       <!-- Sin resultados -->
-      <div v-else-if="!referenciasFiltradas.length && searchTerm" class="px-3 py-3 text-[12px] text-gray-400 text-center">
+      <div v-else-if="!referenciasFiltradas.length && searchTerm" class="px-3 py-3 text-[12px] text-gray-500 text-center">
         No se encontraron referencias para "{{ searchTerm }}"
       </div>
 
       <!-- Lista de referencias -->
       <div v-else-if="referenciasFiltradas.length">
-        <div class="sticky top-0 bg-gray-50 px-3 py-1.5 text-[10px] text-gray-400 border-b border-gray-100">
+        <div class="sticky top-0 bg-gray-50 px-3 py-1.5 text-[10px] text-gray-600 border-b border-gray-100">
           {{ referenciasFiltradas.length }} referencias disponibles
         </div>
         <button
           v-for="(ref, idx) in referenciasFiltradas"
           :key="ref.id"
           type="button"
-          class="w-full text-left px-3 py-2 text-[12px] border-b border-gray-100 last:border-b-0 flex items-center justify-between hover:bg-gray-50 transition-colors"
+          class="w-full text-left px-3 py-2 text-[12px] border-b border-gray-100 last:border-b-0 flex items-center justify-between transition-colors"
           :class="[
-            idx === highlightIndex ? 'bg-blue-50' : '',
+            idx === highlightIndex
+              ? 'bg-blue-100 border-l-4 border-l-blue-500 ring-1 ring-inset ring-blue-200'
+              : 'hover:bg-gray-50',
             referenciaYaSeleccionada(ref.id) ? 'opacity-60 cursor-not-allowed bg-green-50/40' : ''
           ]"
           @mousedown.prevent="onSelectReferencia(ref)"
@@ -100,8 +102,14 @@
         >
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2">
-              <span class="font-medium text-gray-800">{{ ref.nro_referencia }}</span>
-              <span class="text-[10px] text-gray-400">Año: {{ ref.anio || 'N/A' }}</span>
+              <span
+                class="text-gray-800"
+                :class="idx === highlightIndex ? 'font-semibold' : 'font-medium'"
+              >{{ ref.nro_referencia }}</span>
+              <span
+                class="text-[10px]"
+                :class="idx === highlightIndex ? 'text-gray-700 font-medium' : 'text-gray-600'"
+              >Año: <strong class="text-gray-800">{{ ref.anio || 'N/A' }}</strong></span>
               <span
                 v-if="referenciaYaSeleccionada(ref.id)"
                 class="text-[10px] font-semibold text-green-600 bg-green-100 px-1.5 py-0.5 rounded"
@@ -109,7 +117,10 @@
                 Ya registrada
               </span>
             </div>
-            <div class="text-[11px] text-gray-500 truncate">
+            <div
+              class="text-[11px] truncate mt-0.5"
+              :class="idx === highlightIndex ? 'text-gray-700 font-medium' : 'text-gray-600'"
+            >
               {{ ref.descripcion || 'Sin descripción' }}
             </div>
           </div>
@@ -118,7 +129,12 @@
             <svg v-if="referenciaYaSeleccionada(ref.id)" class="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
             </svg>
-            <svg v-else class="w-5 h-5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+            <svg
+              v-else
+              class="w-5 h-5"
+              :class="idx === highlightIndex ? 'text-blue-600' : 'text-blue-400'"
+              fill="none" viewBox="0 0 24 24" stroke="currentColor" :stroke-width="idx === highlightIndex ? 2 : 1.5"
+            >
               <circle cx="12" cy="12" r="9" stroke="currentColor"/>
             </svg>
           </span>

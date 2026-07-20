@@ -35,7 +35,7 @@
     </div>
 
     <!-- Indicador de filtros -->
-    <div class="text-[11px] text-gray-400 mt-1">
+    <div class="text-[11px] text-gray-500 mt-1">
       <span v-if="!gestionActual" class="text-amber-600">
         ⚠️ Selecciona una gestión en los datos generales
       </span>
@@ -43,16 +43,16 @@
         ⚠️ Selecciona un docente para poder buscar sus materias
       </span>
       <span v-else>
-        <span v-if="usaFiltroDocente">Docente: <strong>{{ docenteActual }}</strong> · </span>
-        Gestión: <strong>{{ gestionActual }}</strong>
-        <span v-if="periodoActual"> · Periodo: <strong>{{ periodoActual }}</strong></span>
+        <span v-if="usaFiltroDocente">Docente: <strong class="text-gray-700">{{ docenteActual }}</strong> · </span>
+        Gestión: <strong class="text-gray-700">{{ gestionActual }}</strong>
+        <span v-if="periodoActual"> · Periodo: <strong class="text-gray-700">{{ periodoActual }}</strong></span>
         <span v-if="loading" class="ml-2 text-gray-400">
           (buscando materias...)
         </span>
-       
-       
+
+
         <!-- ← NUEVO: mensaje cuando la búsqueda no encuentra resultados -->
-        <span v-else-if="cargaExitosa && materiasFiltradas.length === 0 && searchTerm !== ''" class="ml-2 text-gray-400">
+        <span v-else-if="cargaExitosa && materiasFiltradas.length === 0 && searchTerm !== ''" class="ml-2 text-gray-500">
           No hay materias que coincidan con "{{ searchTerm }}"
         </span>
         <span v-else-if="error" class="ml-2 text-red-500">
@@ -81,7 +81,7 @@
       style="position: absolute; left: 0;"
     >
       <!-- Mensaje cuando no hay docente -->
-      <div v-if="!docenteActual" class="px-3 py-4 text-center text-[12px] text-gray-400">
+      <div v-if="!docenteActual" class="px-3 py-4 text-center text-[12px] text-gray-500">
         <svg class="w-6 h-6 mx-auto text-gray-300 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
           <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
         </svg>
@@ -89,7 +89,7 @@
       </div>
 
       <!-- Mensaje cuando no hay gestión -->
-      <div v-else-if="!gestionActual" class="px-3 py-4 text-center text-[12px] text-gray-400">
+      <div v-else-if="!gestionActual" class="px-3 py-4 text-center text-[12px] text-gray-500">
         <svg class="w-6 h-6 mx-auto text-gray-300 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"/>
         </svg>
@@ -97,7 +97,7 @@
       </div>
 
       <!-- Cargando -->
-      <div v-else-if="loading" class="px-3 py-3 text-[12px] text-gray-400 text-center">
+      <div v-else-if="loading" class="px-3 py-3 text-[12px] text-gray-500 text-center">
         <svg class="w-4 h-4 animate-spin inline mr-2" fill="none" viewBox="0 0 24 24">
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
           <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
@@ -113,7 +113,7 @@
         {{ error }}
       </div>
 
-      <!-- ← NUEVO: Sin materias (solo cuando la carga fue exitosa y array vacío) -->
+      <!-- Sin materias (solo cuando la carga fue exitosa y array vacío) -->
       <div v-else-if="cargaExitosa && materiasFiltradas.length === 0 && !searchTerm" class="px-3 py-4 text-center text-[12px] text-amber-600">
         <svg class="w-6 h-6 mx-auto text-amber-300 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M10.29 3.86l-8.18 14.18A2 2 0 004 21h16a2 2 0 001.89-2.96L13.71 3.86a2 2 0 00-3.42 0z"/>
@@ -121,36 +121,45 @@
         ⚠️ El docente no tiene materias asignadas en el periodo establecido
       </div>
 
-      <!-- ← NUEVO: Sin resultados de búsqueda -->
-      <div v-else-if="cargaExitosa && materiasFiltradas.length === 0 && searchTerm" class="px-3 py-3 text-[12px] text-gray-400 text-center">
+      <!-- Sin resultados de búsqueda -->
+      <div v-else-if="cargaExitosa && materiasFiltradas.length === 0 && searchTerm" class="px-3 py-3 text-[12px] text-gray-500 text-center">
         No se encontraron materias para "{{ searchTerm }}"
       </div>
 
       <!-- Lista de materias -->
       <div v-else-if="materiasFiltradas.length">
-        <div class="sticky top-0 bg-gray-50 px-3 py-1.5 text-[10px] text-gray-400 border-b border-gray-100">
+        <div class="sticky top-0 bg-gray-50 px-3 py-1.5 text-[10px] text-gray-800 border-b border-gray-100">
           {{ materiasFiltradas.length }} materias disponibles
         </div>
         <button
           v-for="(m, idx) in materiasFiltradas"
           :key="`${m.codigo}-${m.grupo}`"
           type="button"
-          class="w-full text-left px-3 py-2 text-[12px] border-b border-gray-100 last:border-b-0 flex items-center justify-between hover:bg-gray-50 transition-colors"
+          class="w-full text-left px-3 py-2 text-[12px] border-b border-gray-100 last:border-b-0 flex items-center justify-between transition-colors"
           :class="[
-            idx === highlightIndex ? 'bg-blue-50' : '',
-            materiaYaSeleccionada(m.codigo) ? 'opacity-50 cursor-not-allowed' : ''
+            idx === highlightIndex
+              ? 'bg-blue-100 border-l-4 border-l-blue-500 ring-1 ring-inset ring-blue-200'
+              : 'hover:bg-gray-50',
+            materiaYaSeleccionada(m.codigo) ? 'opacity-60 cursor-not-allowed' : ''
           ]"
           @mousedown.prevent="onSelectMateria(m)"
           @mouseenter="highlightIndex = idx"
           :disabled="materiaYaSeleccionada(m.codigo)"
         >
           <div class="flex-1 min-w-0">
-            <span class="font-medium text-gray-800">{{ m.nombre }}</span>
-            <span v-if="m.sigla" class="text-gray-400 ml-1">({{ m.sigla }})</span>
-            <div class="text-[10px] text-gray-400 truncate">
-              Código: {{ m.codigo }} · Periodo: {{ m.periodo }}
-              <span v-if="m.grupo"> · Grupo: <strong class="text-gray-500">{{ m.grupo }}</strong></span>
-              <span v-if="m.nombre_plan"> · Plan: {{ m.nombre_plan }}</span>
+            <span
+              class="text-gray-800"
+              :class="idx === highlightIndex ? 'font-semibold' : 'font-medium'"
+            >{{ m.nombre }}</span>
+            <span v-if="m.sigla" class="text-gray-500 ml-1">({{ m.sigla }})</span>
+            <div
+              class="text-[11px] truncate mt-0.5"
+              :class="idx === highlightIndex ? 'text-gray-700 font-medium' : 'text-gray-600'"
+            >
+              Código: <strong class="text-gray-800">{{ m.codigo }}</strong>
+              · Periodo: <strong class="text-gray-800">{{ m.periodo }}</strong>
+              <span v-if="m.grupo"> · Grupo: <strong class="text-gray-800">{{ m.grupo }}</strong></span>
+              <span v-if="m.nombre_plan"> · Plan: <strong class="text-gray-800">{{ m.nombre_plan }}</strong></span>
             </div>
           </div>
           <!-- Círculo a la derecha -->
@@ -158,7 +167,12 @@
             <svg v-if="materiaYaSeleccionada(m.codigo)" class="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
             </svg>
-            <svg v-else class="w-5 h-5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+            <svg
+              v-else
+              class="w-5 h-5"
+              :class="idx === highlightIndex ? 'text-blue-600' : 'text-blue-400'"
+              fill="none" viewBox="0 0 24 24" stroke="currentColor" :stroke-width="idx === highlightIndex ? 2 : 1.5"
+            >
               <circle cx="12" cy="12" r="9" stroke="currentColor"/>
             </svg>
           </span>
@@ -167,7 +181,7 @@
     </div>
 
     <!-- Mensaje cuando falta docente o gestión (fuera del dropdown) -->
-    <div v-if="(!docenteActual || !gestionActual) && !dropdownOpen" class="text-center py-4 text-[12px] text-gray-400 border border-dashed border-gray-200 rounded-lg mt-2">
+    <div v-if="(!docenteActual || !gestionActual) && !dropdownOpen" class="text-center py-4 text-[12px] text-gray-500 border border-dashed border-gray-200 rounded-lg mt-2">
       <svg class="w-6 h-6 mx-auto text-gray-300 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
         <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"/>
       </svg>
