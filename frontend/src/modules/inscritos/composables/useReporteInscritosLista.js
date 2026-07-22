@@ -9,7 +9,7 @@ import autoTable from 'jspdf-autotable'
 // ── Paleta institucional ─────────────────────────────────────────────────
 const C_BLACK = [0, 0, 0]
 const C_WHITE = [255, 255, 255]
-const C_HEAD_BG = [211, 211, 211]
+const C_HEAD_BG = [240, 240, 240]
 const C_GROUP_BG = [235, 235, 235]
 const C_GRAY_LINE = [140, 140, 140]
 const C_MUTED = [90, 90, 90]
@@ -36,13 +36,13 @@ function drawPageHeader(doc, { titulo, anio, periodo, fechaActual, notaSuperior 
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(6)
     doc.setTextColor(...C_BLACK)
-    doc.text('UNIVERSIDAD MAYOR DE SAN SIMON', ML, 8)
-    doc.text('FACULTAD DE CIENCIAS ECONOMICAS', ML, 10)
+    doc.text('UNIVERSIDAD MAYOR DE SAN SIMÓN', ML, 8)
+    doc.text('FACULTAD DE CIENCIAS ECONÓMICAS', ML, 10)
 
     doc.setFontSize(12.5)
     doc.text(titulo, PAGE_W / 2, 9, { align: 'center' })
     doc.setFontSize(10.5)
-    doc.text('FACULTAD DE CIENCIAS ECONOMICAS', PAGE_W / 2, 13.5, { align: 'center' })
+    doc.text('FACULTAD DE CIENCIAS ECONÓMICAS', PAGE_W / 2, 13.5, { align: 'center' })
 
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(10)
@@ -73,7 +73,7 @@ function drawFooters(doc, fechaActual) {
         doc.setFont('helvetica', 'normal')
         doc.setFontSize(6.5)
         doc.setTextColor(80, 80, 80)
-        doc.text('Procesado UTI - Facultad de Ciencias Economicas', ML, fy)
+        doc.text('Procesado UTI - Facultad de Ciencias Económicas', ML, fy)
         doc.text(`Página ${i} de ${total}`, PAGE_W / 2, fy, { align: 'center' })
         doc.text(fechaActual, PAGE_W - MR, fy, { align: 'right' })
     }

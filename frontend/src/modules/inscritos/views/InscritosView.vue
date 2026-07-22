@@ -6,7 +6,6 @@
       <h1 class="text-xl font-bold text-black tracking-tight m-0 mb-0.5">
         Lista de Inscritos
       </h1>
-     
     </div>
 
     <!-- FILTROS -->
@@ -20,6 +19,7 @@
           type="number"
           min="2000"
           max="2099"
+          @keyup.enter="handleBuscar"
           class="w-24 bg-slate-800 border border-slate-700 rounded-lg text-slate-100 text-sm px-3 py-2 outline-none
                  placeholder-slate-500 transition-all duration-150
                  focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20
@@ -32,13 +32,88 @@
         <label class="text-[0.68rem] font-semibold tracking-widest uppercase text-slate-400">Período</label>
         <select
           v-model.number="filtros.periodo"
+          @change="handleBuscar"
           class="w-36 bg-slate-800 border border-slate-700 rounded-lg text-slate-100 text-sm px-3 py-2 outline-none
                  transition-all duration-150
                  focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
         >
           <option :value="1">1</option>
           <option :value="2">2</option>
+          <option :value="3">3</option>
+          <option :value="4">4</option>
         </select>
+      </div>
+
+      <!-- Área (multi-selección) -->
+      <div class="flex flex-col gap-1.5 relative" ref="areaDropdownRef">
+        <label class="text-[0.68rem] font-semibold tracking-widest uppercase text-slate-400">Área</label>
+
+        <button
+          type="button"
+          @click.stop="mostrarMenuArea = !mostrarMenuArea"
+          class="w-56 flex items-center justify-between gap-2 bg-slate-800 border border-slate-700 rounded-lg
+                 text-slate-100 text-sm px-3 py-2 outline-none transition-all duration-150
+                 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
+        >
+          <span class="truncate text-left">
+            {{ areaLabelResumen }}
+          </span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+               :style="mostrarMenuArea ? 'transform: rotate(180deg);' : ''" style="transition: transform 0.15s"
+               class="shrink-0 text-slate-400">
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </button>
+
+        <!-- Backdrop -->
+        <div v-if="mostrarMenuArea" class="fixed inset-0 z-40" @click="mostrarMenuArea = false" />
+
+        <Transition
+          enter-active-class="transition-all duration-150 ease-out"
+          enter-from-class="opacity-0 scale-95 -translate-y-1"
+          enter-to-class="opacity-100 scale-100 translate-y-0"
+          leave-active-class="transition-all duration-100 ease-in"
+          leave-from-class="opacity-100 scale-100 translate-y-0"
+          leave-to-class="opacity-0 scale-95 -translate-y-1"
+        >
+          <div
+            v-if="mostrarMenuArea"
+            class="absolute left-0 top-full mt-1.5 z-50 w-64
+                   bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden"
+          >
+            <div class="px-4 pt-3 pb-1 flex items-center justify-between">
+              <p class="text-[0.65rem] font-semibold tracking-widest uppercase text-slate-400">
+                Áreas
+              </p>
+              <button
+                v-if="filtros.area.length > 0"
+                type="button"
+                @click="filtros.area = []"
+                class="text-[0.65rem] font-semibold text-amber-600 hover:text-amber-700"
+              >
+                Limpiar
+              </button>
+            </div>
+
+            <label
+              v-for="a in AREAS"
+              :key="a.value"
+              class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700
+                     hover:bg-slate-50 transition-colors cursor-pointer select-none"
+            >
+              <input
+                type="checkbox"
+                :value="a.value"
+                v-model="filtros.area"
+                class="w-4 h-4 rounded border-slate-300 text-amber-500 focus:ring-amber-500/40 focus:ring-offset-0 cursor-pointer"
+              />
+              <div>
+                <div class="font-medium leading-tight">{{ a.value }}</div>
+                <div class="text-xs text-slate-800 mt-0.5">{{ a.label }}</div>
+              </div>
+            </label>
+          </div>
+        </Transition>
       </div>
 
       <!-- Buscar Docente (botón unificado: Buscar / Ver todos) -->
@@ -95,7 +170,7 @@
           <!-- Botón partido: ambos abren el menú -->
           <div
             class="inline-flex rounded-full overflow-visible border border-red-700/40 shadow-lg shadow-red-900/20"
-            :class="(loadingPdf || data.length === 0) ? 'opacity-40 pointer-events-none' : ''"
+            :class="(loadingPdf || dataFiltrada.length === 0) ? 'opacity-40 pointer-events-none' : ''"
           >
             <!-- Botón principal -->
             <button
@@ -189,7 +264,7 @@
                   <circle cx="12" cy="12" r="3" />
                 </svg>
                 <div>
-                  <div class="font-medium leading-tight">Ver PDF Lista</div>
+                  <div class="font-medium leading-tight">Ver PDF Lista de estudiantes</div>
                   <div class="text-xs text-slate-400 mt-0.5">Abrir en nueva pestaña</div>
                 </div>
               </button>
@@ -207,7 +282,7 @@
                   <line x1="12" y1="15" x2="12" y2="3" />
                 </svg>
                 <div>
-                  <div class="font-medium leading-tight">Descargar PDF Lista</div>
+                  <div class="font-medium leading-tight">Descargar PDF Lista de estudiantes</div>
                   <div class="text-xs text-slate-400 mt-0.5">Guardar en tu equipo</div>
                 </div>
               </button>
@@ -281,23 +356,35 @@
       <span>Cargando inscritos...</span>
     </div>
 
-    <!-- EMPTY STATE INICIAL -->
+    <!-- EMPTY STATE -->
     <div
-      v-else-if="!loading && data.length === 0 && !error"
+      v-else-if="!loading && dataFiltrada.length === 0 && !error"
       class="flex flex-col items-center gap-3 py-24 text-slate-400"
     >
-      <span class="text-6xl">📋</span>
-      <p>Seleccioná año y período, luego hacé clic en <strong class="text-slate-600">Ver todos</strong> o escribí un docente y hacé clic en <strong class="text-slate-600">Buscar</strong>.</p>
+      <template v-if="!yaSeBusco">
+        <span class="text-6xl">📋</span>
+        <p>Seleccioná año y período, luego hacé clic en <strong class="text-slate-600">Ver todos</strong> o escribí un docente y hacé clic en <strong class="text-slate-600">Buscar</strong>.</p>
+      </template>
+
+      <template v-else-if="ultimaBusquedaFueDocente">
+        <span class="text-6xl">🔍</span>
+        <p>Docente no encontrado para <strong class="text-slate-600">{{ filtros.anio }}-{{ filtros.periodo }}</strong>.</p>
+      </template>
+
+      <template v-else>
+        <span class="text-6xl">📋</span>
+        <p>No hay lista de inscritos en dicha gestión y periodo (<strong class="text-slate-600">{{ filtros.anio }}-{{ filtros.periodo }}</strong>).</p>
+      </template>
     </div>
 
     <!-- CONTENIDO -->
-    <div v-else-if="!loading && data.length" id="reporte-imprimible" class="px-8 py-4">
+    <div v-else-if="!loading && dataFiltrada.length" id="reporte-imprimible" class="px-8 py-4">
 
       <!-- CABECERA REPORTE -->
       <div class="bg-white border border-slate-200 rounded-lg px-5 py-2.5 flex flex-wrap justify-between items-center mb-3 text-sm text-slate-500 gap-2">
         <span>Generado: <strong class="text-slate-700">{{ fechaActual }}</strong></span>
         <span class="text-slate-300 hidden sm:block">|</span>
-        <span>Total docentes: <strong class="text-slate-700">{{ data.length }}</strong></span>
+        <span>Total docentes: <strong class="text-slate-700">{{ dataFiltrada.length }}</strong></span>
         <span class="text-slate-300 hidden sm:block">|</span>
         <span>Total inscritos:
           <strong class="text-slate-700">{{ totalGlobal }}</strong>
@@ -306,7 +393,7 @@
 
       <!-- CARDS -->
       <DocenteInscritosCard
-        v-for="docente in data"
+        v-for="docente in dataFiltrada"
         :key="docente.cod_docente"
         :docente="docente"
       />
@@ -327,7 +414,15 @@ import { useInscritos } from '../composables/useInscritos'
 import { useReporteInscritosLista } from '../composables/useReporteInscritosLista'
 import { useReporteInscritosTotales } from '../composables/useReporteInscritosTotales'
 
-// ─── Sin onMounted: no carga automática al entrar ───────────────────────────
+// ─── Áreas disponibles (deben coincidir con el CASE de PLAN->CARRERA del backend) ───
+const AREAS = [
+  { value: 'ADM', label: 'Administración de Empresas' },
+  { value: 'FIN', label: 'Ingeniería Financiera' },
+  { value: 'ECO', label: 'Economía' },
+  { value: 'CCP', label: 'Contaduría Pública' },
+  { value: 'COM', label: 'Ingeniería Comercial' },
+]
+
 const { data, loading, error, fetchInscritos } = useInscritos()
 const { generandoLista, exportarListaCompleta } = useReporteInscritosLista()
 const { generandoResumen, exportarResumenTotales } = useReporteInscritosTotales()
@@ -335,17 +430,55 @@ const { generandoResumen, exportarResumenTotales } = useReporteInscritosTotales(
 const filtros = ref({
   anio: new Date().getFullYear(),
   periodo: 1,
+  area: [], // array vacío = todas las áreas
 })
 const busqueda = ref('')
 
 const mostrarMenuPdf = ref(false)
 const pdfDropdownRef = ref(null)
+const mostrarMenuArea = ref(false)
+const areaDropdownRef = ref(null)
 
-// El botón muestra "cargando" si cualquiera de los dos PDF se está generando
+// ─── Estado para distinguir los mensajes del empty state ─────────────────
+const yaSeBusco = ref(false)
+const ultimaBusquedaFueDocente = ref(false)
+
 const loadingPdf = computed(() => generandoLista.value || generandoResumen.value)
 
+// Texto resumen del botón: "Todas las áreas" / "ADM" / "ADM, FIN" / "3 áreas seleccionadas"
+const areaLabelResumen = computed(() => {
+  const sel = filtros.value.area
+  if (sel.length === 0) return 'Todas las áreas'
+  if (sel.length <= 2) return sel.join(', ')
+  return `${sel.length} áreas seleccionadas`
+})
+
+// ─── Filtra por una o varias áreas ───────────────────────────────────────
+const dataFiltrada = computed(() => {
+  if (filtros.value.area.length === 0) return data.value
+
+  return data.value
+    .map(docente => {
+      const carrerasFiltradas = docente.carreras.filter(
+        c => filtros.value.area.includes(c.carrera)
+      )
+      if (carrerasFiltradas.length === 0) return null
+
+      const total_inscritos = carrerasFiltradas.reduce((s, c) => s + (c.subtotal ?? 0), 0)
+      const total_examen_mesa = carrerasFiltradas.reduce((s, c) => s + (c.subtotal_examen_mesa ?? 0), 0)
+
+      return {
+        ...docente,
+        carreras: carrerasFiltradas,
+        total_inscritos,
+        total_examen_mesa,
+      }
+    })
+    .filter(Boolean)
+})
+
 const totalGlobal = computed(() =>
-  data.value.reduce((s, d) => s + (d.total_inscritos ?? 0), 0)
+  dataFiltrada.value.reduce((s, d) => s + (d.total_inscritos ?? 0), 0)
 )
 
 const fechaActual = computed(() =>
@@ -355,10 +488,13 @@ const fechaActual = computed(() =>
   })
 )
 
-// Cierra el menú al hacer click fuera
+// Cierra ambos menús al hacer click fuera
 function onClickFuera(e) {
   if (pdfDropdownRef.value && !pdfDropdownRef.value.contains(e.target)) {
     mostrarMenuPdf.value = false
+  }
+  if (areaDropdownRef.value && !areaDropdownRef.value.contains(e.target)) {
+    mostrarMenuArea.value = false
   }
 }
 onMounted(() => document.addEventListener('click', onClickFuera))
@@ -368,6 +504,10 @@ onBeforeUnmount(() => document.removeEventListener('click', onClickFuera))
 async function handleBuscar() {
   const q = busqueda.value.trim()
   await fetchInscritos(filtros.value.anio, filtros.value.periodo)
+
+  yaSeBusco.value = true
+  ultimaBusquedaFueDocente.value = !!q
+
   if (!q) return
 
   if (/^\d+$/.test(q)) {
@@ -382,18 +522,14 @@ async function handleBuscar() {
 async function generarPDFLista(modo = 'descargar') {
   mostrarMenuPdf.value = false
   let ventana = null
-  if (modo === 'ver') {
-    ventana = window.open('', '_blank')
-  }
-  await exportarListaCompleta(data.value, filtros.value.anio, filtros.value.periodo, modo, ventana)
+  if (modo === 'ver') ventana = window.open('', '_blank')
+  await exportarListaCompleta(dataFiltrada.value, filtros.value.anio, filtros.value.periodo, modo, ventana)
 }
 
 async function generarPDFTotales(modo = 'descargar') {
   mostrarMenuPdf.value = false
   let ventana = null
-  if (modo === 'ver') {
-    ventana = window.open('', '_blank')
-  }
-  await exportarResumenTotales(data.value, filtros.value.anio, filtros.value.periodo, modo, ventana)
+  if (modo === 'ver') ventana = window.open('', '_blank')
+  await exportarResumenTotales(dataFiltrada.value, filtros.value.anio, filtros.value.periodo, modo, ventana)
 }
 </script>
