@@ -147,6 +147,12 @@
               <span class="inline-block px-2.5 py-1 rounded-md bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300 border border-blue-300 dark:border-blue-700 text-[12px] font-extrabold">
                 {{ totalChReal }}
               </span>
+              <span
+                translate="no"
+                class="inline-block px-3 py-1 rounded-md bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-300 border border-green-300 dark:border-green-700 text-sm font-extrabold"
+              >
+                Mes({{ totalChReal * 4 }})
+              </span>
             </td>
 
             <td class="text-center py-2">

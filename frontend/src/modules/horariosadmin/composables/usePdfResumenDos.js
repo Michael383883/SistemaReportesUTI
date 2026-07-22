@@ -5,7 +5,7 @@ import { useHorarioAdmin } from './useHorarioAdmin'
 
 const C_BLACK = [0, 0, 0]
 const C_WHITE = [255, 255, 255]
-const C_HEAD_BG = [211, 211, 211]
+const C_HEAD_BG = [240, 240, 240]
 const C_GRAY_LINE = [140, 140, 140]
 const C_DAY_SEPARATOR = [180, 180, 180]
 
@@ -13,7 +13,7 @@ const C_DAY_SEPARATOR = [180, 180, 180]
 function getTipoCompartido(mat) {
     const compTexto = mat.compartido ?? ''
     const comp = mat.comp ?? ''
-    
+
     if (compTexto !== '' && String(comp) === '1') return 'derivada'
     if (compTexto !== '' && String(comp) === '0') return 'origen'
     return 'normal'
@@ -54,13 +54,13 @@ export function generarPDFResumenDos(docentes = [], { anio, periodo } = {}) {
         doc.setFont('helvetica', 'bold')
         doc.setFontSize(6)
         doc.setTextColor(...C_BLACK)
-        doc.text('UNIVERSIDAD MAYOR DE SAN SIMON', ML, 7)
-        doc.text('FACULTAD DE CIENCIAS ECONOMICAS', ML, 9)
+        doc.text('UNIVERSIDAD MAYOR DE SAN SIMÓN', ML, 7)
+        doc.text('FACULTAD DE CIENCIAS ECONÓMICAS', ML, 9)
 
         doc.setFontSize(11.5)
         doc.text('CARGA HORARIA DOCENTES - RESUMEN', PAGE_W / 2, 8, { align: 'center' })
         doc.setFontSize(9.5)
-        doc.text('FACULTAD DE CIENCIAS ECONOMICAS', PAGE_W / 2, 12, { align: 'center' })
+        doc.text('FACULTAD DE CIENCIAS ECONÓMICAS', PAGE_W / 2, 12, { align: 'center' })
 
         doc.setFont('helvetica', 'bold')
         doc.setFontSize(9)
@@ -70,7 +70,7 @@ export function generarPDFResumenDos(docentes = [], { anio, periodo } = {}) {
         doc.setFont('helvetica', 'normal')
         doc.setFontSize(6.5)
         doc.text(fechaActual, PAGE_W - MR, 17.5, { align: 'right' })
-        doc.text('Vista resumida por materia y grupo · Incluye Grupos Compartidos.', ML, 17.5)
+        doc.text('La carga horaria incluye Grupos Compartidos.', ML, 17.5)
 
         return HEADER_H
     }
@@ -86,22 +86,23 @@ export function generarPDFResumenDos(docentes = [], { anio, periodo } = {}) {
             doc.setFont('helvetica', 'normal')
             doc.setFontSize(6.5)
             doc.setTextColor(80, 80, 80)
-            doc.text('Procesado UTI - Facultad de Ciencias Economicas', ML, fy)
+            doc.text('Procesado UTI - Facultad de Ciencias Económicas', ML, fy)
             doc.text(`Página ${i} de ${total}`, PAGE_W / 2, fy, { align: 'center' })
             doc.text(fechaActual, PAGE_W - MR, fy, { align: 'right' })
         }
     }
 
+    // 6 columnas fijas + días
     const nCols = 6 + dias.length
-    const idxCH = 3 + dias.length
-    const idxIns = 4 + dias.length
-    const idxComp = 5 + dias.length
+    const idxCH = 3 + dias.length          // columna de CH
+    const idxIns = idxCH + 1               // INS.
+    const idxComp = idxIns + 1             // COMP.
 
     function makeSubHead() {
         return [
             'PLAN-NIV', 'MATERIA', 'GRP',
             ...dias.map(abrevDia),
-            'CH', 'INS.', 'COMP.',
+            'CH', 'INS.', 'C'
         ].map(label => ({
             content: label,
             styles: {
@@ -118,8 +119,6 @@ export function generarPDFResumenDos(docentes = [], { anio, periodo } = {}) {
     }
 
     const body = []
-
-    // 🔥 Guardar las filas que son TOTAL para identificar dónde NO dibujar líneas
     const totalRowIndices = []
 
     for (let di = 0; di < docentes.length; di++) {
@@ -160,12 +159,12 @@ export function generarPDFResumenDos(docentes = [], { anio, periodo } = {}) {
             const chValue = chMostrada(mat)
             fila.push(String(chValue))
             fila.push(String(mat.inscritos ?? ''))
-            
+
             const tipo = getTipoCompartido(mat)
             let compDisplay
             if (tipo === 'origen') compDisplay = '0'
             else if (tipo === 'derivada') compDisplay = '1'
-            else compDisplay = '0'  // 🔥 Cambiado: normal también muestra '0'
+            else compDisplay = '0'
             fila.push(compDisplay)
 
             body.push(fila)
@@ -184,14 +183,14 @@ export function generarPDFResumenDos(docentes = [], { anio, periodo } = {}) {
             if (c === idxCH - 1) {
                 filaTotal.push({ content: 'TOTAL', styles: { halign: 'right', fontStyle: 'bold', fontSize: 7, fillColor: C_WHITE, lineWidth: 0 } })
             } else if (c === idxCH) {
-                filaTotal.push({ content: String(totalCH), styles: { halign: 'center', fontStyle: 'bold', fontSize: 7, fillColor: C_WHITE, lineWidth: 0 } })
+                const mes = totalCH * 4
+                filaTotal.push({ content: `${totalCH} Mes(${mes})`, styles: { halign: 'center', fontStyle: 'bold', fontSize: 7, fillColor: C_WHITE, lineWidth: 0 } })
             } else if (c === idxIns) {
                 filaTotal.push({ content: String(totalInscritos), styles: { halign: 'center', fontStyle: 'bold', fontSize: 7, fillColor: C_WHITE, lineWidth: 0 } })
             } else {
                 filaTotal.push({ content: '', styles: { fillColor: C_WHITE, lineWidth: 0 } })
             }
         }
-        // 🔥 Guardar el índice de la fila TOTAL
         totalRowIndices.push(body.length)
         body.push(filaTotal)
     }
@@ -201,41 +200,28 @@ export function generarPDFResumenDos(docentes = [], { anio, periodo } = {}) {
     const PLAN_W = 12
     const MATERIA_W = 44
     const GRUPO_W = 7
-    const CH_W = 7
+    const CH_W = 14
     const INS_W = 9
-    const COMP_W = 12
+    const COMP_W = 5
     const fixedW = PLAN_W + MATERIA_W + GRUPO_W + CH_W + INS_W + COMP_W
     const diaW = Math.max(14, (CW - fixedW) / dias.length)
 
     const columnStyles = {
-        0: { 
-            cellWidth: PLAN_W, 
-            halign: 'left', 
-            cellPadding: { top: 0.3, bottom: 0.3, left: 0.3, right: 0.3 }
-        },
-        1: { 
-            cellWidth: MATERIA_W, 
-            halign: 'left', 
-            cellPadding: { top: 0.3, bottom: 0.3, left: 0.3, right: 0.3 }
-        },
+        0: { cellWidth: PLAN_W, halign: 'left', cellPadding: { top: 0.3, bottom: 0.3, left: 0.3, right: 0.3 } },
+        1: { cellWidth: MATERIA_W, halign: 'left', cellPadding: { top: 0.3, bottom: 0.3, left: 0.3, right: 0.3 } },
         2: { cellWidth: GRUPO_W, halign: 'center' },
         [idxCH]: { cellWidth: CH_W, halign: 'center' },
         [idxIns]: { cellWidth: INS_W, halign: 'center' },
         [idxComp]: { cellWidth: COMP_W, halign: 'center' },
     }
-    
+
     dias.forEach((_, i) => {
         const colIndex = 3 + i
         const isLastDay = i === dias.length - 1
-        columnStyles[colIndex] = { 
-            cellWidth: diaW, 
+        columnStyles[colIndex] = {
+            cellWidth: diaW,
             halign: 'center',
-            lineWidth: { 
-                top: 0, 
-                right: isLastDay ? 0 : 0.3,
-                bottom: 0, 
-                left: 0 
-            },
+            lineWidth: { top: 0, right: isLastDay ? 0 : 0.3, bottom: 0, left: 0 },
             lineColor: C_DAY_SEPARATOR,
         }
     })
@@ -258,58 +244,53 @@ export function generarPDFResumenDos(docentes = [], { anio, periodo } = {}) {
         columnStyles,
         didParseCell(data) {
             if (data.section === 'head') {
-                if (data.column.index === 0) {
-                    data.cell.styles.fontSize = 5.5
-                }
+                if (data.column.index === 0) data.cell.styles.fontSize = 5.5
                 return
             }
-
             if (data.section !== 'body') return
-
             const raw = data.row.raw
-            const isDataRow = Array.isArray(raw) && raw.length === nCols && typeof raw[0] === 'string'
-                && typeof raw[1] === 'string'
+            const isDataRow = Array.isArray(raw) && raw.length === nCols && typeof raw[0] === 'string' && typeof raw[1] === 'string'
             if (!isDataRow) return
-
             const col = data.column.index
-
-            if (col <= 2) {
-                data.cell.styles.lineWidth = { top: 0, right: 0, bottom: 0, left: 0 }
-            } else {
-                data.cell.styles.lineWidth = { top: 0, right: 0, bottom: 0.2, left: 0 }
-            }
-
-            if (col === 1) {
-                data.cell.styles.fontStyle = 'normal'
-            }
-            
-            if (col === 0) {
-                data.cell.styles.fontSize = 5.5
-            }
+            data.cell.styles.lineWidth = { top: 0, right: 0, bottom: 0.2, left: 0 }
+            if (col === 1) data.cell.styles.fontStyle = 'normal'
+            if (col === 0) data.cell.styles.fontSize = 5.5
         },
-        // 🔥 Dibujar líneas verticales separadoras entre días (sin llegar a TOTAL)
         didDrawCell(data) {
-            // Solo para celdas del cuerpo (body)
-            if (data.section !== 'body') return
-            
-            const rowIndex = data.row.index
-            const col = data.column.index
-            
-            // 🔥 Si es una fila TOTAL, NO dibujar líneas verticales
-            if (totalRowIndices.includes(rowIndex)) return
-            
-            const dayStartCol = 3
-            const dayEndCol = 3 + dias.length - 1
-            
-            // Si es una columna de día y NO es el último día
-            if (col >= dayStartCol && col < dayEndCol) {
-                const x = data.cell.x + data.cell.width
-                const y1 = data.cell.y
-                const y2 = data.cell.y + data.cell.height
-                
-                doc.setDrawColor(...C_DAY_SEPARATOR)
-                doc.setLineWidth(0.3)
-                doc.line(x, y1, x, y2)
+            if (data.section !== 'body') return;
+
+            const rowIndex = data.row.index;
+            const col = data.column.index;
+            const raw = data.row.raw;
+
+            if (totalRowIndices.includes(rowIndex)) return;
+
+            const dayStartCol = 3;
+            const dayEndCol = 3 + dias.length - 1;
+            const isNameRow = typeof raw === 'object' && raw !== null && raw.colSpan;
+
+            // Líneas en filas de materias
+            if (!isNameRow && col >= dayStartCol && col < dayEndCol) {
+                const x = data.cell.x + data.cell.width;
+                const y1 = data.cell.y;
+                const y2 = data.cell.y + data.cell.height;
+                doc.setDrawColor(...C_DAY_SEPARATOR);
+                doc.setLineWidth(0.3);
+                doc.line(x, y1, x, y2);
+            }
+
+            // Líneas en la fila del nombre (cálculo manual con anchos fijos)
+            if (isNameRow) {
+                const startX = data.cell.x;
+                const y1 = data.cell.y;
+                const y2 = data.cell.y + data.cell.height;
+                const fixedWidth = PLAN_W + MATERIA_W + GRUPO_W;
+                for (let d = 0; d < dias.length - 1; d++) {
+                    const x = startX + fixedWidth + (d + 1) * diaW;
+                    doc.setDrawColor(...C_DAY_SEPARATOR);
+                    doc.setLineWidth(0.3);
+                    doc.line(x, y1, x, y2);
+                }
             }
         },
         didDrawPage(data) {

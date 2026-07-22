@@ -4,7 +4,7 @@ import autoTable from 'jspdf-autotable'
 
 const C_BLACK = [0, 0, 0]
 const C_WHITE = [255, 255, 255]
-const C_HEAD_BG = [211, 211, 211]
+const C_HEAD_BG = [240, 240, 240]
 const C_GRAY_LINE = [140, 140, 140]
 
 // ── Convierte código numérico de plan a abreviación de carrera ───────────────
@@ -30,7 +30,7 @@ function getAbreviaturaPlan(plan) {
 function getValorC(h) {
     const compTexto = h.COMPARTIDO ?? h.comp ?? ''
     const comp = h.COMP ?? h.C ?? ''
-    
+
     // Si tiene COMPARTIDO y COMP === '1' → C = 1 (derivada/recibe)
     if (compTexto !== '' && String(comp) === '1') {
         return 1
@@ -75,13 +75,13 @@ export function generarPDFCargaHoraria(docentes = [], { anio, periodo } = {}) {
         doc.setFont('helvetica', 'bold')
         doc.setFontSize(6)
         doc.setTextColor(...C_BLACK)
-        doc.text('UNIVERSIDAD MAYOR DE SAN SIMON', ML, 7)
-        doc.text('FACULTAD DE CIENCIAS ECONOMICAS', ML, 10)
+        doc.text('UNIVERSIDAD MAYOR DE SAN SIMÓN', ML, 7)
+        doc.text('FACULTAD DE CIENCIAS ECONÓMICAS', ML, 10)
 
         doc.setFontSize(12.5)
         doc.text('CARGA HORARIA DOCENTES', PAGE_W / 2, 9, { align: 'center' })
         doc.setFontSize(10.5)
-        doc.text('FACULTAD DE CIENCIAS ECONOMICAS', PAGE_W / 2, 13.5, { align: 'center' })
+        doc.text('FACULTAD DE CIENCIAS ECONÓMICAS', PAGE_W / 2, 13.5, { align: 'center' })
 
         doc.setFont('helvetica', 'bold')
         doc.setFontSize(10)
@@ -107,7 +107,7 @@ export function generarPDFCargaHoraria(docentes = [], { anio, periodo } = {}) {
             doc.setFont('helvetica', 'normal')
             doc.setFontSize(6.5)
             doc.setTextColor(80, 80, 80)
-            doc.text('Procesado UTI - Facultad de Ciencias Economicas', ML, fy)
+            doc.text('Procesado UTI - Facultad de Ciencias Económicas', ML, fy)
             doc.text(`Página ${i} de ${total}`, PAGE_W / 2, fy, { align: 'center' })
             doc.text(fechaActual, PAGE_W - MR, fy, { align: 'right' })
         }
@@ -182,7 +182,7 @@ export function generarPDFCargaHoraria(docentes = [], { anio, periodo } = {}) {
             { content: '', colSpan: 1, styles: { fillColor: C_WHITE, lineWidth: 0 } },
             { content: '', colSpan: 1, styles: { fillColor: C_WHITE, lineWidth: 0 } },
             { content: 'TOTAL', colSpan: 1, styles: { halign: 'right', fontStyle: 'bold', fontSize: 8, fillColor: C_WHITE, lineWidth: 0 } },
-            { content: String(totalCH), colSpan: 1, styles: { halign: 'center', fontStyle: 'bold', fontSize: 8, fillColor: C_WHITE, lineWidth: 0 } },
+            { content: `${totalCH} Mes(${totalCH * 4})`, colSpan: 1, styles: { halign: 'center', fontStyle: 'bold', fontSize: 8, fillColor: C_WHITE, lineWidth: 0 } },
             { content: String(totalInscN), colSpan: 1, styles: { halign: 'center', fontStyle: 'bold', fontSize: 8, fillColor: C_WHITE, lineWidth: 0 } },
             { content: '', colSpan: 1, styles: { fillColor: C_WHITE, lineWidth: 0 } },
             { content: '', colSpan: 1, styles: { fillColor: C_WHITE, lineWidth: 0 } },
@@ -206,13 +206,13 @@ export function generarPDFCargaHoraria(docentes = [], { anio, periodo } = {}) {
             overflow: 'linebreak', valign: 'middle',
         },
         headStyles: {
-            fillColor: C_HEAD_BG, 
-            textColor: C_BLACK, 
+            fillColor: C_HEAD_BG,
+            textColor: C_BLACK,
             fontStyle: 'bold',
             fontSize: 6.5,
             halign: 'center',
             valign: 'middle',
-            lineColor: C_GRAY_LINE, 
+            lineColor: C_GRAY_LINE,
             lineWidth: { top: 0, right: 0, bottom: 0.3, left: 0 },
             cellPadding: { top: 0.8, bottom: 0.8, left: 0.5, right: 0.5 },
         },
@@ -223,7 +223,7 @@ export function generarPDFCargaHoraria(docentes = [], { anio, periodo } = {}) {
             3: { cellWidth: 8, halign: 'center' },
             4: { cellWidth: 12, halign: 'center' },
             5: { cellWidth: 18, halign: 'center' },
-            6: { cellWidth: 7, halign: 'center' },
+            6: { cellWidth: 15, halign: 'center' },
             7: { cellWidth: 10, halign: 'center' },
             8: { cellWidth: 7, halign: 'center' },
             9: { cellWidth: 'auto', halign: 'left' },

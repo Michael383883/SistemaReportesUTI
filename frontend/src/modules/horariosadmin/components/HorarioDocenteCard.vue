@@ -145,7 +145,7 @@
                   </span>
                   <span 
                     translate="no"
-                    class="block text-[9px] text-slate-500 dark:text-slate-400 dark-color-carrera"
+                    class="block text-[10px] font-semibold text-slate800 dark:text-slate-800 dark-color-carrera"
                     :style="{ '--carrera-color': colorBloqueHorario(mat, s) }"
                   >
                     {{ s.ambiente }}
@@ -200,7 +200,7 @@
             <td
               translate="no"
               :colspan="3 + diasConSesiones.length"
-              class="text-right px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300"
+              class="text-right px-4 py-1 text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300"
             >
               Total
             </td>
@@ -214,7 +214,13 @@
               >
                 {{ totalChReal }}
               </span>
-            </td>
+              <span
+                translate="no"
+                class="inline-block px-3 py-1 rounded-md bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-300 border border-green-300 dark:border-green-700 text-sm font-extrabold"
+              >
+                Mes({{ totalChReal * 4 }})
+              </span>
+                          </td>
             <td 
               translate="no"
               class="text-center py-2.5"
@@ -265,6 +271,27 @@ const diasConSesiones = computed(() => DIAS_ORDEN.filter(d => tieneSesionesEnDia
 
 const COLOR_COMPARTIDO = '#eab308'
 
+// Paleta de colores para distinguir MATERIAS dentro de una misma carrera/plan.
+// Se eligieron tonos con buen contraste entre sí y que no se confundan
+// fácilmente con el amarillo reservado para bloques compartidos (#eab308).
+const PALETTE_MATERIA = [
+  '#ef4444', // rojo
+  '#3b82f6', // azul
+  '#8b5cf6', // violeta
+  '#ec4899', // rosa
+  '#14b8a6', // teal
+  '#f97316', // naranja
+  '#22c55e', // verde
+  '#06b6d4', // cian
+  '#a855f7', // púrpura
+  '#f43f5e', // rosa fuerte
+  '#0ea5e9', // celeste
+  '#84cc16', // lima
+  '#d946ef', // fucsia
+  '#6366f1', // índigo
+  '#10b981', // esmeralda
+]
+
 const clavesCompartidas = computed(() => {
   const grupos = new Map()
 
@@ -283,9 +310,25 @@ const clavesCompartidas = computed(() => {
   return claves
 })
 
+// Genera un color determinístico (hash) por materia+grupo, para que la
+// misma materia siempre tenga el mismo color en toda la tabla/reporte,
+// y así se distingan entre sí aunque compartan la misma carrera.
+function colorMateria(mat) {
+  const key = `${mat.carrera}-${mat.nivel}-${mat.materia}-${mat.grupo}`
+  let hash = 0
+  for (let i = 0; i < key.length; i++) {
+    hash = key.charCodeAt(i) + ((hash << 5) - hash)
+    hash |= 0
+  }
+  const idx = Math.abs(hash) % PALETTE_MATERIA.length
+  return PALETTE_MATERIA[idx]
+}
+
 function colorBloqueHorario(mat, s) {
   const key = `${s.dia}|${s.horario}|${s.ambiente}`
-  return clavesCompartidas.value.has(key) ? COLOR_COMPARTIDO : (colorCarrera(mat.carrera)?.border ?? '#94a3b8')
+  return clavesCompartidas.value.has(key)
+    ? COLOR_COMPARTIDO
+    : colorMateria(mat)
 }
 
 function chMostrada(mat) {

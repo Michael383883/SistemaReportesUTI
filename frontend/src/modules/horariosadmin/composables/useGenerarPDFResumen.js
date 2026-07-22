@@ -4,7 +4,7 @@ import autoTable from 'jspdf-autotable'
 
 const C_BLACK = [0, 0, 0]
 const C_WHITE = [255, 255, 255]
-const C_HEAD_BG = [211, 211, 211]
+const C_HEAD_BG = [240, 240, 240]
 const C_GRAY_LINE = [140, 140, 140]
 const C_ZERO_TEXT = [150, 150, 150]
 
@@ -31,7 +31,7 @@ function planAAbreviacion(plan) {
 function getValorC(mat) {
     const compTexto = mat.COMPARTIDO ?? ''
     const comp = mat.COMP ?? ''
-    
+
     if (compTexto !== '' && String(comp) === '1') return 1
     if (compTexto !== '' && String(comp) === '0') return 0
     if (compTexto === '') return 0
@@ -72,13 +72,13 @@ export function generarPDFResumen(docentes = [], { anio, periodo, modo = 'descar
         doc.setFont('helvetica', 'bold')
         doc.setFontSize(6)
         doc.setTextColor(...C_BLACK)
-        doc.text('UNIVERSIDAD MAYOR DE SAN SIMON', ML, 8)
-        doc.text('FACULTAD DE CIENCIAS ECONOMICAS', ML, 10)
+        doc.text('UNIVERSIDAD MAYOR DE SAN SIMÓN', ML, 8)
+        doc.text('FACULTAD DE CIENCIAS ECONÓMICAS', ML, 10)
 
         doc.setFontSize(12.5)
         doc.text('CARGA HORARIA DOCENTES', PAGE_W / 2, 9, { align: 'center' })
         doc.setFontSize(10.5)
-        doc.text('FACULTAD DE CIENCIAS ECONOMICAS', PAGE_W / 2, 13.5, { align: 'center' })
+        doc.text('FACULTAD DE CIENCIAS ECONÓMICAS', PAGE_W / 2, 13.5, { align: 'center' })
 
         doc.setFont('helvetica', 'bold')
         doc.setFontSize(10)
@@ -104,7 +104,7 @@ export function generarPDFResumen(docentes = [], { anio, periodo, modo = 'descar
             doc.setFont('helvetica', 'normal')
             doc.setFontSize(6.5)
             doc.setTextColor(80, 80, 80)
-            doc.text('Procesado UTI - Facultad de Ciencias Economicas', ML, fy)
+            doc.text('Procesado UTI - Facultad de Ciencias Económicas', ML, fy)
             doc.text(`Página ${i} de ${total}`, PAGE_W / 2, fy, { align: 'center' })
             doc.text(fechaActual, PAGE_W - MR, fy, { align: 'right' })
         }
@@ -120,10 +120,10 @@ export function generarPDFResumen(docentes = [], { anio, periodo, modo = 'descar
             content: `${docente.docente}  ${(docente.apellidos ?? '').toUpperCase()} ${(docente.nombres ?? '').toUpperCase()}`,
             colSpan: 7,
             styles: {
-                fontStyle: 'normal', 
-                fontSize: 8.5, 
+                fontStyle: 'normal',
+                fontSize: 8.5,
                 halign: 'left',
-                fillColor: C_WHITE, 
+                fillColor: C_WHITE,
                 lineWidth: 0,
                 cellPadding: { top: di === 0 ? 1.5 : 3.5, bottom: 1, left: 1.5, right: 1.5 },
             },
@@ -174,7 +174,7 @@ export function generarPDFResumen(docentes = [], { anio, periodo, modo = 'descar
         body.push([
             { content: '', colSpan: 1, styles: { fillColor: C_WHITE, lineWidth: 0 } },
             { content: 'TOTAL', colSpan: 2, styles: { halign: 'right', fontStyle: 'bold', fontSize: 8, fillColor: C_WHITE, lineWidth: 0 } },
-            { content: String(totalCH), colSpan: 1, styles: { halign: 'center', fontStyle: 'bold', fontSize: 8, fillColor: C_WHITE, lineWidth: 0 } },
+            { content: `${totalCH} Mes(${totalCH * 4})`, colSpan: 1, styles: { halign: 'center', fontStyle: 'bold', fontSize: 8, fillColor: C_WHITE, lineWidth: 0 } },
             { content: String(totalInscN), colSpan: 1, styles: { halign: 'center', fontStyle: 'bold', fontSize: 8, fillColor: C_WHITE, lineWidth: 0 } },
             { content: '', colSpan: 1, styles: { fillColor: C_WHITE, lineWidth: 0 } },
             { content: '', colSpan: 1, styles: { fillColor: C_WHITE, lineWidth: 0 } },
@@ -191,24 +191,24 @@ export function generarPDFResumen(docentes = [], { anio, periodo, modo = 'descar
         body,
         alternateRowStyles: { fillColor: C_WHITE },
         styles: {
-            font: 'helvetica', 
+            font: 'helvetica',
             fontSize: 6.5,  //  Reducido para que quepa mejor
             cellPadding: { top: 0.4, bottom: 0.4, left: 1, right: 1 },
-            textColor: C_BLACK, 
-            lineColor: C_GRAY_LINE, 
+            textColor: C_BLACK,
+            lineColor: C_GRAY_LINE,
             lineWidth: 0,
             fillColor: C_WHITE,
-            overflow: 'linebreak', 
+            overflow: 'linebreak',
             valign: 'middle',
         },
         headStyles: {
-            fillColor: C_HEAD_BG, 
-            textColor: C_BLACK, 
+            fillColor: C_HEAD_BG,
+            textColor: C_BLACK,
             fontStyle: 'bold',
             fontSize: 6.5,
             halign: 'center',
             valign: 'middle',
-            lineColor: C_GRAY_LINE, 
+            lineColor: C_GRAY_LINE,
             lineWidth: { top: 0, right: 0, bottom: 0.3, left: 0 },
             cellPadding: { top: 0.6, bottom: 0.6, left: 0.5, right: 0.5 },
         },
@@ -216,8 +216,8 @@ export function generarPDFResumen(docentes = [], { anio, periodo, modo = 'descar
             0: { cellWidth: 16, halign: 'left', cellPadding: { top: 0.3, bottom: 0.3, left: 0.5, right: 0.3 } },  // 🔥 Achicado
             1: { cellWidth: 60, halign: 'left', cellPadding: { top: 0.3, bottom: 0.3, left: 0.3, right: 0.5 } },  // 🔥 Ajustado
             2: { cellWidth: 10, halign: 'center' },
-            3: { cellWidth: 10, halign: 'center' },
-            4: { cellWidth: 14, halign: 'center' },
+            3: { cellWidth: 18, halign: 'center' },
+            4: { cellWidth: 10, halign: 'center' },
             5: { cellWidth: 8, halign: 'center' },
             6: { cellWidth: 'auto', halign: 'left' },
         },
