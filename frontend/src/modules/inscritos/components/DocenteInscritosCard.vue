@@ -32,11 +32,11 @@
       </colgroup>
       <thead>
         <tr class="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
-          <th class="text-left font-medium text-slate-500 dark:text-slate-400 text-xs px-4 py-2">Materia</th>
-          <th class="text-left font-medium text-slate-500 dark:text-slate-400 text-xs px-2 py-2">Área</th>
-          <th class="text-right font-medium text-slate-500 dark:text-slate-400 text-xs px-2 py-2">Regular</th>
-          <th class="text-right font-medium text-slate-500 dark:text-slate-400 text-xs px-2 py-2">Mesa</th>
-          <th class="text-right font-medium text-slate-500 dark:text-slate-400 text-xs px-4 py-2">Total</th>
+          <th class="text-left font-medium text-slate-800 dark:text-slate-400 text-xs px-4 py-2">Materia</th>
+          <th class="text-left font-medium text-slate-800 dark:text-slate-400 text-xs px-2 py-2">Área</th>
+          <th class="text-right font-medium text-slate-800 dark:text-slate-400 text-xs px-2 py-2">Regular</th>
+          <th class="text-right font-medium text-slate-800 dark:text-slate-400 text-xs px-2 py-2">Mesa</th>
+          <th class="text-right font-medium text-slate-800 dark:text-slate-400 text-xs px-4 py-2">Total</th>
         </tr>
       </thead>
       <tbody>

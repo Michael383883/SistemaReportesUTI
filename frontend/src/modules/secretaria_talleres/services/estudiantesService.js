@@ -83,9 +83,12 @@ export const estudiantesService = {
         // (override). Si van null, el backend calcula la gestión actual
         // automáticamente con PeriodoAcademicoService.
         const respuesta = await apiFetch(endpoint, { plan, anio, periodo })
+       
 
         return {
             data: (respuesta.data ?? []).map(normalizarEstudiante),
+            
+
             total: respuesta.total ?? 0,
             // Estos vienen calculados (o confirmados) por el backend en
             // cada respuesta — nunca hardcodeados en el frontend.
@@ -93,6 +96,7 @@ export const estudiantesService = {
             periodo: respuesta.periodo != null ? String(respuesta.periodo) : null,
             automatico: respuesta.automatico ?? true,
         }
+        
     },
 
     // temporal

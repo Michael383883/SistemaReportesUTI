@@ -521,115 +521,17 @@
         </button>
       </div>
 
-      <!-- Tablas segmentadas por materia/grupo -->
-      <div v-else class="space-y-8">
-        <div
-          v-for="(item, key) in gruposPorMateria"
-          :key="key"
-          class="bg-white rounded-2xl shadow-sm ring-1 ring-slate-200 overflow-hidden"
-        >
-
-          <!-- Header del grupo -->
-        <div class="flex items-center justify-between px-6 py-2 bg-slate-800 rounded-t-xl">
-
-        <div class="flex items-center gap-4 text-white">
-
-          <h2 class="font-bold text-SM uppercase">
-           Materia: {{ item.materia }}
-          </h2>
-
-          <span class="text-slate-400">•</span>
-
-          <span class="text-sm text-slate-100">
-            {{ item.docente }}
-          </span>
-
-        </div>
-
-        <div class="flex gap-2">
-
-          <span class="rounded-full bg-slate-700 px-3 py-1 text-xs text-white">
-            Grupo {{ item.grupo }}
-          </span>
-
-          <span class="rounded-full bg-blue-600/20 px-3 py-1 text-xs text-blue-300">
-            Examen Normal
-          </span>
-
-          <span class="rounded-full bg-green-600/20 px-3 py-1 text-xs text-green-300 font-semibold">
-            {{ item.estudiantes.length }} inscritos
-          </span>
-
-        </div>
-
-      </div>
-
-          <!-- Info docente -->
-          
-          <!-- Tabla -->
-          <div class="overflow-x-auto">
-            <table class="w-full text-sm">
-              <thead>
-                <tr class="bg-slate-50 border-b border-slate-100">
-                  <th class="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-6 py-3 w-10">Nro</th>
-                  <th class="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Codigo</th>
-                  <th class="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Nombre</th>
-                  <th class="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Carrera</th>
-                  <th class="text-center text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Contacto</th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-slate-50">
-                <tr
-                  v-for="(est, idx) in item.estudiantes"
-                  :key="est.cod_estudiante"
-                  class="hover:bg-blue-50/40 transition-colors group"
-                >
-                  <!-- Nro° -->
-                  <td class="px-6 py-3 text-slate-800 text-xs">{{ idx + 1 }}</td>
-
-                  <!-- Codigo -->
-                  <td class="px-6 py-3 text-slate-800 font-medium">{{ est.codigo }}</td>
-                  
-
-                  <!-- Nombre -->
-                  <td class="px-4 py-3">
-                    <div class="flex items-center gap-2.5">
-                      
-                     <span class="text-slate-800 font-medium">{{ est.nom_estudiante }}</span>
-                      
-                    </div>
-                  </td>
-
-                  <!-- Carrera (badge abreviado) -->
-                  <td class="px-4 py-3">
-                    <span
-                      :class="colorPlan(est.plan)"
-                      class="inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap"
-                    >
-                      {{ abreviarPlan(est.plan) }}
-                    </span>
-                  </td>
-
-                  
-                  <!-- Contacto -->
-                  <td class="px-4 py-3 text-center">
-                    <button
-                      @click="verContacto(est)"
-                      class="inline-flex items-center gap-1 rounded-lg bg-blue-800 hover:bg-blue-800 active:bg-blue-700 text-white text-xs font-semibold px-3 py-1.5 transition-colors shadow-sm"
-                      title="Ver tarjeta de contacto"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0" />
-                      </svg>
-                      Ver
-                    </button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-        </div>
+      <!-- Tarjetas agrupadas por DOCENTE (cada una despliega sus materias, y cada materia despliega sus estudiantes) -->
+      <div v-else class="space-y-6">
+        <GrupoDocenteCard
+          v-for="grupo in gruposPorDocente"
+          :key="grupo.docente"
+          :docente="grupo.docente"
+          :cod_docente="grupo.cod_docente"
+          :materias="grupo.materias"
+          :total-estudiantes="grupo.totalEstudiantes"
+          @ver-contacto="verContacto"
+        />
       </div>
     </div>
 
@@ -651,15 +553,17 @@ import { ref, reactive, computed, onMounted, watch } from 'vue'
 
 import estudiantesService, { PLANES } from '../services/estudiantesService'
 import ContactoEstudianteCard from '../components/ContactoEstudianteCard.vue'
+import GrupoDocenteCard from '../components/GrupoDocenteCard.vue'
 import { exportarExcelNormal, exportarExcelDetalle } from '../services/exportExcelService'
 import { generarReporteInscritos } from '../services/reporteInscritosService'
+import { abreviarPlan, colorPlan } from '../components/utils/planStyles'
 
 // ─────────────────────────────────────────────
 // Estado
 // ─────────────────────────────────────────────
 const cargando               = ref(false)
 const estudiantes            = ref([])
-const materias               = ref([])
+const materias                = ref([])
 const modalVisible           = ref(false)
 const estudianteSeleccionado = ref({})
 const contactoData           = ref(null)
@@ -688,11 +592,10 @@ const gestionEsAutomatica = ref(true)
 const PERIODOS = {
   '1': 'I',
   '2': 'II',
-  
 }
 
 // Rango razonable de años para el selector (año actual del navegador
-// como techo, unos años atrás como piso). 
+// como techo, unos años atrás como piso).
 const aniosDisponibles = computed(() => {
   const actual = new Date().getFullYear()
   const desde = actual - 5
@@ -741,21 +644,51 @@ const estudiantesFiltrados = computed(() => {
 // búsqueda; esto es antes de aplicar el filtro de texto/grupo).
 const sinDatosDeGestion = computed(() => !cargando.value && estudiantes.value.length === 0)
 
-const gruposPorMateria = computed(() => {
-  return estudiantesFiltrados.value.reduce((acc, est) => {
-    const key = `${est.materia}_${est.grupo}`
-    if (!acc[key]) {
-      acc[key] = {
-        materia:       est.nom_materia,
-        codigoMateria: est.materia,
-        grupo:         est.grupo,
-        docente:       est.docente,
-        estudiantes:   [],
+// ─────────────────────────────────────────────
+// NUEVO: agrupación por DOCENTE → materias → estudiantes.
+// Reemplaza al antiguo `gruposPorMateria` (plano, sin agrupar por
+// docente). Cada docente puede tener varias materias/grupos, y cada
+// materia tiene su propia lista de estudiantes.
+// ─────────────────────────────────────────────
+const gruposPorDocente = computed(() => {
+  const acc = {}
+
+  estudiantesFiltrados.value.forEach(est => {
+    const docenteKey = est.docente || 'Sin docente asignado'
+
+    if (!acc[docenteKey]) {
+        acc[docenteKey] = {
+          docente: est.docente,
+          cod_docente: est.cod_docente,
+          materiasMap: {},
+        }
       }
+    const materiaKey = `${est.materia}_${est.grupo}`
+    if (!acc[docenteKey].materiasMap[materiaKey]) {
+      acc[docenteKey].materiasMap[materiaKey] = {
+      plan:          est.plan,
+      materia:       est.nom_materia,
+      codigoMateria: est.materia,
+      grupo:         est.grupo,
+      estudiantes:   [],
     }
-    acc[key].estudiantes.push(est)
-    return acc
-  }, {})
+    }
+
+    acc[docenteKey].materiasMap[materiaKey].estudiantes.push(est)
+  })
+
+  return Object.values(acc)
+    .map(grupo => {
+      const materiasArr = Object.values(grupo.materiasMap)
+      return {
+        docente: grupo.docente,
+        cod_docente: grupo.cod_docente,
+        materias: materiasArr,
+        totalEstudiantes: materiasArr.reduce((sum, m) => sum + m.estudiantes.length, 0),
+      }
+    })
+    // opcional: ordenar por docente alfabéticamente
+    .sort((a, b) => (a.docente || '').localeCompare(b.docente || ''))
 })
 
 const filtrosActivos = computed(() => {
@@ -840,28 +773,6 @@ const volverAGestionActual = () => {
   gestionEsAutomatica.value = true
   cargarEstudiantes()
 }
-
-// ─────────────────────────────────────────────
-// Helpers UI
-// ─────────────────────────────────────────────
-const ABREVS = {
-  '109401': 'Adm. Empresas',
-  '125091': 'Ing. Comercial',
-  '089801': 'Cont. Pública',
-  '126091': 'Ing. Financiera',
-  '059801': 'Economía',
-}
-
-const COLORES = {
-  '109401': 'bg-blue-100 text-blue-700',
-  '125091': 'bg-emerald-100 text-emerald-700',
-  '089801': 'bg-orange-100 text-orange-700',
-  '126091': 'bg-violet-100 text-violet-700',
-  '059801': 'bg-rose-100 text-rose-700',
-}
-
-const abreviarPlan = plan => ABREVS[plan] || plan
-const colorPlan    = plan => COLORES[plan] || 'bg-slate-100 text-slate-700'
 
 // ─────────────────────────────────────────────
 // Acciones – filtros
