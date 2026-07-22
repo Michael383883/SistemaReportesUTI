@@ -521,8 +521,9 @@ async function handleCargaInicialTodas() {
 const currentYear = new Date().getFullYear().toString()
 const anio = ref(currentYear)
 const periodo = ref('1')
-const semestreValido = computed(() => /^\d{4}$/.test(anio.value) && (periodo.value === '1' || periodo.value === '2'))
-
+const semestreValido = computed(() =>
+  /^\d{4}$/.test(anio.value) && ['1', '2', '3', '4'].includes(periodo.value)
+)
 const syncingGrupos = ref(false)
 const grupoResult = ref(null)
 const grupoError = ref(null)

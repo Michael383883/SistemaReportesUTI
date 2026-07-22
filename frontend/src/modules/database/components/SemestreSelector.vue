@@ -26,7 +26,9 @@
                focus:border-indigo-400/60 focus:ring-1 focus:ring-indigo-400/40"
       >
         <option value="1">1</option>
-        <option value="2">2</option>
+<option value="2">2</option>
+<option value="3">3</option>
+<option value="4">4</option>
       </select>
     </div>
   </div>
