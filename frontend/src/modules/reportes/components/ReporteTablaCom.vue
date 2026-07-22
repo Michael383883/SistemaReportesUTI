@@ -18,13 +18,14 @@
         </thead>
         <tbody>
           <tr
-            v-for="({ principal: m, hermanas }, i) in filasAgrupadas"
-            :key="m.nro"
+            v-for="({ nro, principal: m, hermanas }, i) in filasAgrupadas"
+  :key="m.nro"
             class="border-b border-slate-700/60 transition-colors hover:bg-white/[0.025]"
             :class="i % 2 === 0 ? 'bg-transparent' : 'bg-slate-900/20'"
           >
             <!-- Nº -->
-            <td class="pl-3 pr-1.5 py-3 text-slate-500 font-medium text-[13px] tabular-nums">{{ m.nro }}</td>
+            
+            <td class="pl-3 pr-1.5 py-3 text-slate-500 font-medium text-[13px] tabular-nums">{{ nro }}</td>
 
             <!-- Gestión -->
             <td class="pl-1.5 pr-2 py-3">
@@ -174,17 +175,25 @@ function norm(v) {
   return String(v).trim()
 }
 
-// ── Agrupa materias compartidas: la hija (comp = '1') no se muestra
-// como fila propia, se cuelga como "hermana" dentro de la fila del
-// padre (comp = '0'). Se agrupa por orden_comparte + gestión, porque
-// el mismo código de orden_comparte (ej. 'M1') se repite en TODAS las
-// gestiones para ese par de materias — sin escoparlo por gestión, al
-// ver el listado completo (sin filtro de año) el Map mezcla índices
-// de distintos años y arma parejas incorrectas. ─────────────────────
+// ── Agrupa materias compartidas: la hija no se muestra como fila
+// propia, se cuelga como "hermana" dentro de la fila del padre.
+//
+// PASO 1 — Semestre regular (1 y 2): usa la tabla GRUPOS_COMPARTIDOS
+// (comp='0' padre, comp='1' hija), agrupado por orden_comparte+gestión
+// porque el mismo código orden_comparte (ej. 'M1') se repite en TODAS
+// las gestiones para ese par de materias — sin escoparlo por gestión,
+// el Map mezcla índices de distintos años y arma parejas incorrectas.
+//
+// PASO 2 — Verano/Invierno (3 y 4): no hay orden_comparte ahí, así que
+// se agrupa por gestión. El flag compartido="COMPARTIDO" marca a la
+// HIJA (grupo derivado, numerado >30), el padre es la fila normal sin
+// ese flag. Como el docente dicta una sola materia por gestión en
+// verano/invierno, todo lo que cae en la misma gestión y no fue
+// resuelto en el PASO 1 pertenece al mismo grupo compartido. ────────
 const filasAgrupadas = computed(() => {
   const materias = props.materias ?? []
 
-  // Agrupa índices por clave = orden_comparte + gestión
+  // ── PASO 1: compartidos de semestre regular (1 y 2) ──
   const porClave = new Map()
   materias.forEach((m, idx) => {
     const orden = norm(m.orden_comparte)
@@ -194,9 +203,7 @@ const filasAgrupadas = computed(() => {
     porClave.get(clave).push(idx)
   })
 
-  // Para cada materia "padre" (comp = '0') busca sus hermanas dentro
-  // de la misma clave (mismo orden_comparte + misma gestión)
-  const hermanasDe = new Map()          // idx del padre → [idx hermanas]
+  const hermanasDe = new Map()
   const usadaComoHermana = new Array(materias.length).fill(false)
 
   for (const [, indices] of porClave) {
@@ -205,11 +212,9 @@ const filasAgrupadas = computed(() => {
     const derivadas = indices.filter(i => norm(materias[i].comp) === '1')
 
     if (origenes.length === 1 && derivadas.length >= 1) {
-      // Un solo padre puede tener varias hijas (comparte con más de un plan)
       hermanasDe.set(origenes[0], derivadas)
       derivadas.forEach(i => { usadaComoHermana[i] = true })
     } else {
-      // Fallback: varios padres/hijas en la misma clave, emparejar 1 a 1
       const pares = Math.min(origenes.length, derivadas.length)
       for (let p = 0; p < pares; p++) {
         hermanasDe.set(origenes[p], [derivadas[p]])
@@ -218,12 +223,43 @@ const filasAgrupadas = computed(() => {
     }
   }
 
-  // Recorre el array en su orden ORIGINAL (por nro) y arma las filas,
-  // colgando las hermanas en la fila del padre sin mover nada de lugar.
+
+  // ── PASO 2: compartidos de verano/invierno (3 y 4) ──
+// El flag compartido="COMPARTIDO" marca al PADRE (fila propia).
+// La otra materia de la misma gestión, sin ese flag, es su HIJA
+// (se cuelga en "Comparte" y no tiene fila propia).
+const esCompartido = (m) => norm(m.compartido) === 'COMPARTIDO'
+
+const porGestionVI = new Map()
+materias.forEach((m, idx) => {
+  if (usadaComoHermana[idx] || hermanasDe.has(idx)) return
+  if (norm(m.orden_comparte)) return // ya resuelto en el PASO 1
+  const esVI = norm(m.gestion).includes('Verano') || norm(m.gestion).includes('Invierno')
+  if (!esVI) return
+  const clave = norm(m.gestion)
+  if (!porGestionVI.has(clave)) porGestionVI.set(clave, [])
+  porGestionVI.get(clave).push(idx)
+})
+
+for (const [, indices] of porGestionVI) {
+  if (indices.length < 2) continue
+  const padres = indices.filter(i =>  esCompartido(materias[i]))   // CON flag → padre
+  const hijas  = indices.filter(i => !esCompartido(materias[i]))   // SIN flag → hijo
+
+  if (padres.length === 1 && hijas.length >= 1) {
+    hermanasDe.set(padres[0], hijas)
+    hijas.forEach(i => { usadaComoHermana[i] = true })
+  }
+}
+  // ── PASO 3: arma las filas finales, en orden original (por nro) ──
+  // ── PASO 3: arma las filas finales, en orden original, renumeradas ──
   const filas = []
+  let contador = 0
   materias.forEach((m, idx) => {
     if (usadaComoHermana[idx]) return // ya va colgada de su padre, no es fila propia
+    contador++
     filas.push({
+      nro: contador,              // ← numeración correlativa real
       principal: m,
       hermanas: (hermanasDe.get(idx) || []).map(i => materias[i]),
     })
@@ -231,6 +267,7 @@ const filasAgrupadas = computed(() => {
 
   return filas
 })
+
 
 async function verPdfConFallback(nro, descargar) {
   try {
@@ -281,12 +318,13 @@ const tipoGestion = (gestion) => {
 }
 
 const GRP_MAP = {
-  '059801': { label: 'CON', class: 'bg-violet-500/15 text-violet-300', dot: 'bg-violet-400' },
+  '059801': { label: 'CCP', class: 'bg-violet-500/15 text-violet-300', dot: 'bg-violet-400' },
   '109401': { label: 'ADM', class: 'bg-blue-500/15 text-blue-300',     dot: 'bg-blue-400'   },
   '125091': { label: 'COM', class: 'bg-green-500/15 text-green-300',   dot: 'bg-green-400'  },
   '126091': { label: 'FIN', class: 'bg-teal-500/15 text-teal-300',     dot: 'bg-teal-400'   },
   '089801': { label: 'ECO', class: 'bg-amber-500/15 text-amber-300',   dot: 'bg-amber-400'  },
 }
+
 
 const tipoGrp = (plan) =>
   GRP_MAP[plan] ?? { label: plan, class: 'bg-slate-700/60 text-slate-300', dot: 'bg-slate-400' }

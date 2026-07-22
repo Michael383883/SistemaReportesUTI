@@ -123,7 +123,7 @@ export function useReporteCom() {
             }
 
             const response = await axios.post(
-                `${API_BASE}/api/reporte-docente`,
+                `${API_BASE}/api/reporte-docente2`,
                 payload,
                 { headers: { Authorization: `Bearer ${token}` } }
             )

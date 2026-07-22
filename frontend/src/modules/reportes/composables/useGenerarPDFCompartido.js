@@ -20,7 +20,7 @@ function norm(v) {
 
 // ── Mapa de códigos de plan ──────────────────────────────────────────────────
 const PLAN_MAP = {
-    '089801': 'CON',
+    '089801': 'CCP',
     '109401': 'ADM',
     '125091': 'COM',
     '126091': 'FIN',
@@ -28,9 +28,18 @@ const PLAN_MAP = {
 }
 
 // ── Agrupa materias compartidas ──────────────────────────────────────────────
+//
+// PASO 1 — Semestre regular (1 y 2): usa la tabla GRUPOS_COMPARTIDOS
+// (comp='0' padre, comp='1' hija), agrupado por orden_comparte+gestión.
+//
+// PASO 2 — Verano/Invierno (3 y 4): no hay orden_comparte ahí, así que
+// se agrupa por gestión. El flag compartido="COMPARTIDO" marca al PADRE
+// (fila propia); la otra materia de la misma gestión, sin ese flag, es
+// su HIJA (se cuelga en "Comparte", sin fila propia).
 function agruparCompartidas(materias) {
     const lista = materias || []
 
+    // ── PASO 1: compartidos de semestre regular (1 y 2) ──
     const porClave = new Map()
     lista.forEach((m, idx) => {
         const orden = norm(m.orden_comparte)
@@ -60,6 +69,32 @@ function agruparCompartidas(materias) {
         }
     }
 
+    // ── PASO 2: compartidos de verano/invierno (3 y 4) ──
+    const esCompartido = (m) => norm(m.compartido) === 'COMPARTIDO'
+
+    const porGestionVI = new Map()
+    lista.forEach((m, idx) => {
+        if (usadaComoHermana[idx] || hermanasDe.has(idx)) return
+        if (norm(m.orden_comparte)) return // ya resuelto en el PASO 1
+        const esVI = norm(m.gestion).includes('Verano') || norm(m.gestion).includes('Invierno')
+        if (!esVI) return
+        const clave = norm(m.gestion)
+        if (!porGestionVI.has(clave)) porGestionVI.set(clave, [])
+        porGestionVI.get(clave).push(idx)
+    })
+
+    for (const [, indices] of porGestionVI) {
+        if (indices.length < 2) continue
+        const padres = indices.filter((i) => esCompartido(lista[i]))   // CON flag → padre
+        const hijas = indices.filter((i) => !esCompartido(lista[i]))   // SIN flag → hijo
+
+        if (padres.length === 1 && hijas.length >= 1) {
+            hermanasDe.set(padres[0], hijas)
+            hijas.forEach((i) => { usadaComoHermana[i] = true })
+        }
+    }
+
+    // ── PASO 3: arma las filas finales, en orden original ──
     const filas = []
     lista.forEach((m, idx) => {
         if (usadaComoHermana[idx]) return
@@ -86,9 +121,9 @@ function formatComparte(hermanas) {
             // Formato: "1302196 ADMINISTRACION FINANCIERA II (FIN - G) - G"
             let resultado = ''
             if (plan) {
-                resultado += ` (${plan}`
+                resultado += `${plan}`
                 if (nivel) resultado += ` - ${nivel}`
-                resultado += ')'
+                resultado += '-'
             }
             if (codigo) resultado += `${codigo} `
             resultado += materia
@@ -112,15 +147,15 @@ export function generarPDFCompartido(reporte, opts = {}) {
     const CONTENT_W = PAGE_W - MARGIN_L - MARGIN_R
 
     const COLOR_BLACK = [0, 0, 0]
-    const COLOR_GRAY_BG = [218, 218, 218]
+    const COLOR_GRAY_BG = [240, 240, 240]
     const COLOR_ROW_LINE = [170, 170, 170]
 
     function drawHeader() {
         doc.setFont('helvetica', 'bold')
         doc.setFontSize(5.5)
         doc.setTextColor(...COLOR_BLACK)
-        doc.text('UNIVERSIDAD MAYOR DE SAN SIMON', MARGIN_L, 8)
-        doc.text('FACULTAD DE CIENCIAS ECONOMICAS', MARGIN_L, 6)
+        doc.text('UNIVERSIDAD MAYOR DE SAN SIMÓN', MARGIN_L, 8)
+        doc.text('FACULTAD DE CIENCIAS ECONÓMICAS', MARGIN_L, 6)
 
         doc.setFontSize(11)
         doc.text('MATERIAS DICTADAS DE UN DOCENTE ', PAGE_W / 2, 12, { align: 'center' })
@@ -133,7 +168,7 @@ export function generarPDFCompartido(reporte, opts = {}) {
         doc.setFontSize(6.5)
         doc.setTextColor(40, 40, 40)
         const descripcion =
-            'Datos Históricos pertenecientes a la Facultad de Ciencias Económicas registrados en el SISS ' +
+            'Datos históricos pertenecientes a la Facultad de Ciencias Económicas registrados en el SISS ' +
             'a partir de la gestión 2001. Esta versión agrupa cada materia con los planes/grupos con los ' +
             'que comparte grupo, mostrados en la columna "Comparte".'
         const descLines = doc.splitTextToSize(descripcion, CONTENT_W)
@@ -216,11 +251,11 @@ export function generarPDFCompartido(reporte, opts = {}) {
 
         columnStyles: {
             0: { cellWidth: 7, halign: 'center' },
-            1: { cellWidth: 14, halign: 'center' },
+            1: { cellWidth: 22, halign: 'center' },
             2: { cellWidth: 10, halign: 'center' },
-            3: { cellWidth: 35, halign: 'left' },
+            3: { cellWidth: 45, halign: 'left' },
             4: { cellWidth: 8, halign: 'center' },
-            5: { cellWidth: 53, halign: 'left' },
+            5: { cellWidth: 43, halign: 'left' },
             6: { cellWidth: 18, halign: 'left' },
             7: { cellWidth: 'auto', halign: 'left' },
         },

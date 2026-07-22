@@ -47,9 +47,9 @@
             <!-- Materia -->
             <td class="px-4 py-3 text-slate-200 font-medium">{{ m.materia }}</td>
 
-            <!-- Compartido -->
+            <!-- Compartido: se marca solo si esta fila fue detectada como HIJA -->
             <td class="px-4 py-3">
-              <span v-if="m.compartido"
+              <span v-if="hijasIndices.has(i)"
                     class="inline-flex items-center px-2 py-0.5 rounded text-[0.68rem] font-semibold bg-violet-500/15 text-violet-300">
                 Compartido
               </span>
@@ -142,7 +142,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useReporte } from '../composables/useReporte'
 import { useReporteClasificacion } from '../composables/useReporteClasificacion'
 
@@ -155,6 +155,83 @@ const { verPdfResolucion } = useReporte()
 const { verPdfClasificacion } = useReporteClasificacion()
 
 const loadingPdf = ref({})
+
+function norm(v) {
+  if (v === null || v === undefined) return ''
+  return String(v).trim()
+}
+
+// ── Detecta qué filas son "hijas" (compartidas) para marcarlas con
+// el badge "Compartido", SIN quitarlas de la tabla ni agruparlas.
+//
+// PASO 1 — Semestre regular (1 y 2): tabla GRUPOS_COMPARTIDOS
+// (comp='0' padre, comp='1' hija), agrupado por orden_comparte+gestión
+// (el mismo orden_comparte se repite en varias gestiones, así que se
+// escopa por gestión para no mezclar años distintos).
+//
+// PASO 2 — Verano/Invierno (3 y 4): no hay orden_comparte, se agrupa
+// por gestión. El flag compartido="COMPARTIDO" marca al PADRE; la
+// otra materia de la misma gestión, sin ese flag, es la HIJA. ──────
+const hijasIndices = computed(() => {
+  const materias = props.materias ?? []
+  const hijas = new Set()
+
+  // ── PASO 1: compartidos de semestre regular (1 y 2) ──
+  const porClave = new Map()
+  materias.forEach((m, idx) => {
+    const orden = norm(m.orden_comparte)
+    if (!orden) return
+    const clave = `${orden}__${norm(m.gestion)}`
+    if (!porClave.has(clave)) porClave.set(clave, [])
+    porClave.get(clave).push(idx)
+  })
+
+  const resueltoEnPaso1 = new Array(materias.length).fill(false)
+
+  for (const [, indices] of porClave) {
+    if (indices.length < 2) continue
+    const origenes = indices.filter(i => norm(materias[i].comp) === '0')
+    const derivadas = indices.filter(i => norm(materias[i].comp) === '1')
+
+    if (origenes.length === 1 && derivadas.length >= 1) {
+      derivadas.forEach(i => { hijas.add(i); resueltoEnPaso1[i] = true })
+      resueltoEnPaso1[origenes[0]] = true
+    } else {
+      const pares = Math.min(origenes.length, derivadas.length)
+      for (let p = 0; p < pares; p++) {
+        hijas.add(derivadas[p])
+        resueltoEnPaso1[derivadas[p]] = true
+        resueltoEnPaso1[origenes[p]] = true
+      }
+    }
+  }
+
+  // ── PASO 2: compartidos de verano/invierno (3 y 4) ──
+  const esCompartido = (m) => norm(m.compartido) === 'COMPARTIDO'
+
+  const porGestionVI = new Map()
+  materias.forEach((m, idx) => {
+    if (resueltoEnPaso1[idx]) return
+    if (norm(m.orden_comparte)) return // ya resuelto en el PASO 1
+    const esVI = norm(m.gestion).includes('Verano') || norm(m.gestion).includes('Invierno')
+    if (!esVI) return
+    const clave = norm(m.gestion)
+    if (!porGestionVI.has(clave)) porGestionVI.set(clave, [])
+    porGestionVI.get(clave).push(idx)
+  })
+
+  for (const [, indices] of porGestionVI) {
+    if (indices.length < 2) continue
+    const padres = indices.filter(i => esCompartido(materias[i]))   // CON flag → padre
+    const hijasVI = indices.filter(i => !esCompartido(materias[i])) // SIN flag → hijo
+
+    if (padres.length === 1 && hijasVI.length >= 1) {
+      hijasVI.forEach(i => hijas.add(i))
+    }
+  }
+
+  return hijas
+})
 
 async function verPdfConFallback(nro, descargar) {
   try {
@@ -205,7 +282,7 @@ const tipoGestion = (gestion) => {
 }
 
 const GRP_MAP = {
-  '059801': { label: 'CON', class: 'bg-violet-500/15 text-violet-300', dot: 'bg-violet-400' },
+  '059801': { label: 'CCP', class: 'bg-violet-500/15 text-violet-300', dot: 'bg-violet-400' },
   '109401': { label: 'ADM', class: 'bg-blue-500/15 text-blue-300',     dot: 'bg-blue-400'   },
   '125091': { label: 'COM', class: 'bg-green-500/15 text-green-300',   dot: 'bg-green-400'  },
   '126091': { label: 'FIN', class: 'bg-teal-500/15 text-teal-300',     dot: 'bg-teal-400'   },
