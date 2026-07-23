@@ -289,6 +289,50 @@
 
               <div class="border-t border-slate-100 mx-4"></div>
 
+
+<div class="px-4 pt-3 pb-1">
+  <p class="text-[0.65rem] font-semibold tracking-widest uppercase text-slate-400">
+    Aprobados y reprobados Completo
+  </p>
+</div>
+
+<!-- Ver PDF Aprobados/Reprobados Resumidos -->
+<button
+  @click="generarPDFAprobadosResumido('ver'); mostrarMenuPdf = false"
+  :disabled="generandoAprobadosResumido"
+  class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700
+         hover:bg-slate-50 transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed"
+>
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+       stroke-width="2" class="text-slate-400 shrink-0">
+    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+    <circle cx="12" cy="12" r="3" />
+  </svg>
+  <div>
+    <div class="font-medium leading-tight">Ver PDF Aprobados y Reprobados Completo</div>
+    <div class="text-xs text-slate-400 mt-0.5">Abrir en nueva pestaña</div>
+  </div>
+</button>
+
+<!-- Descargar PDF Aprobados/Reprobados Resumidos -->
+<button
+  @click="generarPDFAprobadosResumido('descargar'); mostrarMenuPdf = false"
+  :disabled="generandoAprobadosResumido"
+  class="w-full flex items-center gap-3 px-4 py-2.5 pb-3 text-sm text-slate-700
+         hover:bg-slate-50 transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed"
+>
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+       stroke-width="2" class="text-slate-400 shrink-0">
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+    <polyline points="7 10 12 15 17 10" />
+    <line x1="12" y1="15" x2="12" y2="3" />
+  </svg>
+  <div>
+    <div class="font-medium leading-tight">Descargar PDF Aprobados y Reprobados Completo</div>
+    <div class="text-xs text-slate-400 mt-0.5">Guardar en tu equipo</div>
+  </div>
+</button>
+
               <!-- Resumen de totales -->
               <div class="px-4 pt-3 pb-1">
                 <p class="text-[0.65rem] font-semibold tracking-widest uppercase text-slate-400">
@@ -316,7 +360,7 @@
               <!-- Descargar PDF Totales -->
               <button
                 @click="generarPDFTotales('descargar'); mostrarMenuPdf = false"
-                class="w-full flex items-center gap-3 px-4 py-2.5 pb-3 text-sm text-slate-700
+                class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700
                        hover:bg-slate-50 transition-colors text-left"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -327,6 +371,52 @@
                 </svg>
                 <div>
                   <div class="font-medium leading-tight">Descargar PDF Totales</div>
+                  <div class="text-xs text-slate-400 mt-0.5">Guardar en tu equipo</div>
+                </div>
+              </button>
+
+              <div class="border-t border-slate-100 mx-4"></div>
+
+              <!-- Aprobados y reprobados -->
+              <div class="px-4 pt-3 pb-1">
+                <p class="text-[0.65rem] font-semibold tracking-widest uppercase text-slate-400">
+                  Aprobados y reprobados resumido
+                </p>
+              </div>
+
+              <!-- Ver PDF Aprobados/Reprobados -->
+              <button
+                @click="generarPDFAprobados('ver'); mostrarMenuPdf = false"
+                :disabled="generandoAprobados"
+                class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700
+                       hover:bg-slate-50 transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2" class="text-slate-400 shrink-0">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+                <div>
+                  <div class="font-medium leading-tight">Ver PDF Aprobados y Reprobados resumido </div>
+                  <div class="text-xs text-slate-400 mt-0.5">Abrir en nueva pestaña</div>
+                </div>
+              </button>
+
+              <!-- Descargar PDF Aprobados/Reprobados -->
+              <button
+                @click="generarPDFAprobados('descargar'); mostrarMenuPdf = false"
+                :disabled="generandoAprobados"
+                class="w-full flex items-center gap-3 px-4 py-2.5 pb-3 text-sm text-slate-700
+                       hover:bg-slate-50 transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2" class="text-slate-400 shrink-0">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+                <div>
+                  <div class="font-medium leading-tight">Descargar PDF Aprobados y Reprobados resumido </div>
                   <div class="text-xs text-slate-400 mt-0.5">Guardar en tu equipo</div>
                 </div>
               </button>
@@ -413,6 +503,11 @@ import DocenteInscritosCard from '../components/DocenteInscritosCard.vue'
 import { useInscritos } from '../composables/useInscritos'
 import { useReporteInscritosLista } from '../composables/useReporteInscritosLista'
 import { useReporteInscritosTotales } from '../composables/useReporteInscritosTotales'
+import { useInscritosAprobados } from '../composables/useInscritosAprobados'
+import { useReporteAprobadosReprobados } from '../composables/useReporteAprobadosReprobados'
+
+import { useResumenPorGrupo } from '../composables/useResumenPorGrupo'
+import { useReporteAprobadosReprobadosResumido } from '../composables/useReporteAprobadosReprobadosResumido'
 
 // ─── Áreas disponibles (deben coincidir con el CASE de PLAN->CARRERA del backend) ───
 const AREAS = [
@@ -426,6 +521,13 @@ const AREAS = [
 const { data, loading, error, fetchInscritos } = useInscritos()
 const { generandoLista, exportarListaCompleta } = useReporteInscritosLista()
 const { generandoResumen, exportarResumenTotales } = useReporteInscritosTotales()
+//ap
+const { data: dataResumenGrupo, fetchResumenPorGrupo } = useResumenPorGrupo()
+const { generandoAprobadosResumido, exportarAprobadosReprobadosResumido } = useReporteAprobadosReprobadosResumido()
+
+// Datos y reporte de aprobados/reprobados (fetch propio, endpoint distinto)
+const { data: dataAprobados, fetchAprobadosReprobados } = useInscritosAprobados()
+const { generandoAprobados, exportarAprobadosReprobados } = useReporteAprobadosReprobados()
 
 const filtros = ref({
   anio: new Date().getFullYear(),
@@ -443,8 +545,9 @@ const areaDropdownRef = ref(null)
 const yaSeBusco = ref(false)
 const ultimaBusquedaFueDocente = ref(false)
 
-const loadingPdf = computed(() => generandoLista.value || generandoResumen.value)
-
+const loadingPdf = computed(() =>
+  generandoLista.value || generandoResumen.value || generandoAprobados.value || generandoAprobadosResumido.value
+)
 // Texto resumen del botón: "Todas las áreas" / "ADM" / "ADM, FIN" / "3 áreas seleccionadas"
 const areaLabelResumen = computed(() => {
   const sel = filtros.value.area
@@ -453,7 +556,7 @@ const areaLabelResumen = computed(() => {
   return `${sel.length} áreas seleccionadas`
 })
 
-// ─── Filtra por una o varias áreas ───────────────────────────────────────
+// ─── Filtra por una o varias áreas (lista de inscritos) ──────────────────
 const dataFiltrada = computed(() => {
   if (filtros.value.area.length === 0) return data.value
 
@@ -477,6 +580,32 @@ const dataFiltrada = computed(() => {
     .filter(Boolean)
 })
 
+// ─── Filtra por una o varias áreas (aprobados/reprobados) ────────────────
+const dataAprobadosFiltrada = computed(() => {
+  if (filtros.value.area.length === 0) return dataAprobados.value
+
+  return dataAprobados.value
+    .map(docente => {
+      const carrerasFiltradas = docente.carreras.filter(
+        c => filtros.value.area.includes(c.carrera)
+      )
+      if (carrerasFiltradas.length === 0) return null
+
+      const total_inscritos = carrerasFiltradas.reduce((s, c) => s + (c.subtotal_inscritos ?? 0), 0)
+      const total_aprobados = carrerasFiltradas.reduce((s, c) => s + (c.subtotal_aprobados ?? 0), 0)
+      const total_reprobados = carrerasFiltradas.reduce((s, c) => s + (c.subtotal_reprobados ?? 0), 0)
+
+      return {
+        ...docente,
+        carreras: carrerasFiltradas,
+        total_inscritos,
+        total_aprobados,
+        total_reprobados,
+      }
+    })
+    .filter(Boolean)
+})
+
 const totalGlobal = computed(() =>
   dataFiltrada.value.reduce((s, d) => s + (d.total_inscritos ?? 0), 0)
 )
@@ -487,6 +616,43 @@ const fechaActual = computed(() =>
     hour: '2-digit', minute: '2-digit',
   })
 )
+
+
+// ─── Aprobados/Reprobados Completo (detalle plano por grupo) ────────────
+async function generarPDFAprobadosResumido(modo = 'descargar') {
+  mostrarMenuPdf.value = false
+  let ventana = null
+  if (modo === 'ver') ventana = window.open('', '_blank')
+
+  await fetchResumenPorGrupo(filtros.value.anio, filtros.value.periodo)
+
+  let filas = dataResumenGrupo.value
+
+  // Filtro de área (client-side, porque este endpoint no lo soporta en backend)
+  if (filtros.value.area.length > 0) {
+    filas = filas.filter(f => filtros.value.area.includes(f.CARRERA))
+  }
+
+  // Filtro de búsqueda de docente
+  const q = busqueda.value.trim()
+  if (q) {
+    if (/^\d+$/.test(q)) {
+      filas = filas.filter(f => String(f.COD_DOCENTE) === q) // 👈 verificá el nombre real del campo
+    } else {
+      filas = filas.filter(f =>
+        (f.NOMBRE_DOCENTE ?? '').toLowerCase().includes(q.toLowerCase())
+      )
+    }
+  }
+
+  await exportarAprobadosReprobadosResumido(
+    filas,
+    filtros.value.anio,
+    filtros.value.periodo,
+    modo,
+    ventana
+  )
+}
 
 // Cierra ambos menús al hacer click fuera
 function onClickFuera(e) {
@@ -532,4 +698,36 @@ async function generarPDFTotales(modo = 'descargar') {
   if (modo === 'ver') ventana = window.open('', '_blank')
   await exportarResumenTotales(dataFiltrada.value, filtros.value.anio, filtros.value.periodo, modo, ventana)
 }
+
+// ─── Aprobados/Reprobados resumido (matriz docente x carrera) ───────────
+async function generarPDFAprobados(modo = 'descargar') {
+  mostrarMenuPdf.value = false
+  let ventana = null
+  if (modo === 'ver') ventana = window.open('', '_blank')
+
+  await fetchAprobadosReprobados(filtros.value.anio, filtros.value.periodo)
+
+  // Aplica el mismo filtro de búsqueda que usa handleBuscar
+  const q = busqueda.value.trim()
+  if (q) {
+    if (/^\d+$/.test(q)) {
+      dataAprobados.value = dataAprobados.value.filter(d => d.cod_docente === q)
+    } else {
+      dataAprobados.value = dataAprobados.value.filter(d =>
+        `${d.apellidos} ${d.nombres}`.toLowerCase().includes(q.toLowerCase())
+      )
+    }
+  }
+
+  await exportarAprobadosReprobados(
+    dataAprobadosFiltrada.value, // ya filtra por área
+    filtros.value.anio,
+    filtros.value.periodo,
+    modo,
+    ventana
+  )
+}
+
+
+
 </script>
