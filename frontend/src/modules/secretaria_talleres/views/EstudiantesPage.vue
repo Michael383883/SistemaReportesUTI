@@ -457,13 +457,21 @@
                   <option
                     v-for="g in gruposDisponibles"
                     :key="g"
-                    :value="g">
+                    :value="g"
+                    :disabled="!permitirGruposDeshabilitados && GRUPOS_DESHABILITADOS.includes(g)"
+                    :style="GRUPOS_DESHABILITADOS.includes(g) ? 'color:#9ca3af; font-style: italic;' : ''"
+                    >
 
-                    Grupo {{ g }}
-
-                  </option>
+                     Grupo {{ g }}{{ GRUPOS_DESHABILITADOS.includes(g) ? ' (deshabilitado)' : '' }}
+  </option>
 
                 </select>
+
+                <!-- Toggle para habilitar/deshabilitar manualmente esos grupos -->
+<label class="flex items-center gap-2 mt-2 text-xs text-slate-500">
+  <input type="checkbox" v-model="permitirGruposDeshabilitados" />
+  Permitir seleccionar grupos 00 / EA / EG
+</label>
               </div>
 
             </div>
@@ -571,7 +579,8 @@ const contactoData           = ref(null)
 // Menú desplegable del botón "Generar"
 const mostrarMenuGenerar = ref(false)
 const generarDropdownRef = ref(null)
-
+const GRUPOS_DESHABILITADOS = ['00', 'EA', 'EG']
+const permitirGruposDeshabilitados = ref(false)
 // anio/periodo arrancan en null: el backend calcula la gestión actual
 // automáticamente (PeriodoAcademicoService) en la primera carga.
 // El usuario puede después cambiarlos con los selects — en ese caso
@@ -613,7 +622,10 @@ const gruposDisponibles = computed(() => {
   if (filtros.materia) {
     datos = datos.filter(e => e.materia === filtros.materia)
   }
-  return [...new Set(datos.map(e => e.grupo))].sort()
+  const grupos = [...new Set(datos.map(e => e.grupo))].sort()
+  return permitirGruposDeshabilitados.value
+    ? grupos
+    : grupos.filter(g => !GRUPOS_DESHABILITADOS.includes(g))
 })
 
 const estudiantesFiltrados = computed(() => {
@@ -621,6 +633,12 @@ const estudiantesFiltrados = computed(() => {
 
   return estudiantes.value.filter(est => {
     const matchGrupo = !filtros.grupo || est.grupo === filtros.grupo
+    const matchPlan  = !filtros.plan  || est.plan  === filtros.plan
+
+    // Oculta siempre los grupos deshabilitados, salvo que el usuario
+    // haya activado el toggle "permitirGruposDeshabilitados"
+    const grupoHabilitado = permitirGruposDeshabilitados.value
+      || !GRUPOS_DESHABILITADOS.includes(est.grupo)
 
     const searchable = [
       est.nom_estudiante,
@@ -629,13 +647,13 @@ const estudiantesFiltrados = computed(() => {
       est.nom_materia,
       est.materia,
       est.grupo,
-      PLANES[est.plan], // nombre de la carrera si existe
+      PLANES[est.plan],
     ]
       .filter(Boolean)
       .join(" ")
       .toLowerCase()
 
-    return matchGrupo && (!texto || searchable.includes(texto))
+    return matchGrupo && matchPlan && grupoHabilitado && (!texto || searchable.includes(texto))
   })
 })
 
