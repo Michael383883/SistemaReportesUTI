@@ -187,10 +187,15 @@ Route::get('/estudiantes/{codigo}/contacto', [TallerEstudiantesController::class
 
 Route::get('/estudiantes-inscritos', [EstudianteInscritoController::class, 'index']);
 
+
 Route::post('/grupos/tipo-ingreso/bulk', [GrupoTipoIngresoController::class, 'bulkUpdate']);
 
 
+//INSCRITOS ACOMODAR 
+//Route::get('/estudiantes-inscritos/resumen-grupo', [EstudianteInscritoController::class, 'resumenPorGrupo']);
+Route::get('/admin/horarios/inscritos/agrupados/aprobados-reprobados', [EstudianteInscritoController::class, 'resumenPorGrupo']);
 
+Route::get('/admin/horarios/inscritos/aprobados-reprobados', [EstudianteInscritoController::class, 'resumenAprobadosReprobados']);
 
 /*
 |--------------------------------------------------------------------------

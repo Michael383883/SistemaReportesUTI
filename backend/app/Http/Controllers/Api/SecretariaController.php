@@ -32,7 +32,8 @@ class SecretariaController extends Controller
                     'docentes_telefono.celular_1',
                     'docentes_telefono.celular_2',
                     'docentes_telefono.email',
-                    'docentes_telefono.email_institucional'
+                    'docentes_telefono.email_institucional',
+                    'docentes_telefono.email_gsuite'
                 );
 
             // Aplicar filtros si existen
@@ -68,7 +69,8 @@ class SecretariaController extends Controller
                         'fijo_1' => $docente->fijo_1 ?? '',
                         'celular_1' => $docente->celular_1 ?? '',
                         'email' => $docente->email ?? $docente->email ?? '',
-                        'email_institucional' => $docente->email ?? $docente->email_institucional ?? '',
+                        'email_institucional' => $docente->email_institucional ?? $docente->email_institucional ?? '',
+                        'email_gsuite' => $docente->email_gsuite ?? $docente->email_gsuite ?? '',
                         'horas_total' => $horasTotal,
                     ];
                 });
@@ -111,6 +113,7 @@ class SecretariaController extends Controller
                     'docentes_telefono.celular_2',
                     'docentes_telefono.email',
                     'docentes_telefono.email_institucional',
+                    'docentes_telefono.email_gsuite',
                     'docentes_telefono.direccion',
 
                 )
@@ -148,7 +151,8 @@ class SecretariaController extends Controller
                     'fecha_nombramiento' => $docente->fecha_nombramiento,
                     'sexo' => $docente->sexo,
                     'direccion' => $docente->direccion ?? '',
-                    'email_institucional' => $docente->email_institucional ?? '',
+                    'email_institucional' => $docente->email_institucional ?? $docente->email_institucional ?? '',
+                    'email_gsuite' => $docente->email_gsuite ?? $docente->email_gsuite ?? '',
                 ]
             ]);
 
