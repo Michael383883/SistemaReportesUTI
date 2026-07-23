@@ -300,7 +300,7 @@
                     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
                     </svg>
-                    {{ docente.total_materias || 0 }} mat.
+                    {{ }} materias
                   </button>
                   <span v-else class="text-xs text-slate-400">Sin horario</span>
                 </td>
@@ -656,8 +656,6 @@ function construirHojaDocentes() {
     'Email': d.email || d.email_institucional || '',
     'Celular': d.celular_1 || '',
     'Teléfono Fijo': d.fijo_1 || '',
-    'Materias Asignadas': d.total_materias || 0,
-    'Carga Horaria (h)': d.horas_total || 0,
   }))
 
   const hoja = XLSX.utils.json_to_sheet(datos)
@@ -671,8 +669,7 @@ function construirHojaDocentes() {
     { wch: 30 }, // Email
     { wch: 15 }, // Celular
     { wch: 15 }, // Fijo
-    { wch: 20 }, // Materias
-    { wch: 18 }, // Carga
+    
   ]
 
   return hoja
