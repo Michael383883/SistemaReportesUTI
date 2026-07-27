@@ -1,10 +1,11 @@
 <template>
   <div class="min-h-screen">
     <!-- Header -->
-    <div class="border-b border-slate-200 ">
-      <div class="flex items-center justify-between">
+     <div class="border-b border-slate-200">
+     <div class="w-full px-2 sm:px-2 py-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+
         <div>
-          <h1 class="text-xl font-bold text-slate-800">Gestión de Docentes</h1>
+          <h1 class="text-xl font-bold text-slate-1000 tracking-tight">Gestión de Docentes</h1>
           <p class="text-xs text-slate-500 flex items-center gap-2">
             <template v-if="filtros.anio && filtros.periodo">
               Facultad de Ciencias Económicas · {{ PERIODOS[filtros.periodo] || filtros.periodo }}/{{ filtros.anio }}
@@ -21,6 +22,7 @@
           </p>
         </div>
         <div class="flex items-center gap-2">
+          
           <span class="bg-teal-50 text-teal-700 text-xs font-semibold px-2.5 py-1 rounded-full border border-teal-200">
             {{ docentesFiltrados.length }} docentes
           </span>
@@ -238,15 +240,15 @@
                 <td class="px-3 py-2 text-slate-800 text-xs">{{ (paginaActual - 1) * porPagina + idx + 1 }}</td>
 
                 <!-- Codigo -->
-                <td class="px-3 py-2 text-slate-800 font-mono text-xs">{{ docente.docente }}</td>
+                <td class="px-3 py-2 text-slate-800 font-mono text-2x1">{{ docente.docente }}</td>
 
                 <!-- Nombre -->
-                <td class="px-3 py-2">
-                  <p class="font-medium text-slate-800 leading-tight text-sm">{{ formatNombre(docente.nombre_docente) }}</p>
-                </td>
-
+              <!-- Nombre -->
+<td class="px-3 py-2">
+  <p class="font-medium text-slate-800 leading-tight text-sm uppercase">{{ formatNombre(docente.nombre_docente) }}</p>
+</td>
                 <!-- CI -->
-                <td class="px-3 py-2 text-slate-600 font-mono text-xs">{{ docente.ci || '—' }}</td>
+                <td class="px-3 py-2 text-slate-600 font-mono text-2x1">{{ docente.ci || '—' }}</td>
 
                 <!-- Grado -->
                 <td class="px-3 py-2">
@@ -358,7 +360,7 @@
               <i class="ti ti-user text-teal-600" style="font-size: 20px;" aria-hidden="true"></i>
             </div>
             <div class="min-w-0 flex-1">
-              <p class="font-semibold text-slate-800 text-sm leading-tight truncate group-hover:text-teal-700 transition-colors">{{ formatNombre(docente.nombre_docente) }}</p>
+              <p class="font-semibold text-slate-800 text-sm leading-tight truncate uppercase group-hover:text-teal-700 transition-colors">{{ formatNombre(docente.nombre_docente) }}</p>
               <p class="text-xs text-slate-400 font-mono">{{ docente.docente }}</p>
             </div>
           </div>

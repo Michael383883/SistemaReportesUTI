@@ -44,148 +44,158 @@
       </div>
     </div>
 
-    <div class="p-6 space-y-6 max-w-5xl mx-auto">
+    <!-- ═══ Layout principal: cards a la izquierda + contenido a la derecha ═══ -->
+    <div class="p-6 max-w-7xl mx-auto">
+      <div class="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-6 items-start">
 
-      <!-- KPI Cards -->
-      <DashboardCards :kpis="kpis" :loading="loading" @cardClick="handleCardClick" />
+        <!-- Columna izquierda: KPI Cards en columna -->
+        <DashboardCards
+          :kpis="kpis"
+          :loading="loading"
+          vertical
+          @cardClick="handleCardClick"
+        />
 
-      <Transition
-        mode="out-in"
-        enter-active-class="transition-all duration-200 ease-out"
-        enter-from-class="opacity-0 translate-y-1.5"
-        enter-to-class="opacity-100 translate-y-0"
-        leave-active-class="transition-all duration-150 ease-in"
-        leave-from-class="opacity-100 translate-y-0"
-        leave-to-class="opacity-0 -translate-y-1.5"
-      >
-        <!-- ════════════════════ TAB: ESTUDIANTES ════════════════════ -->
-        <div v-if="activeTab === 'estudiantes'" key="estudiantes" class="space-y-6">
+        <!-- Columna derecha: gráfico + listas -->
+        <Transition
+          mode="out-in"
+          enter-active-class="transition-all duration-200 ease-out"
+          enter-from-class="opacity-0 translate-y-1.5"
+          enter-to-class="opacity-100 translate-y-0"
+          leave-active-class="transition-all duration-150 ease-in"
+          leave-from-class="opacity-100 translate-y-0"
+          leave-to-class="opacity-0 -translate-y-1.5"
+        >
+          <!-- ════════════════════ TAB: ESTUDIANTES ════════════════════ -->
+          <div v-if="activeTab === 'estudiantes'" key="estudiantes" class="space-y-6">
 
-          <!-- Gráfico: Estudiantes por Taller -->
-          <div class="bg-[var(--surface)] rounded-2xl border border-[var(--border)] p-6">
-            <h2 class="text-lg font-semibold text-[var(--text)] mb-6">Estudiantes por Taller</h2>
-            <div class="h-64 relative">
-              <div v-if="loading" class="absolute inset-0 flex items-center justify-center">
-                <div class="w-8 h-8 border-2 border-[var(--border)] border-t-[rgb(8,31,51)] rounded-full animate-spin" />
-              </div>
-              <Bar v-else-if="hayDatosPorTaller" :data="chartEstTaller" :options="chartOptionsBar" />
-              <EmptyState v-else icon="chart" texto="Sin inscripciones registradas en esta gestión" />
-            </div>
-          </div>
-
-          <!-- Estudiantes Recientes -->
-          <div class="bg-[var(--surface)] rounded-2xl border border-[var(--border)] p-6">
-            <div class="flex items-center justify-between mb-4">
-              <h2 class="text-lg font-semibold text-[var(--text)]">Estudiantes Recientes</h2>
-              <router-link
-                to="/secretariaTalleres/estudiante"
-                class="text-sm font-medium text-[rgb(8,31,51)] hover:opacity-75 flex items-center gap-1 transition-opacity duration-150"
-              >
-                Ver todos <span aria-hidden="true">→</span>
-              </router-link>
-            </div>
-
-            <div v-if="loading" class="space-y-3">
-              <div v-for="i in 4" :key="i" class="h-10 bg-[var(--border)] rounded-lg animate-pulse" />
-            </div>
-
-            <TransitionGroup
-              v-else-if="kpis.estudiantes?.recientes?.length"
-              tag="div"
-              class="divide-y divide-[var(--border)]"
-              enter-active-class="transition-all duration-300 ease-out"
-              enter-from-class="opacity-0 translate-y-2"
-              enter-to-class="opacity-100 translate-y-0"
-              move-class="transition-transform duration-300 ease-out"
-            >
-              <div
-                v-for="est in kpis.estudiantes.recientes.slice(0, 5)"
-                :key="est.codigo"
-                class="flex items-center justify-between gap-3 py-3 rounded-lg hover:bg-[var(--hover)] transition-colors duration-150 cursor-pointer px-2"
-                @click="irAEstudiante(est.codigo)"
-              >
-                <div class="min-w-0">
-                  <p class="text-sm font-medium text-[var(--text)] truncate">{{ formatNombre(est.nombre) }}</p>
-                  <p class="text-xs text-[var(--muted)] truncate">{{ est.taller }}</p>
+            <!-- Gráfico: Estudiantes por Taller -->
+            <div class="bg-[var(--surface)] rounded-2xl border border-[var(--border)] p-6">
+              <h2 class="text-lg font-semibold text-[var(--text)] mb-4">Estudiantes por Taller</h2>
+              <div class="h-56 relative">
+                <div v-if="loading" class="absolute inset-0 flex items-center justify-center">
+                  <div class="w-8 h-8 border-2 border-[var(--border)] border-t-[rgb(8,31,51)] rounded-full animate-spin" />
                 </div>
-                <span class="text-xs text-[var(--muted)] flex-shrink-0">{{ formatFecha(est.fecha) }}</span>
-              </div>
-            </TransitionGroup>
-
-            <EmptyState v-else icon="users" texto="Aún no hay estudiantes inscritos en esta gestión" />
-          </div>
-        </div>
-
-        <!-- ════════════════════ TAB: DOCENTES ════════════════════ -->
-        <div v-else key="docentes" class="space-y-6">
-
-          <!-- Docentes por Taller -->
-          <div class="bg-[var(--surface)] rounded-2xl border border-[var(--border)] p-6">
-            <h2 class="text-lg font-semibold text-[var(--text)] mb-4">Docentes por Taller</h2>
-
-            <div v-if="loading" class="space-y-3">
-              <div v-for="i in 4" :key="i" class="h-10 bg-[var(--border)] rounded-lg animate-pulse" />
-            </div>
-
-            <div v-else-if="kpis.docentes?.porTaller?.length" class="divide-y divide-[var(--border)]">
-              <div
-                v-for="item in kpis.docentes.porTaller"
-                :key="item.taller"
-                class="flex items-center justify-between gap-3 py-3"
-              >
-                <span class="text-sm text-[var(--text)] font-medium">{{ item.taller }}</span>
-                <span
-                  :class="[
-                    'text-sm',
-                    esSinDesignar(item.docente) ? 'text-amber-600 italic' : 'text-[var(--muted)]'
-                  ]"
-                >{{ formatNombre(item.docente) }}</span>
+                <Bar v-else-if="hayDatosPorTaller" :data="chartEstTaller" :options="chartOptionsBar" />
+                <EmptyState v-else icon="chart" texto="Sin inscripciones registradas en esta gestión" />
               </div>
             </div>
 
-            <EmptyState v-else icon="book" texto="Sin talleres con docentes asignados" />
-          </div>
-
-          <!-- Docentes Recientes -->
-          <div class="bg-[var(--surface)] rounded-2xl border border-[var(--border)] p-6">
-            <div class="flex items-center justify-between mb-4">
-              <h2 class="text-lg font-semibold text-[var(--text)]">Docentes Recientes</h2>
-              <router-link
-                to="/secretariaTalleres/docentes"
-                class="text-sm font-medium text-[rgb(8,31,51)] hover:opacity-75 flex items-center gap-1 transition-opacity duration-150"
-              >
-                Ver todos <span aria-hidden="true">→</span>
-              </router-link>
-            </div>
-
-            <div v-if="loading" class="space-y-3">
-              <div v-for="i in 4" :key="i" class="h-10 bg-[var(--border)] rounded-lg animate-pulse" />
-            </div>
-
-            <TransitionGroup
-              v-else-if="docentesRecientes?.length"
-              tag="div"
-              class="divide-y divide-[var(--border)]"
-              enter-active-class="transition-all duration-300 ease-out"
-              enter-from-class="opacity-0 translate-y-2"
-              enter-to-class="opacity-100 translate-y-0"
-              move-class="transition-transform duration-300 ease-out"
-            >
-              <div
-                v-for="docente in docentesRecientes.slice(0, 5)"
-                :key="docente.codigo"
-                class="flex items-center justify-between gap-3 py-3 rounded-lg hover:bg-[var(--hover)] transition-colors duration-150 cursor-pointer px-2"
-                @click="irADocente(docente.codigo)"
-              >
-                <p class="text-sm font-medium text-[var(--text)] truncate">{{ formatNombre(docente.nombre) }}</p>
-                <p class="text-xs text-[var(--muted)] truncate flex-shrink-0">{{ docente.codigo || '—' }}</p>
+            <!-- Estudiantes Recientes -->
+            <div class="bg-[var(--surface)] rounded-2xl border border-[var(--border)] p-6">
+              <div class="flex items-center justify-between mb-4">
+                <h2 class="text-lg font-semibold text-[var(--text)]">Estudiantes Recientes</h2>
+                <router-link
+                  to="/secretariaTalleres/estudiante"
+                  class="text-sm font-medium text-[rgb(8,31,51)] hover:opacity-75 flex items-center gap-1 transition-opacity duration-150"
+                >
+                  Ver todos <span aria-hidden="true">→</span>
+                </router-link>
               </div>
-            </TransitionGroup>
 
-            <EmptyState v-else icon="users" texto="Sin docentes recientes" />
+              <div v-if="loading" class="space-y-3">
+                <div v-for="i in 4" :key="i" class="h-10 bg-[var(--border)] rounded-lg animate-pulse" />
+              </div>
+
+              <TransitionGroup
+                v-else-if="kpis.estudiantes?.recientes?.length"
+                tag="div"
+                class="divide-y divide-[var(--border)]"
+                enter-active-class="transition-all duration-300 ease-out"
+                enter-from-class="opacity-0 translate-y-2"
+                enter-to-class="opacity-100 translate-y-0"
+                move-class="transition-transform duration-300 ease-out"
+              >
+                <div
+                  v-for="est in kpis.estudiantes.recientes.slice(0, 5)"
+                  :key="est.codigo"
+                  class="flex items-center justify-between gap-3 py-3 rounded-lg hover:bg-[var(--hover)] transition-colors duration-150 cursor-pointer px-2"
+                  @click="irAEstudiante(est.codigo)"
+                >
+                  <div class="min-w-0">
+                    <p class="text-sm font-medium text-[var(--text)] truncate">{{ formatNombre(est.nombre) }}</p>
+                    <p class="text-xs text-[var(--muted)] truncate">{{ est.taller }}</p>
+                  </div>
+                  <span class="text-xs text-[var(--muted)] flex-shrink-0">{{ formatFecha(est.fecha) }}</span>
+                </div>
+              </TransitionGroup>
+
+              <EmptyState v-else icon="users" texto="Aún no hay estudiantes inscritos en esta gestión" />
+            </div>
           </div>
-        </div>
-      </Transition>
+
+          <!-- ════════════════════ TAB: DOCENTES ════════════════════ -->
+          <div v-else key="docentes" class="space-y-6">
+
+            <!-- Docentes por Taller -->
+            <div class="bg-[var(--surface)] rounded-2xl border border-[var(--border)] p-6">
+              <h2 class="text-lg font-semibold text-[var(--text)] mb-4">Docentes por Taller</h2>
+
+              <div v-if="loading" class="space-y-3">
+                <div v-for="i in 4" :key="i" class="h-10 bg-[var(--border)] rounded-lg animate-pulse" />
+              </div>
+
+              <div v-else-if="kpis.docentes?.porTaller?.length" class="divide-y divide-[var(--border)]">
+                <div
+                  v-for="item in kpis.docentes.porTaller"
+                  :key="item.taller"
+                  class="flex items-center justify-between gap-3 py-3"
+                >
+                  <span class="text-sm text-[var(--text)] font-medium">{{ item.taller }}</span>
+                  <span
+                    :class="[
+                      'text-sm',
+                      esSinDesignar(item.docente) ? 'text-amber-600 italic' : 'text-[var(--muted)]'
+                    ]"
+                  >{{ formatNombre(item.docente) }}</span>
+                </div>
+              </div>
+
+              <EmptyState v-else icon="book" texto="Sin talleres con docentes asignados" />
+            </div>
+
+            <!-- Docentes Recientes -->
+            <div class="bg-[var(--surface)] rounded-2xl border border-[var(--border)] p-6">
+              <div class="flex items-center justify-between mb-4">
+                <h2 class="text-lg font-semibold text-[var(--text)]">Docentes Recientes</h2>
+                <router-link
+                  to="/secretariaTalleres/docentes"
+                  class="text-sm font-medium text-[rgb(8,31,51)] hover:opacity-75 flex items-center gap-1 transition-opacity duration-150"
+                >
+                  Ver todos <span aria-hidden="true">→</span>
+                </router-link>
+              </div>
+
+              <div v-if="loading" class="space-y-3">
+                <div v-for="i in 4" :key="i" class="h-10 bg-[var(--border)] rounded-lg animate-pulse" />
+              </div>
+
+              <TransitionGroup
+                v-else-if="docentesRecientes?.length"
+                tag="div"
+                class="divide-y divide-[var(--border)]"
+                enter-active-class="transition-all duration-300 ease-out"
+                enter-from-class="opacity-0 translate-y-2"
+                enter-to-class="opacity-100 translate-y-0"
+                move-class="transition-transform duration-300 ease-out"
+              >
+                <div
+                  v-for="docente in docentesRecientes.slice(0, 5)"
+                  :key="docente.codigo"
+                  class="flex items-center justify-between gap-3 py-3 rounded-lg hover:bg-[var(--hover)] transition-colors duration-150 cursor-pointer px-2"
+                  @click="irADocente(docente.codigo)"
+                >
+                  <p class="text-sm font-medium text-[var(--text)] truncate">{{ formatNombre(docente.nombre) }}</p>
+                  <p class="text-xs text-[var(--muted)] truncate flex-shrink-0">{{ docente.codigo || '—' }}</p>
+                </div>
+              </TransitionGroup>
+
+              <EmptyState v-else icon="users" texto="Sin docentes recientes" />
+            </div>
+          </div>
+        </Transition>
+
+      </div>
     </div>
   </div>
 </template>
@@ -232,10 +242,9 @@ const tabs = [
 const PERIODOS = { '1': 'I', '2': 'II' }
 
 // ── Gestión calculada por fecha ─────────────────────────────────────────────
-// Periodo 1: enero a agosto · Periodo 2: septiembre a diciembre
 function gestionPorFecha() {
   const hoy = new Date()
-  const mes = hoy.getMonth() + 1 // 1-12
+  const mes = hoy.getMonth() + 1
   return {
     anio: hoy.getFullYear(),
     periodo: mes >= 9 ? '2' : '1',

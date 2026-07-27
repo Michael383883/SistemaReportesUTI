@@ -1,6 +1,6 @@
 <!-- src/modules/secretaria_talleres/components/DashboardCards.vue -->
 <template>
-  <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+  <div :class="vertical ? 'flex flex-col gap-4' : 'grid grid-cols-2 lg:grid-cols-4 gap-4'">
     <div
       v-for="(card, idx) in cards"
       :key="card.id"
@@ -70,7 +70,8 @@ import { Users, GraduationCap, BookOpen } from 'lucide-vue-next'
 
 const props = defineProps({
   kpis: { type: Object, default: () => ({}) },
-  loading: { type: Boolean, default: false }
+  loading: { type: Boolean, default: false },
+  vertical: { type: Boolean, default: false }
 })
 
 defineEmits(['cardClick'])
@@ -85,7 +86,7 @@ const cards = computed(() => [
     label: 'Estudiantes Inscritos',
     value: totalEstudiantes.value,
     icon: GraduationCap,
-    bgDecor:      '#4f46e5', // indigo-600
+    bgDecor:      '#4f46e5',
     iconBoxClass: 'bg-indigo-50 text-indigo-700',
     badgeClass:   'bg-indigo-50 text-indigo-800',
     barClass:     'bg-gradient-to-r from-indigo-500 to-indigo-600',
@@ -97,7 +98,7 @@ const cards = computed(() => [
     label: 'Docentes Activos',
     value: totalDocentes.value,
     icon: Users,
-    bgDecor:      '#0d9488', // teal-600
+    bgDecor:      '#0d9488',
     iconBoxClass: 'bg-teal-50 text-teal-700',
     badgeClass:   'bg-teal-50 text-teal-800',
     barClass:     'bg-gradient-to-r from-teal-500 to-teal-600',
@@ -109,7 +110,7 @@ const cards = computed(() => [
     label: 'Talleres Activos',
     value: totalTalleres.value,
     icon: BookOpen,
-    bgDecor:      '#f59e0b', // amber-500
+    bgDecor:      '#f59e0b',
     iconBoxClass: 'bg-amber-50 text-amber-700',
     badgeClass:   'bg-amber-50 text-amber-800',
     barClass:     'bg-gradient-to-r from-amber-400 to-amber-500',

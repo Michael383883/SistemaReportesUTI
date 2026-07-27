@@ -1,31 +1,30 @@
 <template>
   <div class="min-h-screen bg-slate-50">
 
-    <!-- ===== HEADER ===== -->
-    <div class="border-b border-slate-200 ">
-      <div class="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <!-- ===== HEADER ===== -->
+    <div class="border-b border-slate-200">
+  <div class="w-full px-2 sm:px-2 py-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
 
-        <!-- Título -->
-        <div>
-          <h1 class="text-xl font-bold text-slate-1000 tracking-tight">
-            Estudiantes en Talleres
-          </h1>
-          <p class="text-sm text-slate-500 mt-0.5 flex items-center gap-2">
-            <template v-if="filtros.anio && filtros.periodo">
-              Gestión · {{ PERIODOS[filtros.periodo] || filtros.periodo }} / {{ filtros.anio }}
-              <span
-                v-if="!gestionEsAutomatica"
-                class="text-[11px] font-semibold text-amber-600 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5"
-              >
-                seleccionado manualmente
-              </span>
-            </template>
-            <template v-else>
-              Gestión · cargando período actual...
-            </template>
-          </p>
-        </div>
-
+    <!-- Título -->
+    <div>
+      <h1 class="text-xl font-bold text-slate-1000 tracking-tight">
+        Estudiantes en Talleres
+      </h1>
+      <p class="text-sm text-slate-500 mt-0.5 flex items-center gap-2">
+        <template v-if="filtros.anio && filtros.periodo">
+          Gestión · {{ PERIODOS[filtros.periodo] || filtros.periodo }} / {{ filtros.anio }}
+          <span
+            v-if="!gestionEsAutomatica"
+            class="text-[11px] font-semibold text-amber-600 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5"
+          >
+            seleccionado manualmente
+          </span>
+        </template>
+        <template v-else>
+          Gestión · cargando período actual...
+        </template>
+      </p>
+    </div>
         <!-- Zona derecha: badge + botón Generar -->
         <div class="flex flex-wrap items-center gap-2">
 
