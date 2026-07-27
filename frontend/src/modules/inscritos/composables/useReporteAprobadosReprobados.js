@@ -14,6 +14,7 @@ const C_WHITE = [255, 255, 255]
 const C_HEAD_BG = [240, 240, 240]
 const C_GRAY_LINE = [140, 140, 140]
 const C_ZERO_TEXT = [150, 150, 150]
+const C_DIVIDER = [140, 140, 140] // gris oscuro para separar grupos de carrera
 
 // ── Helpers de documento ─────────────────────────────────────────────────
 function crearDocumento() {
@@ -145,8 +146,8 @@ function generarResumenAprobadosReprobados(data, anio, periodo, modo = 'descarga
             { content: 'TOTAL', colSpan: 3, styles: { halign: 'center' } },
         ],
         [
-            ...carreras.flatMap(() => ['Insc.', 'Aprob.', 'Reprob.']),
-            'Insc.', 'Aprob.', 'Reprob.',
+            ...carreras.flatMap(() => ['Ins.', 'Apr.', 'Rep.']),
+            'Ins.', 'Apr.', 'Rep.',
         ],
     ]
 
@@ -232,6 +233,30 @@ function generarResumenAprobadosReprobados(data, anio, periodo, modo = 'descarga
         didDrawPage() {
             if (doc.internal.getCurrentPageInfo().pageNumber > 1) {
                 drawPageHeader(doc, { titulo: TITULO, anio, periodo, fechaActual, notaSuperior: NOTA })
+            }
+        },
+        didDrawCell(cellData) {
+            const col = cellData.column.index
+            const raw = cellData.cell.raw
+
+            // Cabecera fila 1: celdas de carrera con colSpan 3 (no dibujar tras "TOTAL", es el borde de la tabla)
+            const esGrupoCarreraHeader =
+                cellData.section === 'head' &&
+                raw && typeof raw === 'object' &&
+                raw.colSpan === 3 &&
+                raw.content !== 'TOTAL'
+
+            // Última columna de cada tripleta (Insc/Aprob/Reprob) -> divisor tras cada carrera y antes de TOTAL
+            const esUltimaDeTripleta = col >= 3 && (col - 3) % 3 === 2
+
+            // Después de la columna DOCENTE, separando nombres de la grilla de datos
+            const esColDocente = col === 2
+
+            if (esGrupoCarreraHeader || esUltimaDeTripleta || esColDocente) {
+                const { x, y, width, height } = cellData.cell
+                doc.setDrawColor(...C_DIVIDER)
+                doc.setLineWidth(0.35)
+                doc.line(x + width, y, x + width, y + height)
             }
         },
     })

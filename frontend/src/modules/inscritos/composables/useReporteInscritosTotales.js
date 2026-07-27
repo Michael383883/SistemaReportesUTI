@@ -1,7 +1,8 @@
 // composables/useReporteInscritosTotales.js
 // Genera el PDF académico de RESUMEN DE TOTALES de inscritos
 // (formato institucional UMSS), con jsPDF + jspdf-autotable.
-// Solo incluye la matriz Docente × Carrera con totales de inscritos.
+// Incluye la matriz Docente × Carrera con totales de inscritos,
+// más columnas de Aprobados / Reprobados / Total a nivel docente.
 
 import { ref } from 'vue'
 import { jsPDF } from 'jspdf'
@@ -13,6 +14,7 @@ const C_WHITE = [255, 255, 255]
 const C_HEAD_BG = [240, 240, 240]
 const C_GRAY_LINE = [140, 140, 140]
 const C_ZERO_TEXT = [150, 150, 150]
+const C_DIVIDER = [90, 90, 90] // gris oscuro para separar columnas de carrera
 
 // ── Helpers de documento ─────────────────────────────────────────────────
 function crearDocumento() {
@@ -114,7 +116,7 @@ function finalizarSalida(doc, filename, modo, ventanaPreabierta) {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// RESUMEN DE TOTALES — matriz Docente × Carrera
+// RESUMEN DE TOTALES — matriz Docente × Carrera + Aprob./Reprob./Total
 // ────────────────────────────────────────────────────────────────────────────
 function generarResumenTotales(data, anio, periodo, modo = 'descargar', ventanaPreabierta = null) {
     const doc = crearDocumento()
@@ -134,13 +136,31 @@ function generarResumenTotales(data, anio, periodo, modo = 'descargar', ventanaP
     }))
     const carreras = carrerasSet.length ? carrerasSet : ['ADM', 'ECO', 'CCP', 'COM', 'FIN']
 
-    const totalGlobal = data.reduce((s, d) => s + d.total_inscritos, 0)
+    // Índice de la última columna de carrera (para las líneas divisorias)
+    const COL_FIJAS = 3 // N°, CÓDIGO, DOCENTE
+    const ultimaColCarrera = COL_FIJAS + carreras.length - 1
 
-    // ── Tabla: matriz Docente × Carrera + TOTAL ──────────────────────────────
-    const headMatriz = [['N°', 'CÓDIGO', 'DOCENTE', ...carreras, 'TOTAL']]
+    const totalGlobalIns = data.reduce((s, d) =>
+        s + (d.total_inscritos ?? d.carreras.reduce((s2, c) => s2 + (c.subtotal_inscritos ?? c.subtotal ?? 0), 0)), 0)
+    const totalGlobalApr = data.reduce((s, d) =>
+        s + (d.total_aprobados ?? d.carreras.reduce((s2, c) => s2 + (c.subtotal_aprobados ?? 0), 0)), 0)
+    const totalGlobalRep = data.reduce((s, d) =>
+        s + (d.total_reprobados ?? d.carreras.reduce((s2, c) => s2 + (c.subtotal_reprobados ?? 0), 0)), 0)
+    
+    // ── Tabla: matriz Docente × Carrera + APROB./REPROB./TOTAL ───────────────
+    const headMatriz = [['N°', 'CÓDIGO', 'DOCENTE', ...carreras, 'APROB.', 'REPROB.', 'TOTAL']]
+
     const bodyMatriz = data.map((docente, idx) => {
         const totPorCarrera = {}
-        docente.carreras.forEach(c => { totPorCarrera[c.carrera] = c.subtotal })
+        docente.carreras.forEach(c => {
+            totPorCarrera[c.carrera] = c.subtotal_inscritos ?? c.subtotal ?? 0
+        })
+
+        // Totales por docente: igual lógica que useReporteAprobadosReprobados.js,
+        // sumando desde carreras (solo el total, sin desglose por carrera)
+        const totAprobDocente = docente.carreras.reduce((s, c) => s + (c.subtotal_aprobados ?? 0), 0)
+        const totReprobDocente = docente.carreras.reduce((s, c) => s + (c.subtotal_reprobados ?? 0), 0)
+        const totInscritosDocente = docente.carreras.reduce((s, c) => s + (c.subtotal_inscritos ?? c.subtotal ?? 0), 0)
 
         return [
             String(idx + 1),
@@ -150,7 +170,9 @@ function generarResumenTotales(data, anio, periodo, modo = 'descargar', ventanaP
                 const val = totPorCarrera[c] ?? 0
                 return val > 0 ? String(val) : '—'
             }),
-            String(docente.total_inscritos),
+            String(docente.total_aprobados ?? totAprobDocente),
+            String(docente.total_reprobados ?? totReprobDocente),
+            String(docente.total_inscritos ?? totInscritosDocente),
         ]
     })
 
@@ -161,11 +183,13 @@ function generarResumenTotales(data, anio, periodo, modo = 'descargar', ventanaP
         ...carreras.map(c => {
             const sum = data.reduce((s, d) => {
                 const car = d.carreras.find(x => x.carrera === c)
-                return s + (car?.subtotal ?? 0)
+                return s + (car?.subtotal_inscritos ?? car?.subtotal ?? 0)
             }, 0)
             return { content: sum > 0 ? String(sum) : '—', styles: { fontStyle: 'bold', halign: 'center', fillColor: C_HEAD_BG, lineWidth: 0 } }
         }),
-        { content: String(totalGlobal), styles: { fontStyle: 'bold', halign: 'center', fillColor: C_HEAD_BG, lineWidth: 0 } },
+        { content: String(totalGlobalApr), styles: { fontStyle: 'bold', halign: 'center', fillColor: C_HEAD_BG, lineWidth: 0 } },
+        { content: String(totalGlobalRep), styles: { fontStyle: 'bold', halign: 'center', fillColor: C_HEAD_BG, lineWidth: 0 } },
+        { content: String(totalGlobalIns), styles: { fontStyle: 'bold', halign: 'center', fillColor: C_HEAD_BG, lineWidth: 0 } },
     ])
 
     autoTable(doc, {
@@ -196,8 +220,22 @@ function generarResumenTotales(data, anio, periodo, modo = 'descargar', ventanaP
             const raw = data.row.raw
             const isTotalRow = Array.isArray(raw) && typeof raw[2] === 'object' && raw[2]?.content === 'TOTAL GENERAL'
             if (isTotalRow) return
-            if (data.column.index >= 3 && data.cell.raw === '—') {
+            if (data.column.index >= 3 && data.column.index <= ultimaColCarrera && data.cell.raw === '—') {
                 data.cell.styles.textColor = C_ZERO_TEXT
+            }
+        },
+        // Líneas divisorias verticales gris oscuro: después de DOCENTE y entre cada carrera
+        // (la última, en ultimaColCarrera, separa además el bloque de carreras del de Aprob./Reprob./Total)
+        didDrawCell(cellData) {
+            const col = cellData.column.index
+            const esColDocente = col === 2
+            const esColCarrera = col >= COL_FIJAS && col <= ultimaColCarrera
+
+            if (esColDocente || esColCarrera) {
+                const { x, y, width, height } = cellData.cell
+                doc.setDrawColor(...C_DIVIDER)
+                doc.setLineWidth(0.35)
+                doc.line(x + width, y, x + width, y + height)
             }
         },
         didDrawPage() {
