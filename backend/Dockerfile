@@ -32,6 +32,14 @@ COPY openssl-fix.cnf /usr/lib/ssl/openssl-fix.cnf
 
 RUN cp /usr/lib/ssl/openssl.cnf /usr/lib/ssl/openssl.cnf.bak && \
     cat /usr/lib/ssl/openssl-fix.cnf >> /usr/lib/ssl/openssl.cnf
+
+# Configuración de límites de subida de archivos
+RUN { \
+    echo "upload_max_filesize=20M"; \
+    echo "post_max_size=25M"; \
+    echo "memory_limit=256M"; \
+    } > /usr/local/etc/php/conf.d/99-uploads.ini
+    
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 EXPOSE 8000
