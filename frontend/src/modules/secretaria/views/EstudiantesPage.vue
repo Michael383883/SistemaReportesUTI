@@ -3,16 +3,18 @@
 
     <!-- ===== HEADER ===== -->
     <div class="border-b border-slate-200 bg-white">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <div class="w-full px-2 sm:px-2 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
 
         <!-- Título -->
         <div>
           <h1 class="text-xl font-bold text-slate-800 tracking-tight">
             Estudiantes de la Carrera
           </h1>
-          <p class="text-sm text-slate-500 mt-0.5">
-            Gestión · Período {{ PERIODOS_LABEL[filtros.periodo] || filtros.periodo }} / {{ filtros.anio }}
-          </p>
+          
+            <p class="text-sm text-slate-500 mt-0.5">
+  Gestión · Período {{ PERIODOS_MAP[filtros.periodo] || filtros.periodo }} / {{ filtros.anio }}
+</p>
+          
         </div>
 
         <!-- Zona derecha: badge + botón Generar -->
@@ -150,28 +152,41 @@
     <!-- =======================================================
      BUSCADOR + FILTROS
       ======================================================== -->
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 pt-4">
+    <div >
 
       <div class="flex items-center gap-3">
 
         <!-- Selector de gestión (año/periodo) -->
         <div class="flex items-center gap-1.5 shrink-0">
-          <select
+           <select
             v-model="filtros.periodo"
             class="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition"
             title="Periodo académico"
           >
-            <option v-for="p in PERIODOS" :key="p.value" :value="p.value">{{ p.label }}</option>
+            <option v-for="(nombre, codigo) in PERIODOS_MAP" :key="codigo" :value="codigo">
+              {{ nombre }}
+            </option>
           </select>
 
-          <select
-            v-model="filtros.anio"
-            class="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition"
-            title="Año"
-          >
-            <option v-for="a in aniosDisponibles" :key="a" :value="a">{{ a }}</option>
-          </select>
-        </div>
+            <select
+              v-model="filtros.anio"
+              class="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition"
+              title="Año"
+            >
+              <option v-for="a in aniosDisponibles" :key="a" :value="a">
+                {{ a }}
+              </option>
+            </select>
+
+            <button
+              v-if="!gestionEsAutomatica"
+              @click="volverAGestionActual"
+              title="Volver a la gestión actual detectada por el sistema"
+              class="h-10 px-3 rounded-xl border border-amber-200 bg-amber-50 text-amber-700 text-xs font-semibold hover:bg-amber-100 transition shrink-0"
+            >
+              Hoy
+            </button>
+          </div>
 
         <!-- Buscador -->
         <div class="relative flex-1">
@@ -317,6 +332,9 @@
   </div>
 </template>
 
+
+
+
 <script setup>
 defineOptions({ name: 'EstudiantesPage' })
 
@@ -339,7 +357,8 @@ import {
 // ─────────────────────────────────────────────
 // Estado
 // ─────────────────────────────────────────────
-const PERIODOS_LABEL = Object.fromEntries(PERIODOS.map(p => [p.value, p.label.replace('Periodo ', '')]))
+console.log('PERIODOS:', JSON.stringify(PERIODOS))
+//const PERIODOS_LABEL = Object.fromEntries(PERIODOS.map(p => [p.value, p.label.replace('Periodo ', '')]))
 
 const filtros = ref({
   anio: ANIO_ACTUAL,
@@ -355,7 +374,7 @@ const cargando = ref(false)
 const error = ref(null)
 
 const page = ref(1)
-const perPage = ref(100)
+const perPage = ref(300)
 const totalPages = ref(0)
 
 const mostrarFiltros = ref(false)
@@ -554,6 +573,27 @@ function escapeHtml(valor) {
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
+}
+
+
+
+// ─────────────────────────────────────────────
+// Gestión automática vs manual
+// ─────────────────────────────────────────────
+const gestionEsAutomatica = computed(() =>
+  filtros.value.anio === ANIO_ACTUAL && filtros.value.periodo === PERIODO_ACTUAL
+)
+
+function volverAGestionActual() {
+  filtros.value.anio = ANIO_ACTUAL
+  filtros.value.periodo = PERIODO_ACTUAL
+}
+
+// Objeto plano { '1': 'I', '2': 'II' } — igual que en Talleres
+// Objeto plano { '1': 'I', '2': 'II' } — conversión manual a números romanos
+const PERIODOS_MAP = {
+  '1': 'I',
+  '2': 'II',
 }
 
 async function descargar() {

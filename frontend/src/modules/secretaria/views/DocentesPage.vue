@@ -22,38 +22,14 @@
         </div>
         <div class="flex items-center gap-3">
 
-          <!-- Selector de gestión (año/periodo) -->
-          <div class="flex items-center gap-1.5">
-            <select
-              v-model="filtros.periodo"
-              class="h-10 px-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-500"
-              title="Periodo académico"
-            >
-              <option v-for="(nombre, cod) in PERIODOS" :key="cod" :value="cod">{{ nombre }}</option>
-            </select>
-
-            <select
-              v-model="filtros.anio"
-              class="h-10 px-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-500"
-              title="Año"
-            >
-              <option v-for="a in aniosDisponibles" :key="a" :value="a">{{ a }}</option>
-            </select>
-
-            <button
-              v-if="!gestionEsAutomatica"
-              @click="volverAGestionActual"
-              title="Volver a la gestión actual detectada por el sistema"
-              class="h-10 px-3 rounded-lg border border-amber-200 bg-amber-50 text-amber-700 text-xs font-semibold hover:bg-amber-100 transition"
-            >
-              Hoy
-            </button>
-          </div>
+          
 
           <span class="bg-teal-50 text-teal-700 text-sm font-semibold px-3 py-1.5 rounded-full border border-teal-200">
             {{ docentesFiltrados.length }} docentes
           </span>
 
+
+          
           <!-- ===== Botón EXPORTAR (Ver / Descargar) ===== -->
           <div class="relative" ref="exportarDropdownRef">
             <div
@@ -151,6 +127,34 @@
     <!-- Filtros y búsqueda -->
     <div class="px-6 py-4 bg-white border-b border-slate-100">
       <div class="flex flex-wrap items-center gap-3">
+
+        <!-- Selector de gestión (año/periodo) -->
+          <div class="flex items-center gap-1.5">
+            <select
+              v-model="filtros.periodo"
+              class="h-10 px-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-500"
+              title="Periodo académico"
+            >
+              <option v-for="(nombre, cod) in PERIODOS" :key="cod" :value="cod">{{ nombre }}</option>
+            </select>
+
+            <select
+              v-model="filtros.anio"
+              class="h-10 px-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-500"
+              title="Año"
+            >
+              <option v-for="a in aniosDisponibles" :key="a" :value="a">{{ a }}</option>
+            </select>
+
+            <button
+              v-if="!gestionEsAutomatica"
+              @click="volverAGestionActual"
+              title="Volver a la gestión actual detectada por el sistema"
+              class="h-10 px-3 rounded-lg border border-amber-200 bg-amber-50 text-amber-700 text-xs font-semibold hover:bg-amber-100 transition"
+            >
+              Hoy
+            </button>
+          </div>
         <!-- Búsqueda -->
         <div class="relative flex-1 min-w-64">
           <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -246,15 +250,15 @@
                 <td class="px-4 py-3 text-slate-800 text-xs">{{ (paginaActual - 1) * porPagina + idx + 1 }}</td>
 
                 <!-- Codigo -->
-                <td class="px-4 py-3 text-slate-600 font-mono text-xs">{{ docente.docente }}</td>
+                <td class="px-4 py-3 text-slate-600 font-mono text-2x1">{{ docente.docente }}</td>
 
                 <!-- Nombre -->
                 <td class="px-4 py-3">
-                  <p class="font-medium text-slate-800 leading-tight">{{ formatNombre(docente.nombre_docente) }}</p>
+                 <p class="font-medium text-slate-800 leading-tight uppercase">{{ formatNombre(docente.nombre_docente) }}</p>
                 </td>
 
                 <!-- CI -->
-                <td class="px-4 py-3 text-slate-600 font-mono text-xs">{{ docente.ci || '—' }}</td>
+                <td class="px-4 py-3 text-slate-600 font-mono text-2x1">{{ docente.ci || '—' }}</td>
 
                 <!-- Grado -->
                 <td class="px-4 py-3">
@@ -366,7 +370,7 @@
               <i class="ti ti-user text-teal-600" style="font-size: 24px;" aria-hidden="true"></i>
             </div>
             <div class="min-w-0 flex-1">
-              <p class="font-semibold text-slate-800 text-sm leading-tight truncate group-hover:text-teal-700 transition-colors">{{ formatNombre(docente.nombre_docente) }}</p>
+              <p class="font-semibold text-slate-800 text-sm leading-tight truncate uppercase group-hover:text-teal-700 transition-colors">{{ formatNombre(docente.nombre_docente) }}</p>
               <p class="text-xs text-slate-400 font-mono">{{ docente.docente }}</p>
             </div>
           </div>

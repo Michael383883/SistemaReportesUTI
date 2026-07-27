@@ -27,21 +27,23 @@
         </div>
       </div>
 
-      <!-- Tarjeta por grupo (materia + nivel + grupo) -->
+      <!-- Tarjeta por grupo (materia + nivel + grupo) — una por fila, ancho completo -->
       <div
         v-for="grupo in gruposOrdenados"
         :key="grupo.clave"
         class="bg-white rounded-2xl shadow-sm ring-1 ring-slate-200 overflow-hidden"
       >
-        <!-- Encabezado: sigla, materia, nombre materia, grupo -->
+        <!-- Encabezado: sigla, materia, nombre materia, grupo, docente y toggle en una sola franja -->
         <div class="flex items-center justify-between gap-3 px-6 py-4 bg-slate-800 text-white">
           <div class="flex items-center gap-3 min-w-0">
+
+             <span :class="colorPlan(grupo.siglaPlan)" class="shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold">
+              {{ grupo.siglaPlan }}
+            </span>
             <span class="shrink-0 rounded-full bg-slate-700 px-2.5 py-0.5 text-xs font-semibold text-slate-200">
               Nivel {{ grupo.nivel }}
             </span>
-            <span :class="colorPlan(grupo.siglaPlan)" class="shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold">
-              {{ grupo.siglaPlan }}
-            </span>
+           
             <h2 class="font-bold text-sm truncate">
               {{ grupo.materia }} — {{ grupo.nombreMateria }}
             </h2>
@@ -52,39 +54,36 @@
           </span>
         </div>
 
-        <!-- Franja del docente (siempre visible, no es parte del desplegable) -->
-        <div class="flex items-center gap-3 px-6 py-3 bg-slate-50 border-b border-slate-100">
-          
-          <div class="min-w-0">
-            <p class="text-[0.65rem] font-semibold tracking-widest uppercase text-slate-400">Docente</p>
+        <!-- Franja del docente + toggle de estudiantes, lado a lado para aprovechar el ancho -->
+        <button
+          type="button"
+          @click="toggle(grupo.clave)"
+          class="w-full flex items-center justify-between gap-3 px-6 py-3 bg-slate-50 hover:bg-slate-100 transition-colors"
+        >
+          <div class="min-w-0 text-left">
             <p v-if="grupo.docente" class="text-sm font-medium text-slate-800 truncate">
-              <span class="text-slate-400 font-normal">{{ grupo.docente.codDocente }}</span>
+              <span class="text-slate-400 font-normal">COD: {{ grupo.docente.codDocente }}</span>
               — {{ grupo.docente.docente }}
             </p>
             <p v-else class="text-sm text-slate-400 italic">Sin docente asignado</p>
           </div>
-        </div>
 
-        <!-- Toggle de la lista de estudiantes -->
-        <button
-          type="button"
-          @click="toggle(grupo.clave)"
-          class="w-full flex items-center justify-between px-6 py-3 hover:bg-slate-50 transition-colors"
-        >
-          <span class="text-sm font-medium text-slate-700">
-            Estudiantes
-            <span class="ml-1.5 rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700 font-semibold">
-              {{ grupo.estudiantes.length }}
+          <div class="flex items-center gap-2 shrink-0">
+            <span class="text-sm font-medium text-slate-700">
+              Estudiantes
+              <span class="ml-1.5 rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700 font-semibold">
+                {{ grupo.estudiantes.length }}
+              </span>
             </span>
-          </span>
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            class="h-4 w-4 text-slate-400 transition-transform duration-200"
-            :class="{ 'rotate-180': estaAbierto(grupo.clave) }"
-            fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"
-          >
-            <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
-          </svg>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-4 w-4 text-slate-400 transition-transform duration-200"
+              :class="{ 'rotate-180': estaAbierto(grupo.clave) }"
+              fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"
+            >
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+            </svg>
+          </div>
         </button>
 
         <!-- Tabla de estudiantes (solo si esta abierto) -->
