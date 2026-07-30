@@ -18,7 +18,7 @@ const routes = [
   ...authRoutes,
   {
     path: '/',
-    component: () => import('@/shared/components/layout/AppLayout.vue'),
+    component: () => import('@/shared/components/layout/MainLayout.vue'),
     meta: { requiresAuth: true },
     children: [
       {
