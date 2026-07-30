@@ -54,7 +54,7 @@ export const useAuthStore = defineStore('auth', () => {
     }
 
     async function logout() {
-        // FIX: primero llamar al backend (el token aún está vigente),
+        // primero llamar al backend (el token aún está vigente),
         // luego limpiar sesión y redirigir.
         // Si el backend falla (401, red caída, etc.) igual se limpia localmente.
         try {
@@ -64,7 +64,6 @@ export const useAuthStore = defineStore('auth', () => {
             // pero la sesión local se limpia igual.
         } finally {
             _clearSession()
-            // FIX: usar path en lugar de name — la ruta no tiene name definido
             router.push('/login')
         }
     }
@@ -76,6 +75,46 @@ export const useAuthStore = defineStore('auth', () => {
             user.value = data.user
         } catch {
             _clearSession()
+        }
+    }
+
+    // Actualiza los datos de perfil del usuario logueado (nombre, email, etc.)
+    async function updateProfile(payload) {
+        loading.value = true
+        error.value = null
+        try {
+            const data = await authService.updateProfile(payload)
+            user.value = data.user ?? user.value
+            return true
+        } catch (err) {
+            error.value = classifyAuthError(err)
+            throw err
+        } finally {
+            loading.value = false
+        }
+    }
+
+    // Verifica la contraseña actual sin generar un token nuevo.
+    // No toca `loading`/`error` globales para no interferir con el resto de la UI
+    // mientras el usuario está en el paso de verificación.
+    async function verifyPassword(password) {
+        await authService.verifyPassword(password)
+        return true
+    }
+
+    // Cambia la contraseña del usuario logueado.
+    // payload esperado: { currentPassword, newPassword }
+    async function changePassword(payload) {
+        loading.value = true
+        error.value = null
+        try {
+            await authService.changePassword(payload)
+            return true
+        } catch (err) {
+            error.value = classifyAuthError(err)
+            throw err
+        } finally {
+            loading.value = false
         }
     }
 
@@ -93,6 +132,6 @@ export const useAuthStore = defineStore('auth', () => {
     return {
         user, token, loading, error,
         isAuthenticated, userRole, isAdmin, isSecretaria, isUTI,
-        login, logout, fetchMe, clearError,
+        login, logout, fetchMe, updateProfile, verifyPassword, changePassword, clearError,
     }
 })

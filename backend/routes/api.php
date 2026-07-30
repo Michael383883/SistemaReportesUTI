@@ -44,6 +44,7 @@ use App\Http\Controllers\Api\ReferenciaController;
 
 //reportes excel
 use App\Http\Controllers\Api\ReporteExcelController;
+
 /*
 |--------------------------------------------------------------------------
 | AUTH (público)
@@ -52,7 +53,6 @@ use App\Http\Controllers\Api\ReporteExcelController;
 Route::prefix('auth')->group(function () {
     Route::post('login', [AuthController::class, 'login']);
 });
-
 
 /*
 |--------------------------------------------------------------------------
@@ -65,6 +65,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('auth')->group(function () {
         Route::post('logout', [AuthController::class, 'logout']);
         Route::get('me', [AuthController::class, 'me']);
+        Route::post('verify-password', [AuthController::class, 'verifyPassword']);
+        Route::put('change-password', [AuthController::class, 'changePassword']);
     });
 
     // Usuarios (solo admin)
