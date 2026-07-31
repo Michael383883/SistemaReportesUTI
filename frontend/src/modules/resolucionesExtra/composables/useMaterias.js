@@ -8,6 +8,7 @@ export function useMaterias() {
     const error = ref(null)
     const materias = ref([])
     const periodos = ref([])
+    const registradas = ref([]) // ← NUEVO: materias ya clasificadas (guardadas) para docente+gestión+periodo
 
     function authHeaders(extra = {}) {
         const token = localStorage.getItem('token')
@@ -43,7 +44,7 @@ export function useMaterias() {
         }
     }
 
-    // ─── NUEVO: buscador filtrado por DOCENTE (lo que realmente dictó) ───
+    // ─── Buscador filtrado por DOCENTE (lo que realmente dictó) ───
     async function listarPorDocente(filtros = {}) {
         // docente es obligatorio para este endpoint
         if (!filtros.docente) {
@@ -70,6 +71,29 @@ export function useMaterias() {
         }
     }
 
+    // ─── NUEVO: materias que YA tienen una CLASIFICACION_MATERIA guardada
+    // (en cualquier documento) para un docente en una gestión/periodo dados.
+    // Se usa en el buscador para mostrar el lápiz de "editar" en vez de
+    // dejar agregarla de nuevo como si fuera nueva. ───
+    async function materiasRegistradas(filtros = {}) {
+        if (!filtros.docente || !filtros.gestion) {
+            registradas.value = []
+            return []
+        }
+        try {
+            const { data } = await axios.get(`${API_BASE}/api/clasificaciones/materias-registradas`, {
+                params: filtros, // { docente, gestion, periodo }
+                headers: authHeaders(),
+            })
+            registradas.value = data
+            return data
+        } catch (e) {
+            console.error('Error al obtener materias registradas:', e)
+            registradas.value = []
+            throw e
+        }
+    }
+
     async function obtenerPeriodos() {
         try {
             const { data } = await axios.get(`${API_BASE}/api/materias/periodos`, {
@@ -86,6 +110,7 @@ export function useMaterias() {
 
     function reset() {
         materias.value = []
+        registradas.value = []
         error.value = null
     }
 
@@ -94,8 +119,10 @@ export function useMaterias() {
         error,
         materias,
         periodos,
+        registradas,          // ← NUEVO
         listar,
-        listarPorDocente, // ← NUEVO
+        listarPorDocente,
+        materiasRegistradas,  // ← NUEVO
         obtenerPeriodos,
         reset,
     }

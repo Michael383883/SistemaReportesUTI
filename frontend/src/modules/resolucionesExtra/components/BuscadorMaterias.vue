@@ -50,7 +50,6 @@
           (buscando materias...)
         </span>
 
-
         <!-- ← NUEVO: mensaje cuando la búsqueda no encuentra resultados -->
         <span v-else-if="cargaExitosa && materiasFiltradas.length === 0 && searchTerm !== ''" class="ml-2 text-gray-500">
           No hay materias que coincidan con "{{ searchTerm }}"
@@ -140,11 +139,12 @@
             idx === highlightIndex
               ? 'bg-blue-100 border-l-4 border-l-blue-500 ring-1 ring-inset ring-blue-200'
               : 'hover:bg-gray-50',
+            materiaRegistrada(m) ? 'bg-amber-50/60' : '',
             materiaYaSeleccionada(m.codigo) ? 'opacity-60 cursor-not-allowed' : ''
           ]"
           @mousedown.prevent="onSelectMateria(m)"
           @mouseenter="highlightIndex = idx"
-          :disabled="materiaYaSeleccionada(m.codigo)"
+          :disabled="materiaYaSeleccionada(m.codigo) && !materiaRegistrada(m)"
         >
           <div class="flex-1 min-w-0">
             <span
@@ -152,6 +152,7 @@
               :class="idx === highlightIndex ? 'font-semibold' : 'font-medium'"
             >{{ m.nombre }}</span>
             <span v-if="m.sigla" class="text-gray-500 ml-1">({{ m.sigla }})</span>
+            <span v-if="materiaRegistrada(m)" class="ml-2 text-[10px] font-semibold text-amber-600">· Ya registrada</span>
             <div
               class="text-[11px] truncate mt-0.5"
               :class="idx === highlightIndex ? 'text-gray-700 font-medium' : 'text-gray-600'"
@@ -162,9 +163,16 @@
               <span v-if="m.nombre_plan"> · Plan: <strong class="text-gray-800">{{ m.nombre_plan }}</strong></span>
             </div>
           </div>
-          <!-- Círculo a la derecha -->
+          <!-- Ícono a la derecha: lápiz (ya registrada) / check (ya seleccionada en el form) / círculo (disponible) -->
           <span class="ml-3 flex-shrink-0">
-            <svg v-if="materiaYaSeleccionada(m.codigo)" class="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <svg
+              v-if="materiaRegistrada(m)"
+              class="w-5 h-5 text-amber-500"
+              fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"
+            >
+              <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+            </svg>
+            <svg v-else-if="materiaYaSeleccionada(m.codigo)" class="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
             </svg>
             <svg
@@ -195,6 +203,19 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { useMaterias } from '../composables/useMaterias'
 
+// ── Única destructuración del composable (antes estaba duplicada, eso
+//    rompía la compilación con "Identifier has already been declared") ──
+const {
+  loading,
+  error,
+  materias,
+  registradas,
+  listar,
+  listarPorDocente,
+  obtenerPeriodos,
+  materiasRegistradas,
+} = useMaterias()
+
 const props = defineProps({
   docente: { type: [String, Number], default: null },
   gestion: { type: String, default: '' },
@@ -202,10 +223,9 @@ const props = defineProps({
   materiasSeleccionadas: { type: Array, default: () => [] }
 })
 
-const emit = defineEmits(['agregar-materia'])
-
-// ← NUEVO: ahora traemos también `listar` (buscador general)
-const { loading, error, materias, listar, listarPorDocente, obtenerPeriodos } = useMaterias()
+// 'editar-materia' se dispara cuando el usuario hace click sobre una
+// materia que ya tiene una clasificación guardada en otro documento.
+const emit = defineEmits(['agregar-materia', 'editar-materia'])
 
 const searchTerm = ref('')
 const dropdownOpen = ref(false)
@@ -218,8 +238,8 @@ const docenteActual = computed(() => props.docente)
 const gestionActual = computed(() => props.gestion)
 const periodoActual = computed(() => props.periodo)
 
-// ← NUEVO: determina si la gestión requiere filtrar por docente (>= 2001)
-// o si debe usar el buscador general (< 2001)
+// ── Determina si la gestión requiere filtrar por docente (>= 2001)
+//    o si debe usar el buscador general (< 2001) ──
 const usaFiltroDocente = computed(() => {
   const anio = parseInt(gestionActual.value, 10)
   return !isNaN(anio) && anio >= 2001
@@ -229,6 +249,31 @@ const materiasFiltradas = computed(() => materias.value)
 
 function materiaYaSeleccionada(codigo) {
   return props.materiasSeleccionadas.some(m => m.cod_materia === codigo)
+}
+
+// Busca si una materia del listado ya tiene una CLASIFICACION_MATERIA
+// guardada (en cualquier documento) para este docente+gestión+periodo.
+function materiaRegistrada(m) {
+  return registradas.value.find(r =>
+    String(r.cod_materia) === String(m.codigo) &&
+    String(r.cod_plan ?? '') === String(m.cod_plan ?? '') &&
+    String(r.grupo ?? '') === String(m.grupo ?? '')
+  )
+}
+
+// ─── Cargar materias registradas (ya clasificadas) para docente+gestión+periodo ───
+async function cargarRegistradas() {
+  if (!docenteActual.value || !gestionActual.value) {
+    registradas.value = []
+    return
+  }
+  const params = { docente: docenteActual.value, gestion: gestionActual.value }
+  if (periodoActual.value) params.periodo = periodoActual.value
+  try {
+    await materiasRegistradas(params)
+  } catch (e) {
+    // el error ya se loguea dentro del composable
+  }
 }
 
 // ─── Cargar materias al hacer focus ───
@@ -255,7 +300,7 @@ async function cargarMaterias() {
     if (searchTerm.value) params.search = searchTerm.value
 
     try {
-      await listar(params)
+      await Promise.all([listar(params), cargarRegistradas()])
       cargaExitosa.value = true
     } catch (e) {
       cargaExitosa.value = false
@@ -278,7 +323,7 @@ async function cargarMaterias() {
   if (searchTerm.value) params.search = searchTerm.value
 
   try {
-    await listarPorDocente(params)
+    await Promise.all([listarPorDocente(params), cargarRegistradas()])
     cargaExitosa.value = true
   } catch (e) {
     cargaExitosa.value = false
@@ -314,6 +359,15 @@ function cerrarDropdown() {
 
 // ─── Selección de materia ───
 function onSelectMateria(materia) {
+  // Si ya tiene una clasificación guardada en otro documento, no se vuelve
+  // a agregar como nueva: se avisa al padre para que abra el modo edición.
+  const registrada = materiaRegistrada(materia)
+  if (registrada) {
+    emit('editar-materia', { materia, registro: registrada })
+    dropdownOpen.value = false
+    return
+  }
+
   if (materiaYaSeleccionada(materia.codigo)) {
     mensajeDuplicado.value = `⚠️ La materia "${materia.nombre}" ya está seleccionada`
     setTimeout(() => { mensajeDuplicado.value = '' }, 3000)
@@ -355,6 +409,7 @@ function onSearchInput() {
 watch(() => [props.docente, props.gestion, props.periodo], () => {
   searchTerm.value = ''
   materias.value = []
+  registradas.value = []
   dropdownOpen.value = false
   highlightIndex.value = -1
   mensajeDuplicado.value = ''

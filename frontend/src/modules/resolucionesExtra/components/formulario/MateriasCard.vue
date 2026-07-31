@@ -1,36 +1,37 @@
 <template>
-  <div class="bg-white rounded-xl border border-gray-200">
-    <div class="p-4 space-y-3">
-      <div class="flex items-center justify-between">
-        <h3 class="text-[13px] font-semibold text-slate-800">
-          Materias
-          <span class="text-[11px] font-normal text-gray-400">(opcional)</span>
-        </h3>
+  <div class="bg-white rounded-2xl border border-gray-200 shadow-sm">
+    <!-- Header oscuro, mismo estilo que "Datos generales" -->
+    <div class="bg-slate-900 px-5 py-2 rounded-t-2xl flex items-center justify-between">
+      <h3 class="text-[15px] font-semibold text-white">
+        Materias
+        <span class="text-[12px] font-normal text-gray-400">(opcional)</span>
+      </h3>
 
-        <div class="flex items-center gap-3">
-          <label class="inline-flex items-center gap-1.5 text-[11px] text-slate-600 cursor-pointer select-none">
-            <input
-              type="checkbox"
-              :checked="noRegentaFCE"
-              @change="toggleNoRegenta"
-              class="w-3.5 h-3.5 accent-blue-600"
-            />
-            No regenta materia en la FCE
-          </label>
+      <div class="flex items-center gap-3">
+        <label class="inline-flex items-center gap-1.5 text-[11px] text-gray-300 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            :checked="noRegentaFCE"
+            @change="toggleNoRegenta"
+            class="w-3.5 h-3.5 accent-orange-400"
+          />
+          No regenta materia en la FCE
+        </label>
 
-          <button
-            type="button"
-            class="text-gray-400 hover:text-red-500"
-            title="Quitar esta sección"
-            @click="onCerrar"
-          >
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
-            </svg>
-          </button>
-        </div>
+        <button
+          type="button"
+          class="text-gray-400 hover:text-red-400"
+          title="Quitar esta sección"
+          @click="onCerrar"
+        >
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
       </div>
+    </div>
 
+    <div class="p-5 space-y-3">
       <BuscadorMaterias
         v-if="!noRegentaFCE"
         :docente="form.cod_docente"
@@ -45,18 +46,18 @@
         <div
           v-for="(m, i) in form.materias"
           :key="i"
-          class="flex flex-col gap-1.5 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg text-[12px] text-blue-700 min-w-[230px]"
+          class="flex flex-col gap-1.5 px-3 py-2 bg-orange-50 border border-orange-200 rounded-xl text-[12px] text-orange-700 min-w-[230px] font-semibold"
         >
           <div class="flex items-center justify-between gap-2">
             <span class="truncate">
               {{ m.nombre_materia }}
-              <span v-if="m.cod_materia" class="text-blue-400 text-[10px]">({{ m.cod_materia }})</span>
-              <span v-if="m.grupo" class="text-blue-500 text-[10px] font-semibold ml-1">Grupo {{ m.grupo }}</span>
+              <span v-if="m.cod_materia" class="text-orange-600 text-[12px]">({{ m.cod_materia }})</span>
+              <span v-if="m.grupo" class="text-orange-500 text-[12px] font-semibold ml-1">Grupo {{ m.grupo }}</span>
             </span>
 
             <button
               @click="form.materias.splice(i, 1)"
-              class="text-blue-400 hover:text-red-500 flex-shrink-0"
+              class="text-orange-400 hover:text-red-500 flex-shrink-0"
             >
               <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
@@ -70,15 +71,15 @@
               type="text"
               inputmode="numeric"
               placeholder="Nota"
-              class="w-14 px-1.5 py-0.5 text-[11px] border rounded focus:outline-none focus:ring-1 bg-white text-center"
+              class="w-14 px-1.5 py-0.5 text-[11px] border rounded focus:outline-none focus:ring-1 bg-white text-center font-semibold text-slate-800"
               :class="notaInvalida(m)
-                ? 'border-red-400 focus:ring-red-500'
-                : 'border-blue-300 focus:ring-blue-500'"
+                ? 'border-slate-400 focus:ring-red-500'
+                : 'border-orange-300 focus:ring-orange-400'"
               @keypress="soloNumeros"
             />
           </div>
 
-          <div class="pt-1.5 border-t border-blue-200/70">
+          <div class="pt-1.5 border-t border-orange-200/70">
             <div v-if="docenteEditIndex !== i" class="flex items-center justify-between gap-2">
               <span class="text-[11px] leading-tight">
                 Docente:
@@ -87,7 +88,7 @@
               </span>
               <button
                 type="button"
-                class="text-[10px] text-blue-500 hover:text-blue-700 underline flex-shrink-0"
+                class="text-[10px] text-orange-500 hover:text-orange-700 underline flex-shrink-0"
                 @mousedown.prevent="abrirEdicionDocente(i)"
               >
                 cambiar
@@ -100,18 +101,18 @@
                 v-model="searchQueryMateria"
                 type="text"
                 placeholder="Buscar docente..."
-                class="w-full px-2 py-1 text-[11px] border border-blue-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                class="w-full px-2 py-1 text-[11px] border border-orange-300 rounded focus:outline-none focus:ring-1 focus:ring-orange-400"
                 @blur="onBlurMateriaDocente"
                 @keydown.esc="cerrarEdicionDocente"
               />
-              <div class="absolute z-10 mt-1 w-56 max-h-40 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg">
+              <div class="absolute z-30 mt-1 w-56 max-h-40 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg">
                 <div v-if="loadingDocentesMateria" class="px-2 py-1 text-[11px] text-gray-400">Cargando...</div>
                 <div v-else-if="!filteredDocentesMateria.length" class="px-2 py-1 text-[11px] text-gray-400">Sin resultados</div>
                 <button
                   v-for="d in filteredDocentesMateria"
                   :key="d.id ?? d.codigo"
                   type="button"
-                  class="w-full text-left px-2 py-1 text-[11px] hover:bg-blue-50"
+                  class="w-full text-left px-2 py-1 text-[11px] hover:bg-orange-50"
                   @mousedown.prevent="asignarDocenteMateria(i, d)"
                 >
                   {{ d.apellidos }} {{ d.nombres }}
@@ -121,8 +122,8 @@
             </div>
           </div>
 
-          <div v-if="notaInvalida(m)" class="text-[10px] text-red-600 font-medium pt-0.5">
-            ⚠️ Nota no válida
+          <div v-if="notaInvalida(m)" class="text-[12px] text-red-600 font-medium pt-0.5">
+             Nota no válida
           </div>
         </div>
       </div>

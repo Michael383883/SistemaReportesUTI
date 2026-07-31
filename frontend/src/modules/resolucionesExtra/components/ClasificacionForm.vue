@@ -18,7 +18,7 @@
         v-if="!mostrarMaterias"
         type="button"
         @click="mostrarMaterias = true"
-        class="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-blue-600 border border-dashed border-blue-300 rounded-lg hover:bg-blue-50 transition-colors"
+        class="bg-amber-600 inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-bold text-slate-100 border border-dashed border-amber-500 rounded-lg hover:bg-amber-500 hover:text-slate-100 transition-colors"
       >
         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
@@ -30,7 +30,7 @@
         v-if="!mostrarReferencias"
         type="button"
         @click="mostrarReferencias = true"
-        class="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-blue-600 border border-dashed border-blue-300 rounded-lg hover:bg-blue-50 transition-colors"
+        class="bg-amber-600 inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-bold text-slate-100 border border-dashed border-amber-400 rounded-lg hover:bg-amber-500 hover:text-slate-100 transition-colors"
       >
         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
@@ -75,7 +75,7 @@
       <button
         :disabled="saving || !esValidoGenerales"
         @click="$emit('guardar', formCopiado(), asignaAGrupos)"
-        class="inline-flex items-center gap-2 px-4 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-[13px] font-medium rounded-lg transition-colors"
+        class="inline-flex items-center gap-2 px-4 py-1.5 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 disabled:cursor-not-allowed text-white text-[13px] font-bold rounded-lg transition-colors"
       >
         <svg v-if="saving" class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
