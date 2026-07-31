@@ -172,118 +172,83 @@
         >
           <!-- Punto de la línea de tiempo -->
           <span
-            class="absolute left-[10px] top-5 w-3 h-3 rounded-full ring-4 ring-gray-50 z-10"
+            class="absolute left-[10px] top-6 w-3 h-3 rounded-full ring-4 ring-gray-50 z-10"
             :class="dotCategoria(c.CATEGORIA)"
           ></span>
 
           <!-- Card -->
-          <div class="bg-white rounded-xl border border-gray-200 hover:border-blue-200 transition-colors overflow-hidden">
+          <div class="bg-white rounded-2xl border border-gray-200 hover:border-blue-200 hover:shadow-sm transition-all overflow-hidden">
 
-            <!-- CABECERA -->
-            <div class="flex items-center justify-between gap-3 px-4 py-3 bg-gray-50/50 border-b border-gray-100">
-              <div class="flex items-center gap-3 min-w-0 flex-1 flex-wrap">
-                <!-- TÍTULO: TIPO_DOCUMENTO como título, DETALLE_GENERAL como subtítulo -->
-                <div class="flex flex-col flex-1">
-                  <span class="text-base font-medium text-gray-800 truncate">
+            <!-- CABECERA: solo título + metadata, SIN botones -->
+            <div class="px-5 pt-3.5 pb-2.5">
+              <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0 flex-1">
+                  <div class="flex items-center gap-2 flex-wrap mb-1">
+                    <span class="inline-flex px-2.5 py-0.5 rounded-full text-xs font-semibold flex-shrink-0" :class="badgeCategoria(c.CATEGORIA)">
+                      {{ c.CATEGORIA }}
+                    </span>
+                    <span v-if="c.NIVEL" class="text-xs font-medium text-gray-500">
+                      {{ c.NIVEL }}
+                    </span>
+                    <span v-if="c.FECHA_REGISTRO" class="text-xs text-gray-400">
+                      · {{ formatearFecha(c.FECHA_REGISTRO) }}
+                    </span>
+                  </div>
+                  <h3 class="text-[15px] font-semibold text-gray-900 truncate leading-snug">
                     {{ c.TIPO_DOCUMENTO || 'Sin título' }}
-                  </span>
-                  <span v-if="c.DETALLE_GENERAL" class="text-xs text-gray-400 truncate">
+                  </h3>
+                  <p v-if="c.DETALLE_GENERAL" class="text-sm text-gray-600 truncate mt-0.5">
                     {{ c.DETALLE_GENERAL }}
-                  </span>
+                  </p>
                 </div>
-                <!-- CATEGORIA -->
-                <span class="inline-flex px-2.5 py-1 rounded-full text-xs font-medium flex-shrink-0" :class="badgeCategoria(c.CATEGORIA)">
-                  {{ c.CATEGORIA }}
-                </span>
-
-                <!-- NIVEL -->
-                <span class="text-sm font-medium text-gray-600 flex-shrink-0">
-                  {{ c.NIVEL || '—' }}
-                </span>
-
-                <span v-if="c.FECHA_REGISTRO" class="text-xs text-gray-400 flex-shrink-0 hidden sm:inline">
-                  {{ formatearFecha(c.FECHA_REGISTRO) }}
-                </span>
-              </div>
-
-              <!-- Acciones -->
-              <div class="flex items-center gap-2 flex-shrink-0">
-                <a v-if="c.NOMBRE_ARCHIVO" :href="clasificacion.urlPdf(c.ID_DOCUMENTO, 'inline')"
-                  target="_blank"
-                  class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition-colors"
-                >
-                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h3m5-13v4a1 1 0 001 1h4m-5-5H8a2 2 0 00-2 2v14a2 2 0 002 2h8a2 2 0 002-2V8l-5-5z"/>
-                  </svg>
-                  Ver PDF
-                </a>
-                <span v-else class="text-sm text-gray-300 px-2">Sin PDF</span>
-
-                <button
-                  @click="confirmarEliminar(c)"
-                  class="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                  title="Eliminar clasificación"
-                >
-                  <svg class="w-4.5 h-4.5" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                  </svg>
-                </button>
               </div>
             </div>
 
             <!-- CONTENIDO -->
-            <div class="px-4 py-3 space-y-2.5">
+            <div v-if="c.OBSERVACION || c.OBSERVACION2 || c.GESTION || c.PERIODO || c.materias?.length || c.referencias?.length"
+                 class="px-5 pb-3 space-y-2.5 border-t border-gray-100 pt-2.5">
 
               <!-- Observaciones -->
               <div v-if="c.OBSERVACION || c.OBSERVACION2" class="flex flex-wrap gap-2">
-                <span v-if="c.OBSERVACION" class="inline-flex items-center gap-1 px-3 py-1.5 bg-gray-100 rounded-lg text-sm text-gray-600 leading-snug">
+                <span v-if="c.OBSERVACION" class="inline-flex items-center px-3 py-1.5 bg-gray-100 rounded-lg text-sm text-gray-700 leading-snug">
                   {{ c.OBSERVACION }}
                 </span>
-                <span v-if="c.OBSERVACION2" class="inline-flex items-center gap-1 px-3 py-1.5 bg-gray-100 rounded-lg text-sm text-gray-600 leading-snug">
+                <span v-if="c.OBSERVACION2" class="inline-flex items-center px-3 py-1.5 bg-gray-100 rounded-lg text-sm text-gray-700 leading-snug">
                   {{ c.OBSERVACION2 }}
                 </span>
               </div>
 
-              <!-- Meta: Gestión / Periodo / Fecha (móvil) -->
-              <div
-                v-if="c.GESTION || c.PERIODO || c.FECHA_REGISTRO"
-                class="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500"
-              >
-                <span v-if="c.GESTION" class="flex items-center gap-1.5">
+              <!-- Meta: Gestión / Periodo -->
+              <div v-if="c.GESTION || c.PERIODO" class="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-600">
+                <span v-if="c.GESTION" class="flex items-center gap-1.5 font-medium">
                   <svg class="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
                   </svg>
                   {{ c.GESTION }}
                 </span>
-                <span v-if="c.PERIODO" class="flex items-center gap-1.5">
+                <span v-if="c.PERIODO" class="flex items-center gap-1.5 font-medium">
                   <svg class="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
                   </svg>
                   Periodo {{ c.PERIODO }}
                 </span>
-                <span v-if="c.FECHA_REGISTRO" class="flex items-center gap-1.5 sm:hidden">
-                  <svg class="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-                  </svg>
-                  {{ formatearFecha(c.FECHA_REGISTRO) }}
-                </span>
               </div>
 
               <!-- Materias -->
               <div v-if="c.materias?.length" class="flex items-start gap-2.5">
-                <span class="text-[11px] font-semibold text-gray-400 uppercase tracking-wide pt-1.5 flex-shrink-0 w-[78px]">
+                <span class="text-[11px] font-bold text-gray-500 uppercase tracking-wide pt-1.5 flex-shrink-0 w-[78px]">
                   Materias
                 </span>
                 <div class="flex flex-wrap gap-1.5 flex-1 min-w-0">
                   <span
                     v-for="m in c.materias"
                     :key="m.ID_DETALLE"
-                    class="inline-flex items-center gap-1.5 pl-2.5 pr-1 py-1 bg-blue-50 border border-blue-100 rounded-lg text-sm text-blue-800 leading-none"
+                    class="inline-flex items-center gap-1.5 pl-2.5 pr-1 py-1 bg-blue-50 border border-blue-100 rounded-lg text-sm text-blue-900 leading-none"
                   >
-                    <span class="font-medium">{{ m.NOMBRE_MATERIA }}</span>
+                    <span class="font-semibold">{{ m.NOMBRE_MATERIA }}</span>
                     <span
-                      class="text-[11px] font-semibold px-1.5 py-1 rounded"
-                      :class="tieneNota(m) ? 'bg-blue-600 text-white' : 'bg-white text-gray-400 border border-blue-100'"
+                      class="text-[11px] font-bold px-1.5 py-1 rounded"
+                      :class="tieneNota(m) ? 'bg-blue-600 text-white' : 'bg-white text-gray-500 border border-blue-100'"
                     >
                       {{ tieneNota(m) ? `Nota: ${m.NOTA}` : 'Sin calificación' }}
                     </span>
@@ -293,7 +258,7 @@
 
               <!-- Referencias -->
               <div v-if="c.referencias?.length" class="flex items-start gap-2.5">
-                <span class="text-[11px] font-semibold text-gray-400 uppercase tracking-wide pt-1.5 flex-shrink-0 w-[78px]">
+                <span class="text-[11px] font-bold text-gray-500 uppercase tracking-wide pt-1.5 flex-shrink-0 w-[78px]">
                   Referencias
                 </span>
                 <div class="flex flex-wrap gap-1.5 flex-1 min-w-0">
@@ -302,10 +267,10 @@
                       v-if="r.ID_RESOLUCION"
                       :href="`${API_BASE}/api/resoluciones/${r.ID_RESOLUCION}/pdf`"
                       target="_blank"
-                      class="group inline-flex items-center bg-green-50 border border-green-100 hover:border-green-200 rounded-lg text-sm text-green-700 font-medium transition-colors overflow-hidden leading-none"
+                      class="group inline-flex items-center bg-green-50 border border-green-100 hover:border-green-200 rounded-lg text-sm text-green-800 font-semibold transition-colors overflow-hidden leading-none"
                     >
                       <span class="px-2.5 py-1.5">{{ r.NRO_REFERENCIA }}</span>
-                      <span class="inline-flex items-center gap-1 px-2 py-1.5 bg-green-600 group-hover:bg-green-700 text-white text-[11px] font-semibold h-full transition-colors">
+                      <span class="inline-flex items-center gap-1 px-2 py-1.5 bg-green-600 group-hover:bg-green-700 text-white text-[11px] font-bold h-full transition-colors">
                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                           <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h3m5-13v4a1 1 0 001 1h4m-5-5H8a2 2 0 00-2 2v14a2 2 0 002 2h8a2 2 0 002-2V8l-5-5z"/>
                         </svg>
@@ -314,13 +279,40 @@
                     </a>
                     <span
                       v-else
-                      class="inline-flex items-center px-2.5 py-1.5 bg-gray-50 border border-gray-100 rounded-lg text-sm text-gray-500 leading-none"
+                      class="inline-flex items-center px-2.5 py-1.5 bg-gray-100 border border-gray-100 rounded-lg text-sm text-gray-600 leading-none"
                     >
                       {{ r.NRO_REFERENCIA }}
                     </span>
                   </template>
                 </div>
               </div>
+            </div>
+
+            <!-- PIE DE CARD: acciones, pegadas al contenido, sin hueco -->
+            <div class="flex items-center justify-end gap-2 px-5 py-2.5 bg-gray-50 border-t border-gray-100">
+              <button
+                @click="confirmarEliminar(c)"
+                class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                title="Eliminar clasificación"
+              >
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                </svg>
+                Eliminar
+              </button>
+
+              <a v-if="c.NOMBRE_ARCHIVO" :href="clasificacion.urlPdf(c.ID_DOCUMENTO, 'inline')"
+                target="_blank"
+                class="inline-flex items-center gap-1.5 px-4 py-1.5 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition-colors"
+              >
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h3m5-13v4a1 1 0 001 1h4m-5-5H8a2 2 0 00-2 2v14a2 2 0 002 2h8a2 2 0 002-2V8l-5-5z"/>
+                </svg>
+                Ver PDF
+              </a>
+              <span v-else class="inline-flex items-center px-3 py-1.5 text-sm text-gray-400">
+                Sin PDF adjunto
+              </span>
             </div>
           </div>
         </div>
