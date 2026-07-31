@@ -1,32 +1,49 @@
 <template>
-  <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+  <div class="relative bg-white rounded-xl border border-gray-200 overflow-hidden">
+
+    <!-- Overlay de carga: cubre toda la tarjeta mientras se guarda -->
+    <div
+      v-if="saving"
+      class="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-white/80 backdrop-blur-[1px]"
+    >
+      <svg class="w-8 h-8 text-amber-500 animate-spin" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+      </svg>
+      <p class="text-[13px] font-medium text-gray-600">
+        {{ accion === 'guardar-asignar' ? 'Guardando y preparando asignación de docentes…' : 'Guardando resolución…' }}
+      </p>
+    </div>
+
     <div class="p-6 space-y-5">
 
       <div>
-        <label class="block text-[13px] font-medium text-gray-700 mb-1.5">Número de resolución *</label>
+        <label class="block text-[14px] font-semibold text-gray-800 mb-1.5">Número de resolución *</label>
         <input
           v-model="numero"
           type="text"
           placeholder="Ej: RR Nº 266/2024"
-          class="w-full px-3.5 py-2.5 text-[14px] border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-100"
+          :disabled="saving"
+          class="w-full px-3.5 py-2.5 text-[14px] border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-100 text-gray-800 disabled:bg-gray-50 disabled:text-gray-400"
           :class="errores.numero ? 'border-red-300' : 'border-gray-200 focus:border-blue-400'"
         />
         <p v-if="errores.numero" class="text-[11px] text-red-500 mt-1">{{ errores.numero }}</p>
       </div>
 
       <div>
-        <label class="block text-[13px] font-medium text-gray-700 mb-1.5">Descripción</label>
+        <label class="block text-[14px] font-semibold text-gray-800 mb-1.5">Descripción</label>
         <textarea
           v-model="descripcion"
           rows="3"
+          :disabled="saving"
           placeholder="Descripción Ejm: (Del 26 febrero al 19 de abril de 2024. El semestre 1/2024 inició el 26 de febrero y terminó el 09 de julio del 2024.)"
-          class="w-full px-3.5 py-2.5 text-[14px] border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 resize-none"
+          class="w-full px-3.5 py-2.5 text-[14px] border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 resize-none text-gray-800 disabled:bg-gray-50 disabled:text-gray-400"
         ></textarea>
       </div>
 
       <div class="grid grid-cols-2 gap-4">
         <div>
-          <label class="block text-[11px] font-medium text-gray-600 mb-0.5">
+          <label class="block text-[14px] font-semibold text-gray-800 mb-0.5">
             Año *
           </label>
 
@@ -34,8 +51,10 @@
             v-model.number="anio"
             type="text"
             inputmode="numeric"
+            maxlength="4"
             placeholder="Ej. 2023"
-            class="w-full px-2.5 py-1.5 text-[13px] border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            :disabled="saving"
+            class="w-full px-2.5 py-1.5 text-[13px] border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-slate-800 disabled:bg-gray-50 disabled:text-gray-400"
             :class="errores.anio ? 'border-red-300' : 'border-gray-300'"
           />
 
@@ -45,7 +64,7 @@
         </div>
 
         <div class="relative">
-  <label class="block text-[11px] font-medium text-gray-600 mb-0.5">
+  <label class="block text-[14px] font-semibold text-gray-800 mb-0.5">
     Periodo *
   </label>
 
@@ -55,7 +74,8 @@
       type="text"
       inputmode="numeric"
       placeholder="Ej. 1"
-      class="w-full px-2.5 py-1.5 pr-8 text-[13px] border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+      :disabled="saving"
+      class="w-full px-2.5 py-1.5 pr-8 text-[13px] border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-slate-800 disabled:bg-gray-50 disabled:text-gray-400"
       :class="errores.periodo ? 'border-red-300' : 'border-gray-300'"
       @focus="periodoDropdownOpen = true"
       @blur="onBlurPeriodo"
@@ -64,6 +84,7 @@
     <button
       type="button"
       tabindex="-1"
+      :disabled="saving"
       @mousedown.prevent="togglePeriodoDropdown"
       class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
     >
@@ -110,8 +131,8 @@
 
       <!-- El PDF ya se seleccionó en el paso anterior; aquí solo se muestra como referencia -->
       <div v-if="archivoNombre">
-        <label class="block text-[13px] font-medium text-gray-700 mb-1.5">Archivo PDF</label>
-        <div class="flex items-center gap-2 px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-lg">
+        <label class="block text-[14px] font-semibold text-gray-800 mb-1.5">Archivo PDF</label>
+        <div class="flex items-center gap-2 px-3.5 py-2.5 bg-gray-150 border border-gray-400 rounded-lg">
           <svg class="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
           </svg>
@@ -134,8 +155,9 @@
     <div class="flex items-center justify-between px-6 py-3 bg-gray-50 gap-3 flex-wrap">
       <button
         type="button"
+        :disabled="saving"
         @click="$emit('back')"
-        class="inline-flex items-center gap-1.5 px-3 py-2 text-[13px] font-medium text-gray-500 hover:text-gray-700 transition-colors"
+        class="inline-flex items-center gap-1.5 px-3 py-2 text-[13px] font-medium text-gray-500 hover:text-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       >
         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
@@ -148,16 +170,24 @@
           type="button"
           :disabled="saving"
           @click="enviar('guardar')"
-          class="px-5 py-2 text-[14px] font-medium rounded-lg border border-blue-600 text-blue-600 hover:bg-blue-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          class="inline-flex items-center justify-center gap-2 px-5 py-2 text-[14px] font-medium rounded-lg border border-black-600 text-black-600  hover:bg-amber-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-w-[150px]"
         >
+          <svg v-if="saving && accion === 'guardar'" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+          </svg>
           {{ saving && accion === 'guardar' ? 'Guardando...' : 'Guardar resolución' }}
         </button>
         <button
           type="button"
           :disabled="saving"
           @click="enviar('guardar-asignar')"
-          class="px-5 py-2 text-[14px] font-medium rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          class="inline-flex items-center justify-center gap-2 px-5 py-2 text-[14px] font-semibold rounded-lg border border-black-800 bg-amber-500 hover:bg-amber-400 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-w-[210px]"
         >
+          <svg v-if="saving && accion === 'guardar-asignar'" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+          </svg>
           {{ saving && accion === 'guardar-asignar' ? 'Guardando...' : 'Guardar y asignar docentes' }}
         </button>
       </div>
@@ -207,7 +237,11 @@ const onBlurPeriodo = () => {
 function validar() {
   errores.value = { ...errores.value, numero: '', anio: '', periodo: '' }
   if (!numero.value.trim()) errores.value.numero = 'El número de resolución es obligatorio.'
-  if (!anio.value) errores.value.anio = 'El año es obligatorio.'
+  if (!anio.value) {
+    errores.value.anio = 'El año es obligatorio.'
+  } else if (!/^(19|20)\d{2}$/.test(String(anio.value))) {
+    errores.value.anio = 'Ingresa un año válido de 4 dígitos (Ej:2010).'
+  }
   if (!periodo.value) {
     errores.value.periodo = 'Selecciona o ingresa un periodo.'
   } else if (![1, 2, 3, 4].includes(Number(periodo.value))) {

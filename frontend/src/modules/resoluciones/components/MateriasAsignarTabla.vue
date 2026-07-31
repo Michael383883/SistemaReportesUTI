@@ -1,34 +1,35 @@
 <!-- composables/MateriasAsignarTabla -->
 <template>
-  <div class="rounded-xl border border-slate-700 bg-slate-800 overflow-hidden relative">
-    <div class="overflow-x-auto">
+  <div class="relative">
+    <div class="bg-slate-00 overflow-x-auto rounded-lg border border-gray-200">
+      
       <table class="w-full text-sm border-collapse">
         <thead>
-          <tr class="border-b border-slate-700 bg-slate-900/60">
-            <th class="text-left px-4 py-3 text-[0.68rem] font-semibold tracking-widest uppercase text-slate-400 w-10">Nº</th>
-            <th class="text-left px-4 py-3 text-[0.68rem] font-semibold tracking-widest uppercase text-slate-400">Gestión</th>
-            <th class="text-left px-4 py-3 text-[0.68rem] font-semibold tracking-widest uppercase text-slate-400 w-16">Plan</th>
-            <th class="text-left px-4 py-3 text-[0.68rem] font-semibold tracking-widest uppercase text-slate-400">Materia</th>
-            <th class="text-left px-4 py-3 text-[0.68rem] font-semibold tracking-widest uppercase text-slate-400 w-28">Compartido</th>
-            <th class="text-left px-4 py-3 text-[0.68rem] font-semibold tracking-widest uppercase text-slate-400 w-14">GRP</th>
-            <th class="text-left px-4 py-3 text-[0.68rem] font-semibold tracking-widest uppercase text-slate-400">Resolución</th>
-            <th class="text-center px-4 py-3 text-[0.68rem] font-semibold tracking-widest uppercase text-slate-400 w-24">Tipo de ingreso</th>
-            <th class="text-center px-4 py-3 text-[0.68rem] font-semibold tracking-widest uppercase text-slate-400 w-24">Asignar</th>
+          <tr class="border-b border-gray-200 bg-slate-900">
+            <th class="text-left px-4 py-3 text-[0.68rem] font-semibold tracking-widest uppercase text-gray-100 w-10">Nº</th>
+            <th class="text-left px-4 py-3 text-[0.68rem] font-semibold tracking-widest uppercase text-gray-100">Gestión</th>
+            <th class="text-left px-4 py-3 text-[0.68rem] font-semibold tracking-widest uppercase text-gray-100 w-16">Plan</th>
+            <th class="text-left px-4 py-3 text-[0.68rem] font-semibold tracking-widest uppercase text-gray-100">Materia</th>
+            <th class="text-left px-4 py-3 text-[0.68rem] font-semibold tracking-widest uppercase text-gray-100 w-28">Compartido</th>
+            <th class="text-left px-4 py-3 text-[0.68rem] font-semibold tracking-widest uppercase text-gray-100 w-14">GRP</th>
+            <th class="text-left px-4 py-3 text-[0.68rem] font-semibold tracking-widest uppercase text-gray-100">Resolución</th>
+            <th class="text-center px-4 py-3 text-[0.68rem] font-semibold tracking-widest uppercase text-gray-100 w-24">Tipo de ingreso</th>
+            <th class="text-center px-4 py-3 text-[0.68rem] font-semibold tracking-widest uppercase text-gray-100 w-24">Asignar</th>
           </tr>
         </thead>
         <tbody>
           <tr
             v-for="(m, i) in materias"
             :key="m.nro"
-            class="border-b border-slate-700/60 transition-colors hover:bg-white/[0.025]"
+            class="border-b border-gray-100 transition-colors hover:bg-gray-50"
             :class="[
-              i % 2 === 0 ? 'bg-transparent' : 'bg-slate-900/20',
-              estaMarcada(m) ? 'bg-amber-500/[0.06]' : '',
-              !coincideGestion(m) && resolucionActiva ? 'bg-red-500/[0.03]' : ''
+              i % 2 === 0 ? 'bg-white' : 'bg-gray-50/40',
+              estaMarcada(m) ? 'bg-amber-50' : '',
+              !coincideGestion(m) && resolucionActiva ? 'bg-red-50/60' : ''
             ]"
           >
             <!-- Nº -->
-            <td class="px-4 py-3 text-slate-500 font-medium text-[13px] tabular-nums">{{ m.nro }}</td>
+            <td class="px-4 py-3 text-gray-800 font-medium text-[13px] tabular-nums">{{ m.nro }}</td>
 
             <!-- Gestión -->
             <td class="px-4 py-3">
@@ -39,7 +40,7 @@
               </span>
               <span
                 v-if="resolucionActiva && !coincideGestion(m)"
-                class="inline-flex items-center gap-1 ml-1.5 text-[0.65rem] font-medium text-red-400"
+                class="inline-flex items-center gap-1 ml-1.5 text-[0.65rem] font-medium text-red-500"
                 title="La gestión de esta materia no coincide con el periodo de la resolución seleccionada"
               >
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
@@ -58,31 +59,31 @@
             </td>
 
             <!-- Materia -->
-            <td class="px-4 py-3 text-slate-200 font-medium">{{ m.materia }}</td>
+            <td class="px-4 py-3 text-gray-700 font-medium">{{ m.materia }}</td>
 
             <!-- Compartido -->
             <td class="px-4 py-3">
               <span v-if="m.compartido"
-                    class="inline-flex items-center px-2 py-0.5 rounded text-[0.68rem] font-semibold bg-violet-500/15 text-violet-300">
+                    class="inline-flex items-center px-2 py-0.5 rounded text-[0.68rem] font-semibold bg-violet-100 text-violet-700">
                 Compartido
               </span>
-              <span v-else class="text-slate-600 text-xs">—</span>
+              <span v-else class="text-gray-300 text-xs">—</span>
             </td>
 
             <!-- GRP -->
-            <td class="px-4 py-3 tabular-nums text-slate-300 font-semibold text-xs">{{ m.grp }}</td>
+            <td class="px-4 py-3 tabular-nums text-gray-600 font-semibold text-xs">{{ m.grp }}</td>
 
             <!-- Resolución (existente, ya designada) -->
             <td class="px-4 py-3">
-              <span v-if="m.resolucion" class="text-xs text-emerald-400 font-medium">{{ m.resolucion }}</span>
-              <span v-else class="text-slate-600 text-xs">—</span>
+              <span v-if="m.resolucion" class="text-xs text-emerald-600 font-medium">{{ m.resolucion }}</span>
+              <span v-else class="text-gray-300 text-xs">—</span>
             </td>
 
             <!-- Tipo de designacion-->
             <td class="px-4 py-3">
               <select
                 v-model="m.tipo_ingreso"
-                class="w-full rounded-lg border border-slate-700 bg-slate-800 text-slate-200 text-xs px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                class="w-full rounded-lg border border-gray-200 bg-white text-gray-700 text-xs px-2 py-1 outline-none focus:ring-2 focus:ring-amber-200 focus:border-amber-400"
               @change="emit('tipo-ingreso-change', m)"
                 >
                 <option value="">-- Seleccionar --</option>
@@ -104,7 +105,7 @@
                 title="Esta materia ya tiene una resolución asignada. Click para reasignar."
                 class="inline-flex items-center justify-center w-7 h-7 rounded-lg border transition-all duration-150
                        disabled:opacity-30 disabled:cursor-not-allowed
-                       bg-transparent border-slate-600 text-slate-400 hover:border-sky-500/60 hover:text-sky-400"
+                       bg-white border-gray-300 text-gray-400 hover:border-sky-400 hover:text-sky-600"
                 @click="onClickEditar(m)"
               >
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
@@ -122,8 +123,8 @@
                 class="inline-flex items-center justify-center w-7 h-7 rounded-lg border transition-all duration-150
                        disabled:opacity-30 disabled:cursor-not-allowed"
                 :class="estaMarcada(m)
-                  ? 'bg-amber-500 border-amber-500 text-slate-900'
-                  : 'bg-transparent border-slate-600 text-transparent hover:border-amber-500/60'"
+                  ? 'bg-amber-500 border-amber-500 text-white'
+                  : 'bg-white border-gray-300 text-transparent hover:border-amber-400'"
                 @click="onClickAsignar(m)"
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
@@ -138,44 +139,44 @@
     </div>
 
     <!-- Footer -->
-    <div class="px-4 py-2.5 border-t border-slate-700 bg-slate-900/30 text-xs text-slate-500 text-right">
+    <div class="px-4 py-2.5 text-xs text-gray-400 text-right">
       {{ materias.length }} registro{{ materias.length !== 1 ? 's' : '' }}
     </div>
 
     <!-- ══════════ Modal de confirmación: gestión no coincide con la resolución ══════════ -->
     <div
       v-if="modalMateria"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
       @click.self="cerrarModal"
     >
-      <div class="w-full max-w-sm rounded-xl border border-slate-700 bg-slate-800 shadow-xl overflow-hidden">
-        <div class="px-5 py-4 border-b border-slate-700 flex items-start gap-3">
-          <div class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-red-500/15">
-            <svg class="w-4 h-4 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+      <div class="w-full max-w-sm rounded-xl border border-gray-200 bg-white shadow-xl overflow-hidden">
+        <div class="px-5 py-4 border-b border-gray-100 flex items-start gap-3">
+          <div class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-red-100">
+            <svg class="w-4 h-4 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
               <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
             </svg>
           </div>
           <div>
-            <h3 class="text-sm font-semibold text-slate-100 m-0">La gestión no coincide con la resolución</h3>
-            <p class="text-xs text-slate-400 m-0 mt-1">
-              La materia es de la gestión <span class="font-semibold text-slate-300">{{ modalMateria.gestion }}</span>,
+            <h3 class="text-sm font-semibold text-gray-800 m-0">La gestión no coincide con la resolución</h3>
+            <p class="text-xs text-gray-500 m-0 mt-1">
+              La materia es de la gestión <span class="font-semibold text-gray-700">{{ modalMateria.gestion }}</span>,
               pero la resolución seleccionada corresponde a
-              <span class="font-semibold text-slate-300">{{ resolucionActiva?.anio }}/{{ resolucionActiva?.periodo }}</span>.
+              <span class="font-semibold text-gray-700">{{ resolucionActiva?.anio }}/{{ resolucionActiva?.periodo }}</span>.
               ¿Igual querés asignarla?
             </p>
           </div>
         </div>
-        <div class="flex items-center justify-end gap-2 px-5 py-3 bg-slate-900/30">
+        <div class="flex items-center justify-end gap-2 px-5 py-3 bg-gray-50">
           <button
             type="button"
-            class="px-3.5 py-1.5 rounded-lg text-xs font-medium text-slate-300 border border-slate-700 hover:bg-white/5 transition-colors"
+            class="px-3.5 py-1.5 rounded-lg text-xs font-medium text-gray-600 border border-gray-200 hover:bg-white transition-colors"
             @click="cerrarModal"
           >
             Cancelar
           </button>
           <button
             type="button"
-            class="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-red-500 hover:bg-red-400 text-slate-900 transition-colors"
+            class="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-red-500 hover:bg-red-400 text-white transition-colors"
             @click="confirmarPesarDeAviso"
           >
             Asignar de todos modos
@@ -196,7 +197,6 @@ const props = defineProps({
   docenteCod: { type: [Number, String], default: null },
 })
 
-//const emit = defineEmits(['toggle'])
 const emit = defineEmits(['toggle', 'tipo-ingreso-change'])
 function keyDe(m) {
   return `${props.docenteCod}__${m.plan}__${m.materia}__${m.grp}__${m.gestion}`
@@ -212,10 +212,6 @@ function checkTitle(m) {
 }
 
 // ─── Validación: gestión de la materia vs año/periodo de la resolución ───
-// La gestión viene como "2024/2", "2024/1", "2024/Verano", etc.
-// Comparamos año y periodo contra resolucionActiva.anio / .periodo.
-// Parsea "2024/3 - Verano" -> { anio: "2024", periodo: "3", tipo: "Verano" }
-// También soporta "2024/3" sin tipo -> { anio: "2024", periodo: "3", tipo: "" }
 function parseGestion(gestion) {
   const str = String(gestion ?? '').trim()
   const [anioPart, ...resto] = str.split('/')
@@ -240,38 +236,27 @@ function coincideGestion(m) {
   return true
 }
 
-// ─── Flujo de click ───────────────────────────────────────────────
-// Si ya está marcada (se quiere desmarcar) o la gestión coincide: directo.
-// Si la gestión NO coincide y se está intentando marcar: pedir confirmación.
 const modalMateria = ref(null)
 
 function onClickAsignar(m) {
   if (!props.resolucionActiva) return
-
-  // Desmarcar siempre es directo, sin advertencia.
   if (estaMarcada(m)) {
     emit('toggle', m)
     return
   }
-
   if (!coincideGestion(m)) {
     modalMateria.value = m
     return
   }
-
   emit('toggle', m)
 }
 
-// Reasignar una materia que ya tiene resolución previa: sobrescribe directo,
-// pero igual respeta la validación de gestión antes de confirmar.
 function onClickEditar(m) {
   if (!props.resolucionActiva) return
-
   if (!coincideGestion(m)) {
     modalMateria.value = m
     return
   }
-
   emit('toggle', m)
 }
 
@@ -288,20 +273,20 @@ function confirmarPesarDeAviso() {
 
 const tipoGestion = (gestion) => {
   if (gestion?.includes('Verano'))
-    return { class: 'bg-orange-500/10 text-orange-400', dot: 'bg-orange-400' }
+    return { class: 'bg-orange-100 text-orange-700', dot: 'bg-orange-500' }
   if (gestion?.includes('Invierno'))
-    return { class: 'bg-sky-500/10 text-sky-400', dot: 'bg-sky-400' }
-  return { class: 'bg-slate-700/60 text-slate-300', dot: 'bg-slate-400' }
+    return { class: 'bg-sky-100 text-sky-700', dot: 'bg-sky-500' }
+  return { class: 'bg-gray-100 text-gray-600', dot: 'bg-gray-400' }
 }
 
 const GRP_MAP = {
-  '059801': { label: 'CON', class: 'bg-violet-500/15 text-violet-300', dot: 'bg-violet-400' },
-  '109401': { label: 'ADM', class: 'bg-blue-500/15 text-blue-300',     dot: 'bg-blue-400'   },
-  '125091': { label: 'COM', class: 'bg-green-500/15 text-green-300',   dot: 'bg-green-400'  },
-  '126091': { label: 'FIN', class: 'bg-teal-500/15 text-teal-300',     dot: 'bg-teal-400'   },
-  '089801': { label: 'ECO', class: 'bg-amber-500/15 text-amber-300',   dot: 'bg-amber-400'  },
+  '059801': { label: 'CON', class: 'bg-violet-100 text-violet-700', dot: 'bg-violet-500' },
+  '109401': { label: 'ADM', class: 'bg-sky-100 text-sky-700',       dot: 'bg-sky-500'    },
+  '125091': { label: 'COM', class: 'bg-green-100 text-green-700',   dot: 'bg-green-500'  },
+  '126091': { label: 'FIN', class: 'bg-teal-100 text-teal-700',     dot: 'bg-teal-500'   },
+  '089801': { label: 'ECO', class: 'bg-amber-100 text-amber-700',   dot: 'bg-amber-500'  },
 }
 
 const tipoGrp = (plan) =>
-  GRP_MAP[plan] ?? { label: plan, class: 'bg-slate-700/60 text-slate-300', dot: 'bg-slate-400' }
+  GRP_MAP[plan] ?? { label: plan, class: 'bg-gray-100 text-gray-600', dot: 'bg-gray-400' }
 </script>

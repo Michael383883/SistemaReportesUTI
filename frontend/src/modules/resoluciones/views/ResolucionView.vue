@@ -1,10 +1,10 @@
 <template>
-  <div class="min-h-screen bg-gray-50 p-6">
+  <div class="py-1 min-h-screen bg-gray-50 p-6">
 
     <!-- Header -->
     <div class="mb-8">
-      <h1 class="text-[20px] font-semibold text-gray-1000">Digitalizar Resoluciones</h1>
-      <p class="text-[13px] text-gray-700 mt-1">Carga y procesamiento de resoluciones en PDF</p>
+      <h1 class="text-[20px] font-bold text-gray-1000">Digitalizar Resoluciones</h1>
+      <p class="text-[14px] text-gray-700 mt-1">Carga y procesamiento de resoluciones en PDF</p>
     </div>
 
     <!-- Stepper -->
@@ -118,14 +118,14 @@
 
               <!-- Placeholder -->
               <div v-else>
-                <p class="text-[14px] font-medium text-gray-700">Arrastra tu PDF aquí</p>
-                <p class="text-[13px] text-gray-400 mt-1">o selecciona desde tu dispositivo</p>
+                <p class="text-[15px] font-semibold text-gray-700">Arrastra tu PDF aquí</p>
+                <p class="text-[14px] text-gray-800 mt-1">o selecciona desde tu dispositivo</p>
               </div>
 
               <!-- Botón seleccionar -->
               <label class="cursor-pointer">
                 <input type="file" accept=".pdf" class="hidden" @change="handleFileSelect"/>
-                <span class="inline-flex items-center gap-2 px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-[14px] font-medium rounded-lg transition-colors">
+                <span class="inline-flex items-center gap-2 px-5 py-2 bg-blue-800 hover:bg-blue-700 text-white text-[15px] font-semibold rounded-lg transition-colors">
                   <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
                   </svg>
@@ -133,7 +133,7 @@
                 </span>
               </label>
 
-              <p class="text-[11px] text-gray-400">Solo archivos .pdf · Máximo 5 MB</p>
+              <p class="text-[13px] text-gray-700">Solo archivos .pdf · Máximo 10 MB</p>
             </div>
           </div>
 
@@ -142,7 +142,7 @@
             <button
               v-if="archivo"
               @click="currentStep = 1"
-              class="inline-flex items-center gap-2 px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-[14px] font-medium rounded-lg transition-colors"
+              class="inline-flex items-center gap-2 px-5 py-2 bg-amber-500 hover:bg-amber-400 text-white text-[14px] font-medium rounded-lg transition-colors"
             >
               Continuar
               <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
