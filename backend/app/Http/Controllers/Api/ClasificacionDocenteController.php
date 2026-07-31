@@ -657,4 +657,47 @@ class ClasificacionDocenteController extends Controller
         }
     }
 
+    // GET /api/clasificaciones/materias-registradas
+// Devuelve las materias que YA tienen una clasificación guardada
+// (en cualquier documento) para un docente en una gestión/periodo dados.
+// Se usa en el buscador de materias para no permitir duplicarlas y
+// en su lugar mostrar el lápiz de "editar".
+    public function materiasRegistradas(Request $request)
+    {
+        $request->validate([
+            'docente' => 'required|numeric',
+            'gestion' => 'required',
+            'periodo' => 'nullable|string',
+        ]);
+
+        $docente = $request->query('docente');
+        $gestion = $request->query('gestion');
+        $periodo = $request->query('periodo');
+
+        $query = DB::table('CLASIFICACION_MATERIA as cm')
+            ->join('CLASIFICACION_DOCENTE as ccd', 'ccd.ID_CLASIFICACION_DOCENTE', '=', 'cm.ID_CLASIFICACION_DOCENTE')
+            ->join('CLASIFICACION_DOCUMENTO as cdoc', 'cdoc.ID_DOCUMENTO', '=', 'ccd.ID_DOCUMENTO')
+            ->where('ccd.COD_DOCENTE', $docente)
+            ->where('cdoc.GESTION', $gestion)
+            ->whereNotNull('cm.COD_MATERIA')
+            ->select(
+                'cm.ID_DETALLE as id_detalle',
+                'cm.COD_MATERIA as cod_materia',
+                'cm.COD_PLAN as cod_plan',
+                'cm.GRUPO as grupo',
+                'cm.NOTA as nota',
+                'cm.DETALLE as detalle',
+                'cdoc.ID_DOCUMENTO as id_documento',
+                'cdoc.PERIODO as periodo',
+                'cdoc.CATEGORIA as categoria',
+                'ccd.ID_CLASIFICACION_DOCENTE as id_clasificacion_docente'
+            );
+
+        if ($periodo) {
+            $query->where('cdoc.PERIODO', $periodo);
+        }
+
+        return response()->json($query->get());
+    }
+
 }

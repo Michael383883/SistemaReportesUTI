@@ -234,6 +234,8 @@ Route::put('/clasificaciones/{id}/aplicar', [ClasificacionDocenteController::cla
     ->where('id', '[0-9]+');
 Route::put('/clasificaciones/{id}/quitar', [ClasificacionDocenteController::class, 'quitarDeGrupos'])
     ->where('id', '[0-9]+');
+Route::get('/clasificaciones/materias-registradas', [ClasificacionDocenteController::class, 'materiasRegistradas']);
+
 
 /*
 |--------------------------------------------------------------------------
