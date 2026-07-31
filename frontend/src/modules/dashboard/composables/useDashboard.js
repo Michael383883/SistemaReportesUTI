@@ -16,6 +16,7 @@ export function useDashboard() {
             const { data } = await axios.get(`${API_BASE}/api/admin/dashboard/kpis`, {
                 headers: { Authorization: `Bearer ${token}` },
             })
+            
             if (data.success) kpis.value = data.data
         } catch (e) {
             error.value = e?.response?.data?.message ?? 'Error al cargar el dashboard.'

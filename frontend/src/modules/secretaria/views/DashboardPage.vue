@@ -12,7 +12,7 @@
           
           <button
             @click="recargarDatos"
-            class="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-blue-600 rounded-xl hover:bg-blue-700 shadow-sm shadow-blue-600/20 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            class="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-amber-500 rounded-xl hover:bg-amber-400 shadow-sm shadow-blue-600/20 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             :disabled="loading"
           >
             <RefreshCw :class="['w-4 h-4', loading && 'animate-spin']" />
