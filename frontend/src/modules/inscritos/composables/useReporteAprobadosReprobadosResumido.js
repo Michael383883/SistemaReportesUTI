@@ -82,6 +82,45 @@ function drawFooters(doc, fechaActual) {
 }
 
 function finalizarSalida(doc, filename, modo, ventanaPreabierta) {
+    if (modo === 'imprimir') {
+        const blob = doc.output('blob')
+        const url = URL.createObjectURL(blob)
+
+        // Si había una ventana pre-abierta (por el gesto de clic), la cerramos:
+        // no la necesitamos para imprimir, usamos un iframe oculto en su lugar.
+        if (ventanaPreabierta && !ventanaPreabierta.closed) {
+            ventanaPreabierta.close()
+        }
+
+        const iframe = document.createElement('iframe')
+        iframe.style.position = 'fixed'
+        iframe.style.right = '0'
+        iframe.style.bottom = '0'
+        iframe.style.width = '0'
+        iframe.style.height = '0'
+        iframe.style.border = '0'
+        iframe.src = url
+
+        iframe.onload = () => {
+            try {
+                iframe.contentWindow.focus()
+                iframe.contentWindow.print()
+            } catch (e) {
+                console.error('No se pudo imprimir automáticamente', e)
+                window.open(url, '_blank')
+            }
+        }
+
+        document.body.appendChild(iframe)
+
+        setTimeout(() => {
+            document.body.removeChild(iframe)
+            URL.revokeObjectURL(url)
+        }, 60_000)
+
+        return
+    }
+
     if (modo === 'ver') {
         const blob = doc.output('blob')
         const url = URL.createObjectURL(blob)
@@ -91,11 +130,13 @@ function finalizarSalida(doc, filename, modo, ventanaPreabierta) {
         } else {
             const ventana = window.open(url, '_blank')
             if (!ventana) {
+                // Popup bloqueado y no había ventana pre-abierta: fallback a descarga
                 doc.save(filename)
                 URL.revokeObjectURL(url)
                 return
             }
         }
+
         setTimeout(() => URL.revokeObjectURL(url), 60_000)
     } else {
         doc.save(filename)

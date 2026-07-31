@@ -161,7 +161,7 @@
         </div>
       </div>
 
-      <!-- Botón PDF con menú desplegable (compactado) -->
+      <!-- Botón PDF con menú desplegable -->
       <div class="flex flex-col" ref="pdfDropdownRef">
         <label class="text-[0.68rem] invisible">PDF</label>
 
@@ -230,7 +230,7 @@
             @click="mostrarMenuPdf = false"
           />
 
-          <!-- Menú desplegable (compacto, con scroll interno) -->
+          <!-- Menú desplegable: cada sección con encabezado + fila de 3 íconos (Ver/Imprimir/Descargar) -->
           <Transition
             enter-active-class="transition-all duration-150 ease-out"
             enter-from-class="opacity-0 scale-95 -translate-y-1"
@@ -243,184 +243,155 @@
               v-if="mostrarMenuPdf"
               class="absolute right-0 top-full mt-1.5 z-50
                      bg-white border border-slate-200 rounded-xl
-                     shadow-xl overflow-hidden w-56 max-h-[26rem] overflow-y-auto"
+                     shadow-xl overflow-hidden w-64 max-h-[30rem] overflow-y-auto"
             >
               <!-- Lista completa -->
-              <div class="px-3 pt-2.5 pb-1 sticky top-0 bg-white z-10">
-                <p class="text-[0.6rem] font-semibold tracking-widest uppercase text-slate-400">
-                  Lista completa
-                </p>
+              <div class="px-4 pt-3 pb-1.5">
+                <p class="text-[0.7rem] font-semibold text-slate-800">Lista completa</p>
+              </div>
+              <div class="px-4 pb-3 flex items-center gap-2">
+                <button
+                  class="flex-1 flex items-center justify-center h-9 rounded-lg text-slate-600 bg-slate-100 border border-slate-200 hover:bg-slate-200 hover:text-slate-800 active:bg-slate-300 transition-colors duration-100 cursor-pointer outline-none"
+                  title="Ver PDF"
+                  @click="generarPDFLista('ver'); mostrarMenuPdf = false"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/>
+                  </svg>
+                </button>
+                <button
+                  class="flex-1 flex items-center justify-center h-9 rounded-lg text-slate-600 bg-slate-100 border border-slate-200 hover:bg-slate-200 hover:text-slate-800 active:bg-slate-300 transition-colors duration-100 cursor-pointer outline-none"
+                  title="Imprimir"
+                  @click="generarPDFLista('imprimir'); mostrarMenuPdf = false"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>
+                  </svg>
+                </button>
+                <button
+                  class="flex-1 flex items-center justify-center h-9 rounded-lg text-amber-700 bg-amber-100 border border-amber-300 hover:bg-amber-200 hover:text-amber-800 active:bg-amber-300 transition-colors duration-100 cursor-pointer outline-none"
+                  title="Descargar PDF"
+                  @click="generarPDFLista('descargar'); mostrarMenuPdf = false"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                  </svg>
+                </button>
               </div>
 
-              <!-- Ver PDF Lista -->
-              <button
-                @click="generarPDFLista('ver'); mostrarMenuPdf = false"
-                class="w-full flex items-center gap-2.5 px-3 py-1.5 text-[0.8rem] text-slate-700
-                       hover:bg-slate-50 transition-colors text-left"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                     stroke-width="2" class="text-slate-400 shrink-0">
-                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                  <circle cx="12" cy="12" r="3" />
-                </svg>
-                <div class="min-w-0">
-                  <div class="font-medium leading-tight truncate">Ver lista de estudiantes</div>
-                  <div class="text-[0.65rem] text-slate-400 leading-tight">Abrir en nueva pestaña</div>
-                </div>
-              </button>
+              <div class="border-t border-slate-100 mx-4"></div>
 
-              <!-- Descargar PDF Lista -->
-              <button
-                @click="generarPDFLista('descargar'); mostrarMenuPdf = false"
-                class="w-full flex items-center gap-2.5 px-3 py-1.5 pb-2 text-[0.8rem] text-slate-700
-                       hover:bg-slate-50 transition-colors text-left"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                     stroke-width="2" class="text-slate-400 shrink-0">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                  <polyline points="7 10 12 15 17 10" />
-                  <line x1="12" y1="15" x2="12" y2="3" />
-                </svg>
-                <div class="min-w-0">
-                  <div class="font-medium leading-tight truncate">Descargar lista de estudiantes</div>
-                  <div class="text-[0.65rem] text-slate-400 leading-tight">Guardar en tu equipo</div>
-                </div>
-              </button>
-
-              <div class="border-t border-slate-100 mx-3"></div>
-
-              <div class="px-3 pt-2.5 pb-1">
-                <p class="text-[0.6rem] font-semibold tracking-widest uppercase text-slate-400">
-                  Aprobados/reprobados completo
-                </p>
+              <!-- Aprobados/reprobados completo -->
+              <div class="px-4 pt-3 pb-1.5">
+                <p class="text-[0.7rem] font-semibold text-slate-800">Aprobados/reprobados completo</p>
+              </div>
+              <div class="px-4 pb-3 flex items-center gap-2">
+                <button
+                  :disabled="generandoAprobadosResumido"
+                  class="flex-1 flex items-center justify-center h-9 rounded-lg text-slate-600 bg-slate-100 border border-slate-200 hover:bg-slate-200 hover:text-slate-800 active:bg-slate-300 transition-colors duration-100 cursor-pointer outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Ver PDF"
+                  @click="generarPDFAprobadosResumido('ver'); mostrarMenuPdf = false"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/>
+                  </svg>
+                </button>
+                <button
+                  :disabled="generandoAprobadosResumido"
+                  class="flex-1 flex items-center justify-center h-9 rounded-lg text-slate-600 bg-slate-100 border border-slate-200 hover:bg-slate-200 hover:text-slate-800 active:bg-slate-300 transition-colors duration-100 cursor-pointer outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Imprimir"
+                  @click="generarPDFAprobadosResumido('imprimir'); mostrarMenuPdf = false"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>
+                  </svg>
+                </button>
+                <button
+                  :disabled="generandoAprobadosResumido"
+                  class="flex-1 flex items-center justify-center h-9 rounded-lg text-amber-700 bg-amber-100 border border-amber-300 hover:bg-amber-200 hover:text-amber-800 active:bg-amber-300 transition-colors duration-100 cursor-pointer outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Descargar PDF"
+                  @click="generarPDFAprobadosResumido('descargar'); mostrarMenuPdf = false"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                  </svg>
+                </button>
               </div>
 
-              <!-- Ver PDF Aprobados/Reprobados Completo -->
-              <button
-                @click="generarPDFAprobadosResumido('ver'); mostrarMenuPdf = false"
-                :disabled="generandoAprobadosResumido"
-                class="w-full flex items-center gap-2.5 px-3 py-1.5 text-[0.8rem] text-slate-700
-                       hover:bg-slate-50 transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                     stroke-width="2" class="text-slate-400 shrink-0">
-                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                  <circle cx="12" cy="12" r="3" />
-                </svg>
-                <div class="min-w-0">
-                  <div class="font-medium leading-tight truncate">Ver completo</div>
-                  <div class="text-[0.65rem] text-slate-400 leading-tight">Abrir en nueva pestaña</div>
-                </div>
-              </button>
+              <div class="border-t border-slate-100 mx-4"></div>
 
-              <!-- Descargar PDF Aprobados/Reprobados Completo -->
-              <button
-                @click="generarPDFAprobadosResumido('descargar'); mostrarMenuPdf = false"
-                :disabled="generandoAprobadosResumido"
-                class="w-full flex items-center gap-2.5 px-3 py-1.5 pb-2 text-[0.8rem] text-slate-700
-                       hover:bg-slate-50 transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                     stroke-width="2" class="text-slate-400 shrink-0">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                  <polyline points="7 10 12 15 17 10" />
-                  <line x1="12" y1="15" x2="12" y2="3" />
-                </svg>
-                <div class="min-w-0">
-                  <div class="font-medium leading-tight truncate">Descargar completo</div>
-                  <div class="text-[0.65rem] text-slate-400 leading-tight">Guardar en tu equipo</div>
-                </div>
-              </button>
-
-              <div class="border-t border-slate-100 mx-3"></div>
-
-              <!-- Resumen de totales -->
-              <div class="px-3 pt-2.5 pb-1">
-                <p class="text-[0.6rem] font-semibold tracking-widest uppercase text-slate-400">
-                  Totales por docente
-                </p>
+              <!-- Totales por docente -->
+              <div class="px-4 pt-3 pb-1.5">
+                <p class="text-[0.7rem] font-semibold text-slate-800">Totales por docente</p>
+              </div>
+              <div class="px-4 pb-3 flex items-center gap-2">
+                <button
+                  class="flex-1 flex items-center justify-center h-9 rounded-lg text-slate-600 bg-slate-100 border border-slate-200 hover:bg-slate-200 hover:text-slate-800 active:bg-slate-300 transition-colors duration-100 cursor-pointer outline-none"
+                  title="Ver PDF"
+                  @click="generarPDFTotales('ver'); mostrarMenuPdf = false"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/>
+                  </svg>
+                </button>
+                <button
+                  class="flex-1 flex items-center justify-center h-9 rounded-lg text-slate-600 bg-slate-100 border border-slate-200 hover:bg-slate-200 hover:text-slate-800 active:bg-slate-300 transition-colors duration-100 cursor-pointer outline-none"
+                  title="Imprimir"
+                  @click="generarPDFTotales('imprimir'); mostrarMenuPdf = false"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>
+                  </svg>
+                </button>
+                <button
+                  class="flex-1 flex items-center justify-center h-9 rounded-lg text-amber-700 bg-amber-100 border border-amber-300 hover:bg-amber-200 hover:text-amber-800 active:bg-amber-300 transition-colors duration-100 cursor-pointer outline-none"
+                  title="Descargar PDF"
+                  @click="generarPDFTotales('descargar'); mostrarMenuPdf = false"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                  </svg>
+                </button>
               </div>
 
-              <!-- Ver PDF Totales -->
-              <button
-                @click="generarPDFTotales('ver'); mostrarMenuPdf = false"
-                class="w-full flex items-center gap-2.5 px-3 py-1.5 text-[0.8rem] text-slate-700
-                       hover:bg-slate-50 transition-colors text-left"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                     stroke-width="2" class="text-slate-400 shrink-0">
-                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                  <circle cx="12" cy="12" r="3" />
-                </svg>
-                <div class="min-w-0">
-                  <div class="font-medium leading-tight truncate">Ver totales</div>
-                  <div class="text-[0.65rem] text-slate-400 leading-tight">Abrir en nueva pestaña</div>
-                </div>
-              </button>
+              <div class="border-t border-slate-100 mx-4"></div>
 
-              <!-- Descargar PDF Totales -->
-              <button
-                @click="generarPDFTotales('descargar'); mostrarMenuPdf = false"
-                class="w-full flex items-center gap-2.5 px-3 py-1.5 pb-2 text-[0.8rem] text-slate-700
-                       hover:bg-slate-50 transition-colors text-left"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                     stroke-width="2" class="text-slate-400 shrink-0">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                  <polyline points="7 10 12 15 17 10" />
-                  <line x1="12" y1="15" x2="12" y2="3" />
-                </svg>
-                <div class="min-w-0">
-                  <div class="font-medium leading-tight truncate">Descargar totales</div>
-                  <div class="text-[0.65rem] text-slate-400 leading-tight">Guardar en tu equipo</div>
-                </div>
-              </button>
-
-              <div class="border-t border-slate-100 mx-3"></div>
-
-              <!-- Aprobados y reprobados resumido -->
-              <div class="px-3 pt-2.5 pb-1">
-                <p class="text-[0.6rem] font-semibold tracking-widest uppercase text-slate-400">
-                  Aprobados/reprobados resumido
-                </p>
+              <!-- Aprobados/reprobados resumido -->
+              <div class="px-4 pt-3 pb-1.5">
+                <p class="text-[0.7rem] font-semibold text-slate-800">Aprobados/reprobados resumido</p>
               </div>
-
-              <!-- Ver PDF Aprobados/Reprobados -->
-              <button
-                @click="generarPDFAprobados('ver'); mostrarMenuPdf = false"
-                :disabled="generandoAprobados"
-                class="w-full flex items-center gap-2.5 px-3 py-1.5 text-[0.8rem] text-slate-700
-                       hover:bg-slate-50 transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                     stroke-width="2" class="text-slate-400 shrink-0">
-                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                  <circle cx="12" cy="12" r="3" />
-                </svg>
-                <div class="min-w-0">
-                  <div class="font-medium leading-tight truncate">Ver resumido</div>
-                  <div class="text-[0.65rem] text-slate-400 leading-tight">Abrir en nueva pestaña</div>
-                </div>
-              </button>
-
-              <!-- Descargar PDF Aprobados/Reprobados -->
-              <button
-                @click="generarPDFAprobados('descargar'); mostrarMenuPdf = false"
-                :disabled="generandoAprobados"
-                class="w-full flex items-center gap-2.5 px-3 py-1.5 pb-2.5 text-[0.8rem] text-slate-700
-                       hover:bg-slate-50 transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                     stroke-width="2" class="text-slate-400 shrink-0">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                  <polyline points="7 10 12 15 17 10" />
-                  <line x1="12" y1="15" x2="12" y2="3" />
-                </svg>
-                <div class="min-w-0">
-                  <div class="font-medium leading-tight truncate">Descargar resumido</div>
-                  <div class="text-[0.65rem] text-slate-400 leading-tight">Guardar en tu equipo</div>
-                </div>
-              </button>
+              <div class="px-4 pb-3 flex items-center gap-2">
+                <button
+                  :disabled="generandoAprobados"
+                  class="flex-1 flex items-center justify-center h-9 rounded-lg text-slate-600 bg-slate-100 border border-slate-200 hover:bg-slate-200 hover:text-slate-800 active:bg-slate-300 transition-colors duration-100 cursor-pointer outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Ver PDF"
+                  @click="generarPDFAprobados('ver'); mostrarMenuPdf = false"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/>
+                  </svg>
+                </button>
+                <button
+                  :disabled="generandoAprobados"
+                  class="flex-1 flex items-center justify-center h-9 rounded-lg text-slate-600 bg-slate-100 border border-slate-200 hover:bg-slate-200 hover:text-slate-800 active:bg-slate-300 transition-colors duration-100 cursor-pointer outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Imprimir"
+                  @click="generarPDFAprobados('imprimir'); mostrarMenuPdf = false"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>
+                  </svg>
+                </button>
+                <button
+                  :disabled="generandoAprobados"
+                  class="flex-1 flex items-center justify-center h-9 rounded-lg text-amber-700 bg-amber-100 border border-amber-300 hover:bg-amber-200 hover:text-amber-800 active:bg-amber-300 transition-colors duration-100 cursor-pointer outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Descargar PDF"
+                  @click="generarPDFAprobados('descargar'); mostrarMenuPdf = false"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                  </svg>
+                </button>
+              </div>
             </div>
           </Transition>
 
@@ -497,6 +468,7 @@
 
   </div>
 </template>
+
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import DocenteInscritosCard from '../components/DocenteInscritosCard.vue'
@@ -618,14 +590,24 @@ const fechaActual = computed(() =>
   })
 )
 
+// ─── Abre la ventana del loader de forma segura (por si el navegador bloquea el popup) ───
+function abrirVentanaConLoader(mensaje) {
+  const ventana = window.open('', '_blank')
+  if (ventana) {
+    mostrarLoaderPdf(ventana, mensaje)
+  } else {
+    console.warn('El navegador bloqueó la ventana emergente del PDF.')
+  }
+  return ventana
+}
 
 // ─── Aprobados/Reprobados Completo (detalle plano por grupo) ────────────
+// ⚠️ Reporte más pesado: trae TODOS los grupos/materias sin agrupar, puede tardar.
 async function generarPDFAprobadosResumido(modo = 'descargar') {
   mostrarMenuPdf.value = false
   let ventana = null
   if (modo === 'ver') {
-    ventana = window.open('', '_blank')
-    mostrarLoaderPdf(ventana, 'Generando reporte completo...')
+    ventana = abrirVentanaConLoader('Generando reporte completo... Esto puede tardar unos segundos.')
   }
 
   await fetchResumenPorGrupo(filtros.value.anio, filtros.value.periodo)
@@ -641,7 +623,7 @@ async function generarPDFAprobadosResumido(modo = 'descargar') {
   const q = busqueda.value.trim()
   if (q) {
     if (/^\d+$/.test(q)) {
-      filas = filas.filter(f => String(f.COD_DOCENTE) === q) // 👈 verificá el nombre real del campo
+      filas = filas.filter(f => String(f.COD_DOCENTE) === q)
     } else {
       filas = filas.filter(f =>
         (f.NOMBRE_DOCENTE ?? '').toLowerCase().includes(q.toLowerCase())
@@ -689,12 +671,12 @@ async function handleBuscar() {
   }
 }
 
+// ⚠️ Reporte más pesado: incluye el detalle completo de estudiantes por materia/grupo.
 async function generarPDFLista(modo = 'descargar') {
   mostrarMenuPdf.value = false
   let ventana = null
   if (modo === 'ver') {
-    ventana = window.open('', '_blank')
-    mostrarLoaderPdf(ventana, 'Generando lista de inscritos...')
+    ventana = abrirVentanaConLoader('Generando lista de inscritos... Esto puede tardar unos segundos.')
   }
   await exportarListaCompleta(dataFiltrada.value, filtros.value.anio, filtros.value.periodo, modo, ventana)
 }
@@ -703,8 +685,7 @@ async function generarPDFTotales(modo = 'descargar') {
   mostrarMenuPdf.value = false
   let ventana = null
   if (modo === 'ver') {
-    ventana = window.open('', '_blank')
-    mostrarLoaderPdf(ventana, 'Generando resumen de totales...')
+    ventana = abrirVentanaConLoader('Generando resumen de totales...')
   }
 
   // Traer también aprobados/reprobados, porque fetchInscritos no los incluye
@@ -732,8 +713,7 @@ async function generarPDFAprobados(modo = 'descargar') {
   mostrarMenuPdf.value = false
   let ventana = null
   if (modo === 'ver') {
-    ventana = window.open('', '_blank')
-    mostrarLoaderPdf(ventana, 'Generando aprobados y reprobados...')
+    ventana = abrirVentanaConLoader('Generando aprobados y reprobados...')
   }
 
   await fetchAprobadosReprobados(filtros.value.anio, filtros.value.periodo)
@@ -758,7 +738,4 @@ async function generarPDFAprobados(modo = 'descargar') {
     ventana
   )
 }
-
-
-
 </script>
