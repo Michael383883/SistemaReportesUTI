@@ -13,11 +13,68 @@
       <template #pdf>
         <PdfMenuButton :disabled="loading || docentes.length === 0">
           <template #default="{ cerrar }">
-            <PdfMenuItem icon="ver" titulo="Ver PDF" subtitulo="Abre en nueva pestaña"
-              @click="generarPDF('ver'); cerrar()" />
-            <div class="border-t border-slate-100"></div>
-            <PdfMenuItem icon="descargar" titulo="Descargar PDF" subtitulo="Guarda en tu equipo"
-              @click="generarPDF('descargar'); cerrar()" />
+
+            <p class="px-4 pt-3 pb-1.5 text-[0.8rem] font-semibold text-slate-800">
+              Reporte resumen
+            </p>
+            <div class="px-4 pb-3 flex items-center gap-2">
+              <!-- Ver -->
+              <button
+                class="
+                  flex-1 flex items-center justify-center h-9 rounded-lg
+                  text-slate-600 bg-slate-100 border border-slate-200
+                  hover:bg-slate-200 hover:text-slate-800
+                  active:bg-slate-300
+                  transition-colors duration-100 cursor-pointer outline-none
+                "
+                title="Ver PDF"
+                @click="generarPDF('ver'); cerrar()"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/>
+                  <circle cx="12" cy="12" r="3"/>
+                </svg>
+              </button>
+
+              <!-- Imprimir -->
+              <button
+                class="
+                  flex-1 flex items-center justify-center h-9 rounded-lg
+                  text-slate-600 bg-slate-100 border border-slate-200
+                  hover:bg-slate-200 hover:text-slate-800
+                  active:bg-slate-300
+                  transition-colors duration-100 cursor-pointer outline-none
+                "
+                title="Imprimir"
+                @click="generarPDF('imprimir'); cerrar()"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="6 9 6 2 18 2 18 9"/>
+                  <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+                  <rect x="6" y="14" width="12" height="8"/>
+                </svg>
+              </button>
+
+              <!-- Descargar -->
+              <button
+                class="
+                  flex-1 flex items-center justify-center h-9 rounded-lg
+                  text-amber-700 bg-amber-100 border border-amber-300
+                  hover:bg-amber-200 hover:text-amber-800
+                  active:bg-amber-300
+                  transition-colors duration-100 cursor-pointer outline-none
+                "
+                title="Descargar PDF"
+                @click="generarPDF('descargar'); cerrar()"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                  <polyline points="7 10 12 15 17 10"/>
+                  <line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+              </button>
+            </div>
+
           </template>
         </PdfMenuButton>
       </template>
@@ -51,7 +108,6 @@
 <script setup>
 import ReporteToolbar from '../components/ReporteToolbar.vue'
 import PdfMenuButton from '../components/PdfMenuButton.vue'
-import PdfMenuItem from '../components/PdfMenuItem.vue'
 import ReporteEstados from '../components/ReporteEstados.vue'
 import ResumenDocenteCardDos from '../components/Resumendocentecarddos.vue'
 

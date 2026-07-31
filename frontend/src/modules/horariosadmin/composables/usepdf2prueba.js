@@ -342,6 +342,40 @@ export function generarPDFResumenDos(
 
     const filename = `CargaHorariaResumen_${anio}_${periodo}.pdf`
 
+    // Modo 'imprimir': abre el diálogo de impresión del navegador directamente
+    if (modo === 'imprimir') {
+        const blob = doc.output('blob')
+        const url = URL.createObjectURL(blob)
+
+        const iframe = document.createElement('iframe')
+        iframe.style.position = 'fixed'
+        iframe.style.right = '0'
+        iframe.style.bottom = '0'
+        iframe.style.width = '0'
+        iframe.style.height = '0'
+        iframe.style.border = '0'
+        iframe.src = url
+
+        iframe.onload = () => {
+            try {
+                iframe.contentWindow.focus()
+                iframe.contentWindow.print()
+            } catch (e) {
+                console.error('No se pudo imprimir automáticamente', e)
+                window.open(url, '_blank')
+            }
+        }
+
+        document.body.appendChild(iframe)
+
+        setTimeout(() => {
+            document.body.removeChild(iframe)
+            URL.revokeObjectURL(url)
+        }, 60_000)
+
+        return
+    }
+
     // Si es modo 'ver', abrir en nueva pestaña
     if (modo === 'ver') {
         const blob = doc.output('blob')
@@ -356,7 +390,6 @@ export function generarPDFResumenDos(
                 { once: true }
             )
         } else {
-            // Si el navegador bloquea la ventana emergente, descargar como fallback
             const link = document.createElement('a')
             link.href = url
             link.download = filename

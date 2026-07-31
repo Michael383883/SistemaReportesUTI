@@ -288,6 +288,39 @@ export function generarPDFResumen(docentes = [], { anio, periodo, modo = 'descar
 
     const filename = `ResumenCargaHoraria_${anio}_${periodo}.pdf`
 
+    if (modo === 'imprimir') {
+        const blob = doc.output('blob')
+        const url = URL.createObjectURL(blob)
+
+        const iframe = document.createElement('iframe')
+        iframe.style.position = 'fixed'
+        iframe.style.right = '0'
+        iframe.style.bottom = '0'
+        iframe.style.width = '0'
+        iframe.style.height = '0'
+        iframe.style.border = '0'
+        iframe.src = url
+
+        iframe.onload = () => {
+            try {
+                iframe.contentWindow.focus()
+                iframe.contentWindow.print()
+            } catch (e) {
+                console.error('No se pudo imprimir automáticamente', e)
+                window.open(url, '_blank')
+            }
+        }
+
+        document.body.appendChild(iframe)
+
+        setTimeout(() => {
+            document.body.removeChild(iframe)
+            URL.revokeObjectURL(url)
+        }, 60_000)
+
+        return
+    }
+
     if (modo === 'ver') {
         const blob = doc.output('blob')
         const url = URL.createObjectURL(blob)
@@ -295,9 +328,16 @@ export function generarPDFResumen(docentes = [], { anio, periodo, modo = 'descar
         if (ventana) {
             ventana.addEventListener('load', () => URL.revokeObjectURL(url), { once: true })
         } else {
+            const link = document.createElement('a')
+            link.href = url
+            link.download = filename
+            document.body.appendChild(link)
+            link.click()
+            document.body.removeChild(link)
             setTimeout(() => URL.revokeObjectURL(url), 10_000)
         }
-    } else {
-        doc.save(filename)
+        return
     }
+
+    doc.save(filename)
 }
