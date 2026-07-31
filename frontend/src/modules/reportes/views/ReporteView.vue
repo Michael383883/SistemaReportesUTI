@@ -1,12 +1,12 @@
 <template>
-  <div class="px-6 py-2 max-w-6xl00">
+  <div class="px-6 py- max-w-6xl00">
 
     <!-- Header de página -->
     <div class="flex items-start justify-between mb-7">
       <div>
         <h1 class="text-2xl font-bold text-gray-900 mb-0.5"> 
-          Reporte de Docente</h1>
-        <p class="text-xs text-slate-400 m-0">Materias dictadas registradas en el SISS a partir de 2001</p>
+          Reporte de  Kardex Docente</h1>
+        <p class="text-xs text-slate-800 m-0">Materias dictadas registradas en el SISS a partir de 2001</p>
       </div>
 
       <!-- Toggle Version 2 (Compartidos) -->
@@ -16,14 +16,14 @@
         :disabled="loading || loadingCom"
         class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors"
         :class="verCompartidos
-          ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-500'
-          : 'bg-slate-800/40 border-slate-700 text-slate-300 hover:bg-slate-800'"
+          ? 'bg-blue-500 border-indigo-800 text-slate-100 hover:bg-amber-700'
+          : 'bg-blue-800 border-slate-700 text-slate-100 hover:bg-amber-700'"
       >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/>
           <path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>
         </svg>
-        {{ verCompartidos ? 'Versión 2 (Compartidos)' : 'Ver versión 2 (Compartidos)' }}
+        {{ verCompartidos ? 'Versión 2 (Compartidos)' : 'Ver versión sin (Compartidos)' }}
       </button>
     </div>
 
@@ -69,9 +69,12 @@
       </div>
 
       <!-- Tabla: normal o de compartidos según la versión activa -->
-      <ReporteTablaCom v-if="verCompartidos" :materias="reporteActivo.materias" />
-      <ReporteTabla    v-else              :materias="reporteActivo.materias" />
-    </template>
+      <ReporteTabla
+        :materias="reporteActivo.materias"
+        :cod-docente="reporteActivo.docente?.codigo"
+        :agrupar-compartidos="verCompartidos"
+      />
+      </template>
 
     <!-- Empty -->
     <div v-else-if="!loadingActivo && !errorActivo" class="flex flex-col items-center justify-center py-20 text-center text-slate-400">
@@ -95,7 +98,7 @@ import { useReporteCom } from '../composables/useReporteCom'
 import ReporteHeader  from '../components/ReporteHeader.vue'
 import ReporteFiltros from '../components/ReporteFiltros.vue'
 import ReporteTabla   from '../components/ReporteTabla.vue'
-import ReporteTablaCom   from '../components/ReporteTablaCom.vue'
+
 
 const route  = useRoute()
 const router = useRouter()
@@ -242,16 +245,22 @@ const onToggleRestriccion = async ({ anio, periodo, habilitar }) => {
 }
 
 // ── Click en el botón "Versión 2 (Compartidos)" ─────────────────────────────
-// Cambia qué tabla se muestra. Si el reporte de compartidos todavía no fue
-// cargado para el docente/filtros actuales, lo genera antes de mostrarlo.
+// Cambia qué tabla se muestra. Siempre regenera la versión recién activada
+// con los filtros vigentes, para que no se muestre una copia en caché que
+// quedó desactualizada respecto a los filtros aplicados mientras se veía
+// la otra versión (por eso antes había que apretar "Re-generar" a mano).
 const onToggleVersion = async () => {
   verCompartidos.value = !verCompartidos.value
 
   const codigo = route.query.codigo
   if (!codigo) return
 
-  if (verCompartidos.value && !reporteCom.value) {
-    await generarReporteCom(codigo, paramsActuales())
+  const params = paramsActuales()
+
+  if (verCompartidos.value) {
+    await generarReporteCom(codigo, params)
+  } else {
+    await generarReporte(codigo, params)
   }
 }
 </script>

@@ -1,18 +1,24 @@
 <template>
-  <div class="relative rounded-xl border border-slate-700 bg-slate-800 overflow-hidden mb-6">
+  <div class="relative rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden mb-6">
     <div class="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-amber-400 to-amber-600 rounded-l-xl"/>
 
-    <div class="flex items-center gap-4 py-4 pr-6 pl-7 flex-wrap">
-      <h2 class="text-base font-semibold text-slate-100 m-0 tracking-tight whitespace-nowrap">
-        {{ reporte.docente?.nombre }}
-      </h2>
+    <div class="flex items-center gap-3 py-4 pr-6 pl-7 flex-wrap">
 
-      <span class="inline-flex items-center px-2 py-0.5 rounded text-[0.72rem] font-semibold bg-indigo-500/15 text-indigo-300 whitespace-nowrap">
-        SIS: {{ reporte.docente?.codigo }}
-      </span>
+      <!-- ── Identidad (nombre + código) ─────────────────────────────────── -->
+      <div class="flex items-center gap-2 min-w-0">
+        <h2 class="text-base font-semibold text-slate-800 m-0 tracking-tight whitespace-nowrap truncate">
+          {{ reporte.docente?.nombre }}
+        </h2>
+        <span class="text-[0.82rem] font-semibold text-indigo-600 whitespace-nowrap">
+          · SIS {{ reporte.docente?.codigo }}
+        </span>
+      </div>
 
-      <!-- Desde: calculado del mínimo ANIO en materias -->
-      <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/[0.04] border border-slate-700 text-xs text-slate-400 whitespace-nowrap">
+      <!-- separador visual entre identidad e info -->
+      <div class="w-px h-5 bg-slate-300 mx-1 hidden sm:block"/>
+
+      <!-- ── Info (solo lectura, sin apariencia de botón) ────────────────── -->
+      <div class="flex items-center gap-1.5 text-xs font-semibold text-slate-800 whitespace-nowrap">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/>
           <line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
@@ -20,25 +26,30 @@
         Desde {{ anioDesde }}
       </div>
 
-      <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs text-amber-400 font-semibold whitespace-nowrap">
+      <span class="text-slate-300">•</span>
+
+      <div class="flex items-center gap-1.5 text-xs font-semibold text-amber-600 font-medium whitespace-nowrap">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
           <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
         </svg>
         {{ reporte.total }} materia{{ reporte.total !== 1 ? 's' : '' }}
       </div>
 
-      <!-- ── Periodo restringido (aún no concluido) ─────────────────────────── -->
+      <div class="flex-1"/>
+
+      <!-- ── Acciones (botones reales: relieve, hover, cursor) ───────────── -->
       <button
         v-if="periodoPendiente"
         :disabled="loading"
+        type="button"
         class="
-          inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold
-          transition-all duration-150 cursor-pointer border whitespace-nowrap
-          disabled:opacity-50 disabled:cursor-not-allowed
+          inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold
+          border shadow-sm transition-all duration-150 cursor-pointer whitespace-nowrap
+          active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100
         "
         :class="habilitacionAplicada
-          ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20'
-          : 'bg-red-500/10 border-red-500/30 text-red-400 hover:bg-red-500/20'"
+          ? 'bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100'
+          : 'bg-red-50 border-red-300 text-red-700 hover:bg-red-100'"
         :title="habilitacionAplicada
           ? `Mostrando ${periodoPendiente.label} (aún no concluye) — click para volver a ocultarlo`
           : `${periodoPendiente.label} aún no concluye y está oculto — click para mostrarlo`"
@@ -53,10 +64,14 @@
         {{ habilitacionAplicada ? `Mostrando ${periodoPendiente.label}` : `Habilitar ${periodoPendiente.label}` }}
       </button>
 
-      <div class="flex-1"/>
-
       <button
-        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-slate-700 text-slate-400 bg-transparent hover:bg-white/5 hover:text-slate-200 transition-all duration-150 cursor-pointer whitespace-nowrap"
+        type="button"
+        class="
+          inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium
+          border border-slate-300 text-slate-600 bg-slate-50 shadow-sm
+          hover:bg-slate-100 hover:text-slate-900 hover:border-slate-400
+          active:scale-[0.97] transition-all duration-150 cursor-pointer whitespace-nowrap
+        "
         @click="$emit('volver')"
       >
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
@@ -111,7 +126,6 @@ const periodoPendiente = computed(() => {
   const lista = restriccion.value?.periodos_no_concluidos || []
   if (!lista.length) return null
 
-  // Si ya se habilitó alguno, mostramos ese mismo (para poder des-habilitarlo)
   const clave = restriccion.value?.habilitacion_aplicada
     ? restriccion.value.habilitacion_solicitada
     : lista[0]

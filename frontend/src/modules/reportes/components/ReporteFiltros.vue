@@ -2,7 +2,7 @@
   <div class="flex flex-wrap items-end gap-3">
     <!-- Año desde (admite periodo: 2016 o 2016/1) -->
     <div class="flex flex-col gap-1.5">
-      <label class="text-[0.68rem] font-semibold tracking-widest uppercase text-slate-800">
+      <label class="text-[0.68rem] font-semibold tracking-widest uppercase text-slate-900">
         Desde el año
       </label>
       <input
@@ -12,9 +12,9 @@
         placeholder="Ej: 2016 o 2016/1"
         maxlength="9"
         class="
-          w-40 bg-slate-800 border border-slate-700 rounded-lg
-          text-slate-100 text-sm px-3 py-2 outline-none
-          placeholder-slate-500 transition-all duration-150
+          w-40 bg-white border border-slate-300 rounded-lg
+          text-slate-800 text-sm px-3 py-2 outline-none
+          placeholder-slate-400 transition-all duration-150
           focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20
         "
         @keyup.enter="onGenerar"
@@ -23,7 +23,7 @@
 
     <!-- Año hasta (admite periodo: 2024 o 2024/2) -->
     <div class="flex flex-col gap-1.5">
-      <label class="text-[0.68rem] font-semibold tracking-widest uppercase text-slate-800">
+      <label class="text-[0.68rem] font-semibold tracking-widest uppercase text-slate-900">
         Hasta el año
       </label>
       <input
@@ -33,9 +33,9 @@
         placeholder="Ej: 2024 o 2024/2"
         maxlength="9"
         class="
-          w-40 bg-slate-800 border border-slate-700 rounded-lg
-          text-slate-100 text-sm px-3 py-2 outline-none
-          placeholder-slate-500 transition-all duration-150
+          w-40 bg-white border border-slate-300 rounded-lg
+          text-slate-800 text-sm px-3 py-2 outline-none
+          placeholder-slate-400 transition-all duration-150
           focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20
         "
         @keyup.enter="onGenerar"
@@ -44,7 +44,7 @@
 
     <!-- Materia (código o nombre) -->
     <div class="flex flex-col gap-1.5">
-      <label class="text-[0.68rem] font-semibold tracking-widest uppercase text-slate-800">
+      <label class="text-[0.68rem] font-semibold tracking-widest uppercase text-slate-900">
         Materia
       </label>
       <input
@@ -53,9 +53,9 @@
         placeholder="Código o nombre, ej: 1301033 / Cálculo"
         maxlength="60"
         class="
-          w-56 bg-slate-800 border border-slate-700 rounded-lg
-          text-slate-100 text-sm px-3 py-2 outline-none
-          placeholder-slate-500 transition-all duration-150
+          w-56 bg-white border border-slate-300 rounded-lg
+          text-slate-800 text-sm px-3 py-2 outline-none
+          placeholder-slate-400 transition-all duration-150
           focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20
         "
         @keyup.enter="onGenerar"
@@ -64,7 +64,7 @@
 
     <!-- Grupo -->
     <div class="flex flex-col gap-1.5">
-      <label class="text-[0.68rem] font-semibold tracking-widest uppercase text-slate-800">
+      <label class="text-[0.68rem] font-semibold tracking-widest uppercase text-slate-900">
         Grupo
       </label>
       <input
@@ -73,9 +73,9 @@
         placeholder="Ej: 01"
         maxlength="10"
         class="
-          w-28 bg-slate-800 border border-slate-700 rounded-lg
-          text-slate-100 text-sm px-3 py-2 outline-none
-          placeholder-slate-500 transition-all duration-150
+          w-28 bg-white border border-slate-300 rounded-lg
+          text-slate-800 text-sm px-3 py-2 outline-none
+          placeholder-slate-400 transition-all duration-150
           focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20
         "
         @keyup.enter="onGenerar"
@@ -88,9 +88,9 @@
       class="
         inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold
         bg-amber-500 hover:bg-amber-400 active:bg-amber-600
-        text-slate-900 transition-all duration-150 cursor-pointer border-none
+        text-slate-100 transition-all duration-150 cursor-pointer border-none
         disabled:opacity-50 disabled:cursor-not-allowed
-        shadow-lg shadow-amber-500/20
+        shadow-sm shadow-amber-500/20
       "
       @click="onGenerar"
     >
@@ -111,8 +111,8 @@
       v-if="anioLocal || anioHastaLocal || materiaLocal || grupoLocal"
       class="
         inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium
-        border border-slate-700 text-slate-400 bg-transparent hover:bg-white/5
-        hover:text-slate-200 transition-all duration-150 cursor-pointer
+        border border-slate-300 text-slate-500 bg-white hover:bg-slate-50
+        hover:text-slate-700 transition-all duration-150 cursor-pointer
       "
       @click="limpiarFiltros"
     >
@@ -122,90 +122,144 @@
       Quitar filtros
     </button>
 
-    <!-- Botón PDF con menú desplegable -->
-<div class="relative ml-auto" ref="pdfMenuRef">
-  <div class="inline-flex rounded-lg overflow-hidden shadow-lg shadow-red-900/20 border border-red-700/40">
-    <button
-      :disabled="!reporte || loading"
-      class="
-        inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold
-        bg-red-700 hover:bg-red-600 active:bg-red-800
-        text-white transition-all duration-150 cursor-pointer border-none
-        disabled:opacity-40 disabled:cursor-not-allowed
-      "
-      @click.stop="toggleMenu"
-    >
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-        <polyline points="14 2 14 8 20 8"/>
-        <line x1="16" y1="13" x2="8" y2="13"/>
-        <line x1="16" y1="17" x2="8" y2="17"/>
-        <polyline points="10 9 9 9 8 9"/>
-      </svg>
-      Generar Reporte PDF
-    </button>
-
-    <button
-      :disabled="!reporte || loading"
-      class="
-        inline-flex items-center px-2.5 py-2
-        bg-red-800 hover:bg-red-700 active:bg-red-900
-        text-white border-l border-red-900/50 transition-all duration-150
-        cursor-pointer border-t-0 border-b-0 border-r-0
-        disabled:opacity-40 disabled:cursor-not-allowed
-      "
-      @click.stop="toggleMenu"
-    >
-      <svg
-        width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
-        :class="['transition-transform duration-200', menuOpen ? 'rotate-180' : '']"
-      >
-        <polyline points="6 9 12 15 18 9"/>
-      </svg>
-    </button>
-  </div>
-
-  <Transition
-    enter-active-class="transition ease-out duration-150"
-    enter-from-class="opacity-0 translate-y-1 scale-95"
-    enter-to-class="opacity-100 translate-y-0 scale-100"
-    leave-active-class="transition ease-in duration-100"
-    leave-from-class="opacity-100 translate-y-0 scale-100"
-    leave-to-class="opacity-0 translate-y-1 scale-95"
-  >
-    <div
-      v-if="menuOpen"
-      class="
-        absolute right-0 mt-1.5 w-52 rounded-xl
-        bg-slate-800 border border-slate-700
-        shadow-2xl shadow-black/40 z-50 overflow-hidden
-      "
-    >
-      <template v-for="opt in pdfOpciones" :key="opt.action">
-        <!-- Separador -->
-        <div
-          v-if="opt.action === 'divider'"
-          class="mx-3 my-1 border-t border-slate-700"
-        />
-        <!-- Opción normal -->
+    <!-- Botón PDF con menú desplegable compacto -->
+    <div class="relative ml-auto" ref="pdfMenuRef">
+      <div class="inline-flex rounded-lg overflow-hidden shadow-sm shadow-red-900/10 border border-red-700/40">
         <button
-          v-else
+          :disabled="!reporte || loading"
           class="
-            w-full flex items-center gap-2.5 px-3.5 py-2.5
-            text-xs font-medium text-slate-300 hover:bg-white/[0.06] hover:text-slate-100
-            transition-colors duration-100 cursor-pointer border-none bg-transparent text-left
+            inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold
+            bg-red-700 hover:bg-red-600 active:bg-red-800
+            text-white transition-all duration-150 cursor-pointer border-none
+            disabled:opacity-40 disabled:cursor-not-allowed
           "
-          @click="onPDF(opt.action)"
+          @click.stop="toggleMenu"
         >
-          <span class="text-slate-500" v-html="opt.icon"/>
-          {{ opt.label }}
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="16" y1="13" x2="8" y2="13"/>
+            <line x1="16" y1="17" x2="8" y2="17"/>
+            <polyline points="10 9 9 9 8 9"/>
+          </svg>
+          Generar Reporte PDF
         </button>
-      </template>
+
+        <button
+          :disabled="!reporte || loading"
+          class="
+            inline-flex items-center px-2.5 py-2
+            bg-red-800 hover:bg-red-700 active:bg-red-900
+            text-white border-l border-red-900/50 transition-all duration-150
+            cursor-pointer border-t-0 border-b-0 border-r-0
+            disabled:opacity-40 disabled:cursor-not-allowed
+          "
+          @click.stop="toggleMenu"
+        >
+          <svg
+            width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+            :class="['transition-transform duration-200', menuOpen ? 'rotate-180' : '']"
+          >
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </button>
+      </div>
+
+      <Transition
+        enter-active-class="transition ease-out duration-150"
+        enter-from-class="opacity-0 translate-y-1 scale-95"
+        enter-to-class="opacity-100 translate-y-0 scale-100"
+        leave-active-class="transition ease-in duration-100"
+        leave-from-class="opacity-100 translate-y-0 scale-100"
+        leave-to-class="opacity-0 translate-y-1 scale-95"
+      >
+        <!--
+          Rediseño: cada sección ahora es una tarjeta vertical.
+          Fila 1: título (encabezado) de la sección.
+          Fila 2: los 3 iconos, más grandes, en botones cuadrados
+                   que se pintan de gris al pasar el mouse o al
+                   estar "activos" (seleccionados con el teclado/focus).
+        -->
+        <div
+          v-if="menuOpen"
+          class="
+            absolute right-0 mt-1.5 w-60 rounded-xl
+            bg-white border border-slate-800
+            shadow-xl shadow-black/10 z-50 overflow-hidden
+          "
+        >
+          <template v-for="(sec, i) in pdfSecciones" :key="sec.key">
+            <div v-if="i > 0" class="mx-3.5 border-t border-slate-100"/>
+
+            <div class="flex flex-col gap-2 px-3.5 py-3">
+              <!-- Encabezado de la sección -->
+              <span class="text-[0.72rem] font-semibold text-slate-900">
+                {{ sec.titulo }}
+              </span>
+
+              <!-- Fila de iconos, más grandes y con fondo gris al hover/selección -->
+              <div class="flex items-center gap-2">
+                <button
+                  title="Ver / Imprimir en el navegador"
+                  class="
+                    group inline-flex items-center justify-center flex-1 h-9 rounded-lg
+                    text-blue-800 bg-slate-50 border border-slate-300
+                    hover:bg-slate-200 hover:text-slate-800 hover:border-slate-300
+                    focus-visible:bg-slate-200 focus-visible:text-slate-800
+                    active:bg-slate-300
+                    transition-colors duration-100 cursor-pointer outline-none
+                  "
+                  @click="onPDF(sec.acciones.open)"
+                >
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                    <circle cx="12" cy="12" r="3"/>
+                  </svg>
+                </button>
+
+                <button
+                  title="Imprimir directamente"
+                  class="
+                    group inline-flex items-center justify-center flex-1 h-9 rounded-lg
+                    text-slate-800 bg-slate-200 border border-slate-200
+                    hover:bg-slate-200 hover:text-slate-400 hover:border-slate-300
+                    focus-visible:bg-slate-200 focus-visible:text-slate-800
+                    active:bg-slate-300
+                    transition-colors duration-100 cursor-pointer outline-none
+                  "
+                  @click="onPDF(sec.acciones.print)"
+                >
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="6 9 6 2 18 2 18 9"/>
+                    <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+                    <rect x="6" y="14" width="12" height="8"/>
+                  </svg>
+                </button>
+
+                <button
+                  title="Descargar PDF"
+                  class="
+                    group inline-flex items-center justify-center flex-1 h-9 rounded-lg
+                    text-amber-600 bg-amber-50 border border-amber-200
+                    hover:bg-amber-200 hover:text-amber-800 hover:border-amber-300
+                    focus-visible:bg-amber-200 focus-visible:text-amber-800
+                    active:bg-amber-300
+                    transition-colors duration-100 cursor-pointer outline-none
+                  "
+                  @click="onPDF(sec.acciones.save)"
+                >
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="7 10 12 15 17 10"/>
+                    <line x1="12" y1="15" x2="12" y2="3"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </template>
+        </div>
+      </Transition>
     </div>
-  </Transition>
-</div>
-
-
   </div>
 </template>
 
@@ -241,88 +295,24 @@ const grupoLocal     = ref(props.grupo     || '')
 const menuOpen   = ref(false)
 const pdfMenuRef = ref(null)
 
-const pdfOpciones = [
+// Cada sección = un encabezado arriba + fila de 3 iconos grandes debajo
+// (ver / imprimir / descargar), que se pintan de gris al pasar el mouse
+// o al estar enfocadas/seleccionadas.
+const pdfSecciones = [
   {
-    action: 'open',
-    label:  'Ver / Imprimir PDF',
-    icon:   `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-               <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-               <circle cx="12" cy="12" r="3"/>
-             </svg>`,
+    key: 'estandar',
+    titulo: 'Reporte estándar',
+    acciones: { open: 'open', print: 'print', save: 'save' },
   },
   {
-    action: 'save',
-    label:  'Descargar PDF',
-    icon:   `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-               <polyline points="7 10 12 15 17 10"/>
-               <line x1="12" y1="15" x2="12" y2="3"/>
-             </svg>`,
+    key: 'modalidad',
+    titulo: 'Con modalidad de ingreso',
+    acciones: { open: 'open-tipo-ingreso', print: 'print-tipo-ingreso', save: 'save-tipo-ingreso' },
   },
   {
-    action: 'print',
-    label:  'Imprimir directamente',
-    icon:   `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-               <polyline points="6 9 6 2 18 2 18 9"/>
-               <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
-               <rect x="6" y="14" width="12" height="8"/>
-             </svg>`,
-  },
-  { action: 'divider' },
-  {
-    action: 'open-tipo-ingreso',
-    label:  'Ver con modalidad ingreso',
-    icon:   `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-               <polyline points="14 2 14 8 20 8"/>
-               <line x1="12" y1="18" x2="12" y2="12"/>
-               <line x1="9" y1="15" x2="15" y2="15"/>
-             </svg>`,
-  },
-  {
-    action: 'save-tipo-ingreso',
-    label:  'Descargar con modalidad',
-    icon:   `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-               <polyline points="7 10 12 15 17 10"/>
-               <line x1="12" y1="15" x2="12" y2="3"/>
-             </svg>`,
-  },
-  {
-    action: 'print-tipo-ingreso',
-    label:  'Imprimir con modalidad',
-    icon:   `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-               <polyline points="6 9 6 2 18 2 18 9"/>
-               <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
-               <rect x="6" y="14" width="12" height="8"/>
-             </svg>`,
-  },
-  { action: 'divider' },
-  {
-    action: 'open-compartido',
-    label:  'Ver reporte con compartidos',
-    icon:   `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-               <path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/>
-               <path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>
-             </svg>`,
-  },
-  {
-    action: 'save-compartido',
-    label:  'Descargar con compartidos',
-    icon:   `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-               <polyline points="7 10 12 15 17 10"/>
-               <line x1="12" y1="15" x2="12" y2="3"/>
-             </svg>`,
-  },
-  {
-    action: 'print-compartido',
-    label:  'Imprimir con compartidos',
-    icon:   `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-               <polyline points="6 9 6 2 18 2 18 9"/>
-               <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
-               <rect x="6" y="14" width="12" height="8"/>
-             </svg>`,
+    key: 'compartido',
+    titulo: 'Con compartidos',
+    acciones: { open: 'open-compartido', print: 'print-compartido', save: 'save-compartido' },
   },
 ]
 
@@ -373,10 +363,6 @@ const onGenerar = () => {
   const { anio: anioHasta, periodo: periodoHasta } = parseAnioPeriodo(anioHastaLocal.value)
   const materia = materiaLocal.value.trim() || null
   const grupo   = grupoLocal.value.trim()   || null
-
- 
-
-  
 
   emit('update:anio',      anioLocal.value      || null)
   emit('update:anioHasta', anioHastaLocal.value || null)
