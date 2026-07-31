@@ -28,7 +28,7 @@
             {{ total.toLocaleString() }} estudiante{{ total !== 1 ? 's' : '' }}
           </div>
 
-          <!-- ===== Botón GENERAR (Ver lista / Descargar CSV completo) ===== -->
+          <!-- ===== Botón GENERAR (Ver lista / Imprimir / Descargar CSV completo) ===== -->
           <div class="relative" ref="generarDropdownRef">
 
             <div
@@ -79,54 +79,52 @@
                 v-if="mostrarMenuGenerar"
                 class="absolute right-0 top-full mt-1.5 z-50
                        bg-white border border-slate-200 rounded-xl
-                       shadow-xl overflow-hidden w-72"
+                       shadow-xl overflow-hidden w-64 p-3"
               >
-                <!-- ── Lista de estudiantes (vista previa) ── -->
-                <div class="px-4 pt-3 pb-1">
-                  <p class="text-[0.65rem] font-semibold tracking-widest uppercase text-slate-400">
-                    Lista de estudiantes
-                  </p>
+                <!-- ── Lista de estudiantes (vista previa / imprimir) ── -->
+                <p class="text-[0.65rem] font-semibold tracking-widest uppercase text-slate-800 mb-2 px-0.5">
+                  Lista de estudiantes
+                </p>
+                <div class="flex items-center gap-2 mb-3">
+                  <!-- Ver -->
+                  <button
+                    @click="verLista(); mostrarMenuGenerar = false"
+                    :title="`Ver lista (hasta ${LIMITE_PREVIEW} filas)`"
+                    class="flex-1 flex items-center justify-center py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg transition-colors"
+                  >
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                    </svg>
+                  </button>
+
+                  <!-- Imprimir -->
+                  <button
+                    @click="imprimirLista(); mostrarMenuGenerar = false"
+                    title="Imprimir"
+                    class="flex-1 flex items-center justify-center py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg transition-colors"
+                  >
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6v-8z"/>
+                    </svg>
+                  </button>
+
+                  <!-- Descargar CSV completo -->
+                  <button
+                    @click="descargar(); mostrarMenuGenerar = false"
+                    title="Descargar CSV completo"
+                    class="flex-1 flex items-center justify-center py-2.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-700 rounded-lg transition-colors"
+                  >
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                      <polyline points="7 10 12 15 17 10" />
+                      <line x1="12" y1="15" x2="12" y2="3" />
+                    </svg>
+                  </button>
                 </div>
-
-                <button
-                  @click="verLista(); mostrarMenuGenerar = false"
-                  class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors text-left"
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-slate-400 shrink-0">
-                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                    <circle cx="12" cy="12" r="3" />
-                  </svg>
-                  <div>
-                    <div class="font-medium leading-tight">Ver lista</div>
-                    <div class="text-xs text-slate-400 mt-0.5">Muestra hasta {{ LIMITE_PREVIEW }} filas</div>
-                  </div>
-                </button>
-
-                <div class="border-t border-slate-100 mx-4"></div>
-
-                <!-- ── Descarga completa ── -->
-                <div class="px-4 pt-3 pb-1">
-                  <p class="text-[0.65rem] font-semibold tracking-widest uppercase text-slate-400">
-                    Descarga completa
-                  </p>
-                </div>
-
-                <button
-                  @click="descargar(); mostrarMenuGenerar = false"
-                  class="w-full flex items-center gap-3 px-4 py-2.5 pb-3 text-sm text-slate-700 hover:bg-slate-50 transition-colors text-left"
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-slate-400 shrink-0">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                    <polyline points="7 10 12 15 17 10" />
-                    <line x1="12" y1="15" x2="12" y2="3" />
-                  </svg>
-                  <div>
-                    <div class="font-medium leading-tight">Descargar CSV completo</div>
-                    <div class="text-xs text-slate-400 mt-0.5">
-                      {{ total > UMBRAL_ADVERTENCIA ? 'Dataset grande: puede tardar unos segundos' : 'Nombre, código, materia y grupo' }}
-                    </div>
-                  </div>
-                </button>
+                <p class="text-xs text-slate-800 px-0.5">
+                  {{ total > UMBRAL_ADVERTENCIA ? 'Dataset grande: la descarga puede tardar unos segundos' : 'Nombre, código, materia y grupo' }}
+                </p>
               </div>
             </Transition>
 
@@ -217,7 +215,7 @@
             {{ [filtros.plan, filtros.nivel].filter(Boolean).length }}
           </span>
           <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-500 transition duration-200" :class="{ 'rotate-180': mostrarFiltros }" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
           </svg>
         </button>
 
@@ -504,7 +502,21 @@ async function verLista() {
   }
 }
 
-function abrirVistaPrevia(filas, totalReal, truncado) {
+/**
+ * Igual que "Ver lista", pero dispara el diálogo de impresión del
+ * navegador apenas la ventana de vista previa termina de renderizar.
+ */
+async function imprimirLista() {
+  error.value = null
+  try {
+    const { filas, total: totalReal, truncado } = await obtenerVistaPrevia(filtros.value)
+    abrirVistaPrevia(filas, totalReal, truncado, { autoImprimir: true })
+  } catch (e) {
+    error.value = e.message || 'Ocurrió un error al preparar la impresión.'
+  }
+}
+
+function abrirVistaPrevia(filas, totalReal, truncado, { autoImprimir = false } = {}) {
   const ventana = window.open('', '_blank')
 
   if (!ventana) {
@@ -550,6 +562,9 @@ function abrirVistaPrevia(filas, totalReal, truncado) {
           padding: 8px 16px; font-size: 13px; font-weight: 600; cursor: pointer;
         }
         .toolbar button:hover { background: #047857; }
+        @media print {
+          .toolbar { display: none; }
+        }
       </style>
     </head>
     <body>
@@ -566,6 +581,19 @@ function abrirVistaPrevia(filas, totalReal, truncado) {
     </html>
   `)
   ventana.document.close()
+
+  if (autoImprimir) {
+    // Espera a que la ventana termine de pintar antes de abrir el diálogo de impresión.
+    ventana.onload = () => {
+      ventana.focus()
+      ventana.print()
+    }
+    // Fallback por si onload ya se disparó (algunos navegadores con document.write).
+    setTimeout(() => {
+      ventana.focus()
+      ventana.print()
+    }, 300)
+  }
 }
 
 function escapeHtml(valor) {

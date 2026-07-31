@@ -30,7 +30,7 @@
 
 
           
-          <!-- ===== Botón EXPORTAR (Ver / Descargar) ===== -->
+          <!-- ===== Botón EXPORTAR (Ver / Imprimir / Descargar) ===== -->
           <div class="relative" ref="exportarDropdownRef">
             <div
               class="inline-flex rounded-lg overflow-hidden shadow-md"
@@ -85,36 +85,46 @@
             >
               <div
                 v-if="mostrarMenuExportar"
-                class="absolute right-0 top-full mt-1.5 z-50 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden w-64"
+                class="absolute right-0 top-full mt-1.5 z-50 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden w-60 p-3"
               >
-                <button
-                  @click="exportarExcel('ver'); mostrarMenuExportar = false"
-                  class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors text-left"
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-slate-400 shrink-0">
-                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                    <circle cx="12" cy="12" r="3" />
-                  </svg>
-                  <div>
-                    <div class="font-medium leading-tight">Ver lista</div>
-                    <div class="text-xs text-slate-400 mt-0.5">Vista previa rápida</div>
-                  </div>
-                </button>
+                <p class="text-xs font-semibold text-slate-800 mb-2 px-0.5">Lista completa</p>
+                <div class="flex items-center gap-2">
+                  <!-- Ver -->
+                  <button
+                    @click="exportarExcel('ver'); mostrarMenuExportar = false"
+                    title="Ver lista"
+                    class="flex-1 flex items-center justify-center py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg transition-colors"
+                  >
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                    </svg>
+                  </button>
 
-                <button
-                  @click="exportarExcel('descargar'); mostrarMenuExportar = false"
-                  class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors text-left"
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-slate-400 shrink-0">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                    <polyline points="7 10 12 15 17 10" />
-                    <line x1="12" y1="15" x2="12" y2="3" />
-                  </svg>
-                  <div>
-                    <div class="font-medium leading-tight">Descargar Excel</div>
-                    <div class="text-xs text-slate-400 mt-0.5">Datos completos de docentes</div>
-                  </div>
-                </button>
+                  <!-- Imprimir -->
+                  <button
+                    @click="exportarImprimir(); mostrarMenuExportar = false"
+                    title="Imprimir"
+                    class="flex-1 flex items-center justify-center py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg transition-colors"
+                  >
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6v-8z"/>
+                    </svg>
+                  </button>
+
+                  <!-- Descargar -->
+                  <button
+                    @click="exportarExcel('descargar'); mostrarMenuExportar = false"
+                    title="Descargar Excel"
+                    class="flex-1 flex items-center justify-center py-2.5 bg-amber-100 hover:bg-amber-200 text-amber-700 rounded-lg transition-colors"
+                  >
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                      <polyline points="7 10 12 15 17 10" />
+                      <line x1="12" y1="15" x2="12" y2="3" />
+                    </svg>
+                  </button>
+                </div>
               </div>
             </Transition>
           </div>
@@ -228,15 +238,15 @@
         <div class="overflow-x-auto">
           <table class="w-full text-sm">
             <thead>
-              <tr class="bg-slate-50 border-b border-slate-200">
-                <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Nro</th>
-                <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Código</th>
-                <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Docente</th>
-                <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">C.I.</th>
-                <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Grado</th>
-                <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Contacto</th>
-                <th class="text-center px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Horario</th>
-                <th class="text-center px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Acciones</th>
+              <tr class="bg-slate-800 border-b border-slate-200">
+                <th class="text-left px-4 py-3 text-xs font-semibold text-slate-100 uppercase tracking-wider">Nro</th>
+                <th class="text-left px-4 py-3 text-xs font-semibold text-slate-100 uppercase tracking-wider">Código</th>
+                <th class="text-left px-4 py-3 text-xs font-semibold text-slate-100 uppercase tracking-wider">Docente</th>
+                <th class="text-left px-4 py-3 text-xs font-semibold text-slate-100 uppercase tracking-wider">C.I.</th>
+                <th class="text-left px-4 py-3 text-xs font-semibold text-slate-100 uppercase tracking-wider">Grado</th>
+                <th class="text-left px-4 py-3 text-xs font-semibold text-slate-100 uppercase tracking-wider">Contacto</th>
+                <th class="text-center px-4 py-3 text-xs font-semibold text-slate-100 uppercase tracking-wider">Horario</th>
+                <th class="text-center px-4 py-3 text-xs font-semibold text-slate-100 uppercase tracking-wider">Acciones</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-100">
@@ -250,15 +260,15 @@
                 <td class="px-4 py-3 text-slate-800 text-xs">{{ (paginaActual - 1) * porPagina + idx + 1 }}</td>
 
                 <!-- Codigo -->
-                <td class="px-4 py-3 text-slate-600 font-mono text-2x1">{{ docente.docente }}</td>
+                <td class="px-4 py-3 text-slate-800 font-mono text-2x1">{{ docente.docente }}</td>
 
                 <!-- Nombre -->
                 <td class="px-4 py-3">
-                 <p class="font-medium text-slate-800 leading-tight uppercase">{{ formatNombre(docente.nombre_docente) }}</p>
+                 <p class="font-semibold text-slate-800 leading-tight uppercase">{{ formatNombre(docente.nombre_docente) }}</p>
                 </td>
 
                 <!-- CI -->
-                <td class="px-4 py-3 text-slate-600 font-mono text-2x1">{{ docente.ci || '—' }}</td>
+                <td class="px-4 py-3 text-slate-800 font-mono text-2x1">{{ docente.ci || '—' }}</td>
 
                 <!-- Grado -->
                 <td class="px-4 py-3">
@@ -288,7 +298,7 @@
                       </svg>
                       {{ docente.fijo_1 }}
                     </span>
-                    <span v-if="!docente.email && !docente.email_institucional && !docente.celular_1 && !docente.fijo_1" class="text-slate-300 text-xs">
+                    <span v-if="!docente.email && !docente.email_institucional && !docente.celular_1 && !docente.fijo_1" class="text-slate-800 text-xs">
                       Sin contacto
                     </span>
                   </div>
@@ -299,7 +309,7 @@
                   <button
                     v-if="docente.horario_cargado"
                     @click.stop="verHorarioRapido(docente)"
-                    class="text-xs font-medium text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded-lg transition-colors inline-flex items-center gap-1"
+                    class="text-xs font-semibold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded-lg transition-colors inline-flex items-center gap-1"
                   >
                     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
@@ -314,7 +324,7 @@
                   <div class="flex items-center justify-center">
                     <button
                       @click="abrirDetalle(docente)"
-                      class="p-1.5 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-colors"
+                      class="p-1.5 text-slate-800 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-colors"
                       title="Ver detalle"
                     >
                       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -649,7 +659,8 @@ function limpiarFiltros() {
 
 /**
  * Arma la hoja (worksheet) de docentes filtrados. Se usa tanto para
- * la vista previa ('ver') como para la descarga real ('descargar').
+ * la vista previa ('ver'), la impresión ('imprimir') como para la
+ * descarga real ('descargar').
  */
 function construirHojaDocentes() {
   const datos = docentesFiltrados.value.map(d => ({
@@ -683,9 +694,14 @@ function construirHojaDocentes() {
  * Abre una vista previa HTML de la hoja en una pestaña nueva. Un
  * .xlsx no se puede "mostrar" inline en el navegador (no es un
  * formato renderizable como el PDF), así que para el modo 'ver'
- * generamos una tabla HTML equivalente en vez de descargar el archivo.
+ * (y como base del modo 'imprimir') generamos una tabla HTML
+ * equivalente en vez de descargar el archivo.
+ *
+ * @param {object} hoja - worksheet de XLSX
+ * @param {string} gestionLabel - etiqueta de la gestión (ej. "1-2026")
+ * @param {{ autoImprimir?: boolean }} [opciones]
  */
-function abrirVistaPreviaDocentes(hoja, gestionLabel) {
+function abrirVistaPreviaDocentes(hoja, gestionLabel, { autoImprimir = false } = {}) {
   const ventana = window.open('', '_blank')
 
   if (!ventana) {
@@ -713,6 +729,9 @@ function abrirVistaPreviaDocentes(hoja, gestionLabel) {
           padding: 8px 16px; font-size: 13px; font-weight: 600; cursor: pointer;
         }
         .toolbar button:hover { background: #1d4ed8; }
+        @media print {
+          .toolbar { display: none; }
+        }
       </style>
     </head>
     <body>
@@ -725,6 +744,19 @@ function abrirVistaPreviaDocentes(hoja, gestionLabel) {
     </html>
   `)
   ventana.document.close()
+
+  if (autoImprimir) {
+    // Espera a que la ventana termine de pintar antes de abrir el diálogo de impresión.
+    ventana.onload = () => {
+      ventana.focus()
+      ventana.print()
+    }
+    // Fallback por si onload ya se disparó (algunos navegadores con document.write).
+    setTimeout(() => {
+      ventana.focus()
+      ventana.print()
+    }, 300)
+  }
 }
 
 /**
@@ -744,6 +776,19 @@ function exportarExcel(modo = 'descargar') {
   const libro = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(libro, hoja, 'Docentes')
   XLSX.writeFile(libro, `docentes_${gestion}.xlsx`)
+}
+
+/**
+ * Abre la vista previa e inmediatamente dispara el diálogo de
+ * impresión del navegador.
+ */
+function exportarImprimir() {
+  const hoja = construirHojaDocentes()
+  const gestion = filtros.periodo && filtros.anio
+    ? `${filtros.periodo}-${filtros.anio}`
+    : new Date().toISOString().slice(0, 10)
+
+  abrirVistaPreviaDocentes(hoja, gestion, { autoImprimir: true })
 }
 
 // Helpers
