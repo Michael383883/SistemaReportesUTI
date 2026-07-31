@@ -46,8 +46,9 @@ export const menuSections = [
                 label: 'Documetos Adjuntos',
                 icon: FileText,
                 children: [
-                    { to: '/clasificaciones', label: 'Listado de documentos' },
                     { to: '/clasificaciones/nueva', label: 'Subir Documento' },
+                    { to: '/clasificaciones', label: 'Listado de documentos' },
+                    
                 ],
             },
 

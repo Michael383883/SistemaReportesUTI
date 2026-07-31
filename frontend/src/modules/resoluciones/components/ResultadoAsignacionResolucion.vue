@@ -1,6 +1,6 @@
 <!-- components/ResultadoAsignacionResolucion.vue -->
 <template>
-  <div class="space-y-5">
+  <div class="space-y-5 px">
     <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
       <div class="px-6 py-4 flex items-center gap-3 bg-slate-900">
         <div

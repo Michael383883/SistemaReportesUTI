@@ -1,5 +1,5 @@
 <template>
-  <div class="px-6 py-1 max-w-7xl mx-autopx-6 py-1 max-w-7xl">
+  <div class="px-6 py-1 w-full">
 
     <!-- Header de página -->
     <div class="flex items-start justify-between mb-5">
