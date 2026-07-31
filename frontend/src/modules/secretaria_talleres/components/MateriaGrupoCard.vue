@@ -36,12 +36,12 @@
       <div v-if="abierto" class="overflow-x-auto border-t border-slate-100 bg-slate-50/40">
         <table class="w-full text-sm">
           <thead>
-            <tr class="bg-slate-50 border-b border-slate-100">
-              <th class="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-6 py-3 w-10">Nro</th>
-              <th class="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Codigo</th>
-              <th class="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Nombre</th>
-              <th class="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Carrera</th>
-              <th class="text-center text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Contacto</th>
+            <tr class="bg-slate-800 border-b border-slate-100">
+              <th class="text-left text-xs font-semibold text-slate-100 uppercase tracking-wider px-6 py-3 w-10">Nro</th>
+              <th class="text-left text-xs font-semibold text-slate-100 uppercase tracking-wider px-4 py-3">Codigo</th>
+              <th class="text-left text-xs font-semibold text-slate-100 uppercase tracking-wider px-4 py-3">Nombre</th>
+              <th class="text-left text-xs font-semibold text-slate-100 uppercase tracking-wider px-4 py-3">Carrera</th>
+              <th class="text-center text-xs font-semibold text-slate-100 uppercase tracking-wider px-4 py-3">Contacto</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-50 bg-white">

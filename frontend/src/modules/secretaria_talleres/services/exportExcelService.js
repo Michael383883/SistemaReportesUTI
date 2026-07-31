@@ -53,13 +53,14 @@ function autoAncho(ws, rows) {
  * Abre una vista previa HTML en una pestaña nueva.
  * IMPORTANTE: un .xlsx no se puede "mostrar" en el navegador (no es un
  * formato que el navegador sepa renderizar inline como el PDF), por eso
- * para el modo 'ver' generamos una tabla HTML equivalente en vez de
- * descargar el archivo.
+ * para el modo 'ver' (y como base del modo 'imprimir') generamos una
+ * tabla HTML equivalente en vez de descargar el archivo.
  *
  * @param {string} tituloPestana
  * @param {Array<{titulo: string, ws: XLSX.WorkSheet}>} hojas
+ * @param {{ autoImprimir?: boolean }} [opciones]
  */
-function abrirVistaPrevia(tituloPestana, hojas) {
+function abrirVistaPrevia(tituloPestana, hojas, { autoImprimir = false } = {}) {
     const ventana = window.open('', '_blank')
 
     if (!ventana) {
@@ -99,6 +100,9 @@ function abrirVistaPrevia(tituloPestana, hojas) {
                     padding: 8px 16px; font-size: 13px; font-weight: 600; cursor: pointer;
                 }
                 .toolbar button:hover { background: #1d4ed8; }
+                @media print {
+                    .toolbar { display: none; }
+                }
             </style>
         </head>
         <body>
@@ -110,6 +114,19 @@ function abrirVistaPrevia(tituloPestana, hojas) {
         </html>
     `)
     ventana.document.close()
+
+    if (autoImprimir) {
+        // Espera a que la ventana termine de pintar antes de abrir el diálogo de impresión.
+        ventana.onload = () => {
+            ventana.focus()
+            ventana.print()
+        }
+        // Fallback por si onload ya se disparó (algunos navegadores con document.write).
+        setTimeout(() => {
+            ventana.focus()
+            ventana.print()
+        }, 300)
+    }
 }
 
 // ─── Exportar Normal ─────────────────────────────────────────────────────────
@@ -121,7 +138,9 @@ function abrirVistaPrevia(tituloPestana, hojas) {
  * @param {Object} [opciones]
  * @param {string} [opciones.anio]
  * @param {string} [opciones.periodo]
- * @param {'ver'|'descargar'} [opciones.modo]  – 'ver' abre vista previa, 'descargar' baja el .xlsx
+ * @param {'ver'|'imprimir'|'descargar'} [opciones.modo]  – 'ver' abre vista previa,
+ *        'imprimir' abre la misma vista previa y dispara el diálogo de impresión,
+ *        'descargar' baja el .xlsx
  */
 export function exportarExcelNormal(estudiantes, opciones = {}) {
     const { anio = '2026', periodo = '1', modo = 'descargar' } = opciones
@@ -169,11 +188,13 @@ export function exportarExcelNormal(estudiantes, opciones = {}) {
 
     autoAncho(ws, filas)
 
-    // ── Modo "ver": vista previa en pestaña nueva, sin descargar nada ──
-    if (modo === 'ver') {
-        abrirVistaPrevia(`Vista previa – Talleres ${periodo}/${anio}`, [
-            { titulo: `Estudiantes – Gestión ${periodo}/${anio}`, ws },
-        ])
+    // ── Modo "ver" / "imprimir": vista previa en pestaña nueva, sin descargar nada ──
+    if (modo === 'ver' || modo === 'imprimir') {
+        abrirVistaPrevia(
+            `Vista previa – Talleres ${periodo}/${anio}`,
+            [{ titulo: `Estudiantes – Gestión ${periodo}/${anio}`, ws }],
+            { autoImprimir: modo === 'imprimir' },
+        )
         return
     }
 
@@ -194,7 +215,9 @@ export function exportarExcelNormal(estudiantes, opciones = {}) {
  * @param {Object} [opciones]
  * @param {string} [opciones.anio]
  * @param {string} [opciones.periodo]
- * @param {'ver'|'descargar'} [opciones.modo]  – 'ver' abre vista previa, 'descargar' baja el .xlsx
+ * @param {'ver'|'imprimir'|'descargar'} [opciones.modo]  – 'ver' abre vista previa,
+ *        'imprimir' abre la misma vista previa y dispara el diálogo de impresión,
+ *        'descargar' baja el .xlsx
  */
 export function exportarExcelDetalle(estudiantes, opciones = {}) {
     const { anio = '2026', periodo = '1', modo = 'descargar' } = opciones
@@ -289,13 +312,17 @@ export function exportarExcelDetalle(estudiantes, opciones = {}) {
         return { nombre: `${nombre} G${grupo}`, grupo, ws }
     })
 
-    // ── Modo "ver": vista previa en pestaña nueva (hoja "Todos" + una por materia) ──
-    if (modo === 'ver') {
+    // ── Modo "ver" / "imprimir": vista previa en pestaña nueva (hoja "Todos" + una por materia) ──
+    if (modo === 'ver' || modo === 'imprimir') {
         const hojasPreview = [
             { titulo: 'Todos los estudiantes', ws: wsTodos },
             ...hojasPorMateria.map((h) => ({ titulo: h.nombre, ws: h.ws })),
         ]
-        abrirVistaPrevia(`Vista previa – Talleres (detalle) ${periodo}/${anio}`, hojasPreview)
+        abrirVistaPrevia(
+            `Vista previa – Talleres (detalle) ${periodo}/${anio}`,
+            hojasPreview,
+            { autoImprimir: modo === 'imprimir' },
+        )
         return
     }
 

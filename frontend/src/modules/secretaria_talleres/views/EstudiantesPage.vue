@@ -89,119 +89,125 @@
                 v-if="mostrarMenuGenerar"
                 class="absolute right-0 top-full mt-1.5 z-50
                        bg-white border border-slate-200 rounded-xl
-                       shadow-xl overflow-hidden w-72"
+                       shadow-xl overflow-hidden w-64 p-3"
               >
                 <!-- ── Lista de estudiantes (Excel simple) ── -->
-                <div class="px-4 pt-3 pb-1">
-                  <p class="text-[0.65rem] font-semibold tracking-widest uppercase text-slate-400">
-                    Lista de estudiantes
-                  </p>
+                <p class="text-[0.65rem] font-semibold tracking-widest uppercase text-slate-800 mb-2 px-0.5">
+                  Lista de estudiantes
+                </p>
+                <div class="flex items-center gap-2">
+                  <button
+                    @click="exportarNormal('ver'); mostrarMenuGenerar = false"
+                    title="Ver lista"
+                    class="flex-1 flex items-center justify-center py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg transition-colors"
+                  >
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                    </svg>
+                  </button>
+                  <button
+                    @click="exportarNormal('imprimir'); mostrarMenuGenerar = false"
+                    title="Imprimir"
+                    class="flex-1 flex items-center justify-center py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg transition-colors"
+                  >
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6v-8z"/>
+                    </svg>
+                  </button>
+                  <button
+                    @click="exportarNormal('descargar'); mostrarMenuGenerar = false"
+                    title="Descargar Excel"
+                    class="flex-1 flex items-center justify-center py-2.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-700 rounded-lg transition-colors"
+                  >
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                      <polyline points="7 10 12 15 17 10" />
+                      <line x1="12" y1="15" x2="12" y2="3" />
+                    </svg>
+                  </button>
                 </div>
+                <p class="text-xs text-slate-800 mt-1.5 px-0.5">Nombre, código y carrera</p>
 
-                <button
-                  @click="exportarNormal('ver'); mostrarMenuGenerar = false"
-                  class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors text-left"
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-slate-400 shrink-0">
-                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                    <circle cx="12" cy="12" r="3" />
-                  </svg>
-                  <div>
-                    <div class="font-medium leading-tight">Ver lista</div>
-                    <div class="text-xs text-slate-400 mt-0.5">Vista previa rápida</div>
-                  </div>
-                </button>
-
-                <button
-                  @click="exportarNormal('descargar'); mostrarMenuGenerar = false"
-                  class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors text-left"
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-slate-400 shrink-0">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                    <polyline points="7 10 12 15 17 10" />
-                    <line x1="12" y1="15" x2="12" y2="3" />
-                  </svg>
-                  <div>
-                    <div class="font-medium leading-tight">Descargar Excel</div>
-                    <div class="text-xs text-slate-400 mt-0.5">Nombre, código y carrera</div>
-                  </div>
-                </button>
-
-                <div class="border-t border-slate-100 mx-4"></div>
+                <div class="border-t border-slate-100 my-3"></div>
 
                 <!-- ── Lista con datos de contacto (Excel detalle) ── -->
-                <div class="px-4 pt-3 pb-1">
-                  <p class="text-[0.65rem] font-semibold tracking-widest uppercase text-slate-400">
-                    Lista con datos de contacto
-                  </p>
+                <p class="text-[0.65rem] font-semibold tracking-widest uppercase text-slate-800 mb-2 px-0.5">
+                  Lista con datos de contacto
+                </p>
+                <div class="flex items-center gap-2">
+                  <button
+                    @click="exportarDetalle('ver'); mostrarMenuGenerar = false"
+                    title="Ver lista"
+                    class="flex-1 flex items-center justify-center py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg transition-colors"
+                  >
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                    </svg>
+                  </button>
+                  <button
+                    @click="exportarDetalle('imprimir'); mostrarMenuGenerar = false"
+                    title="Imprimir"
+                    class="flex-1 flex items-center justify-center py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg transition-colors"
+                  >
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6v-8z"/>
+                    </svg>
+                  </button>
+                  <button
+                    @click="exportarDetalle('descargar'); mostrarMenuGenerar = false"
+                    title="Descargar Excel"
+                    class="flex-1 flex items-center justify-center py-2.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-700 rounded-lg transition-colors"
+                  >
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                      <polyline points="7 10 12 15 17 10" />
+                      <line x1="12" y1="15" x2="12" y2="3" />
+                    </svg>
+                  </button>
                 </div>
+                <p class="text-xs text-slate-800 mt-1.5 px-0.5">Con correo y celular</p>
 
-                <button
-                  @click="exportarDetalle('ver'); mostrarMenuGenerar = false"
-                  class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors text-left"
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-slate-400 shrink-0">
-                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                    <circle cx="12" cy="12" r="3" />
-                  </svg>
-                  <div>
-                    <div class="font-medium leading-tight">Ver lista</div>
-                    <div class="text-xs text-slate-400 mt-0.5">Incluye correo y celular</div>
-                  </div>
-                </button>
-
-                <button
-                  @click="exportarDetalle('descargar'); mostrarMenuGenerar = false"
-                  class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors text-left"
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-slate-400 shrink-0">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                    <polyline points="7 10 12 15 17 10" />
-                    <line x1="12" y1="15" x2="12" y2="3" />
-                  </svg>
-                  <div>
-                    <div class="font-medium leading-tight">Descargar Excel</div>
-                    <div class="text-xs text-slate-400 mt-0.5">Con datos de contacto</div>
-                  </div>
-                </button>
-
-                <div class="border-t border-slate-100 mx-4"></div>
+                <div class="border-t border-slate-100 my-3"></div>
 
                 <!-- ── Reporte por materia (PDF) ── -->
-                <div class="px-4 pt-3 pb-1">
-                  <p class="text-[0.65rem] font-semibold tracking-widest uppercase text-slate-400">
-                    Reporte por materia
-                  </p>
+                <p class="text-[0.65rem] font-semibold tracking-widest uppercase text-slate-800 mb-2 px-0.5">
+                  Reporte por materia
+                </p>
+                <div class="flex items-center gap-2">
+                  <button
+                    @click="generarReporte('ver'); mostrarMenuGenerar = false"
+                    title="Ver PDF"
+                    class="flex-1 flex items-center justify-center py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg transition-colors"
+                  >
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                    </svg>
+                  </button>
+                  <button
+                    @click="generarReporte('imprimir'); mostrarMenuGenerar = false"
+                    title="Imprimir"
+                    class="flex-1 flex items-center justify-center py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg transition-colors"
+                  >
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6v-8z"/>
+                    </svg>
+                  </button>
+                  <button
+                    @click="generarReporte('descargar'); mostrarMenuGenerar = false"
+                    title="Descargar PDF"
+                    class="flex-1 flex items-center justify-center py-2.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-700 rounded-lg transition-colors"
+                  >
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                      <polyline points="7 10 12 15 17 10" />
+                      <line x1="12" y1="15" x2="12" y2="3" />
+                    </svg>
+                  </button>
                 </div>
-
-                <button
-                  @click="generarReporte('ver'); mostrarMenuGenerar = false"
-                  class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors text-left"
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-slate-400 shrink-0">
-                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                    <circle cx="12" cy="12" r="3" />
-                  </svg>
-                  <div>
-                    <div class="font-medium leading-tight">Ver PDF</div>
-                    <div class="text-xs text-slate-400 mt-0.5">Abrir en nueva pestaña</div>
-                  </div>
-                </button>
-
-                <button
-                  @click="generarReporte('descargar'); mostrarMenuGenerar = false"
-                  class="w-full flex items-center gap-3 px-4 py-2.5 pb-3 text-sm text-slate-700 hover:bg-slate-50 transition-colors text-left"
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-slate-400 shrink-0">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                    <polyline points="7 10 12 15 17 10" />
-                    <line x1="12" y1="15" x2="12" y2="3" />
-                  </svg>
-                  <div>
-                    <div class="font-medium leading-tight">Descargar PDF</div>
-                    <div class="text-xs text-slate-400 mt-0.5">Guardar en tu equipo</div>
-                  </div>
-                </button>
+                <p class="text-xs text-slate-800 mt-1.5 px-0.5">Guardar en tu equipo</p>
               </div>
             </Transition>
 
@@ -821,8 +827,10 @@ const cerrarModal = () => {
 // ─────────────────────────────────────────────
 // Acciones – exportación
 // El parámetro `modo` puede ser 'ver' (abrir en nueva pestaña,
-// usando window.open sobre un blob) o 'descargar' (forzar
-// descarga con un <a download>). Los servicios deben soportarlo.
+// usando window.open sobre un blob), 'imprimir' (abrir la misma
+// vista previa y disparar el diálogo de impresión del navegador) o
+// 'descargar' (forzar descarga con un <a download>). Los servicios
+// deben soportar los tres modos.
 // ─────────────────────────────────────────────
 const exportarNormal = (modo = 'descargar') => {
   exportarExcelNormal(estudiantesFiltrados.value, {
@@ -844,7 +852,9 @@ const generarReporte = (modo = 'descargar') => {
   generarReporteInscritos(estudiantesFiltrados.value, {
     anio:    filtros.anio,
     periodo: filtros.periodo,
-    action:  modo === 'ver' ? 'open' : 'save',   // ← el fix
+    // 'ver' -> abre en pestaña nueva, 'imprimir' -> abre e imprime,
+    // 'descargar' -> guarda el archivo
+    action:  modo === 'ver' ? 'open' : modo === 'imprimir' ? 'print' : 'save',
   })
 }
 </script>
