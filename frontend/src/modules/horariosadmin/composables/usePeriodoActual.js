@@ -1,64 +1,72 @@
 /**
  * usePeriodoActual.js
  * ─────────────────────────────────────────────────────────────────
- * Devuelve el período académico y año que corresponden a HOY,
- * siguiendo el calendario de la FCE – UMSS:
+ * Devuelve el período académico (1 o 2) y año que corresponden a HOY.
  *
- *   Período 1 → 07 feb  al 30 jun   (mismo año)
- *   Período 2 → 01 sep  al 28/29 dic (mismo año)
- *   Período 3 → 01 ene  al 06 feb   (mismo año)
- *   Período 4 → 01 jul  al 31 ago   (curso de invierno, mismo año)
+ * El endpoint de horarios (ReporteDocenteController::horario) solo
+ * trabaja con los 2 semestres regulares, no con verano/invierno.
  *
- * El "año" que se expone es siempre el año calendario en curso,
- * salvo en Período 3 (ene–feb), donde se considera que el reporte
- * pertenece aún a la gestión del año anterior (ej. enero 2026 → 2025).
- * Si prefieres el año calendario puro, cambia la constante
- * PERIODO_3_USA_ANIO_ANTERIOR a false.
+ * El umbral entre período 1 y período 2 ya NO está hardcodeado: se lee
+ * del `inicio` del Semestre II en la tabla `periodos_academicos`
+ * (la misma que edita el admin en /periodos-academicos). Así, si el
+ * admin mueve la fecha de inicio del Semestre II, este composable lo
+ * refleja automáticamente sin tocar código.
  * ─────────────────────────────────────────────────────────────────
  */
 
-const PERIODO_3_USA_ANIO_ANTERIOR = true
+import { ref } from 'vue'
+import { usePeriodosAcademicos } from '@/modules/periodos-academicos/composables/usePeriodosAcademicos'
 
 /**
- * Dado un objeto Date, retorna { periodo, anio }.
- * @param {Date} fecha
- * @returns {{ periodo: number, anio: number }}
+ * Fallback mientras llega la respuesta del backend (o si falla):
+ * mismo criterio simple de siempre, enero-junio = 1, julio-diciembre = 2.
  */
-export function calcularPeriodo(fecha = new Date()) {
+function calcularPeriodoFallback(fecha = new Date()) {
     const mes = fecha.getMonth() + 1 // 1–12
-    const dia = fecha.getDate()
     const anio = fecha.getFullYear()
+    return { periodo: mes <= 6 ? 1 : 2, anio }
+}
 
+/**
+ * Usa el `inicio` real del Semestre II (formato 'MM-DD') guardado en la
+ * DB como umbral: antes de esa fecha = período 1, desde esa fecha = período 2.
+ */
+function calcularPeriodoDesdeRangos(rangos, fecha = new Date()) {
+    const anio = fecha.getFullYear()
+    const mesDia = `${String(fecha.getMonth() + 1).padStart(2, '0')}-${String(fecha.getDate()).padStart(2, '0')}`
 
-    // ── Período 1: 1 en → 30 jun ─────────────────────────────────
-    if (
-        (mes === 1 || (mes === 6 && dia <= 30))
-    ) {
-        return { periodo: 1, anio }
-    }
+    const semestre2 = rangos.find((r) => r.periodo === '2')
+    if (!semestre2) return calcularPeriodoFallback(fecha)
 
-
-    // ── Período 2: 1 julio  → 31 dic ─────────────────────────────────
-    // (mes 9, 10, 11, 12)
-    return { periodo: 2, anio }
+    const periodo = mesDia < semestre2.inicio ? 1 : 2
+    return { periodo, anio }
 }
 
 /**
  * Composable Vue 3.
- * Exporta `anio` y `periodo` como refs reactivos inicializados
- * con el período que corresponde a la fecha de hoy.
+ * Retorna `anio` y `periodo` como refs reactivos. Al montar, empiezan
+ * con el cálculo de respaldo (instantáneo) y se actualizan solos en
+ * cuanto llega la respuesta real de /api/periodos-academicos.
  * Los filtros de la vista pueden seguir modificándolos libremente.
  *
  * Uso:
  *   import { usePeriodoActual } from '@/modules/horiosadmin/composables/usePeriodoActual'
  *   const { anio, periodo } = usePeriodoActual()
  */
-import { ref } from 'vue'
-
 export function usePeriodoActual() {
-    const { periodo: p, anio: a } = calcularPeriodo(new Date())
-    //const { periodo: p, anio: a } = calcularPeriodo(new Date('2026-01-24'))
-    const anio = ref(a)
-    const periodo = ref(p)
+    const fallback = calcularPeriodoFallback()
+    const anio = ref(fallback.anio)
+    const periodo = ref(fallback.periodo)
+
+    const { periodos, fetchPeriodos } = usePeriodosAcademicos()
+
+    fetchPeriodos().then(() => {
+        if (periodos.value.length) {
+            const actual = calcularPeriodoDesdeRangos(periodos.value)
+            anio.value = actual.anio
+            periodo.value = actual.periodo
+        }
+    })
+
     return { anio, periodo }
 }
