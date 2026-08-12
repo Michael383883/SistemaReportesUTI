@@ -33,7 +33,7 @@ export function useClasificacion() {
         }
     }
 
-    function buildFormData({ cod_docente, categoria, nivel, tipo_documento, gestion, periodo, detalle_general, observacion, observacion2, materias, referencias, archivo }) {
+    function buildFormData({ cod_docente, categoria, nivel, tipo_documento, gestion, periodo, detalle_general, observacion, observacion2, materias, referencias, titulo, archivo }) {
         const fd = new FormData()
         if (cod_docente) fd.append('cod_docente', cod_docente)
         fd.append('categoria', categoria)
@@ -46,10 +46,10 @@ export function useClasificacion() {
         if (observacion2) fd.append('observacion2', observacion2)
         fd.append('materias', JSON.stringify(materias || []))
         fd.append('referencias', JSON.stringify(referencias || []))
+        if (titulo) fd.append('titulo', JSON.stringify(titulo))   // 👈 esto faltaba
         if (archivo) fd.append('archivo_pdf', archivo)
         return fd
     }
-
     async function guardarClasificacion(payload) {
         loading.value = true
         error.value = null

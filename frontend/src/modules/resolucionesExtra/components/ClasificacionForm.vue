@@ -37,7 +37,26 @@
         </svg>
         Agregar referencia
       </button>
-    </div>
+
+       <button
+  v-if="!esTitulo"
+  type="button"
+  @click="esTitulo = true"
+  class="bg-amber-600 inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-bold text-slate-100 border border-dashed border-amber-500 rounded-lg hover:bg-amber-500 hover:text-slate-100 transition-colors"
+>
+  <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+  </svg>
+  Agregar título
+</button>
+</div>
+
+    <TituloCard
+  v-if="esTitulo"
+  :form="form"
+  :selected-docente="selectedDocente"
+  @cerrar="onCerrarTitulo"
+/>
 
     <MateriasCard
       v-if="mostrarMaterias"
@@ -93,6 +112,7 @@ import { useDocentesReportes } from '../composables/useDocentesReportes'
 import DatosGeneralesCard from './formulario/DatosGeneralesCard.vue'
 import MateriasCard from './formulario/MateriasCard.vue'
 import ReferenciasCard from './formulario/ReferenciasCard.vue'
+import TituloCard from './formulario/TituloCard.vue'
 
 const props = defineProps({
   saving:        { type: Boolean, default: false },
@@ -103,7 +123,7 @@ const props = defineProps({
 
 const emit = defineEmits(['guardar', 'back'])
 
-// ─── Formulario (fuente única de verdad, compartida por las 3 cards) ───
+// ─── Formulario (fuente única de verdad, compartida por las cards) ───
 const form = reactive({
   cod_docente:     props.initial.cod_docente     ?? null,
   categoria:       props.initial.categoria       ?? '',
@@ -116,11 +136,10 @@ const form = reactive({
   observacion2:    props.initial.observacion2    ?? '',
   materias:        props.initial.materias        ?? [],
   referencias:     props.initial.referencias     ?? [],
+  titulo:         props.initial.titulo         ?? null,
 })
-
+const esTitulo = ref(!!form.titulo)
 // ─── Búsqueda del docente general (docente "por defecto") ───
-// Vive aquí porque tanto la card de Datos generales (para elegirlo) como
-// la card de Materias (para pre-asignarlo a materias nuevas) lo necesitan.
 const {
   loading: loadingDocentes,
   searchQuery,
@@ -139,16 +158,21 @@ function onSelectDocente(docente) {
   form.cod_docente = docente.codigo
 }
 
+function onCerrarTitulo() {
+  esTitulo.value = false
+  form.titulo = null
+}
+
+
 function onClearDocente() {
   clearSelection()
   form.cod_docente = null
 }
 
 // ─── Visibilidad de las cards opcionales ───
-// Se muestran automáticamente si ya venían datos (modo edición), o cuando
-// el usuario pulsa "Agregar materia" / "Agregar referencia".
-const mostrarMaterias = ref(form.materias.length > 0)
+const mostrarMaterias    = ref(form.materias.length > 0)
 const mostrarReferencias = ref(form.referencias.length > 0)
+const mostrarTitulos = ref(!!form.titulo)
 
 // ─── Validación: el botón de guardar solo depende de la card 1 completa ───
 const esValidoGenerales = computed(() =>
@@ -163,13 +187,23 @@ const noRegentaFCE = computed(() =>
 )
 
 // Determina si, tras guardar, corresponde llamar a aplicarEnGrupos().
+// Un documento de título nunca cruza contra GRUPOS.
 const asignaAGrupos = computed(() => {
+ if (esTitulo.value) return false
   if (noRegentaFCE.value) return false
   if (form.materias.length === 0) return false
   return form.materias.every(m => m.cod_materia && m.cod_plan && m.grupo)
 })
 
 function formCopiado() {
-  return JSON.parse(JSON.stringify(form))
+  const copia = JSON.parse(JSON.stringify(form))
+  // El docente del título se resuelve aquí, tomando siempre el docente general vigente
+  if (esTitulo.value && copia.titulo) {
+    copia.titulo.cod_docente = form.cod_docente
+  } else {
+    copia.titulo = null
+  }
+  return copia
 }
+
 </script>

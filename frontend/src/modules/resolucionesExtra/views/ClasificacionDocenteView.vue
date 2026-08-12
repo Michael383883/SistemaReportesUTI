@@ -205,7 +205,7 @@
             </div>
 
             <!-- CONTENIDO -->
-            <div v-if="c.OBSERVACION || c.OBSERVACION2 || c.GESTION || c.PERIODO || c.materias?.length || c.referencias?.length"
+            <div v-if="c.OBSERVACION || c.OBSERVACION2 || c.GESTION || c.PERIODO || c.materias?.length || c.referencias?.length || c.titulo"
                  class="px-5 pb-3 space-y-2.5 border-t border-gray-100 pt-2.5">
 
               <!-- Observaciones -->
@@ -286,6 +286,25 @@
                   </template>
                 </div>
               </div>
+
+              <!-- Título académico -->
+              <div v-if="c.titulo" class="flex items-start gap-2.5">
+                <span class="text-[11px] font-bold text-gray-500 uppercase tracking-wide pt-1.5 flex-shrink-0 w-[78px]">
+                  Título
+                </span>
+                <div class="flex flex-wrap gap-1.5 flex-1 min-w-0">
+                  <span class="inline-flex items-center gap-1.5 pl-2.5 pr-2 py-1 bg-purple-50 border border-purple-100 rounded-lg text-sm text-purple-900 leading-none">
+                    <span class="font-semibold">{{ c.titulo.TIPO_TITULO }}</span>
+                    <span v-if="c.titulo.NOMBRE_TITULO">— {{ c.titulo.NOMBRE_TITULO }}</span>
+                    <span v-if="c.titulo.UNIVERSIDAD" class="text-purple-700">
+                      · {{ c.titulo.UNIVERSIDAD }}
+                    </span>
+                    <span v-if="c.titulo.PAIS" class="text-purple-700">
+                      ({{ c.titulo.PAIS }})
+                    </span>
+                  </span>
+                </div>
+              </div>
             </div>
 
             <!-- PIE DE CARD: acciones, pegadas al contenido, sin hueco -->
@@ -339,6 +358,9 @@
             <div class="flex items-center gap-2 flex-wrap">
               <span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0" :class="badgeCategoria(c.CATEGORIA)">
                 {{ c.CATEGORIA }}
+              </span>
+              <span v-if="c.titulo" class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-purple-50 text-purple-700 flex-shrink-0">
+                🎓 {{ c.titulo.TIPO_TITULO }}
               </span>
               <p class="text-sm font-medium text-gray-800 truncate">
                 {{ c.TIPO_DOCUMENTO || c.NOMBRE_ARCHIVO || 'Sin archivo' }}
@@ -492,6 +514,9 @@ const clasificacionesFiltradas = computed(() => {
       c.OBSERVACION,
       c.OBSERVACION2,
       c.NOMBRE_ARCHIVO,
+      c.titulo?.TIPO_TITULO,
+      c.titulo?.NOMBRE_TITULO,
+      c.titulo?.UNIVERSIDAD,
     ]
 
     const coincideCampos = campos.some(campo => normalizar(campo).includes(termino))

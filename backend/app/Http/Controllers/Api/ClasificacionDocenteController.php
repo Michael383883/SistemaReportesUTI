@@ -80,6 +80,12 @@ class ClasificacionDocenteController extends Controller
             ->orderBy('ORDEN')
             ->get();
 
+
+        $cabecera->titulos = DB::table('CLASIFICACION_TITULO')
+            ->where('ID_CLASIFICACION_DOCENTE', $id)
+            ->orderBy('FECHA_TITULO')
+            ->get();
+
         // Las referencias son del documento completo, no de un docente en particular
         $cabecera->referencias = DB::table('CLASIFICACION_REFERENCIA')
             ->where('ID_DOCUMENTO', $cabecera->ID_DOCUMENTO)
@@ -119,6 +125,7 @@ class ClasificacionDocenteController extends Controller
                 'archivo_pdf' => 'nullable|file|mimes:pdf|max:20480',
                 'materias' => 'nullable|string',    // JSON string
                 'referencias' => 'nullable|string', // JSON string
+                'titulo' => 'nullable|string',
             ]);
 
             // ------- decodificar materias primero, para saber qué docentes hay -------
@@ -130,10 +137,20 @@ class ClasificacionDocenteController extends Controller
                 }
             }
 
+            // ------- decodificar titulos -------
+            $titulo = null;
+            if ($request->filled('titulo')) {
+                $titulo = json_decode($request->titulo, true);
+                if (!is_array($titulo)) {
+                    throw new \Exception('titulo inválido: el JSON no es un objeto');
+                }
+            }
+
             // Recolecta los docentes distintos que aparecen en las materias
             // (cada materia trae su propio objeto "docente": { cod_docente, nombres, apellidos })
             $codigosDocentes = collect($materias)
                 ->pluck('docente.cod_docente')
+                ->when($titulo && !empty($titulo['cod_docente']), fn($c) => $c->push($titulo['cod_docente']))
                 ->filter()
                 ->unique()
                 ->values();
@@ -219,6 +236,28 @@ class ClasificacionDocenteController extends Controller
                 $materiasInsertadas++;
             }
 
+
+            // ------- 3b) CLASIFICACION_TITULO -------
+            $tituloInsertado = false;
+
+            if ($titulo) {
+                $codDocenteTitulo = $titulo['cod_docente'] ?? null;
+                $idClasifDocenteTitulo = $codDocenteTitulo
+                    ? ($mapaDocenteId[$codDocenteTitulo] ?? null)
+                    : null;
+
+                DB::table('CLASIFICACION_TITULO')->insert([
+                    'ID_DOCUMENTO' => $idDocumento,
+                    'ID_CLASIFICACION_DOCENTE' => $idClasifDocenteTitulo,
+                    'TIPO_TITULO' => $titulo['tipo_titulo'],
+                    'UNIVERSIDAD' => $titulo['universidad'] ?? null,
+                    'PAIS' => $titulo['pais'] ?? null,
+                    'FECHA_TITULO' => $titulo['fecha_titulo'] ?? null,
+                    'NOMBRE_TITULO' => $titulo['nombre_titulo'],
+                    'NUMERO' => $titulo['numero'] ?? null,
+                ]);
+                $tituloInsertado = true;
+            }
             // ------- 4) CLASIFICACION_REFERENCIA (a nivel documento) -------
             $referenciasInsertadas = 0;
 
@@ -249,6 +288,7 @@ class ClasificacionDocenteController extends Controller
                 'id_documento' => $idDocumento,
                 'ids_clasificacion_docente' => array_values($mapaDocenteId),
                 'materias_insertadas' => $materiasInsertadas,
+                'titulos_insertado' => $tituloInsertado,
                 'referencias_insertadas' => $referenciasInsertadas,
             ], 201);
 
