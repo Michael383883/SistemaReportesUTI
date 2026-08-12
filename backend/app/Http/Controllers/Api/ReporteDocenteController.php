@@ -7,9 +7,90 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\JsonResponse;
 use Carbon\Carbon;
+use App\Models\PeriodoAcademico;
+use Illuminate\Validation\Rule;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class ReporteDocenteController extends Controller
 {
+
+    // Whitelist de columnas opcionales de DOCENTES que el reporte puede agregar
+    private const CAMPOS_DOCENTE_PERMITIDOS = [
+        'CI' => 'd.CI',
+        'FECHA_NAC' => 'd.FECHA_NAC',
+        'SEXO' => 'd.SEXO',
+        'TITULO' => 'd.TITULO',
+        'FECHA_NOMBRAMIENTO' => 'd.FECHA_NOMBRAMIENTO',
+    ];
+
+    // Whitelist de columnas opcionales de CLASIFICACION_TITULO
+    private const CAMPOS_TITULO_PERMITIDOS = [
+        'NOMBRE_TITULO' => 'ct.NOMBRE_TITULO',
+        'UNIVERSIDAD' => 'ct.UNIVERSIDAD',
+        'PAIS' => 'ct.PAIS',
+        'FECHA_TITULO' => 'ct.FECHA_TITULO',
+        'NUMERO' => 'ct.NUMERO',
+    ];
+    private const ETIQUETAS = [
+        'CI' => 'CI',
+        'FECHA_NAC' => 'Fecha Nac.',
+        'SEXO' => 'Sexo',
+        'TITULO' => 'Título (abrev.)',
+        'FECHA_NOMBRAMIENTO' => 'Fecha Nombramiento',
+        'NOMBRE_TITULO' => 'Nombre del Título',
+        'UNIVERSIDAD' => 'Universidad',
+        'PAIS' => 'País',
+        'FECHA_TITULO' => 'Fecha de Título',
+        'NUMERO' => 'Número',
+    ];
+
+    private function reglasFiltros(): array
+    {
+        return [
+            'anio' => 'required|integer',
+            'periodo' => 'required',
+            'tipo_titulo' => 'nullable|string',
+            'campos' => 'nullable|array',
+            'campos.*' => Rule::in(array_keys(self::CAMPOS_DOCENTE_PERMITIDOS)),
+            'campos_titulo' => 'nullable|array',
+            'campos_titulo.*' => Rule::in(array_keys(self::CAMPOS_TITULO_PERMITIDOS)),
+        ];
+    }
+
+    private function obtenerDatos(Request $request)
+    {
+        $anio = (int) $request->query('anio');
+        $periodo = $request->query('periodo');
+        $tipoTitulo = $request->query('tipo_titulo');
+        $camposDocente = $request->query('campos', []);
+        $camposTitulo = $request->query('campos_titulo', []);
+
+        $selects = ['d.CODIGO', 'd.APELLIDOS', 'd.NOMBRES', 'ct.TIPO_TITULO'];
+        foreach ($camposDocente as $campo)
+            $selects[] = self::CAMPOS_DOCENTE_PERMITIDOS[$campo] . " AS $campo";
+        foreach ($camposTitulo as $campo)
+            $selects[] = self::CAMPOS_TITULO_PERMITIDOS[$campo] . " AS $campo";
+
+        $query = DB::table('DOCENTES as d')
+            ->join('CLASIFICACION_DOCENTE as ccd', 'ccd.COD_DOCENTE', '=', 'd.CODIGO')
+            ->join('CLASIFICACION_TITULO as ct', 'ct.ID_CLASIFICACION_DOCENTE', '=', 'ccd.ID_CLASIFICACION_DOCENTE')
+            ->selectRaw(implode(', ', $selects))
+            ->whereExists(function ($sub) use ($anio, $periodo) {
+                $sub->select(DB::raw(1))
+                    ->from('GRUPOS as g')
+                    ->whereColumn('g.DOCENTE', 'd.CODIGO')
+                    ->where('g.ANIO', $anio)
+                    ->where('g.PERIODO', $periodo)
+                    ->where('g.TIPO', 'N');
+            });
+
+        if ($tipoTitulo) {
+            $query->where('ct.TIPO_TITULO', $tipoTitulo);
+        }
+
+        return $query->distinct()->orderBy('d.APELLIDOS')->orderBy('d.NOMBRES')->get();
+    }
     /**
      * Convierte (anio, periodo) a un valor numérico ordenable.
      * Orden académico real: 1 (anual/1) → 4 (invierno) → 2 → 3 (verano)
@@ -40,15 +121,14 @@ class ReporteDocenteController extends Controller
      * 4 -> Curso de Invierno     (01 jul - 15 ago, margen hasta mediados de agosto)
      * 2 -> Semestre II + cierre  (05 ago - 20 dic)
      */
+
+
+
     private function rangosPeriodos(): array
     {
-        return [
-            '3' => ['inicio' => '01-05', 'fin' => '02-20'],
-            '1' => ['inicio' => '02-10', 'fin' => '06-30'],
-            '4' => ['inicio' => '07-01', 'fin' => '08-15'],
-            '2' => ['inicio' => '08-05', 'fin' => '12-20'],
-        ];
+        return PeriodoAcademico::obtenerRangos();
     }
+
 
     /**
      * Determina qué combinaciones (anio-periodo) AÚN NO HAN CONCLUIDO
@@ -825,5 +905,237 @@ class ReporteDocenteController extends Controller
         ]);
     }
 
+    // GET /api/reporte-docentes/tipos-titulo
+    // Devuelve los TIPO_TITULO distintos que existen registrados,
+    // para armar el <select> de filtro en el frontend (Diplomado, Maestría, etc.)
+    // GET /api/reporte-docentes/tipos-titulo
+    public function tiposTitulo()
+    {
+        $tipos = DB::table('CLASIFICACION_TITULO')
+            ->select('TIPO_TITULO')
+            ->whereNotNull('TIPO_TITULO')
+            ->distinct()
+            ->orderBy('TIPO_TITULO')
+            ->pluck('TIPO_TITULO');
 
+        return response()->json($tipos);
+    }
+
+    // GET /api/reporte-docentes/con-titulo
+    public function docentesConTitulo(Request $request)
+    {
+        $request->validate($this->reglasFiltros());
+        $data = $this->obtenerDatos($request);
+
+        return response()->json([
+            'anio' => (int) $request->query('anio'),
+            'periodo' => $request->query('periodo'),
+            'tipo_titulo' => $request->query('tipo_titulo'),
+            'total' => $data->count(),
+            'data' => $data,
+        ]);
+    }
+
+    // GET /api/reporte-docentes/con-titulo/excel
+
+    public function excel(Request $request)
+    {
+        $request->validate($this->reglasFiltros());
+        $data = $this->obtenerDatos($request);
+
+        $camposDocente = $request->query('campos', []);
+        $camposTitulo = $request->query('campos_titulo', []);
+        $anio = $request->query('anio');
+        $periodo = $request->query('periodo');
+
+        // ── Paleta académica (igual al PDF: blanco/negro/gris) ────────────
+        $NEGRO = 'FF000000';
+        $GRIS_HEAD_BG = 'FFF0F0F0'; // equivalente a rgb(240,240,240) del PDF
+        $GRIS_LINEA = 'FF8C8C8C'; // equivalente a rgb(140,140,140) del PDF
+        $GRIS_TEXTO = 'FF505050';
+
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Docentes con Titulo');
+        $spreadsheet->getDefaultStyle()->getFont()->setName('Calibri')->setSize(10);
+
+        // ── Encabezados dinámicos: "Nº" fijo + lo que venga en los filtros ──
+        $encabezados = ['Nº', 'Código', 'Apellidos', 'Nombres', 'Tipo de Título'];
+        foreach ($camposDocente as $c)
+            $encabezados[] = self::ETIQUETAS[$c] ?? $c;
+        foreach ($camposTitulo as $c)
+            $encabezados[] = self::ETIQUETAS[$c] ?? $c;
+        $totalColumnas = count($encabezados);
+        $ultimaColumna = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($totalColumnas);
+        // No importa cuántas columnas se agreguen: la TABLA (datos, encabezado de
+        // columnas, autofiltro) siempre usa $ultimaColumna, así que se ajusta sola.
+
+        // El bloque de encabezado (título, subtítulo, gestión, nota/fecha) necesita
+        // un ancho mínimo para no cortar el texto cuando la tabla tiene pocas
+        // columnas (ej. solo 5). Si la tabla es angosta, el encabezado igual
+        // se extiende hasta esta columna mínima (decorativo, no afecta los datos).
+        $colsMinimoEncabezado = 9; // suficiente para que el título completo entre
+        $colEncabezadoFin = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(
+            max($totalColumnas, $colsMinimoEncabezado)
+        );
+
+        $periodoLabel = match ((string) $periodo) {
+            '1' => '1', '2' => '2', '3' => 'Verano', '4' => 'Invierno',
+            default => $periodo,
+        };
+        $fechaGeneracion = now()->format('d/m/Y h:i:s A');
+
+        // ── Bloque A1:C2: recuadro de logo/universidad, fondo blanco y sin contorno ──
+        $sheet->mergeCells('A1:C2');
+        $sheet->setCellValue('A1', "UNIVERSIDAD MAYOR DE\nSAN SIMÓN");
+        $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(8)->getColor()->setARGB($NEGRO);
+        $sheet->getStyle('A1')->getAlignment()
+            ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER)
+            ->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER)
+            ->setWrapText(true);
+        $sheet->getStyle('A1:C2')->getFill()
+            ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_NONE); // sin relleno, blanco
+        $sheet->getStyle('A1:C2')->getBorders()->getAllBorders()
+            ->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_NONE); // sin contorno
+
+        // ── Bloque D1:colEncabezadoFin: título del reporte, al lado del recuadro anterior ──
+        $sheet->mergeCells("D1:{$colEncabezadoFin}1");
+        $sheet->setCellValue('D1', 'REPORTE DE DOCENTES CON TÍTULO');
+        $sheet->getStyle('D1')->getFont()->setBold(true)->setSize(13);
+        $sheet->getStyle('D1')->getAlignment()
+            ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER)
+            ->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
+
+        $sheet->mergeCells("D2:{$colEncabezadoFin}2");
+        $sheet->setCellValue('D2', 'FACULTAD DE CIENCIAS ECONÓMICAS');
+        $sheet->getStyle('D2')->getFont()->setBold(true)->setSize(10.5);
+        $sheet->getStyle('D2')->getAlignment()
+            ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER)
+            ->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
+
+        $sheet->getRowDimension(1)->setRowHeight(24);
+        $sheet->getRowDimension(2)->setRowHeight(18);
+
+        // ── Fila 3: Gestión académica centrada (bold) ──
+        $sheet->mergeCells("A3:{$colEncabezadoFin}3");
+        $sheet->setCellValue('A3', "Gestión Académica {$periodoLabel}/{$anio}");
+        $sheet->getStyle('A3')->getFont()->setBold(true)->setSize(10);
+        $sheet->getStyle('A3')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+        $sheet->getRowDimension(3)->setRowHeight(16);
+
+        // ── Fila 4: Nota a la izquierda + fecha a la derecha (misma fila, como el PDF) ──
+        $sheet->setCellValue('A4', 'Nota: Este es un documento generado automáticamente a partir de los registros del sistema.');
+        $sheet->getStyle('A4')->getFont()->setSize(8)->getColor()->setARGB($GRIS_TEXTO);
+
+        $sheet->mergeCells("D4:{$colEncabezadoFin}4");
+        $sheet->setCellValue('D4', $fechaGeneracion);
+        $sheet->getStyle('D4')->getFont()->setSize(8)->getColor()->setARGB($GRIS_TEXTO);
+        $sheet->getStyle('D4')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_RIGHT);
+
+        // Línea separadora bajo el bloque de encabezado (fila 4), a todo el ancho del bloque
+        $sheet->getStyle("A4:{$colEncabezadoFin}4")->getBorders()->getBottom()
+            ->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN)
+            ->getColor()->setARGB($GRIS_LINEA);
+
+        // ── Encabezado de tabla (fila 6) ── usa $ultimaColumna (ancho real de datos)
+        $filaEncabezados = 6;
+        $sheet->fromArray($encabezados, null, "A{$filaEncabezados}");
+        $rangoEncabezado = "A{$filaEncabezados}:{$ultimaColumna}{$filaEncabezados}";
+
+        $sheet->getStyle($rangoEncabezado)->getFont()->setBold(true)->setSize(9)->getColor()->setARGB($NEGRO);
+        $sheet->getStyle($rangoEncabezado)->getFill()
+            ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+            ->getStartColor()->setARGB($GRIS_HEAD_BG); // cada celda pintada, no solo negrita
+        $sheet->getStyle($rangoEncabezado)->getAlignment()
+            ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER)
+            ->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER)
+            ->setWrapText(true);
+        // Borde completo alrededor de cada celda del encabezado, para que se note el "recuadro pintado"
+        $sheet->getStyle($rangoEncabezado)->getBorders()->getAllBorders()
+            ->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN)
+            ->getColor()->setARGB($NEGRO);
+        $sheet->getStyle($rangoEncabezado)->getBorders()->getBottom()
+            ->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_MEDIUM)
+            ->getColor()->setARGB($NEGRO);
+        $sheet->getRowDimension($filaEncabezados)->setRowHeight(20);
+
+        // ── Filas de datos, con número de fila ──
+        $fila = $filaEncabezados + 1;
+        $primeraFilaDatos = $fila;
+        $n = 1;
+        foreach ($data as $row) {
+            $valores = [$n, $row->CODIGO, $row->APELLIDOS, $row->NOMBRES, $row->TIPO_TITULO];
+            foreach ($camposDocente as $c)
+                $valores[] = $row->$c ?? '';
+            foreach ($camposTitulo as $c)
+                $valores[] = $row->$c ?? '';
+            $sheet->fromArray($valores, null, 'A' . $fila);
+            $fila++;
+            $n++;
+        }
+        $ultimaFilaDatos = $fila - 1;
+
+        if ($ultimaFilaDatos >= $primeraFilaDatos) {
+            $rangoDatos = "A{$primeraFilaDatos}:{$ultimaColumna}{$ultimaFilaDatos}";
+
+            $sheet->getStyle($rangoDatos)->getFont()->setSize(9)->getColor()->setARGB($NEGRO);
+            $sheet->getStyle($rangoDatos)->getAlignment()
+                ->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
+
+            // Solo línea horizontal fina bajo cada fila (sin cuadrícula vertical),
+            // igual que la tabla del PDF: lineWidth bottom únicamente.
+            $sheet->getStyle($rangoDatos)->getBorders()->getHorizontal()
+                ->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN)
+                ->getColor()->setARGB($GRIS_LINEA);
+
+            // Columna Nº centrada
+            $sheet->getStyle("A{$primeraFilaDatos}:A{$ultimaFilaDatos}")->getAlignment()
+                ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+
+            // Borde inferior más marcado al cierre de la tabla
+            $sheet->getStyle("A{$ultimaFilaDatos}:{$ultimaColumna}{$ultimaFilaDatos}")->getBorders()->getBottom()
+                ->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_MEDIUM)
+                ->getColor()->setARGB($NEGRO);
+        }
+
+        // ── Fila de total, alineada a la derecha (como el "TOTAL" del PDF) ──
+        $filaTotal = $ultimaFilaDatos + 2;
+        $sheet->mergeCells("A{$filaTotal}:{$ultimaColumna}{$filaTotal}");
+        $sheet->setCellValue('A' . $filaTotal, 'Total de registros: ' . ($n - 1));
+        $sheet->getStyle('A' . $filaTotal)->getFont()->setBold(true)->setSize(9);
+        $sheet->getStyle('A' . $filaTotal)->getAlignment()
+            ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_RIGHT);
+
+        // ── Ajustes generales ──
+        $sheet->freezePane('A' . $primeraFilaDatos);
+        $sheet->setAutoFilter($rangoEncabezado);
+
+        $sheet->getColumnDimension('A')->setWidth(6); // Nº angosta
+        foreach (range('B', $ultimaColumna) as $col) {
+            $sheet->getColumnDimension($col)->setAutoSize(true);
+        }
+
+        $sheet->setShowGridlines(false); // se ven solo nuestras líneas, no la cuadrícula de Excel
+
+        // ── Pie de página (equivalente al footer del PDF) ──
+        $sheet->getHeaderFooter()->setOddFooter(
+            '&L&7Procesado UTI - Facultad de Ciencias Económicas' .
+            '&C&7Página &P de &N' .
+            '&R&7' . $fechaGeneracion
+        );
+        $sheet->getPageSetup()
+            ->setOrientation(\PhpOffice\PhpSpreadsheet\Worksheet\PageSetup::ORIENTATION_LANDSCAPE)
+            ->setFitToWidth(1)
+            ->setFitToHeight(0);
+        $sheet->getPageMargins()->setTop(0.5)->setBottom(0.6)->setLeft(0.4)->setRight(0.4);
+
+        $nombreArchivo = 'reporte_docentes_titulo_' . $anio . '_' . $periodo . '.xlsx';
+
+        $writer = new Xlsx($spreadsheet);
+        return response()->streamDownload(function () use ($writer) {
+            $writer->save('php://output');
+        }, $nombreArchivo, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ]);
+    }
 }

@@ -10,4 +10,10 @@ export const reportesRoutes = [
         name: 'reportes-ediciontipoingreso',
         component: () => import('./views/EdicionTipoIngreso.vue')
     },
+
+    {
+        path: '/reportes/docentes-titulo',
+        name: 'reportes-docentes-titulo',
+        component: () => import('./views/ReporteDocente.vue')
+    },
 ]
