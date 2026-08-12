@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Models\PeriodoAcademico;
 
 class HorarioAdminController extends Controller
 {
@@ -329,8 +330,10 @@ class HorarioAdminController extends Controller
      */
     public function listaInscritos(Request $request)
     {
-        $anio = (int) $request->query('anio', date('Y'));
-        $periodo = (int) $request->query('periodo', 1);
+        $periodoActual = $this->periodoActualSegunFecha();
+
+        $anio = (int) $request->query('anio', $periodoActual['anio']);
+        $periodo = (int) $request->query('periodo', $periodoActual['periodo']);
         $docente = $request->query('docente');
 
         if (!in_array($periodo, [1, 2, 3, 4], true)) {
@@ -601,6 +604,40 @@ class HorarioAdminController extends Controller
             $request->merge(['docente' => $docente])
         );
     }
+    /**
+     * Determina el período académico y año que corresponden a HOY,
+     * usando los rangos de `periodos_academicos` (los mismos que edita
+     * el admin en /periodos-academicos). Se usa como valor por defecto
+     * cuando el request no especifica anio/periodo explícitamente.
+     */
+    private function periodoActualSegunFecha(): array
+    {
+        $rangos = PeriodoAcademico::obtenerRangos(); // ['1'=>['inicio'=>'MM-DD','fin'=>'MM-DD'], ...]
+        $hoy = now();
+        $anio = (int) $hoy->format('Y');
+        $mesDia = $hoy->format('m-d');
 
+        // Puede haber más de un periodo cuyo rango contiene la fecha de hoy
+        // (los rangos se solapan a propósito, ver comentario original de
+        // rangosPeriodos()). En ese caso gana el que empezó más recientemente.
+        $candidatos = [];
+        foreach ($rangos as $periodo => $rango) {
+            if ($mesDia >= $rango['inicio'] && $mesDia <= $rango['fin']) {
+                $candidatos[$periodo] = $rango['inicio'];
+            }
+        }
+
+        if (empty($candidatos)) {
+            // No cae en ningún rango definido (ej. vacaciones de fin de año,
+            // entre el cierre de Semestre II y el inicio de Verano).
+            // Ajusta este default si prefieres otro comportamiento.
+            return ['periodo' => 2, 'anio' => $anio];
+        }
+
+        arsort($candidatos);
+        $periodo = (int) array_key_first($candidatos);
+
+        return ['periodo' => $periodo, 'anio' => $anio];
+    }
 
 }

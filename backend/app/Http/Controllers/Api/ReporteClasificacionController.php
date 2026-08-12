@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
+
 class ReporteClasificacionController extends Controller
 {
     // GET /reportes/clasificacion
@@ -61,9 +62,17 @@ class ReporteClasificacionController extends Controller
             ->get()
             ->groupBy('ID_DOCUMENTO');
 
-        $conDetalle = $cabeceras->map(function ($c) use ($materias, $referencias) {
+        // Títulos académicos: uno por docente (ID_CLASIFICACION_DOCENTE)
+        $titulos = DB::table('CLASIFICACION_TITULO')
+            ->whereIn('ID_CLASIFICACION_DOCENTE', $idsClasifDocente)
+            ->orderBy('FECHA_TITULO')
+            ->get()
+            ->groupBy('ID_CLASIFICACION_DOCENTE');
+
+        $conDetalle = $cabeceras->map(function ($c) use ($materias, $referencias, $titulos) {
             $c->materias = $materias->get($c->ID_CLASIFICACION_DOCENTE, collect())->values();
             $c->referencias = $referencias->get($c->ID_DOCUMENTO, collect())->values();
+            $c->titulo = $titulos->get($c->ID_CLASIFICACION_DOCENTE, collect())->first();
             return $c;
         });
 
@@ -109,9 +118,19 @@ class ReporteClasificacionController extends Controller
             ->get()
             ->groupBy('ID_DOCUMENTO');
 
-        $timeline = $clasificaciones->map(function ($c) use ($materias, $referencias) {
+        // Títulos académicos: uno por docente (ID_CLASIFICACION_DOCENTE)
+        $titulos = DB::table('CLASIFICACION_TITULO')
+            ->whereIn('ID_CLASIFICACION_DOCENTE', $idsClasifDocente)
+            ->orderBy('FECHA_TITULO')
+            ->get()
+            ->groupBy('ID_CLASIFICACION_DOCENTE');
+
+        $timeline = $clasificaciones->map(function ($c) use ($materias, $referencias, $titulos) {
             $c->materias = $materias->get($c->ID_CLASIFICACION_DOCENTE, collect())->values();
             $c->referencias = $referencias->get($c->ID_DOCUMENTO, collect())->values();
+            // Si un docente llegara a tener más de un título registrado, se toma el primero.
+            // Si se necesitara mostrar varios, cambiar a ->values() y ajustar el frontend a c.titulos (array).
+            $c->titulo = $titulos->get($c->ID_CLASIFICACION_DOCENTE, collect())->first();
             return $c;
         });
 

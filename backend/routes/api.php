@@ -45,6 +45,9 @@ use App\Http\Controllers\Api\ReferenciaController;
 //reportes excel
 use App\Http\Controllers\Api\ReporteExcelController;
 
+//periodos
+use App\Http\Controllers\Api\PeriodoAcademicoController;
+
 /*
 |--------------------------------------------------------------------------
 | AUTH (público)
@@ -53,6 +56,15 @@ use App\Http\Controllers\Api\ReporteExcelController;
 Route::prefix('auth')->group(function () {
     Route::post('login', [AuthController::class, 'login']);
 });
+
+
+
+Route::prefix('periodos-academicos')->group(function () {
+    Route::get('/', [PeriodoAcademicoController::class, 'index']);
+    Route::put('/', [PeriodoAcademicoController::class, 'actualizarMasivo']);
+    Route::post('/restaurar', [PeriodoAcademicoController::class, 'restaurarValoresPredeterminados']);
+});
+
 
 /*
 |--------------------------------------------------------------------------
@@ -111,7 +123,9 @@ Route::post('/reporte-docente', [ReporteDocenteController::class, 'materiasDicta
 Route::get('/reporte-horario', [ReporteDocenteController::class, 'horario']);
 Route::post('/reporte-docente2', [ReporteDocenteController::class, 'materiasDictadasCompartidas']);
 
-
+Route::get('reporte-docentes/tipos-titulo', [ReporteDocenteController::class, 'tiposTitulo']);
+Route::get('reporte-docentes/con-titulo', [ReporteDocenteController::class, 'docentesConTitulo']);
+Route::get('reporte-docentes/con-titulo/excel', [ReporteDocenteController::class, 'excel']);
 /*
 |--------------------------------------------------------------------------
 | HORARIOS DE DOCENTES

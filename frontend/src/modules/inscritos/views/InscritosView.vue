@@ -481,6 +481,9 @@ import { useReporteAprobadosReprobados } from '../composables/useReporteAprobado
 import { useResumenPorGrupo } from '../composables/useResumenPorGrupo'
 import { useReporteAprobadosReprobadosResumido } from '../composables/useReporteAprobadosReprobadosResumido'
 import { mostrarLoaderPdf } from '../utils/pdfLoader'
+// DESPUÉS
+import { usePeriodoAcademicoActual } from '@/modules/periodos-academicos/composables/usePeriodoAcademicoActual'
+
 
 // ─── Áreas disponibles (deben coincidir con el CASE de PLAN->CARRERA del backend) ───
 const AREAS = [
@@ -502,11 +505,25 @@ const { generandoAprobadosResumido, exportarAprobadosReprobadosResumido } = useR
 const { data: dataAprobados, fetchAprobadosReprobados } = useInscritosAprobados()
 const { generandoAprobados, exportarAprobadosReprobados } = useReporteAprobadosReprobados()
 
+
+// ...junto a tus otros composables (useInscritos, etc.)
+const { anio: anioActual, periodo: periodoActual, promesa: promesaPeriodoActual } = usePeriodoAcademicoActual()
+
 const filtros = ref({
-  anio: new Date().getFullYear(),
-  periodo: 1,
-  area: [], // array vacío = todas las áreas
+  anio: anioActual.value,
+  periodo: periodoActual.value,
+  area: [],
 })
+
+// El valor inicial de arriba es el fallback instantáneo (por mes).
+// En cuanto se resuelve contra la BD real, corregimos los filtros
+// (por si el rango real de algún periodo no calza con el fallback).
+promesaPeriodoActual.then(() => {
+  filtros.value.anio = anioActual.value
+  filtros.value.periodo = periodoActual.value
+})
+
+
 const busqueda = ref('')
 
 const mostrarMenuPdf = ref(false)

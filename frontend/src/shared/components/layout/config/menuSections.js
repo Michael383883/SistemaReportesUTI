@@ -29,6 +29,7 @@ export const menuSections = [
                 children: [
                     { to: '/reportes/docentes', label: 'Kardex docente' },
                     { to: '/reportes/edicion-tipo-ingreso', label: 'Asignar Modalidad' },
+                    { to: '/reportes/docentes-titulo', label: 'Docentes con título' },
                 ],
             },
 
@@ -48,7 +49,7 @@ export const menuSections = [
                 children: [
                     { to: '/clasificaciones/nueva', label: 'Subir Documento' },
                     { to: '/clasificaciones', label: 'Listado de documentos' },
-                    
+
                 ],
             },
 
@@ -70,6 +71,7 @@ export const menuSections = [
                 children: [
                     { to: '/usuarios', label: 'Usuarios' },
                     { to: '/config-bd', label: 'Base de datos' },
+                    { to: '/periodos-academicos', label: 'Periodos Académicos' },
                 ],
             },
         ],
