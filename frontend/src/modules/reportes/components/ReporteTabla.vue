@@ -20,11 +20,11 @@
         </thead>
         <tbody>
           <tr
-            v-for="(fila, i) in filas"
-            :key="fila.principal.nro ?? i"
-            class="border-b border-slate-100 dark:border-slate-800 transition-colors hover:bg-slate-100 dark:hover:bg-slate-700/40"
-            :class="i % 2 === 0 ? 'bg-white dark:bg-slate-900' : 'bg-slate-50 dark:bg-slate-800/40'"
-          >
+  v-for="(fila, i) in filas"
+  :key="fila.principal.nro ?? i"
+  class="border-b border-slate-100 dark:border-slate-800 transition-colors hover:bg-slate-100 dark:hover:bg-slate-700/40"
+  :class="i % 2 === 0 ? 'bg-white dark:bg-slate-900' : 'bg-sky-100 dark:bg-sky-500/15'"
+>
             <!-- Nº -->
             <td class="px-4 py-3 text-slate-800 dark:text-slate-500 font-medium text-[13px] tabular-nums">{{ fila.nro }}</td>
 
