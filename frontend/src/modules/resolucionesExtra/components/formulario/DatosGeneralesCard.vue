@@ -11,7 +11,7 @@
         <!-- Tipo o Número de Documento -->
         <div class="sm:col-span-2">
           <label class="block text-[12px] font-medium text-slate-900 mb-1">
-            Tipo o Número de Documento *
+            Tipo o Número de Documento
           </label>
           <input
             v-model="form.tipo_documento"
@@ -32,9 +32,9 @@
           />
         </div>
 
-        <!-- Categoria -->
+        <!-- Categoria: combobox (seleccionar, buscar o crear una nueva) -->
         <div class="relative">
-          <label class="block text-[12px] font-medium text-slate-800 mb-1">Categoria *</label>
+          <label class="block text-[12px] font-medium text-slate-800 mb-1">Categoria</label>
 
           <div class="relative">
             <input
@@ -43,6 +43,7 @@
               placeholder="Selecciona o escribe una categoria"
               class="w-full px-3 py-2.5 pr-9 text-[13px] bg-gray-50 border border-gray-200 rounded-xl placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent focus:bg-white transition-colors"
               @focus="categoriaDropdownOpen = true"
+              @input="categoriaDropdownOpen = true"
               @blur="onBlurCategoria"
             />
             <button
@@ -59,10 +60,10 @@
 
           <div
             v-if="categoriaDropdownOpen"
-            class="absolute z-30 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden"
+            class="absolute z-30 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden max-h-56 overflow-y-auto"
           >
             <button
-              v-for="opcion in opcionesCategoria"
+              v-for="opcion in opcionesCategoriaFiltradas"
               :key="opcion"
               type="button"
               @mousedown.prevent="seleccionarCategoria(opcion)"
@@ -71,6 +72,19 @@
             >
               {{ opcion }}
             </button>
+
+            <button
+              v-if="mostrarCrearCategoria"
+              type="button"
+              @mousedown.prevent="seleccionarCategoria(form.categoria)"
+              class="w-full text-left px-3 py-2 text-[13px] text-amber-600 font-medium hover:bg-amber-50 transition-colors border-t border-gray-100"
+            >
+              + Crear "{{ form.categoria.trim() }}"
+            </button>
+
+            <div v-if="!opcionesCategoriaFiltradas.length && !mostrarCrearCategoria" class="px-3 py-2 text-[12px] text-gray-400 italic">
+              Sin coincidencias
+            </div>
           </div>
         </div>
 
@@ -105,7 +119,7 @@
 
         <!-- Periodo -->
         <div class="relative">
-          <label class="block text-[12px] font-medium text-slate-800 mb-1">Periodo</label>
+          <label class="block text-[12px] font-medium text-slate-800 mb-1">Periodo *</label>
 
           <div class="relative">
             <input
@@ -233,7 +247,8 @@
 </template>
 
 <script setup>
-import { ref, watch, computed } from 'vue'
+import { ref, watch, computed, onMounted } from 'vue'
+import { useCategorias } from '../../composables/useCategorias'
 
 const props = defineProps({
   form: { type: Object, required: true },
@@ -289,27 +304,55 @@ function seleccionarPeriodo(valor) {
   periodoDropdownOpen.value = false
 }
 
-// ─── Combobox de Categoria ───
-const opcionesCategoria = [
-  'Docentes Titulares',
-  'Docentes Temporales',
-  'Examen de suficiencia',
-  'Acefala',
-  'Sin Examen de suficiencia',
-]
+// ─── Combobox de Categoria (seleccionar / buscar / crear) ───
+const { categorias: opcionesCategoria, loading: loadingCategorias, cargarCategorias, crearCategoria } = useCategorias()
+
+onMounted(() => {
+  cargarCategorias()
+})
 
 const categoriaDropdownOpen = ref(false)
+
+const opcionesCategoriaFiltradas = computed(() => {
+  const q = (form.categoria || '').trim().toLowerCase()
+  if (!q) return opcionesCategoria.value
+  return opcionesCategoria.value.filter(c => c.toLowerCase().includes(q))
+})
+
+// Muestra "+ Crear..." solo si lo escrito no coincide exactamente con
+// ninguna categoría ya existente (comparación case-insensitive)
+const mostrarCrearCategoria = computed(() => {
+  const q = (form.categoria || '').trim()
+  if (!q) return false
+  return !opcionesCategoria.value.some(c => c.toLowerCase() === q.toLowerCase())
+})
 
 function toggleCategoriaDropdown() {
   categoriaDropdownOpen.value = !categoriaDropdownOpen.value
 }
 
-function onBlurCategoria() {
+async function onBlurCategoria() {
+  const valor = (form.categoria || '').trim()
+  if (valor) {
+    try {
+      await crearCategoria(valor)
+    } catch (e) {
+      // opcional: manejar error
+    }
+  }
   setTimeout(() => { categoriaDropdownOpen.value = false }, 150)
 }
 
-function seleccionarCategoria(valor) {
-  form.categoria = valor
+async function seleccionarCategoria(valor) {
+  const v = (valor || '').trim()
+  form.categoria = v
+  if (v) {
+    try {
+      await crearCategoria(v)
+    } catch (e) {
+      // opcional: mostrar un toast/error si falla el guardado
+    }
+  }
   categoriaDropdownOpen.value = false
 }
 

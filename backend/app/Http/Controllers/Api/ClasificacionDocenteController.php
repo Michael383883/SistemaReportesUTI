@@ -41,6 +41,10 @@ class ClasificacionDocenteController extends Controller
         if ($request->filled('gestion')) {
             $query->where('cdoc.GESTION', $request->query('gestion'));
         }
+
+        if ($request->filled('periodo')) {                                    
+            $query->where('cdoc.PERIODO', $request->query('periodo'));       
+        }
         if ($request->filled('cod_docente')) {
             $query->where('ccd.COD_DOCENTE', $request->query('cod_docente'));
         }
@@ -740,4 +744,103 @@ class ClasificacionDocenteController extends Controller
         return response()->json($query->get());
     }
 
+    // GET /api/categorias
+// Devuelve las categorías distintas que ya se usaron en CLASIFICACION_DOCUMENTO,
+// para alimentar el combobox del frontend (useCategorias.js).
+    public function categorias()
+    {
+        $categorias = DB::table('CLASIFICACION_DOCUMENTO')
+            ->select('CATEGORIA')
+            ->whereNotNull('CATEGORIA')
+            ->where('CATEGORIA', '<>', '')
+            ->distinct()
+            ->orderBy('CATEGORIA')
+            ->pluck('CATEGORIA')
+            ->values();
+
+        return response()->json($categorias);
+    }
+
+    // GET /clasificaciones/docente/{codDocente}/categorias
+// Categorías DISTINTAS (sin duplicar) que tiene un docente en CLASIFICACION_DOCUMENTO.
+// Se usa para armar el desplegable del botón "Habilitar Categorías".
+    public function categoriasDocente($codDocente)
+    {
+        $categorias = DB::table('CLASIFICACION_DOCENTE as ccd')
+            ->join('CLASIFICACION_DOCUMENTO as cdoc', 'cdoc.ID_DOCUMENTO', '=', 'ccd.ID_DOCUMENTO')
+            ->where('ccd.COD_DOCENTE', $codDocente)
+            ->whereNotNull('cdoc.CATEGORIA')
+            ->where('cdoc.CATEGORIA', '<>', '')
+            ->select('cdoc.CATEGORIA')
+            ->distinct()
+            ->orderBy('cdoc.CATEGORIA')
+            ->pluck('cdoc.CATEGORIA');
+
+        return response()->json([
+            'ok' => true,
+            'tiene_documentos' => $categorias->isNotEmpty(),
+            'categorias' => $categorias,
+        ]);
+    }
+
+    // GET /clasificaciones/docente/{codDocente}/documentos?categoria=Diploma
+// Todos los documentos de ESE docente en ESA categoría (puede traer varios,
+// ej: 2 documentos de categoría "Diploma").
+    // GET /clasificaciones/docente/{codDocente}/documentos?categorias=Diploma,Maestría
+    public function documentosDocente(Request $request, $codDocente)
+    {
+        $request->validate([
+            'categoria' => 'nullable|string|max:60',   // legado: una sola categoría
+            'categorias' => 'nullable|string|max:500', // nuevo: varias, separadas por coma
+        ]);
+
+        $categoriasFiltro = [];
+
+        if ($request->filled('categorias')) {
+            $categoriasFiltro = array_values(array_filter(
+                array_map('trim', explode(',', $request->query('categorias')))
+            ));
+        } elseif ($request->filled('categoria')) {
+            $categoriasFiltro = [$request->query('categoria')];
+        }
+
+        $query = DB::table('CLASIFICACION_DOCENTE as ccd')
+            ->join('CLASIFICACION_DOCUMENTO as cdoc', 'cdoc.ID_DOCUMENTO', '=', 'ccd.ID_DOCUMENTO')
+            ->where('ccd.COD_DOCENTE', $codDocente)
+            ->select(
+                'ccd.ID_CLASIFICACION_DOCENTE',
+                'cdoc.ID_DOCUMENTO',
+                'cdoc.CATEGORIA',
+                'cdoc.TIPO_DOCUMENTO',
+                'cdoc.GESTION',
+                'cdoc.PERIODO',
+                'cdoc.DETALLE_GENERAL',
+                'cdoc.RUTA_ARCHIVO',
+                'cdoc.NOMBRE_ARCHIVO',
+                'cdoc.FECHA_REGISTRO'
+            );
+
+        if (!empty($categoriasFiltro)) {
+            $query->whereIn('cdoc.CATEGORIA', $categoriasFiltro);
+        }
+
+        $documentos = $query
+            ->orderBy('cdoc.CATEGORIA')
+            ->orderBy('cdoc.GESTION')
+            ->orderBy('cdoc.PERIODO')
+            ->get()
+            ->values()
+            ->map(function ($d, $i) {
+                $d->nro = $i + 1;
+                $d->tiene_archivo = !empty($d->RUTA_ARCHIVO);
+                unset($d->RUTA_ARCHIVO);
+                return $d;
+            });
+
+        return response()->json([
+            'ok' => true,
+            'total' => $documentos->count(),
+            'documentos' => $documentos,
+        ]);
+    }
 }

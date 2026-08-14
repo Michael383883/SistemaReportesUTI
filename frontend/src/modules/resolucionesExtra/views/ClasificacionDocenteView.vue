@@ -612,6 +612,13 @@ onMounted(async () => {
 
   codigoDocente.value = codDocente
 
+  // Si venimos de una búsqueda en el listado principal, precargamos
+  // el mismo término aquí para que la lista se filtre automáticamente
+  // y muestre directo el/los documento(s) que coincidieron (ej. diplomados).
+  if (route.query.q) {
+    busqueda.value = String(route.query.q)
+  }
+
   try {
     const data = await reporte.porDocente(codDocente)
     docente.value = data.docente

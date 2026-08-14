@@ -12,12 +12,12 @@
       @clear-docente="onClearDocente"
     />
 
-    <!-- Botones para agregar las secciones opcionales -->
-    <div v-if="esValidoGenerales" class="flex flex-wrap gap-2">
+    <!-- Botones para agregar las secciones opcionales: visibles desde el primer paso -->
+    <div class="flex flex-wrap gap-2">
       <button
         v-if="!mostrarMaterias"
         type="button"
-        @click="mostrarMaterias = true"
+        @click="abrirMaterias"
         class="bg-amber-600 inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-bold text-slate-100 border border-dashed border-amber-500 rounded-lg hover:bg-amber-500 hover:text-slate-100 transition-colors"
       >
         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -29,7 +29,7 @@
       <button
         v-if="!mostrarReferencias"
         type="button"
-        @click="mostrarReferencias = true"
+        @click="abrirReferencias"
         class="bg-amber-600 inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-bold text-slate-100 border border-dashed border-amber-400 rounded-lg hover:bg-amber-500 hover:text-slate-100 transition-colors"
       >
         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -38,25 +38,33 @@
         Agregar referencia
       </button>
 
-       <button
-  v-if="!esTitulo"
-  type="button"
-  @click="esTitulo = true"
-  class="bg-amber-600 inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-bold text-slate-100 border border-dashed border-amber-500 rounded-lg hover:bg-amber-500 hover:text-slate-100 transition-colors"
->
-  <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
-  </svg>
-  Agregar título
-</button>
-</div>
+      <button
+        v-if="!esTitulo"
+        type="button"
+        @click="abrirTitulo"
+        class="bg-amber-600 inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-bold text-slate-100 border border-dashed border-amber-500 rounded-lg hover:bg-amber-500 hover:text-slate-100 transition-colors"
+      >
+        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+        </svg>
+        Agregar título
+      </button>
+    </div>
+
+    <!-- Aviso: falta Gestión y/o Periodo para poder agregar materia/referencia/título -->
+    <div v-if="avisoValidacion" class="flex items-center gap-2 p-2.5 bg-amber-50 border border-amber-200 rounded-lg text-amber-700 text-[12px]">
+      <svg class="w-3.5 h-3.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+      </svg>
+      {{ avisoValidacion }}
+    </div>
 
     <TituloCard
-  v-if="esTitulo"
-  :form="form"
-  :selected-docente="selectedDocente"
-  @cerrar="onCerrarTitulo"
-/>
+      v-if="esTitulo"
+      :form="form"
+      :selected-docente="selectedDocente"
+      @cerrar="onCerrarTitulo"
+    />
 
     <MateriasCard
       v-if="mostrarMaterias"
@@ -174,9 +182,36 @@ const mostrarMaterias    = ref(form.materias.length > 0)
 const mostrarReferencias = ref(form.referencias.length > 0)
 const mostrarTitulos = ref(!!form.titulo)
 
-// ─── Validación: el botón de guardar solo depende de la card 1 completa ───
+// ─── Aviso cuando falta Gestión/Periodo para abrir materia, referencia o título ───
+const avisoValidacion = ref('')
+
+function requiereGestionPeriodo() {
+  if (!form.gestion || !form.periodo) {
+    avisoValidacion.value = 'Debes completar Gestión y Periodo antes de agregar materia, referencia o título.'
+    return false
+  }
+  avisoValidacion.value = ''
+  return true
+}
+
+function abrirMaterias() {
+  if (!requiereGestionPeriodo()) return
+  mostrarMaterias.value = true
+}
+
+function abrirReferencias() {
+  if (!requiereGestionPeriodo()) return
+  mostrarReferencias.value = true
+}
+
+function abrirTitulo() {
+  if (!requiereGestionPeriodo()) return
+  esTitulo.value = true
+}
+
+// ─── Validación: el botón de guardar depende de Gestión y Periodo ───
 const esValidoGenerales = computed(() =>
-  !!(form.tipo_documento && form.categoria && form.gestion)
+  !!(form.gestion && form.periodo)
 )
 
 // ─── "No regenta materia en la FCE" (derivado de form.materias) ───

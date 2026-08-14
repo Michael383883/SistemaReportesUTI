@@ -19,37 +19,48 @@
         </div>
       </div>
 
-      <!-- Tipo de título: combobox (seleccionar o escribir uno propio), en mayúsculas -->
-      <div class="relative">
-        <label class="text-[12px] font-medium text-gray-700">Tipo de título *</label>
+      <!-- Tipo de título: combobox (seleccionar, buscar o crear uno nuevo), en mayúsculas -->
+      <div class="md:col-span-2 relative">
+        <label class="text-[12px] font-medium text-gray-700">Tipo de título</label>
         <div class="relative mt-1">
           <input
             v-model="tipoTituloModel"
             type="text"
-            placeholder="Selecciona o escribe otro..."
+            placeholder="Todos / escribe para buscar o crear..."
             class="w-full border border-gray-300 rounded-lg pl-3 pr-8 py-2 text-[13px] uppercase placeholder:normal-case"
             @focus="tipoOpen = true"
             @input="tipoOpen = true"
             @blur="onBlurTipo"
           />
-          <svg class="w-4 h-4 absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
-               fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <svg v-if="loadingTipos" class="w-3.5 h-3.5 absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+          </svg>
+          <svg v-else class="w-4 h-4 absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+              fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
           </svg>
         </div>
 
         <ul v-if="tipoOpen" class="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-auto text-[13px]">
+          <li @mousedown.prevent="elegirTipo('')" class="px-3 py-2 hover:bg-amber-50 cursor-pointer text-gray-500 italic">
+            Todos
+          </li>
           <li v-for="opcion in tiposFiltrados" :key="opcion"
               @mousedown.prevent="elegirTipo(opcion)"
               class="px-3 py-2 hover:bg-amber-50 cursor-pointer">
             {{ opcion }}
           </li>
-          <li v-if="tiposFiltrados.length === 0" class="px-3 py-2 text-gray-400 italic">
-            Sin coincidencias — se usará lo que escribiste
+          <li v-if="tiposFiltrados.length === 0 && tipoTituloModel.trim()"
+              @mousedown.prevent="elegirTipo(tipoTituloModel)"
+              class="px-3 py-2 hover:bg-amber-50 cursor-pointer text-amber-600 font-medium">
+            + Crear "{{ tipoTituloModel.trim() }}"
+          </li>
+          <li v-else-if="tiposFiltrados.length === 0" class="px-3 py-2 text-gray-400 italic">
+            Sin coincidencias
           </li>
         </ul>
       </div>
-
       <div>
         <label class="text-[12px] font-medium text-gray-700">Nombre del título *</label>
         <input v-model="form.titulo.nombre_titulo" type="text" placeholder="Ej. Diplomado en Docencia Universitaria"
@@ -131,7 +142,8 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, ref, onMounted, watch  } from 'vue'
+import { useTiposTitulo } from '../../composables/useTiposTitulo'
 
 const props = defineProps({
   form: { type: Object, required: true },
@@ -164,21 +176,33 @@ function campoMayusculas(campo) {
 }
 
 // ─── Combobox: Tipo de título ───
-const TIPOS_TITULO = ['DIPLOMADO', 'ESPECIALIDAD', 'MAESTRÍA', 'DOCTORADO']
+// Usa el composable compartido: trae los tipos reales desde el backend
+// y permite que, si el usuario escribe uno nuevo, quede disponible de
+// inmediato en todos los componentes que usen useTiposTitulo (por
+// ejemplo, en el filtro del reporte de docentes).
+const { tipos: TIPOS_TITULO, loading: loadingTipos, cargarTipos, agregarTipoLocal } = useTiposTitulo()
+
 const tipoOpen = ref(false)
 const tipoTituloModel = campoMayusculas('tipo_titulo')
 
 const tiposFiltrados = computed(() => {
   const q = tipoTituloModel.value.trim()
-  if (!q) return TIPOS_TITULO
-  return TIPOS_TITULO.filter(t => t.includes(q))
+  if (!q) return TIPOS_TITULO.value
+  return TIPOS_TITULO.value.filter(t => t.includes(q))
 })
 
 function elegirTipo(opcion) {
   tipoTituloModel.value = opcion
+  if (opcion) agregarTipoLocal(opcion)
   tipoOpen.value = false
 }
+
 function onBlurTipo() {
+  // Si el usuario escribió un tipo que no está en la lista, lo agregamos
+  // al vuelo para que quede disponible de inmediato y pueda categorizar
+  // rápido sin tener que recargar la página.
+  const valor = tipoTituloModel.value.trim()
+  if (valor) agregarTipoLocal(valor)
   setTimeout(() => { tipoOpen.value = false }, 150)
 }
 
@@ -237,4 +261,23 @@ function elegirPais(pais) {
 function onBlurPais() {
   setTimeout(() => { paisOpen.value = false }, 150)
 }
+
+onMounted(() => {
+  cargarTipos()
+})
+
+// ─── Si "Tipo o Número de Documento" está vacío, se sincroniza
+// automáticamente con lo que el usuario seleccione/escriba en "Tipo de título".
+// Si ya tiene un valor, no se sobreescribe.
+watch(
+  () => props.form.titulo?.tipo_titulo,
+  (nuevoTipo) => {
+    const tipoDocActual = (props.form.tipo_documento || '').trim()
+    if (!tipoDocActual) {
+      props.form.tipo_documento = nuevoTipo
+    }
+  }
+)
+
+
 </script>

@@ -20,6 +20,7 @@
           Reporte Excel
         </button>
 
+        <!-- Botón "Nuevo" -->
         <router-link
           :to="{ name: 'clasificaciones-nueva' }"
           class="inline-flex items-center justify-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-400 text-white text-sm font-medium rounded-lg transition-colors whitespace-nowrap"
@@ -41,7 +42,7 @@
         <input
           v-model="filtroNombre"
           type="text"
-          placeholder="Buscar docente..."
+          placeholder="Buscar por docente o documento..."
           class="w-full pl-9 pr-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         />
       </div>
@@ -106,6 +107,13 @@
         @change="cargar"
         type="text"
         placeholder="Gestión"
+        class="w-28 px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+      />
+      <input
+        v-model="filtros.periodo"
+        @change="cargar"
+        type="text"
+        placeholder="Periodo"
         class="w-28 px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
       />
       <button
@@ -210,7 +218,7 @@
 
               <!-- PDF -->
               <td class="px-4 py-3">
-                
+
                 <a v-if="c.NOMBRE_ARCHIVO" :href="clasificacion.urlPdf(c.ID_DOCUMENTO, 'inline')"
                   target="_blank"
                   class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-800 hover:bg-blue-900 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors"
@@ -226,9 +234,14 @@
               <!-- Acciones -->
               <td class="px-4 py-3 text-right">
                 <div class="flex items-center justify-end gap-2">
+                  <!-- Link a documentos adjuntados: hereda el término de búsqueda como query "q" -->
                   <router-link
                     v-if="c.COD_DOCENTE"
-                    :to="{ name: 'clasificaciones-docente', params: { cod_docente: c.COD_DOCENTE } }"
+                    :to="{
+                      name: 'clasificaciones-docente',
+                      params: { cod_docente: c.COD_DOCENTE },
+                      query: filtroNombre.trim() ? { q: filtroNombre.trim() } : {}
+                    }"
                     class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-800 hover:bg-indigo-900 text-white rounded-lg text-sm font-medium shadow-sm transition-colors"
                     title="Ver documentos adjuntados"
                   >
@@ -494,6 +507,7 @@ const filtros = ref({
   categoria: '',
   nivel: '',
   gestion: '',
+  periodo: '', 
 })
 
 // Panel de filtros colapsable
@@ -503,6 +517,7 @@ const filtrosActivosCount = computed(() => {
   if (filtros.value.categoria) count++
   if (filtros.value.nivel) count++
   if (filtros.value.gestion) count++
+  if (filtros.value.periodo) count++ 
   return count
 })
 
@@ -518,6 +533,7 @@ async function cargar() {
       categoria: filtros.value.categoria || undefined,
       nivel: filtros.value.nivel || undefined,
       gestion: filtros.value.gestion || undefined,
+      periodo: filtros.value.periodo || undefined,
     })
   } catch (e) {
     console.error('Error cargando listado de clasificaciones:', e)
@@ -529,6 +545,7 @@ function limpiarFiltros() {
   filtros.value.categoria = ''
   filtros.value.nivel = ''
   filtros.value.gestion = ''
+  filtros.value.periodo = '' 
   cargar()
 }
 
@@ -570,13 +587,40 @@ const listadoPorDocente = computed(() => {
   return Array.from(mapa.values())
 })
 
-// ─── Filtrado en cliente (solo por nombre, sobre lo ya cargado) ───
+// ─── Filtrado + agrupado en cliente ───
+// Si hay término de búsqueda, primero se filtra sobre TODOS los documentos
+// (no solo el más reciente por docente), y luego se agrupa por docente
+// para mostrar la fila representativa. Así, si el diploma está en el
+// documento #5 o #6 de un docente, ese docente igual aparece en la lista.
+// ─── Filtrado + agrupado en cliente ───
+// Sin búsqueda: se agrupa por docente (una fila por docente, la más reciente).
+// Con búsqueda: se muestra CADA documento que coincide como su propia fila,
+// así si un docente tiene 2 diplomados (doc #5 y #6), aparecen los 2 en la lista.
 const listadoFiltrado = computed(() => {
   const term = filtroNombre.value.trim().toLowerCase()
+
   if (!term) return listadoPorDocente.value
-  return listadoPorDocente.value.filter(c =>
-    (c.NOMBRE_DOCENTE || '').toLowerCase().includes(term)
-  )
+
+  const coincide = (c) => {
+    const nombre  = (c.NOMBRE_DOCENTE  || '').toLowerCase()
+    const tipoDoc = (c.TIPO_DOCUMENTO  || '').toLowerCase()
+    const detalle = (c.DETALLE_GENERAL || '').toLowerCase()
+    return nombre.includes(term) || tipoDoc.includes(term) || detalle.includes(term)
+  }
+
+  // Documentos individuales que coinciden con la búsqueda (sin agrupar por docente)
+  const documentosCoincidentes = clasificacion.listado.value.filter(coincide)
+
+  // Para cada documento coincidente, se añade el total real de documentos
+  // que tiene ese docente (para mostrar el contador junto al nombre, igual que antes)
+  return documentosCoincidentes.map(c => {
+    const clave = c.COD_DOCENTE ?? c.NOMBRE_DOCENTE
+    const totalDocumentos = clasificacion.listado.value.filter(
+      x => (x.COD_DOCENTE ?? x.NOMBRE_DOCENTE) === clave
+    ).length
+
+    return { ...c, _totalClasificaciones: totalDocumentos }
+  })
 })
 
 // ─── Badge de categoria ───
