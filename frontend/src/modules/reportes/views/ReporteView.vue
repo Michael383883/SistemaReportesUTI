@@ -47,34 +47,52 @@
 
     <!-- Reporte cargado -->
     <template v-else-if="reporteActivo">
-      <!-- Header del docente -->
-      <ReporteHeader
-        :reporte="reporteActivo"
-        :loading="loadingActivo"
-        @volver="$router.back()"
-        @toggle-restriccion="onToggleRestriccion"
-      />
+  <!-- Header del docente -->
+  <ReporteHeader
+    :reporte="reporteActivo"
+    :loading="loadingActivo"
+    :categorias="categorias"
+    :tiene-categorias="tieneCategorias"
+    :loading-categorias="loadingCategorias"
+    :categorias-seleccionadas="categoriasSeleccionadas"
+    @volver="$router.back()"
+    @toggle-restriccion="onToggleRestriccion"
+    @seleccionar-categorias="onSeleccionarCategorias"
+  />
 
-      <!-- Filtros — se pasa :reporte para que el botón PDF tenga acceso a los datos -->
-      <div class="mb-5">
-        <ReporteFiltros
-          v-model:anio="anioFiltro"
-          v-model:anio-hasta="anioHastaFiltro"
-          v-model:materia="materiaFiltro"
-          v-model:grupo="grupoFiltro"
-          :loading="loadingActivo"
-          :reporte="reporteActivo"
-          @generar="reGenerar"
-        />
-      </div>
 
-      <!-- Tabla: normal o de compartidos según la versión activa -->
-      <ReporteTabla
-        :materias="reporteActivo.materias"
-        :cod-docente="reporteActivo.docente?.codigo"
-        :agrupar-compartidos="verCompartidos"
-      />
-      </template>
+  <!-- Filtros — se pasa :reporte para que el botón PDF tenga acceso a los datos -->
+  <div class="mb-5">
+    <ReporteFiltros
+    v-model:anio="anioFiltro"
+    v-model:anio-hasta="anioHastaFiltro"
+    v-model:materia="materiaFiltro"
+    v-model:grupo="grupoFiltro"
+    :loading="loadingActivo"
+    :reporte="reporteActivo"
+    :documentos-categoria="documentosCategoria"
+    :categorias-seleccionadas="categoriasSeleccionadas"
+    @generar="reGenerar"
+  />
+
+  </div>
+
+  <!-- Tabla: normal o de compartidos según la versión activa -->
+  <ReporteTabla
+    :materias="reporteActivo.materias"
+    :cod-docente="reporteActivo.docente?.codigo"
+    :agrupar-compartidos="verCompartidos"
+  />
+
+ <!-- ... filtros y ReporteTabla ... -->
+
+  <ClasificacionCategoriasTabla
+    :documentos="documentosCategoria"
+    :loading="loadingDocumentos"
+    :categorias="categoriasSeleccionadas"
+    @ver-pdf="verPdfCategoria"
+  />
+</template>
 
     <!-- Empty -->
     <div v-else-if="!loadingActivo && !errorActivo" class="flex flex-col items-center justify-center py-20 text-center text-slate-400">
@@ -91,14 +109,15 @@
 </template>
 
 <script setup>
-import { onMounted, ref, computed } from 'vue'
+import { onMounted, ref, computed,watch  } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useReporte } from '../composables/useReporte'
 import { useReporteCom } from '../composables/useReporteCom'
 import ReporteHeader  from '../components/ReporteHeader.vue'
 import ReporteFiltros from '../components/ReporteFiltros.vue'
 import ReporteTabla   from '../components/ReporteTabla.vue'
-
+import ClasificacionCategoriasTabla from '../components/ClasificacionCategoriasTabla.vue'
+import { useClasificacionCategorias } from '../composables/useClasificacionCategorias'
 
 const route  = useRoute()
 const router = useRouter()
@@ -123,6 +142,19 @@ const anioFiltro      = ref(null)
 const anioHastaFiltro = ref(null)
 const materiaFiltro   = ref(null)
 const grupoFiltro     = ref(null)
+
+//ss
+const {
+  categorias, tieneDocumentos: tieneCategorias, documentos: documentosCategoria,
+  categoriasSeleccionadas, loadingCategorias, loadingDocumentos,
+  cargarCategorias, cargarDocumentos, limpiar: limpiarCategorias, verPdf: verPdfCategoria,
+} = useClasificacionCategorias()
+
+const onSeleccionarCategorias = (cats) => {
+  const codigo = reporteActivo.value?.docente?.codigo
+  if (!codigo) return
+  cargarDocumentos(codigo, cats)
+}
 
 // ── Estado de habilitación de periodo restringido ──────────────────────────
 // Se activa solo con el botón de ReporteHeader. Se mantiene en memoria para
@@ -263,4 +295,12 @@ const onToggleVersion = async () => {
     await generarReporte(codigo, params)
   }
 }
+
+watch(
+  () => reporteActivo.value?.docente?.codigo,
+  (codigo) => {
+    limpiarCategorias()
+    if (codigo) cargarCategorias(codigo)
+  }
+)
 </script>

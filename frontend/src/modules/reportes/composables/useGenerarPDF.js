@@ -92,7 +92,7 @@ function calcularHijasIndices(materias) {
 }
 
 export function generarPDF(reporte, opts = {}) {
-    const { action = 'open' } = opts
+    const { action = 'open', documentosCategoria = [], categoriasSeleccionadas = [] } = opts
 
     // ── PORTRAIT Letter (216 × 279 mm) ──────────────────────────────────────────
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' })
@@ -296,6 +296,92 @@ export function generarPDF(reporte, opts = {}) {
             doc.text(ahora, PAGE_W - MARGIN_R, footerY, { align: 'right' })
         },
     })
+
+    // ════════════════════════════════════════════════════════════════
+    // Tabla de documentos por categoría (al final, sin columna Documento)
+    // ════════════════════════════════════════════════════════════════
+    if (documentosCategoria.length) {
+        let y = (doc.lastAutoTable?.finalY ?? startY) + 8
+
+        if (y > PAGE_H - 30) {
+            doc.addPage()
+            y = drawHeader()
+        }
+
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(8)
+        doc.setTextColor(...COLOR_BLACK)
+        const tituloCat = categoriasSeleccionadas.length
+            ? `DOCUMENTOS POR CATEGORÍA: ${categoriasSeleccionadas.join(', ')}`
+            : 'DOCUMENTOS POR CATEGORÍA'
+        doc.text(tituloCat, MARGIN_L, y)
+        y += 4
+
+        const columnasCat = [
+            { header: 'Nº', dataKey: 'nro' },
+            { header: 'GESTIÓN', dataKey: 'gestion' },
+            { header: 'TIPO DE DOCUMENTO', dataKey: 'tipo' },
+            { header: 'DETALLE GENERAL', dataKey: 'detalle' },
+            { header: 'CATEGORÍA', dataKey: 'categoria' },
+        ]
+
+        const filasCat = documentosCategoria.map((d) => ({
+            nro: d.nro,
+            gestion: `${d.GESTION ?? ''}${d.PERIODO ? '/' + d.PERIODO : ''}`,
+            tipo: d.TIPO_DOCUMENTO || '',
+            detalle: d.DETALLE_GENERAL || '',
+            categoria: d.CATEGORIA || '',
+        }))
+
+        autoTable(doc, {
+            startY: y,
+            margin: { left: MARGIN_L, right: MARGIN_R },
+            tableWidth: CONTENT_W,
+            head: [columnasCat.map((c) => c.header)],
+            body: filasCat.map((f) => columnasCat.map((c) => f[c.dataKey])),
+            styles: {
+                font: 'helvetica',
+                fontSize: 6.2,
+                cellPadding: { top: 1.2, bottom: 1.2, left: 1.5, right: 1.5 },
+                textColor: COLOR_BLACK,
+                lineColor: COLOR_ROW_LINE,
+                lineWidth: 0,
+                overflow: 'linebreak',
+                valign: 'middle',
+                fillColor: false,
+            },
+            headStyles: {
+                fillColor: COLOR_GRAY_BG,
+                textColor: COLOR_BLACK,
+                fontStyle: 'bold',
+                fontSize: 6.2,
+                halign: 'center',
+                valign: 'middle',
+                lineColor: [130, 130, 130],
+                lineWidth: 0.3,
+            },
+            alternateRowStyles: { fillColor: false },
+            columnStyles: {
+                0: { cellWidth: 10, halign: 'center' },
+                1: { cellWidth: 22 },
+                2: { cellWidth: 35 },
+                3: { cellWidth: 'auto' },
+                4: { cellWidth: 25, halign: 'center' },
+            },
+            didDrawCell(data) {
+                if (data.section !== 'body') return
+                const isLastCol = data.column.index === data.table.columns.length - 1
+                if (!isLastCol) return
+                const { y: cy, height } = data.cell
+                doc.setDrawColor(...COLOR_ROW_LINE)
+                doc.setLineWidth(0.2)
+                doc.line(MARGIN_L, cy + height, MARGIN_L + CONTENT_W, cy + height)
+            },
+            didAddPage() {
+                drawHeader()
+            },
+        })
+    }
 
     if (typeof doc.putTotalPages === 'function') {
         doc.putTotalPages('{totalPages}')

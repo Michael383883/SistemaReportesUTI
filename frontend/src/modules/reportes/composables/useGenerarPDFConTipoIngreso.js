@@ -4,7 +4,6 @@
 import { generarPDF } from './useGenerarPDF'
 
 export function generarPDFConTipoIngreso(reporte, opts = {}) {
-    // Inyectamos la columna extra en las materias no modifica el original
     const reporteExtendido = {
         ...reporte,
         __extraColumnas: [

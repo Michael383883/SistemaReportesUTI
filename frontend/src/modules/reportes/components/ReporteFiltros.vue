@@ -276,6 +276,8 @@ const props = defineProps({
   grupo:     { type: String, default: '' },
   loading:   { type: Boolean, default: false },
   reporte:   { type: Object, default: null },
+  documentosCategoria:     { type: Array, default: () => [] },
+  categoriasSeleccionadas: { type: Array, default: () => [] },
 })
 
 const emit = defineEmits([
@@ -330,15 +332,26 @@ const onPDF = (action) => {
   menuOpen.value = false
   if (!props.reporte) return
 
-  if (action === 'open-tipo-ingreso')   return generarPDFConTipoIngreso(props.reporte, { action: 'open' })
-  if (action === 'save-tipo-ingreso')   return generarPDFConTipoIngreso(props.reporte, { action: 'save' })
-  if (action === 'print-tipo-ingreso')  return generarPDFConTipoIngreso(props.reporte, { action: 'print' })
+  const opts = {
+    documentosCategoria: props.documentosCategoria,
+    categoriasSeleccionadas: props.categoriasSeleccionadas,
+  }
 
-  if (action === 'open-compartido')     return generarPDFCompartido(props.reporte, { action: 'open' })
-  if (action === 'save-compartido')     return generarPDFCompartido(props.reporte, { action: 'save' })
-  if (action === 'print-compartido')    return generarPDFCompartido(props.reporte, { action: 'print' })
+  if (action === 'open-tipo-ingreso')   return generarPDFConTipoIngreso(props.reporte, { action: 'open', ...opts })
+  if (action === 'save-tipo-ingreso')   return generarPDFConTipoIngreso(props.reporte, { action: 'save', ...opts })
+  if (action === 'print-tipo-ingreso')  return generarPDFConTipoIngreso(props.reporte, { action: 'print', ...opts })
 
-  generarPDF(props.reporte, { action })
+
+  if (action === 'open-compartido')     return generarPDFCompartido(props.reporte, { action: 'open', ...opts })
+  if (action === 'save-compartido')     return generarPDFCompartido(props.reporte, { action: 'save', ...opts })
+  if (action === 'print-compartido')    return generarPDFCompartido(props.reporte, { action: 'print', ...opts })
+
+
+ generarPDF(props.reporte, {
+    action,
+    documentosCategoria: props.documentosCategoria,
+    categoriasSeleccionadas: props.categoriasSeleccionadas,...opts 
+  })
 }
 
 // ── Parseo de año/periodo ─────────────────────────────────────────────────────
