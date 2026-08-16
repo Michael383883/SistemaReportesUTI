@@ -1,5 +1,5 @@
 <template>
-  <div class="px-6 py-2 max-w-6xl">
+  <div class="px-6 py-6">
 
     <!-- Header -->
     <div class="flex items-start justify-between mb-3">

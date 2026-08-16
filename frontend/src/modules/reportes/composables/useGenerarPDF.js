@@ -311,11 +311,9 @@ export function generarPDF(reporte, opts = {}) {
         doc.setFont('helvetica', 'bold')
         doc.setFontSize(8)
         doc.setTextColor(...COLOR_BLACK)
-        const tituloCat = categoriasSeleccionadas.length
-            ? `DOCUMENTOS POR CATEGORÍA: ${categoriasSeleccionadas.join(', ')}`
-            : 'DOCUMENTOS POR CATEGORÍA'
-        doc.text(tituloCat, MARGIN_L, y)
-        y += 4
+    
+      
+        y += 1
 
         const columnasCat = [
             { header: 'Nº', dataKey: 'nro' },

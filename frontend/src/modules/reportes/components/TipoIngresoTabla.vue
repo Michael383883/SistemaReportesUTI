@@ -21,31 +21,31 @@
             class="border-b border-slate-100 transition-colors"
             :class="tieneCambioPendiente(m)
               ? 'bg-emerald-50 hover:bg-emerald-100/70'
-              : (i % 2 === 0 ? 'bg-white hover:bg-slate-50' : 'bg-slate-50/60 hover:bg-slate-50')"
+              : (i % 2 === 0 ? 'bg-white dark:bg-slate-900' : 'bg-sky-100 dark:bg-sky-500/15')"
           >
             <!-- Nº -->
             <td class="px-4 py-3 text-slate-400 font-medium text-[13px] tabular-nums">{{ m.nro ?? i + 1 }}</td>
 
             <!-- Gestión -->
             <td class="px-4 py-3">
-              <span class="inline-flex items-center gap-1.5 text-xs font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-600">
+              <span class="inline-flex items-center gap-1.5 text-xs font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-800">
                 {{ m.gestion }}
               </span>
             </td>
 
             <!-- Plan -->
-            <td class="px-4 py-3 text-slate-600 font-mono text-xs">{{ m.plan }}</td>
+            <td class="px-4 py-3 text-slate-800 font-mono text-xs">{{ m.plan }}</td>
 
             <!-- Materia -->
             <td class="px-4 py-3 text-slate-800 font-medium">{{ m.materia }}</td>
 
             <!-- GRP -->
-            <td class="px-4 py-3 tabular-nums text-slate-600 font-semibold text-xs">{{ m.grp }}</td>
+            <td class="px-4 py-3 tabular-nums text-slate-800 font-semibold text-xs">{{ m.grp }}</td>
 
             <!-- Resolución (informativo, de solo lectura) -->
             <td class="px-4 py-3">
               <span v-if="m.resolucion" class="text-xs text-amber-600 font-medium">{{ m.resolucion }}</span>
-              <span v-else class="text-slate-400 text-xs">Sin resolución</span>
+              <span v-else class="text-slate-800 text-xs">Sin resolución</span>
             </td>
 
             <!-- Tipo de ingreso (editable) -->
