@@ -80,18 +80,14 @@
       v-if="mostrarFiltros"
       class="bg-slate-100 rounded-xl border border-gray-200 p-3 mb-4 flex flex-wrap items-center gap-2"
     >
-      <select
-        v-model="filtros.categoria"
-        @change="cargar"
-        class="px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-      >
-        <option value="">Todos</option>
-        <option value="Docentes Titulares">Titulares</option>
-        <option value="Docentes Temporales">Temporales</option>
-        <option value="Examen de suficiencia">Examen de suficiencia</option>
-        <option value="Acefala">Acefala</option>
-        <option value="Sin Examen de suficiencia">Sin Examen de suficiencia</option>
-      </select>
+     <select
+  v-model="filtros.categoria"
+  @change="cargar"
+  class="px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+>
+  <option value="">Todos</option>
+  <option v-for="cat in categorias" :key="cat" :value="cat">{{ cat }}</option>
+</select>
       <select
         v-model="filtros.nivel"
         @change="cargar"
@@ -492,13 +488,16 @@
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useClasificacion } from '../composables/useClasificacion'
 import { useReporteExcel } from '../composables/useReporteExcel'
+import { useCategorias } from '../composables/useCategorias'
 
 const router = useRouter()
+const route = useRoute()   // ← nuevo
 const clasificacion = useClasificacion()
 const reporteExcel = useReporteExcel()
+const { categorias, cargarCategorias } = useCategorias() 
 const API_BASE = import.meta.env.VITE_API_URL ?? ''
 
 // Filtros de la tabla principal
@@ -727,5 +726,14 @@ watch(filtroNombre, () => {
   timeoutId = setTimeout(() => {}, 300)
 })
 
-onMounted(cargar)
+onMounted(async () => {
+  if (route.query.q) {
+    filtroNombre.value = String(route.query.q)
+    // Se limpia el query de la URL para que un refresh posterior
+    // no vuelva a aplicar el filtro automáticamente.
+    router.replace({ query: { ...route.query, q: undefined } })
+  }
+  await cargarCategorias()
+  await cargar()
+})
 </script>

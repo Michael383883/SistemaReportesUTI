@@ -6,11 +6,11 @@ const API_BASE = import.meta.env.VITE_API_URL ?? ''
 // Categorías base como respaldo, por si el backend aún no responde o
 // falla la carga inicial (para que el combobox no se quede vacío)
 const CATEGORIAS_BASE = [
-    'Docentes Titulares',
-    'Docentes Temporales',
-    'Examen de suficiencia',
-    'Acefala',
-    'Sin Examen de suficiencia',
+    'DOCENTES TITULARES',
+    'DOCENTES TEMPORALES',
+    'EXAMEN DE SUFICIENCIA',
+    'ACEFALA',
+    'SIN EXAMEN DE SUFICIENCIA',
 ]
 
 // Estado compartido (singleton): al declarar los refs FUERA de la función
@@ -34,7 +34,9 @@ function normalizar(valor) {
 }
 
 // ─── GET /api/categorias ───
-// Trae las categorías reales guardadas en la base de datos.
+// Trae las categorías reales: son los valores DISTINTOS que ya se usaron
+// en CLASIFICACION_DOCUMENTO.CATEGORIA (el backend no tiene una tabla
+// CATEGORIAS aparte, las deriva directo de los documentos guardados).
 async function cargarCategorias(force = false) {
     if (cargado.value && !force) return
     loading.value = true
@@ -43,8 +45,6 @@ async function cargarCategorias(force = false) {
         const { data } = await axios.get(`${API_BASE}/api/categorias`, {
             headers: authHeaders(),
         })
-        // Se asume que el backend devuelve un array de strings o de objetos
-        // { id, nombre }. Cubrimos ambos casos.
         const delBackend = Array.isArray(data)
             ? data.map(item => normalizar(typeof item === 'string' ? item : item?.nombre))
             : []
@@ -61,46 +61,27 @@ async function cargarCategorias(force = false) {
     }
 }
 
-// ─── POST /api/categorias ───
-// Crea la categoría en la base de datos. Si el backend ya tiene una
-// categoría con ese nombre, se asume que puede devolver la existente
-// (idealmente el backend hace upsert / valida duplicados por su cuenta).
+// ─── "Crear" categoría ───
+// No existe un endpoint POST /api/categorias en el backend: las categorías
+// se derivan de CLASIFICACION_DOCUMENTO.CATEGORIA, así que una categoría
+// "nueva" se persiste sola en cuanto se guarda el documento que la usa.
+// Aquí solo se agrega en memoria para que aparezca de inmediato en el
+// combobox mientras el usuario sigue en el formulario. Si ya existe
+// (comparación sin importar mayúsculas/minúsculas), simplemente se
+// reutiliza tal cual está guardada, sin duplicarla.
 async function crearCategoria(valor) {
     const v = normalizar(valor)
     if (!v) return null
 
-    // Si ya existe localmente (comparación case-insensitive), no la
-    // volvemos a crear en el backend, solo la dejamos seleccionada.
-    const yaExiste = categorias.value.some(c => c.toLowerCase() === v.toLowerCase())
-    if (yaExiste) return v
+    const existente = categorias.value.find(c => c.toLowerCase() === v.toLowerCase())
+    if (existente) return existente
 
-    loading.value = true
-    error.value = null
-    try {
-        const { data } = await axios.post(
-            `${API_BASE}/api/categorias`,
-            { nombre: v },
-            { headers: authHeaders() }
-        )
-
-        const nombreGuardado = normalizar(
-            typeof data?.nombre === 'string' ? data.nombre : (data?.categoria?.nombre ?? v)
-        ) || v
-
-        categorias.value = [...categorias.value, nombreGuardado]
-        return nombreGuardado
-    } catch (e) {
-        error.value = e?.response?.data?.error || 'No se pudo guardar la categoría'
-        console.error('❌ Error al crear categoría:', e)
-        throw e
-    } finally {
-        loading.value = false
-    }
+    categorias.value = [...categorias.value, v]
+    return v
 }
 
-// Mantiene disponible el agregado "solo en memoria" por si en algún
-// punto quieres seguir usando el combobox sin persistir de inmediato
-// (por ejemplo, mientras el usuario todavía está escribiendo).
+// Alias explícito para el mismo comportamiento, por si se prefiere un
+// nombre que no sugiera una llamada al backend.
 function agregarCategoriaLocal(valor) {
     const v = normalizar(valor)
     if (!v) return

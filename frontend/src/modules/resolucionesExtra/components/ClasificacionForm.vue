@@ -51,7 +51,7 @@
       </button>
     </div>
 
-    <!-- Aviso: falta Gestión y/o Periodo para poder agregar materia/referencia/título -->
+    <!-- Aviso: falta Categoria/Gestión/Periodo para poder agregar materia/referencia/título -->
     <div v-if="avisoValidacion" class="flex items-center gap-2 p-2.5 bg-amber-50 border border-amber-200 rounded-lg text-amber-700 text-[12px]">
       <svg class="w-3.5 h-3.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
         <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
@@ -101,9 +101,9 @@
 
       <button
         :disabled="saving || !esValidoGenerales"
-        @click="$emit('guardar', formCopiado(), asignaAGrupos)"
-        class="inline-flex items-center gap-2 px-4 py-1.5 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 disabled:cursor-not-allowed text-white text-[13px] font-bold rounded-lg transition-colors"
-      >
+        @click="mostrarPreview = true"
+          class="inline-flex items-center gap-2 px-4 py-1.5 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 disabled:cursor-not-allowed text-white text-[13px] font-bold rounded-lg transition-colors"
+        >
         <svg v-if="saving" class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
           <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
@@ -111,6 +111,18 @@
         Guardar clasificación
       </button>
     </div>
+
+  <ClasificacionPreviewModal
+    v-if="mostrarPreview"
+    :form="form"
+    :nombre-docente="selectedDocente ? `${selectedDocente.apellidos} ${selectedDocente.nombres}` : ''"
+    :archivo-nombre="archivoNombre"
+    :asigna-a-grupos="asignaAGrupos"
+    :saving="saving"
+    @cerrar="mostrarPreview = false"
+    @confirmar="onConfirmarGuardar"
+  />
+
   </div>
 </template>
 
@@ -121,6 +133,9 @@ import DatosGeneralesCard from './formulario/DatosGeneralesCard.vue'
 import MateriasCard from './formulario/MateriasCard.vue'
 import ReferenciasCard from './formulario/ReferenciasCard.vue'
 import TituloCard from './formulario/TituloCard.vue'
+import ClasificacionPreviewModal from './ClasificacionPreviewModal.vue'
+
+const mostrarPreview = ref(false)
 
 const props = defineProps({
   saving:        { type: Boolean, default: false },
@@ -182,12 +197,12 @@ const mostrarMaterias    = ref(form.materias.length > 0)
 const mostrarReferencias = ref(form.referencias.length > 0)
 const mostrarTitulos = ref(!!form.titulo)
 
-// ─── Aviso cuando falta Gestión/Periodo para abrir materia, referencia o título ───
+// ─── Aviso cuando falta Categoria/Gestión/Periodo para abrir materia, referencia o título ───
 const avisoValidacion = ref('')
 
 function requiereGestionPeriodo() {
-  if (!form.gestion || !form.periodo) {
-    avisoValidacion.value = 'Debes completar Gestión y Periodo antes de agregar materia, referencia o título.'
+  if (!form.gestion || !form.periodo || !form.categoria) {
+    avisoValidacion.value = 'Debes completar Categoria, Gestión y Periodo antes de agregar materia, referencia o título.'
     return false
   }
   avisoValidacion.value = ''
@@ -209,9 +224,9 @@ function abrirTitulo() {
   esTitulo.value = true
 }
 
-// ─── Validación: el botón de guardar depende de Gestión y Periodo ───
+// ─── Validación: el botón de guardar depende de Categoria, Gestión y Periodo ───
 const esValidoGenerales = computed(() =>
-  !!(form.gestion && form.periodo)
+  !!(form.categoria && form.gestion && form.periodo)
 )
 
 // ─── "No regenta materia en la FCE" (derivado de form.materias) ───
@@ -239,6 +254,17 @@ function formCopiado() {
     copia.titulo = null
   }
   return copia
+}
+
+// ─── Confirmación desde el modal de preview: emite el guardado hacia el padre ───
+function onConfirmarGuardar() {
+  const payload = formCopiado()
+  // Se adjunta el nombre del docente general (no viaja en form) para que el
+  // padre pueda usarlo como fallback al armar el filtro del listado.
+  payload.nombre_docente_general = selectedDocente.value
+    ? `${selectedDocente.value.apellidos} ${selectedDocente.value.nombres}`
+    : ''
+  emit('guardar', payload, asignaAGrupos.value)
 }
 
 </script>

@@ -34,7 +34,7 @@
 
         <!-- Categoria: combobox (seleccionar, buscar o crear una nueva) -->
         <div class="relative">
-          <label class="block text-[12px] font-medium text-slate-800 mb-1">Categoria</label>
+        <label class="block text-[12px] font-medium text-slate-800 mb-1">Categoria *</label>
 
           <div class="relative">
             <input

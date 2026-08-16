@@ -172,11 +172,14 @@
             Registrar otra clasificación
           </button>
           <router-link
-            :to="{ name: 'clasificaciones-listado' }"
-            class="inline-flex items-center gap-2 px-5 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-[14px] font-medium rounded-lg transition-colors"
-          >
-            Ver listado
-          </router-link>
+  :to="{
+    name: 'clasificaciones-listado',
+    query: nombreDocenteBusqueda ? { q: nombreDocenteBusqueda } : {}
+  }"
+  class="inline-flex items-center gap-2 px-5 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-[14px] font-medium rounded-lg transition-colors"
+>
+  Ver listado
+</router-link>
         </div>
       </div>
 
@@ -222,6 +225,8 @@ const docentesRegistrados = ref(0)
 const aplicadoAGrupos = ref(null)
 const errorGrupos = ref(null)
 
+const nombreDocenteBusqueda = ref('')  
+
 function limpiarArchivo() {
   archivo.value     = null
   uploadError.value = ''
@@ -262,11 +267,24 @@ function irAlPaso2() {
   currentStep.value = 1
 }
 
-async function onGuardar(formData, debeAplicarAGrupos) {
+  async function onGuardar(formData, debeAplicarAGrupos) {
   try {
     const resultado = await clasificacion.guardarClasificacion({ ...formData, archivo: archivo.value })
     ultimoId.value = resultado.idDocumento
     docentesRegistrados.value = resultado.idsClasificacionDocente.length
+
+    // ─── Docente para pre-llenar el buscador del listado ───
+    // Si varias materias tienen docentes distintos, se toma el primero;
+    // si no hay materias (ej. solo título) o todas comparten docente,
+    // se usa el docente general del formulario.
+    const docentesUnicos = [
+      ...new Set(
+        (formData.materias || [])
+          .map(m => m.docente ? `${m.docente.apellidos} ${m.docente.nombres}`.trim() : null)
+          .filter(Boolean)
+      )
+    ]
+    nombreDocenteBusqueda.value = docentesUnicos[0] || formData.nombre_docente_general || ''
 
     if (debeAplicarAGrupos && resultado.materiasInsertadas > 0) {
       try {
@@ -286,7 +304,7 @@ async function onGuardar(formData, debeAplicarAGrupos) {
   } catch {
     // error visible vía :error en ClasificacionForm
   }
-}
+ }
 
 function resetAll() {
   clasificacion.reset()
@@ -298,5 +316,7 @@ function resetAll() {
   docentesRegistrados.value = 0
   aplicadoAGrupos.value = null
   errorGrupos.value = null
+
+nombreDocenteBusqueda.value = ''   // ← nuevo
 }
 </script>

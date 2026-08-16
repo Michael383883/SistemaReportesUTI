@@ -76,8 +76,7 @@
     <!-- Dropdown de resultados -->
     <div
      v-if="dropdownOpen && (materiasFiltradas.length || loading || !gestionActual || (usaFiltroDocente && !docenteActual) || error || (cargaExitosa && materiasFiltradas.length === 0))"
-      class="absolute z-10 mt-1 w-full max-h-60 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg"
-      style="position: absolute; left: 0;"
+      class="absolute z-10 mt-1 w-full max-h-[min(24rem,60vh)] overflow-y-auto bg-white border border-gray-300 rounded-lg shadow-xl"
     >
       <!-- Mensaje cuando no hay docente -->
       <div v-if="!docenteActual" class="px-3 py-4 text-center text-[12px] text-gray-500">
