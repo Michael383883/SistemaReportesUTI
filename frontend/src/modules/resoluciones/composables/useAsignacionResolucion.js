@@ -1,6 +1,6 @@
 import { ref, computed } from 'vue'
 import { useResolucion } from './useResolucion'
-
+import { abrevPlan } from '../utils/planes'
 /**
  * Orquesta el flujo de "Asignar resolución a materias":
  *  1. Se elige una resolución (queda fija una vez hay materias marcadas).
@@ -74,6 +74,7 @@ export function useAsignacionResolucion() {
             docente,
             cod_docente: Number(docenteCod),
             cod_plan: materia.plan,
+            planLabel: abrevPlan(materia.plan),
             cod_materia: extraerCodMateria(materia.materia),
             grupo: materia.grp || null,
             tipo: 'N',
