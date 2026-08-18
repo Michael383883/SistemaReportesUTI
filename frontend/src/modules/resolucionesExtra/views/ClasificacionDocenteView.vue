@@ -310,6 +310,17 @@
             <!-- PIE DE CARD: acciones, pegadas al contenido, sin hueco -->
             <div class="flex items-center justify-end gap-2 px-5 py-2.5 bg-gray-50 border-t border-gray-100">
               <button
+                @click="idEditando = c.ID_CLASIFICACION_DOCENTE"
+                class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                title="Editar clasificación"
+              >
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                </svg>
+                Editar
+              </button>
+
+              <button
                 @click="confirmarEliminar(c)"
                 class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                 title="Eliminar clasificación"
@@ -397,6 +408,17 @@
           </a>
           <span v-else class="text-sm text-gray-300 px-2 flex-shrink-0">Sin PDF</span>
 
+          <!-- Editar -->
+          <button
+            @click="idEditando = c.ID_CLASIFICACION_DOCENTE"
+            class="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors flex-shrink-0"
+            title="Editar clasificación"
+          >
+            <svg class="w-4.5 h-4.5" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+            </svg>
+          </button>
+
           <!-- Eliminar -->
           <button
             @click="confirmarEliminar(c)"
@@ -453,6 +475,14 @@
         </div>
       </div>
     </div>
+
+    <!-- Modal de Edición -->
+    <EditarClasificacionModal
+      v-if="idEditando"
+      :id="idEditando"
+      @cerrar="idEditando = null"
+      @guardado="onEditGuardado"
+    />
   </div>
 </template>
 
@@ -461,6 +491,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useReporteClasificacion } from '../composables/useReporteClasificacion'
 import { useClasificacion } from '../composables/useClasificacion'
+import EditarClasificacionModal from '../components/EditarClasificacionModal.vue'
 
 const API_BASE = import.meta.env.VITE_API_URL ?? ''
 const route = useRoute()
@@ -480,10 +511,13 @@ const busqueda = ref('')
 // Vista: 'timeline' (línea de tiempo) | 'lista' (lista compacta de documentos)
 const vista = ref('timeline')
 
-// Modal
+// Modal de eliminar
 const mostrarModal = ref(false)
 const itemAEliminar = ref(null)
 const eliminando = ref(false)
+
+// Modal de editar: guarda el ID_CLASIFICACION_DOCENTE en edición, o null si está cerrado
+const idEditando = ref(null)
 
 const nombreDocente = computed(() => {
   if (!docente.value) return 'Docente'
@@ -596,6 +630,18 @@ async function eliminarClasificacion() {
     alert('Error al eliminar la clasificación')
   } finally {
     eliminando.value = false
+  }
+}
+
+// ─── Editar Clasificación: recarga el listado tras un guardado exitoso ───
+async function onEditGuardado() {
+  idEditando.value = null
+  try {
+    const data = await reporte.porDocente(codigoDocente.value)
+    docente.value = data.docente
+    clasificaciones.value = data.clasificaciones
+  } catch (e) {
+    console.error('Error al recargar tras editar:', e)
   }
 }
 

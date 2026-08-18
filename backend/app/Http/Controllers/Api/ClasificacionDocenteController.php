@@ -42,8 +42,8 @@ class ClasificacionDocenteController extends Controller
             $query->where('cdoc.GESTION', $request->query('gestion'));
         }
 
-        if ($request->filled('periodo')) {                                    
-            $query->where('cdoc.PERIODO', $request->query('periodo'));       
+        if ($request->filled('periodo')) {
+            $query->where('cdoc.PERIODO', $request->query('periodo'));
         }
         if ($request->filled('cod_docente')) {
             $query->where('ccd.COD_DOCENTE', $request->query('cod_docente'));
@@ -70,9 +70,12 @@ class ClasificacionDocenteController extends Controller
                 'ccd.ID_DOCUMENTO',
                 'ccd.COD_DOCENTE',
                 'cdoc.*',
+                'd.APELLIDOS',   // ← nuevo
+                'd.NOMBRES',     // ← nuevo
                 DB::raw("LTRIM(RTRIM(d.APELLIDOS + ' ' + d.NOMBRES)) AS NOMBRE_DOCENTE")
             )
             ->first();
+
 
         if (!$cabecera) {
             return response()->json(['ok' => false, 'error' => 'Clasificación no encontrada'], 404);
@@ -320,6 +323,178 @@ class ClasificacionDocenteController extends Controller
                 'archivo' => $e->getFile(),
             ]);
 
+            return response()->json(['ok' => false, 'error' => $mensajeSeguro], 500);
+        }
+    }
+
+    // PUT /clasificaciones/{id}
+// $id = ID_CLASIFICACION_DOCENTE (misma fila que usa show())
+    public function update(Request $request, $id)
+    {
+        DB::beginTransaction();
+
+        try {
+            $ccd = DB::table('CLASIFICACION_DOCENTE')
+                ->where('ID_CLASIFICACION_DOCENTE', $id)
+                ->first();
+
+            if (!$ccd) {
+                DB::rollBack();
+                return response()->json(['ok' => false, 'error' => 'Clasificación no encontrada'], 404);
+            }
+
+            $idDocumento = $ccd->ID_DOCUMENTO;
+
+            $request->validate([
+                'categoria' => 'required|string|max:60',
+                'nivel' => 'nullable|string|in:Primer nivel,Segundo nivel,Tercer nivel',
+                'tipo_documento' => 'nullable|string|max:40',
+                'gestion' => 'nullable|string|max:10',
+                'periodo' => 'nullable|string|max:30',
+                'detalle_general' => 'nullable|string',
+                'observacion' => 'nullable|string|max:300',
+                'observacion2' => 'nullable|string|max:300',
+                'archivo_pdf' => 'nullable|file|mimes:pdf|max:20480',
+                'materias' => 'nullable|string',
+                'referencias' => 'nullable|string',
+                'titulo' => 'nullable|string',
+            ]);
+
+            $materias = [];
+            if ($request->filled('materias')) {
+                $materias = json_decode($request->materias, true);
+                if (!is_array($materias)) {
+                    throw new \Exception('materias inválidas: el JSON no es un array');
+                }
+            }
+
+            $titulo = null;
+            if ($request->filled('titulo')) {
+                $titulo = json_decode($request->titulo, true);
+                if (!is_array($titulo)) {
+                    throw new \Exception('titulo inválido: el JSON no es un objeto');
+                }
+            }
+
+            // ------- 1) CLASIFICACION_DOCUMENTO (datos generales, a nivel documento) -------
+            $datosDocumento = [
+                'CATEGORIA' => $request->categoria,
+                'NIVEL' => $request->nivel ?: null,
+                'GESTION' => $request->gestion,
+                'PERIODO' => $request->periodo,
+                'TIPO_DOCUMENTO' => $request->tipo_documento,
+                'DETALLE_GENERAL' => $request->detalle_general,
+                'OBSERVACION' => $request->observacion,
+                'OBSERVACION2' => $request->observacion2,
+            ];
+
+            if ($request->hasFile('archivo_pdf')) {
+                $archivo = $request->file('archivo_pdf');
+                if (!$archivo->isValid()) {
+                    DB::rollBack();
+                    return response()->json(['ok' => false, 'error' => 'Archivo inválido'], 400);
+                }
+
+                $docActual = DB::table('CLASIFICACION_DOCUMENTO')->where('ID_DOCUMENTO', $idDocumento)->first();
+                if ($docActual && $docActual->RUTA_ARCHIVO && Storage::disk('public')->exists($docActual->RUTA_ARCHIVO)) {
+                    Storage::disk('public')->delete($docActual->RUTA_ARCHIVO);
+                }
+
+                $carpeta = 'clasificacion_docente/' . ($request->gestion ?: 'sin_gestion');
+                $nombreLimpio = preg_replace('/[^A-Za-z0-9\-_\.]/', '-', $archivo->getClientOriginalName());
+                $rutaArchivo = $archivo->storeAs($carpeta, $nombreLimpio, 'public');
+
+                $datosDocumento['RUTA_ARCHIVO'] = $rutaArchivo;
+                $datosDocumento['NOMBRE_ARCHIVO'] = $archivo->getClientOriginalName();
+                $datosDocumento['FOTOCOPIA_TITULAR'] = true;
+            }
+
+            DB::table('CLASIFICACION_DOCUMENTO')
+                ->where('ID_DOCUMENTO', $idDocumento)
+                ->update($datosDocumento);
+
+            // ------- 2) CLASIFICACION_MATERIA: se reemplazan SOLO las de este docente -------
+            DB::table('CLASIFICACION_MATERIA')
+                ->where('ID_DOCUMENTO', $idDocumento)
+                ->where('ID_CLASIFICACION_DOCENTE', $id)
+                ->delete();
+
+            $materiasInsertadas = 0;
+            foreach ($materias as $i => $m) {
+                DB::table('CLASIFICACION_MATERIA')->insert([
+                    'ID_DOCUMENTO' => $idDocumento,
+                    'ID_CLASIFICACION_DOCENTE' => $id,
+                    'COD_MATERIA' => $m['cod_materia'] ?? null,
+                    'NOMBRE_MATERIA' => $m['nombre_materia'],
+                    'COD_PLAN' => $m['cod_plan'] ?? null,
+                    'GRUPO' => isset($m['grupo']) && $m['grupo'] !== null ? (string) $m['grupo'] : null,
+                    'NOTA' => $m['nota'] ?? null,
+                    'DETALLE' => $m['detalle'] ?? null,
+                    'ORDEN' => $i,
+                ]);
+                $materiasInsertadas++;
+            }
+
+            // ------- 3) CLASIFICACION_TITULO: se reemplaza el de este docente -------
+            DB::table('CLASIFICACION_TITULO')
+                ->where('ID_DOCUMENTO', $idDocumento)
+                ->where('ID_CLASIFICACION_DOCENTE', $id)
+                ->delete();
+
+            $tituloActualizado = false;
+            if ($titulo) {
+                DB::table('CLASIFICACION_TITULO')->insert([
+                    'ID_DOCUMENTO' => $idDocumento,
+                    'ID_CLASIFICACION_DOCENTE' => $id,
+                    'TIPO_TITULO' => $titulo['tipo_titulo'],
+                    'UNIVERSIDAD' => $titulo['universidad'] ?? null,
+                    'PAIS' => $titulo['pais'] ?? null,
+                    'FECHA_TITULO' => $titulo['fecha_titulo'] ?? null,
+                    'NOMBRE_TITULO' => $titulo['nombre_titulo'],
+                    'NUMERO' => $titulo['numero'] ?? null,
+                ]);
+                $tituloActualizado = true;
+            }
+
+            // ------- 4) CLASIFICACION_REFERENCIA: a nivel documento completo -------
+            $referenciasActualizadas = 0;
+            if ($request->has('referencias')) {
+                DB::table('CLASIFICACION_REFERENCIA')->where('ID_DOCUMENTO', $idDocumento)->delete();
+
+                $referencias = json_decode($request->referencias, true) ?: [];
+                foreach ($referencias as $r) {
+                    DB::table('CLASIFICACION_REFERENCIA')->insert([
+                        'ID_DOCUMENTO' => $idDocumento,
+                        'NRO_REFERENCIA' => $r['nro_referencia'],
+                        'ID_RESOLUCION' => $r['id_resolucion'] ?? null,
+                    ]);
+                    $referenciasActualizadas++;
+                }
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'ok' => true,
+                'mensaje' => 'Clasificación actualizada correctamente',
+                'id_documento' => $idDocumento,
+                'id_clasificacion_docente' => (int) $id,
+                'materias_actualizadas' => $materiasInsertadas,
+                'titulo_actualizado' => $tituloActualizado,
+                'referencias_actualizadas' => $referenciasActualizadas,
+            ]);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            DB::rollBack();
+            return response()->json(['ok' => false, 'tipo' => 'validacion', 'errores' => $e->errors()], 422);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            $mensajeSeguro = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x80-\xFF]/', '?', $e->getMessage());
+            \Log::error('Error al actualizar ClasificacionDocente', [
+                'mensaje' => $mensajeSeguro,
+                'linea' => $e->getLine(),
+                'archivo' => $e->getFile(),
+            ]);
             return response()->json(['ok' => false, 'error' => $mensajeSeguro], 500);
         }
     }
@@ -843,4 +1018,6 @@ class ClasificacionDocenteController extends Controller
             'documentos' => $documentos,
         ]);
     }
+
+
 }

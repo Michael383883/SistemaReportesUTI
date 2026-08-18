@@ -266,18 +266,31 @@ onMounted(() => {
   cargarTipos()
 })
 
-// ─── Si "Tipo o Número de Documento" está vacío, se sincroniza
-// automáticamente con lo que el usuario seleccione/escriba en "Tipo de título".
-// Si ya tiene un valor, no se sobreescribe.
+// ─── Sincronización: "Tipo o Número de Documento" ← "Tipo de título" ───
+// Solo se autocompleta mientras el usuario NO haya escrito nada distinto
+// a mano en "Tipo o Número de Documento". Usamos `ultimoValorSincronizado`
+// para saber si el valor actual de tipo_documento fue puesto por este mismo
+// watcher (y por tanto se puede seguir actualizando letra por letra) o si
+// el usuario lo modificó manualmente (y por tanto ya no se debe tocar más).
+const ultimoValorSincronizado = ref('')
+
 watch(
   () => props.form.titulo?.tipo_titulo,
   (nuevoTipo) => {
-    const tipoDocActual = (props.form.tipo_documento || '').trim()
-    if (!tipoDocActual) {
+    const tipoDocActual = props.form.tipo_documento || ''
+    const estaVacio = tipoDocActual.trim() === ''
+
+    // Comparamos SIN recortar espacios, para que un espacio intermedio
+    // (al escribir un tipo de título de varias palabras) no rompa la
+    // comparación con el último valor que este mismo watcher sincronizó.
+    const noTocadoPorUsuario =
+      estaVacio || tipoDocActual === ultimoValorSincronizado.value
+
+    if (noTocadoPorUsuario) {
       props.form.tipo_documento = nuevoTipo
+      ultimoValorSincronizado.value = nuevoTipo
     }
   }
 )
-
 
 </script>

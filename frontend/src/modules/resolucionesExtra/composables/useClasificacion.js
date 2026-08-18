@@ -67,7 +67,7 @@ export function useClasificacion() {
                 headers: authHeaders({ 'Content-Type': 'multipart/form-data' }),
             })
 
-            // 👇 nuevo: qué contestó el backend al guardar
+            //  nuevo: qué contestó el backend al guardar
             console.log("✅ Respuesta de guardarClasificacion:", data)
 
             if (!data.ok) {
@@ -194,7 +194,7 @@ export function useClasificacion() {
         error.value = null
         errorDetalle.value = null
 
-        // 👇 NUEVO: mostrar exactamente qué se va a mandar
+        //  NUEVO: mostrar exactamente qué se va a mandar
         console.log("===== ENVIANDO A /aplicar =====")
         console.log("URL:", `${API_BASE}/api/clasificaciones/${id}/aplicar`)
         console.log("id_documento:", id)
@@ -208,7 +208,7 @@ export function useClasificacion() {
                 { headers: authHeaders() }
             )
 
-            // 👇 NUEVO: mostrar la respuesta completa, salga bien o mal
+            //  NUEVO: mostrar la respuesta completa, salga bien o mal
             console.log("✅ Respuesta completa de /aplicar:", data)
             console.log("   filas_afectadas:", data.filas_afectadas)
             console.log("   grupos:", data.grupos)
@@ -238,7 +238,7 @@ export function useClasificacion() {
         error.value = null
         errorDetalle.value = null
 
-        // 👇 NUEVO
+        //   NUEVO
         console.log("===== ENVIANDO A /quitar =====")
         console.log("URL:", `${API_BASE}/api/clasificaciones/${id}/quitar`)
         console.log("id_documento:", id)
@@ -252,7 +252,7 @@ export function useClasificacion() {
                 { headers: authHeaders() }
             )
 
-            // 👇 NUEVO
+            //   NUEVO
             console.log("✅ Respuesta completa de /quitar:", data)
 
             if (!data.ok) {
@@ -273,6 +273,42 @@ export function useClasificacion() {
         }
     }
 
+    async function actualizarClasificacion(id, payload) {
+        loading.value = true
+        error.value = null
+        errorDetalle.value = null
+        try {
+            const fd = buildFormData(payload)
+            fd.append('_method', 'PUT') // Laravel: FormData con archivo necesita este truco
+
+            const { data } = await axios.post(`${API_BASE}/api/clasificaciones/${id}`, fd, {
+                headers: authHeaders({ 'Content-Type': 'multipart/form-data' }),
+            })
+
+            console.log("✅ Respuesta de actualizarClasificacion:", data)
+
+            if (!data.ok) {
+                error.value = data.error || 'No se pudo actualizar la clasificación'
+                errorDetalle.value = parseErrorDetalle(data)
+                throw new Error(error.value)
+            }
+
+            return data
+        } catch (e) {
+            if (e?.response?.data?.tipo === 'validacion') {
+                const primerError = Object.values(e.response.data.errores)[0]?.[0]
+                error.value = primerError || 'Error de validación'
+                errorDetalle.value = { tipoError: 'validacion', mensaje: error.value }
+            } else if (!error.value) {
+                error.value = e?.response?.data?.error || e.message || 'No se pudo actualizar la clasificación'
+                errorDetalle.value = parseErrorDetalle(e?.response?.data)
+            }
+            throw e
+        } finally {
+            loading.value = false
+        }
+    }
+
     return {
         loading,
         error,
@@ -282,6 +318,7 @@ export function useClasificacion() {
         listar,
         obtener,
         guardarClasificacion,
+        actualizarClasificacion,  
         eliminar,
         eliminarDocente,
         aplicarEnGrupos,
