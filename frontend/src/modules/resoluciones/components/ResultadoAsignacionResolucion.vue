@@ -55,8 +55,8 @@
               <tr v-for="(g, i) in gruposActualizados" :key="i" class="hover:bg-slate-50 transition-colors">
                 <td class="px-4 py-2.5 text-slate-900 font-mono">{{ g.anio }}</td>
                 <td class="px-4 py-2.5 text-slate-900">{{ g.periodo }}</td>
-                <td class="px-4 py-2.5 text-slate-900 font-mono">{{ g.plan }}</td>
-                <td class="px-4 py-2.5 text-slate-900 font-mono">{{ g.materia }}</td>
+                <td class="px-4 py-2.5 text-slate-900">{{ abrevPlan(g.plan) }}</td>
+                <td class="px-4 py-2.5 text-slate-900">{{ nombreMateria(g.materia) }}</td>
                 <td class="px-4 py-2.5 text-slate-900">{{ g.grupo }}</td>
                 <td class="px-4 py-2.5 text-slate-900 font-medium" :title="`Código: ${g.docente}`">
                   {{ nombreDocentePorCodigo(g.docente) }}
@@ -160,6 +160,8 @@
 </template>
 
 <script setup>
+import { computed } from 'vue'
+import { abrevPlan } from '../utils/planes'
 const props = defineProps({
   gruposActualizados: { type: Array, default: () => [] },
   ultimasAsignadas: { type: Array, default: () => [] },
@@ -174,6 +176,22 @@ const props = defineProps({
 })
 
 defineEmits(['ver-reporte', 'asignar-otra', 'ir-a-listado'])
+
+// Mapa código de materia -> nombre completo, construido a partir de
+// lo que se marcó en el paso anterior (ultimasAsignadas ya trae
+// materiaLabel gracias a useAsignacionResolucion). gruposActualizados
+// no trae el nombre porque viene de un SELECT crudo a la tabla GRUPOS.
+const materiaLabelPorCodigo = computed(() => {
+  const map = {}
+  props.ultimasAsignadas.forEach(m => {
+    map[m.cod_materia] = m.materiaLabel
+  })
+  return map
+})
+
+function nombreMateria(codigo) {
+  return materiaLabelPorCodigo.value[codigo] ?? codigo ?? '—'
+}
 
 function nombreDocentePorCodigo(codigo) {
   if (

@@ -37,8 +37,8 @@
             <td class="px-4 py-2.5 text-gray-800 font-medium">
              {{ m.docente.apellidos ?? m.docente.APELLIDOS }} {{ m.docente.nombres ?? m.docente.NOMBRES }} 
             </td>
-            <td class="px-4 py-2.5 text-gray-900 font-mono">{{ m.cod_plan }}</td>
-            <td class="px-4 py-2.5 text-gray-900 font-mono">{{ m.cod_materia }}</td>
+            <td class="px-4 py-2.5 text-gray-900">{{ m.planLabel }}</td>
+         <td class="px-4 py-2.5 text-gray-900">{{ m.materiaLabel }}</td>
             <td class="px-4 py-2.5 text-gray-900">{{ m.grupo || '—' }}</td>
             <td class="px-4 py-2.5">
               <span v-if="m.observacion" class="inline-flex items-center px-2 py-0.5 rounded-full text-[0.68rem] font-medium bg-amber-100 text-amber-700">
