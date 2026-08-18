@@ -176,6 +176,37 @@ export function useResolucionListado() {
         }
     }
 
+
+    const editando = ref(false)
+    const errorEditar = ref('')
+
+    async function actualizarResolucion(id, formData) {
+        editando.value = true
+        errorEditar.value = ''
+        try {
+            const { data } = await axios.post(
+                `${API_BASE}/api/resoluciones/${id}`,
+                formData,
+                { headers: authHeaders() }
+            )
+
+            if (data?.ok === false) {
+                errorEditar.value = data.error ?? 'No se pudo actualizar la resolución.'
+                return false
+            }
+
+            await cargarListado()
+            return true
+
+        } catch (e) {
+            errorEditar.value = e.response?.data?.error
+                ?? e.message
+                ?? 'Error al actualizar la resolución.'
+            return false
+        } finally {
+            editando.value = false
+        }
+    }
     return {
         filas,
         loading,
@@ -193,5 +224,8 @@ export function useResolucionListado() {
         eliminando,
         errorEliminar,
         eliminarResolucion,
+        editando,
+        errorEditar,
+        actualizarResolucion,
     }
 }

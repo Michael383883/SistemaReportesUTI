@@ -207,7 +207,7 @@ class ResolucionPdfController extends Controller
     // GET /resoluciones/{id}/pdf            -> abre el PDF en el navegador (ver)
     // GET /resoluciones/{id}/pdf?modo=descargar -> fuerza la descarga del archivo
     // GET /resoluciones/{id}/pdf            -> abre el PDF en el navegador
-// GET /resoluciones/{id}/pdf?modo=descargar -> fuerza la descarga
+    // GET /resoluciones/{id}/pdf?modo=descargar -> fuerza la descarga
     public function descargar(Request $request, $id)
     {
         $pdf = ResolucionPdf::select(
@@ -382,5 +382,117 @@ class ResolucionPdfController extends Controller
             'id_resolucion' => $resolucion->ID_RESOLUCION,
             'nombre_archivo' => $resolucion->NOMBRE_ARCHIVO
         ]);
+    }
+
+    // PUT/POST /resoluciones/{id}   (multipart, por eso se recibe como POST con _method=PUT)
+    public function update(Request $request, $id)
+    {
+        DB::beginTransaction();
+
+        try {
+            $resolucion = DB::table('RESOLUCIONES_PDF')
+                ->where('ID_RESOLUCION', $id)
+                ->first();
+
+            if (!$resolucion) {
+                DB::rollBack();
+                return response()->json([
+                    'ok' => false,
+                    'error' => 'Resolución no encontrada'
+                ], 404);
+            }
+
+            $request->validate([
+                'nro_resolucion' => 'required|string|max:50',
+                'descripcion' => 'nullable|string|max:200',
+                'anio' => 'required|integer',
+                'periodo' => 'required|string|max:2',
+                'archivo_pdf' => 'nullable|file|mimes:pdf|max:20480', // opcional al editar
+            ]);
+
+            $datosActualizar = [
+                'NRO_RESOLUCION' => $request->nro_resolucion,
+                'DESCRIPCION' => $request->descripcion,
+                'ANIO' => (int) $request->anio,
+                'PERIODO' => $request->periodo,
+            ];
+
+            $rutaAnterior = $resolucion->RUTA_ARCHIVO;
+            $huboArchivoNuevo = $request->hasFile('archivo_pdf');
+
+            // Si mandaron un PDF nuevo, lo guardamos y reemplazamos los datos del archivo
+            if ($huboArchivoNuevo) {
+                $archivo = $request->file('archivo_pdf');
+
+                if (!$archivo->isValid()) {
+                    DB::rollBack();
+                    return response()->json([
+                        'ok' => false,
+                        'error' => 'Archivo inválido'
+                    ], 400);
+                }
+
+                $carpeta = 'resoluciones/' . $request->anio;
+                $nombreArchivo = preg_replace('/[^A-Za-z0-9\-_\.]/', '-', $archivo->getClientOriginalName());
+                $rutaArchivo = $archivo->storeAs($carpeta, $nombreArchivo, 'public');
+
+                $datosActualizar['RUTA_ARCHIVO'] = $rutaArchivo;
+                $datosActualizar['NOMBRE_ARCHIVO'] = $archivo->getClientOriginalName();
+                $datosActualizar['TAMANIO_KB'] = round($archivo->getSize() / 1024);
+            }
+
+            DB::table('RESOLUCIONES_PDF')
+                ->where('ID_RESOLUCION', $id)
+                ->update($datosActualizar);
+
+            DB::commit();
+
+            // Recién después del commit borramos el PDF viejo (si se reemplazó)
+            if ($huboArchivoNuevo && $rutaAnterior && \Storage::disk('public')->exists($rutaAnterior)) {
+                try {
+                    \Storage::disk('public')->delete($rutaAnterior);
+                } catch (\Throwable $eArchivo) {
+                    \Log::warning('No se pudo borrar el PDF anterior al editar', [
+                        'id' => $id,
+                        'ruta' => $rutaAnterior,
+                        'error' => $eArchivo->getMessage(),
+                    ]);
+                }
+            }
+
+            return response()->json([
+                'ok' => true,
+                'mensaje' => 'Resolución actualizada correctamente',
+            ]);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            DB::rollBack();
+            return response()->json([
+                'ok' => false,
+                'tipo' => 'validacion',
+                'errores' => $e->errors()
+            ], 422);
+
+        } catch (\Throwable $e) {
+            DB::rollBack();
+
+            $mensajeSeguro = preg_replace(
+                '/[\x00-\x08\x0B\x0C\x0E-\x1F\x80-\xFF]/',
+                '?',
+                $e->getMessage()
+            );
+
+            \Log::error('Error al actualizar ResolucionPdf', [
+                'id' => $id,
+                'mensaje' => $mensajeSeguro,
+                'linea' => $e->getLine(),
+                'archivo' => $e->getFile()
+            ]);
+
+            return response()->json([
+                'ok' => false,
+                'error' => $mensajeSeguro
+            ], 500);
+        }
     }
 }

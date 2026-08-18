@@ -166,6 +166,8 @@ Route::post('/resoluciones', [ResolucionPdfController::class, 'store']);
 Route::get('/resoluciones/{id}', [ResolucionPdfController::class, 'show']);
 Route::get('/resoluciones/{id}/pdf', [ResolucionPdfController::class, 'descargar']);
 
+Route::post('/resoluciones/{id}', [ResolucionPdfController::class, 'update']);
+
 // Detalles por resolución
 Route::get('/resoluciones/{id}/detalles', [ResolucionDetalleController::class, 'index']);
 Route::post('/resoluciones/{id}/detalles', [ResolucionDetalleController::class, 'store']);
@@ -236,6 +238,7 @@ Route::get('/reportes/clasificacion/por-referencia', [ReporteClasificacionContro
 Route::delete('/clasificaciones/docente/{idClasificacionDocente}', [ClasificacionDocenteController::class, 'destroyDocente'])
     ->where('idClasificacionDocente', '[0-9]+');
 
+Route::put('/clasificaciones/{id}', [ClasificacionDocenteController::class, 'update']);
 
 Route::get(
     '/reportes/clasificacion/id-por-referencia',

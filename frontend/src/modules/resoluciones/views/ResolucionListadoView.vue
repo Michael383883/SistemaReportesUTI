@@ -165,15 +165,27 @@
 
     <!-- Tabla (componente hijo) -->
     <TablaResoluciones
-      :filas="filas"
-      :loading="loading"
-      :url-ver="urlVer"
-      :url-descargar="urlDescargar"
-      :formatear-fecha="formatearFecha"
-      :clase-badge-periodo="claseBadgePeriodo"
-      @borrar="pedirConfirmacionBorrar"
-      @recargar="cargarListado"
-    />
+  :filas="filas"
+  :loading="loading"
+  :url-ver="urlVer"
+  :url-descargar="urlDescargar"
+  :formatear-fecha="formatearFecha"
+  :clase-badge-periodo="claseBadgePeriodo"
+  @borrar="pedirConfirmacionBorrar"
+  @recargar="cargarListado"
+  @editar="abrirEdicion"
+/>
+
+    <!-- ... modal de borrado que ya tenías ... -->
+
+<ModalEditarResolucion
+  v-if="filaParaEditar"
+  :resolucion="filaParaEditar"
+  :editando="editando"
+  :error-editar="errorEditar"
+  @cerrar="cerrarEdicion"
+  @guardar="guardarEdicion"
+/>
 
     <!-- Modal de confirmación de borrado -->
     <div
@@ -270,6 +282,7 @@
 import { ref, onMounted } from 'vue'
 import { useResolucionListado } from '../composables/useResolucionListado'
 import TablaResoluciones from '../components/TablaResoluciones.vue'
+import ModalEditarResolucion from '../components/ModalEditarResolucion.vue'
 
 defineEmits(['editar'])
 
@@ -290,7 +303,28 @@ const {
   eliminando,
   errorEliminar,
   eliminarResolucion,
+  editando,
+  errorEditar,
+  actualizarResolucion,
 } = useResolucionListado()
+
+const filaParaEditar = ref(null)
+
+function abrirEdicion(fila) {
+  errorEditar.value = ''
+  filaParaEditar.value = fila
+}
+
+function cerrarEdicion() {
+  filaParaEditar.value = null
+  errorEditar.value = ''
+}
+
+async function guardarEdicion(formData) {
+  if (!filaParaEditar.value) return
+  const ok = await actualizarResolucion(filaParaEditar.value.idResolucion, formData)
+  if (ok) filaParaEditar.value = null
+}
 
 // Fila pendiente de confirmación de borrado (null = modal cerrado)
 const filaParaBorrar = ref(null)
