@@ -1,4 +1,4 @@
-<!-- composables/ResolucionSearchPicker -->
+<!-- components/ResolucionSearchPicker -->
 <template>
   <div class="space-y-4">
     <!-- Input búsqueda -->
