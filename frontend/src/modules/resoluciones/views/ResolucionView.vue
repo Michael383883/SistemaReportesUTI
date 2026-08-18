@@ -299,7 +299,15 @@ async function onGuardarYAsignar({ numero, descripcion, anio, periodo }) {
 
   try {
     const idResolucion = await resolucion.guardarResolucion({ numero, descripcion, anio, periodo, archivo: archivo.value })
-    router.push({ name: 'resoluciones-asignar', query: { resolucion: idResolucion } })
+    router.push({
+      name: 'resoluciones-asignar',
+      query: {
+        resolucion: idResolucion,
+        nro: numero,
+        anio,
+        periodo,
+      }
+    })
   } catch {
     // error visible vía :error en ResolucionForm (resolucion.error.value)
   }

@@ -197,8 +197,8 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, watch, onMounted  } from 'vue'
+import { useRouter, useRoute  } from 'vue-router'
 import DocenteSearch from '../../docentes/components/DocenteSearch.vue'
 import { useDocentes } from '../../docentes/composables/useDocentes'
 import { useReporte } from '../../reportes/composables/useReporte'
@@ -210,7 +210,7 @@ import MateriasMarcadasResumen from '../components/MateriasMarcadasResumen.vue'
 import ResultadoAsignacionResolucion from '../components/ResultadoAsignacionResolucion.vue'
 
 const router = useRouter()
-
+const route  = useRoute()
 // ─── Docentes ───────────────────────────────────────────────────
 const {
   loading: loadingDocentes,
@@ -399,9 +399,14 @@ function normalizarGrupo(g) {
 // y se abre en pestaña nueva para no perder la vista de resultado
 // que el usuario tiene en pantalla.
 function verReporte(g) {
+  const anioQuery = g.periodo ? `${g.anio}/${g.periodo}` : (g.anio || undefined)
+
   const ruta = router.resolve({
     name: 'reporte',
-    query: { codigo: g.docente },
+    query: {
+      codigo: g.docente,
+      ...(anioQuery ? { anio: anioQuery } : {}),
+    },
   })
   window.open(ruta.href, '_blank')
 }
@@ -440,4 +445,19 @@ function asignarOtraMas() {
   gruposActualizados.value = []
   fase.value = 'formulario'
 }
+
+
+onMounted(() => {
+  const { resolucion: idResolucion, nro, anio, periodo } = route.query
+  if (idResolucion) {
+    seleccionarResolucion({
+      idResolucion,       // ResolucionSearchPicker usa r.idResolucion ?? r.id_resolucion
+      nroResolucion: nro,
+      anio,
+      periodo,
+    })
+  }
+})
+
+
 </script>
