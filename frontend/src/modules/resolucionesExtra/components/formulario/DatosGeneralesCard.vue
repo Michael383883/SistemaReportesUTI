@@ -32,60 +32,33 @@
           />
         </div>
 
-        <!-- Categoria: combobox (seleccionar, buscar o crear una nueva) -->
-        <div class="relative">
-        <label class="block text-[12px] font-medium text-slate-800 mb-1">Categoria *</label>
-
-          <div class="relative">
-            <input
-              v-model="form.categoria"
-              type="text"
-              placeholder="Selecciona o escribe una categoria"
-              class="w-full px-3 py-2.5 pr-9 text-[13px] bg-gray-50 border border-gray-200 rounded-xl placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent focus:bg-white transition-colors"
-              @focus="categoriaDropdownOpen = true"
-              @input="categoriaDropdownOpen = true"
-              @blur="onBlurCategoria"
-            />
-            <button
-              type="button"
-              tabindex="-1"
-              @mousedown.prevent="toggleCategoriaDropdown"
-              class="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-800"
-            >
-              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
-              </svg>
-            </button>
-          </div>
-
-          <div
-            v-if="categoriaDropdownOpen"
-            class="absolute z-30 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden max-h-56 overflow-y-auto"
+        <!-- Categoria: ahora es un catálogo ESTÁTICO. Ya no se escribe ni se crea
+             aquí; solo se elige entre las categorías dadas de alta en
+             Configuración → Categorías. -->
+        <div>
+          <label class="block text-[12px] font-medium text-slate-900 mb-1">Categoria *</label>
+          <select
+            v-model="form.categoria"
+            class="w-full px-3 py-2.5 text-[13px] bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent focus:bg-white transition-colors disabled:opacity-60"
+            :disabled="loadingCategorias"
           >
-            <button
-              v-for="opcion in opcionesCategoriaFiltradas"
-              :key="opcion"
-              type="button"
-              @mousedown.prevent="seleccionarCategoria(opcion)"
-              class="w-full text-left px-3 py-2 text-[13px] text-slate-700 hover:bg-orange-50 transition-colors"
-              :class="form.categoria === opcion ? 'bg-orange-50 text-orange-600 font-medium' : ''"
+            <option value="" disabled>
+              {{ loadingCategorias ? 'Cargando...' : 'Selecciona una categoría' }}
+            </option>
+            <option
+              v-for="opcion in opcionesCategoria"
+              :key="opcion.id ?? opcion"
+              :value="opcion.nombre ?? opcion"
             >
-              {{ opcion }}
-            </button>
-
-            <button
-              v-if="mostrarCrearCategoria"
-              type="button"
-              @mousedown.prevent="seleccionarCategoria(form.categoria)"
-              class="w-full text-left px-3 py-2 text-[13px] text-amber-600 font-medium hover:bg-amber-50 transition-colors border-t border-gray-100"
-            >
-              + Crear "{{ form.categoria.trim() }}"
-            </button>
-
-            <div v-if="!opcionesCategoriaFiltradas.length && !mostrarCrearCategoria" class="px-3 py-2 text-[12px] text-gray-400 italic">
-              Sin coincidencias
-            </div>
-          </div>
+              {{ opcion.nombre ?? opcion }}
+            </option>
+          </select>
+          <p class="mt-1 text-[11px] text-gray-400">
+            ¿Falta una categoría?
+            <router-link to="/configuracion/categorias" class="text-orange-500 hover:underline">
+              Agrégala en Configuración
+            </router-link>.
+          </p>
         </div>
 
         <!-- Nivel -->
@@ -304,57 +277,15 @@ function seleccionarPeriodo(valor) {
   periodoDropdownOpen.value = false
 }
 
-// ─── Combobox de Categoria (seleccionar / buscar / crear) ───
-const { categorias: opcionesCategoria, loading: loadingCategorias, cargarCategorias, crearCategoria } = useCategorias()
+// ─── Categoria: catálogo de solo lectura ───
+// Ya no se crea ni se edita desde aquí. Solo se lee el catálogo para
+// poblar el <select>. Alta/edición ahora vive en Configuración → Categorías
+// (ver CategoriasConfigView.vue + CategoriaFormModal.vue).
+const { categorias: opcionesCategoria, loading: loadingCategorias, cargarCategorias } = useCategorias()
 
 onMounted(() => {
   cargarCategorias()
 })
-
-const categoriaDropdownOpen = ref(false)
-
-const opcionesCategoriaFiltradas = computed(() => {
-  const q = (form.categoria || '').trim().toLowerCase()
-  if (!q) return opcionesCategoria.value
-  return opcionesCategoria.value.filter(c => c.toLowerCase().includes(q))
-})
-
-// Muestra "+ Crear..." solo si lo escrito no coincide exactamente con
-// ninguna categoría ya existente (comparación case-insensitive)
-const mostrarCrearCategoria = computed(() => {
-  const q = (form.categoria || '').trim()
-  if (!q) return false
-  return !opcionesCategoria.value.some(c => c.toLowerCase() === q.toLowerCase())
-})
-
-function toggleCategoriaDropdown() {
-  categoriaDropdownOpen.value = !categoriaDropdownOpen.value
-}
-
-async function onBlurCategoria() {
-  const valor = (form.categoria || '').trim()
-  if (valor) {
-    try {
-      await crearCategoria(valor)
-    } catch (e) {
-      // opcional: manejar error
-    }
-  }
-  setTimeout(() => { categoriaDropdownOpen.value = false }, 150)
-}
-
-async function seleccionarCategoria(valor) {
-  const v = (valor || '').trim()
-  form.categoria = v
-  if (v) {
-    try {
-      await crearCategoria(v)
-    } catch (e) {
-      // opcional: mostrar un toast/error si falla el guardado
-    }
-  }
-  categoriaDropdownOpen.value = false
-}
 
 // ─── Buscador de docente general (docente "por defecto") ───
 const inputDocenteRef = ref(null)

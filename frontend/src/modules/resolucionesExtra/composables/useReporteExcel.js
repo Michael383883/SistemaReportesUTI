@@ -3,6 +3,15 @@ import axios from 'axios'
 
 const API_BASE = import.meta.env.VITE_API_URL ?? ''
 
+// Acepta array (['a','b']) o string ('a') o undefined, y devuelve
+// siempre el formato que espera el backend: "a,b" (o undefined si está vacío).
+function serializarLista(valor) {
+    if (Array.isArray(valor)) {
+        return valor.length ? valor.join(',') : undefined
+    }
+    return valor || undefined
+}
+
 export function useReporteExcel() {
     const loading = ref(false)
     const error = ref(null)
@@ -20,7 +29,8 @@ export function useReporteExcel() {
     }
 
     // GET /api/reportes/docentes-clasificados/preview
-    async function previsualizar({ gestion_desde, gestion_hasta, periodo, version } = {}) {
+    // categoria y tipo_titulo pueden venir como array (multi-selección) o string
+    async function previsualizar({ gestion_desde, gestion_hasta, periodo, version, categoria, tipo_titulo } = {}) {
         loading.value = true
         error.value = null
         try {
@@ -32,6 +42,8 @@ export function useReporteExcel() {
                         gestion_hasta: gestion_hasta || undefined,
                         periodo: periodo || undefined,
                         version: version || undefined,
+                        categoria: serializarLista(categoria),
+                        tipo_titulo: serializarLista(tipo_titulo),
                     },
                     headers: authHeaders(),
                 }
@@ -57,12 +69,18 @@ export function useReporteExcel() {
     }
 
     // Construye la URL de descarga real del Excel (mismo endpoint que ya existe)
-    function urlDescarga({ gestion_desde, gestion_hasta, periodo, version } = {}) {
+    function urlDescarga({ gestion_desde, gestion_hasta, periodo, version, categoria, tipo_titulo } = {}) {
         const params = new URLSearchParams()
         if (gestion_desde) params.set('gestion_desde', gestion_desde)
         if (gestion_hasta) params.set('gestion_hasta', gestion_hasta)
         if (periodo) params.set('periodo', periodo)
         if (version) params.set('version', version)
+
+        const categoriaCsv = serializarLista(categoria)
+        if (categoriaCsv) params.set('categoria', categoriaCsv)
+
+        const tipoTituloCsv = serializarLista(tipo_titulo)
+        if (tipoTituloCsv) params.set('tipo_titulo', tipoTituloCsv)
 
         return `${API_BASE}/api/reportes/docentes-clasificados/excel?${params.toString()}`
     }

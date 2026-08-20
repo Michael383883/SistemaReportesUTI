@@ -11,7 +11,6 @@ use Illuminate\Support\Facades\Log;
 class ClasificacionDocenteController extends Controller
 {
     // GET /clasificaciones
-    // Nivel de fila: CLASIFICACION_DOCENTE (documento + un docente + sus materias)
     public function index(Request $request)
     {
         $query = DB::table('CLASIFICACION_DOCENTE as ccd')
@@ -41,7 +40,6 @@ class ClasificacionDocenteController extends Controller
         if ($request->filled('gestion')) {
             $query->where('cdoc.GESTION', $request->query('gestion'));
         }
-
         if ($request->filled('periodo')) {
             $query->where('cdoc.PERIODO', $request->query('periodo'));
         }
@@ -52,13 +50,21 @@ class ClasificacionDocenteController extends Controller
             $query->where('cdoc.TIPO_DOCUMENTO', $request->query('tipo_documento'));
         }
 
+        if ($request->filled('tipo_titulo')) {
+            $tipoTitulo = $request->query('tipo_titulo');
+            $query->whereIn('ccd.ID_CLASIFICACION_DOCENTE', function ($sub) use ($tipoTitulo) {
+                $sub->select('ID_CLASIFICACION_DOCENTE')
+                    ->from('CLASIFICACION_TITULO')
+                    ->where('TIPO_TITULO', $tipoTitulo);
+            });
+        }
+
         $listado = $query->orderBy('NOMBRE_DOCENTE')->get();
 
         return response()->json($listado);
     }
 
     // GET /clasificaciones/{id}
-    // $id = ID_CLASIFICACION_DOCENTE (fila docente dentro del documento)
     public function show($id)
     {
         $cabecera = DB::table('CLASIFICACION_DOCENTE as ccd')
@@ -70,35 +76,30 @@ class ClasificacionDocenteController extends Controller
                 'ccd.ID_DOCUMENTO',
                 'ccd.COD_DOCENTE',
                 'cdoc.*',
-                'd.APELLIDOS',   // ← nuevo
-                'd.NOMBRES',     // ← nuevo
+                'd.APELLIDOS',
+                'd.NOMBRES',
                 DB::raw("LTRIM(RTRIM(d.APELLIDOS + ' ' + d.NOMBRES)) AS NOMBRE_DOCENTE")
             )
             ->first();
-
 
         if (!$cabecera) {
             return response()->json(['ok' => false, 'error' => 'Clasificación no encontrada'], 404);
         }
 
-        // Materias asignadas a ESTE docente dentro del documento
         $cabecera->materias = DB::table('CLASIFICACION_MATERIA')
             ->where('ID_CLASIFICACION_DOCENTE', $id)
             ->orderBy('ORDEN')
             ->get();
-
 
         $cabecera->titulos = DB::table('CLASIFICACION_TITULO')
             ->where('ID_CLASIFICACION_DOCENTE', $id)
             ->orderBy('FECHA_TITULO')
             ->get();
 
-        // Las referencias son del documento completo, no de un docente en particular
         $cabecera->referencias = DB::table('CLASIFICACION_REFERENCIA')
             ->where('ID_DOCUMENTO', $cabecera->ID_DOCUMENTO)
             ->get();
 
-        // Bonus: otros docentes que comparten el mismo documento (útil para la UI)
         $cabecera->otros_docentes = DB::table('CLASIFICACION_DOCENTE as ccd2')
             ->join('DOCENTES as d2', 'd2.CODIGO', '=', 'ccd2.COD_DOCENTE')
             ->where('ccd2.ID_DOCUMENTO', $cabecera->ID_DOCUMENTO)
@@ -120,7 +121,7 @@ class ClasificacionDocenteController extends Controller
 
         try {
             $request->validate([
-                'cod_docente' => 'nullable|integer', // docente "general" (usado en caso "no regenta")
+                'cod_docente' => 'nullable|integer',
                 'categoria' => 'required|string|max:60',
                 'nivel' => 'nullable|string|in:Primer nivel,Segundo nivel,Tercer nivel',
                 'tipo_documento' => 'nullable|string|max:40',
@@ -130,12 +131,11 @@ class ClasificacionDocenteController extends Controller
                 'observacion' => 'nullable|string|max:300',
                 'observacion2' => 'nullable|string|max:300',
                 'archivo_pdf' => 'nullable|file|mimes:pdf|max:20480',
-                'materias' => 'nullable|string',    // JSON string
-                'referencias' => 'nullable|string', // JSON string
+                'materias' => 'nullable|string',
+                'referencias' => 'nullable|string',
                 'titulo' => 'nullable|string',
             ]);
 
-            // ------- decodificar materias primero, para saber qué docentes hay -------
             $materias = [];
             if ($request->filled('materias')) {
                 $materias = json_decode($request->materias, true);
@@ -144,7 +144,6 @@ class ClasificacionDocenteController extends Controller
                 }
             }
 
-            // ------- decodificar titulos -------
             $titulo = null;
             if ($request->filled('titulo')) {
                 $titulo = json_decode($request->titulo, true);
@@ -153,8 +152,6 @@ class ClasificacionDocenteController extends Controller
                 }
             }
 
-            // Recolecta los docentes distintos que aparecen en las materias
-            // (cada materia trae su propio objeto "docente": { cod_docente, nombres, apellidos })
             $codigosDocentes = collect($materias)
                 ->pluck('docente.cod_docente')
                 ->when($titulo && !empty($titulo['cod_docente']), fn($c) => $c->push($titulo['cod_docente']))
@@ -162,8 +159,6 @@ class ClasificacionDocenteController extends Controller
                 ->unique()
                 ->values();
 
-            // Caso "no regenta materia en la FCE": no hay materias reales, pero
-            // sí hay un docente general (form.cod_docente) que debe registrarse igual.
             if ($codigosDocentes->isEmpty() && $request->filled('cod_docente')) {
                 $codigosDocentes = collect([(int) $request->cod_docente]);
             }
@@ -172,7 +167,6 @@ class ClasificacionDocenteController extends Controller
                 throw new \Exception('No se especificó ningún docente (ni en materias ni como docente general).');
             }
 
-            // ------- archivo -------
             $rutaArchivo = null;
             $nombreArchivo = null;
             $fotocopia = false;
@@ -191,7 +185,6 @@ class ClasificacionDocenteController extends Controller
                 $fotocopia = true;
             }
 
-            // ------- 1) CLASIFICACION_DOCUMENTO (una sola vez) -------
             $idDocumento = DB::table('CLASIFICACION_DOCUMENTO')->insertGetId([
                 'CATEGORIA' => $request->categoria,
                 'NIVEL' => $request->nivel ?: null,
@@ -204,12 +197,10 @@ class ClasificacionDocenteController extends Controller
                 'NOMBRE_ARCHIVO' => $nombreArchivo,
                 'OBSERVACION' => $request->observacion,
                 'OBSERVACION2' => $request->observacion2,
-                //'FECHA_REGISTRO' => now(),
                 'FECHA_REGISTRO' => DB::raw('GETDATE()'),
             ], 'ID_DOCUMENTO');
 
-            // ------- 2) CLASIFICACION_DOCENTE (una fila por cada docente distinto) -------
-            $mapaDocenteId = []; // cod_docente => ID_CLASIFICACION_DOCENTE
+            $mapaDocenteId = [];
 
             foreach ($codigosDocentes as $cod) {
                 $idClasifDocente = DB::table('CLASIFICACION_DOCENTE')->insertGetId([
@@ -220,7 +211,6 @@ class ClasificacionDocenteController extends Controller
                 $mapaDocenteId[$cod] = $idClasifDocente;
             }
 
-            // ------- 3) CLASIFICACION_MATERIA -------
             $materiasInsertadas = 0;
 
             foreach ($materias as $i => $m) {
@@ -235,7 +225,7 @@ class ClasificacionDocenteController extends Controller
                     'COD_MATERIA' => $m['cod_materia'] ?? null,
                     'NOMBRE_MATERIA' => $m['nombre_materia'],
                     'COD_PLAN' => $m['cod_plan'] ?? null,
-                    'GRUPO' => isset($m['grupo']) && $m['grupo'] !== null ? (string) $m['grupo'] : null, // ← cast explícito a string
+                    'GRUPO' => isset($m['grupo']) && $m['grupo'] !== null ? (string) $m['grupo'] : null,
                     'NOTA' => $m['nota'] ?? null,
                     'DETALLE' => $m['detalle'] ?? null,
                     'ORDEN' => $i,
@@ -243,8 +233,6 @@ class ClasificacionDocenteController extends Controller
                 $materiasInsertadas++;
             }
 
-
-            // ------- 3b) CLASIFICACION_TITULO -------
             $tituloInsertado = false;
 
             if ($titulo) {
@@ -265,7 +253,7 @@ class ClasificacionDocenteController extends Controller
                 ]);
                 $tituloInsertado = true;
             }
-            // ------- 4) CLASIFICACION_REFERENCIA (a nivel documento) -------
+
             $referenciasInsertadas = 0;
 
             if ($request->filled('referencias')) {
@@ -284,8 +272,6 @@ class ClasificacionDocenteController extends Controller
                     $referenciasInsertadas++;
                 }
             }
-
-
 
             DB::commit();
 
@@ -328,7 +314,6 @@ class ClasificacionDocenteController extends Controller
     }
 
     // PUT /clasificaciones/{id}
-// $id = ID_CLASIFICACION_DOCENTE (misma fila que usa show())
     public function update(Request $request, $id)
     {
         DB::beginTransaction();
@@ -376,7 +361,6 @@ class ClasificacionDocenteController extends Controller
                 }
             }
 
-            // ------- 1) CLASIFICACION_DOCUMENTO (datos generales, a nivel documento) -------
             $datosDocumento = [
                 'CATEGORIA' => $request->categoria,
                 'NIVEL' => $request->nivel ?: null,
@@ -413,7 +397,6 @@ class ClasificacionDocenteController extends Controller
                 ->where('ID_DOCUMENTO', $idDocumento)
                 ->update($datosDocumento);
 
-            // ------- 2) CLASIFICACION_MATERIA: se reemplazan SOLO las de este docente -------
             DB::table('CLASIFICACION_MATERIA')
                 ->where('ID_DOCUMENTO', $idDocumento)
                 ->where('ID_CLASIFICACION_DOCENTE', $id)
@@ -435,7 +418,6 @@ class ClasificacionDocenteController extends Controller
                 $materiasInsertadas++;
             }
 
-            // ------- 3) CLASIFICACION_TITULO: se reemplaza el de este docente -------
             DB::table('CLASIFICACION_TITULO')
                 ->where('ID_DOCUMENTO', $idDocumento)
                 ->where('ID_CLASIFICACION_DOCENTE', $id)
@@ -456,7 +438,6 @@ class ClasificacionDocenteController extends Controller
                 $tituloActualizado = true;
             }
 
-            // ------- 4) CLASIFICACION_REFERENCIA: a nivel documento completo -------
             $referenciasActualizadas = 0;
             if ($request->has('referencias')) {
                 DB::table('CLASIFICACION_REFERENCIA')->where('ID_DOCUMENTO', $idDocumento)->delete();
@@ -500,7 +481,6 @@ class ClasificacionDocenteController extends Controller
     }
 
     // GET /clasificaciones/{id}/pdf
-    // $id = ID_DOCUMENTO (el PDF es del documento, no de un docente en particular)
     public function descargar(Request $request, $id)
     {
         $doc = DB::table('CLASIFICACION_DOCUMENTO')
@@ -525,7 +505,6 @@ class ClasificacionDocenteController extends Controller
     }
 
     // DELETE /clasificaciones/{id}
-    // $id = ID_DOCUMENTO -> borra el documento completo (docentes, materias, referencias en cascada)
     public function destroy($id)
     {
         $doc = DB::table('CLASIFICACION_DOCUMENTO')->where('ID_DOCUMENTO', $id)->first();
@@ -552,8 +531,6 @@ class ClasificacionDocenteController extends Controller
     }
 
     // DELETE /clasificaciones/docente/{idClasificacionDocente}
-    // Elimina SOLO un docente del documento (no borra el documento ni sus otros docentes).
-    // Las materias que apuntaban a este docente quedan con ID_CLASIFICACION_DOCENTE = NULL.
     public function destroyDocente($idClasificacionDocente)
     {
         $ccd = DB::table('CLASIFICACION_DOCENTE')
@@ -577,36 +554,7 @@ class ClasificacionDocenteController extends Controller
         return response()->json(['ok' => true, 'mensaje' => 'Docente eliminado de la clasificación']);
     }
 
-
     // PUT /clasificaciones/{id}/aplicar
-//
-// $id = ID_DOCUMENTO (CLASIFICACION_DOCUMENTO)
-//
-// Traslada los datos del documento hacia GRUPOS, SOLO para los grupos que
-// coincidan con las materias que el/los docente(s) tienen en
-// CLASIFICACION_MATERIA para este documento.
-//
-// Mapeo de campos:
-//   CLASIFICACION_DOCUMENTO.TIPO_DOCUMENTO  -> GRUPOS.RESOLUCION
-//   CLASIFICACION_DOCUMENTO.DETALLE_GENERAL -> GRUPOS.DESIGNACION
-//   CLASIFICACION_DOCUMENTO.CATEGORIA       -> GRUPOS.TIPO_INGRESO
-//
-// Cruce (match) contra GRUPOS:
-//   CLASIFICACION_DOCUMENTO.GESTION   = GRUPOS.ANIO
-//   CLASIFICACION_DOCUMENTO.PERIODO   = GRUPOS.PERIODO
-//   CLASIFICACION_MATERIA.COD_PLAN    = GRUPOS.PLAN
-//   CLASIFICACION_MATERIA.COD_MATERIA = GRUPOS.MATERIA
-//   CLASIFICACION_MATERIA.GRUPO       = GRUPOS.GRUPO
-//   CLASIFICACION_DOCENTE.COD_DOCENTE = GRUPOS.DOCENTE
-//
-// IMPORTANTE: si el documento se guardó en el caso "no regenta materia"
-// (sin filas en CLASIFICACION_MATERIA), no hay PLAN/MATERIA/GRUPO con qué
-// cruzar. En ese caso esta función NO toca GRUPOS y devuelve
-// filas_afectadas = 0 con un aviso, tal como pediste ("solo guarda como antes").
-//
-// Acepta opcionalmente "ids_materia" en el body (IDs de CLASIFICACION_MATERIA)
-// para limitar a materias puntuales; si no viene, aplica todas las del documento.
-
     public function aplicarEnGrupos(Request $request, $id)
     {
         $idsMateria = $request->input('ids_materia', []);
@@ -699,8 +647,7 @@ class ClasificacionDocenteController extends Controller
             ]);
 
         } catch (\Illuminate\Database\QueryException $e) {
-            // Error específico de SQL Server: código de error, SQLSTATE, mensaje real del motor
-            $errorInfo = $e->errorInfo ?? null; // [SQLSTATE, driver_error_code, driver_error_message]
+            $errorInfo = $e->errorInfo ?? null;
 
             Log::error('Error SQL en aplicarEnGrupos', [
                 'id_documento' => $id,
@@ -740,7 +687,6 @@ class ClasificacionDocenteController extends Controller
             ], 500);
         }
     }
-
 
     // PUT /clasificaciones/{id}/quitar
     public function quitarDeGrupos(Request $request, $id)
@@ -877,10 +823,6 @@ class ClasificacionDocenteController extends Controller
     }
 
     // GET /api/clasificaciones/materias-registradas
-// Devuelve las materias que YA tienen una clasificación guardada
-// (en cualquier documento) para un docente en una gestión/periodo dados.
-// Se usa en el buscador de materias para no permitir duplicarlas y
-// en su lugar mostrar el lápiz de "editar".
     public function materiasRegistradas(Request $request)
     {
         $request->validate([
@@ -920,8 +862,6 @@ class ClasificacionDocenteController extends Controller
     }
 
     // GET /api/categorias
-// Devuelve las categorías distintas que ya se usaron en CLASIFICACION_DOCUMENTO,
-// para alimentar el combobox del frontend (useCategorias.js).
     public function categorias()
     {
         $categorias = DB::table('CLASIFICACION_DOCUMENTO')
@@ -937,8 +877,6 @@ class ClasificacionDocenteController extends Controller
     }
 
     // GET /clasificaciones/docente/{codDocente}/categorias
-// Categorías DISTINTAS (sin duplicar) que tiene un docente en CLASIFICACION_DOCUMENTO.
-// Se usa para armar el desplegable del botón "Habilitar Categorías".
     public function categoriasDocente($codDocente)
     {
         $categorias = DB::table('CLASIFICACION_DOCENTE as ccd')
@@ -958,15 +896,12 @@ class ClasificacionDocenteController extends Controller
         ]);
     }
 
-    // GET /clasificaciones/docente/{codDocente}/documentos?categoria=Diploma
-// Todos los documentos de ESE docente en ESA categoría (puede traer varios,
-// ej: 2 documentos de categoría "Diploma").
     // GET /clasificaciones/docente/{codDocente}/documentos?categorias=Diploma,Maestría
     public function documentosDocente(Request $request, $codDocente)
     {
         $request->validate([
-            'categoria' => 'nullable|string|max:60',   // legado: una sola categoría
-            'categorias' => 'nullable|string|max:500', // nuevo: varias, separadas por coma
+            'categoria' => 'nullable|string|max:60',
+            'categorias' => 'nullable|string|max:500',
         ]);
 
         $categoriasFiltro = [];
@@ -1019,5 +954,103 @@ class ClasificacionDocenteController extends Controller
         ]);
     }
 
+    // PUT /api/categorias
+    public function actualizarCategoria(Request $request)
+    {
+        $request->validate([
+            'anterior' => 'required|string|max:60',
+            'nuevo' => 'required|string|max:60',
+        ]);
 
+        $anterior = trim($request->anterior);
+        $nuevo = trim($request->nuevo);
+
+        if ($anterior === '' || $nuevo === '') {
+            return response()->json(['ok' => false, 'error' => 'El nombre no puede estar vacío'], 422);
+        }
+
+        if ($anterior === $nuevo) {
+            return response()->json(['ok' => true, 'filas_actualizadas' => 0]);
+        }
+
+        $yaExiste = DB::table('CLASIFICACION_DOCUMENTO')
+            ->whereRaw('LOWER(CATEGORIA) = ?', [mb_strtolower($nuevo)])
+            ->where('CATEGORIA', '<>', $anterior)
+            ->exists();
+
+        if ($yaExiste) {
+            return response()->json(['ok' => false, 'error' => 'Ya existe una categoría con ese nombre'], 422);
+        }
+
+        $filas = DB::table('CLASIFICACION_DOCUMENTO')
+            ->where('CATEGORIA', $anterior)
+            ->update(['CATEGORIA' => $nuevo]);
+
+        return response()->json([
+            'ok' => true,
+            'mensaje' => 'Categoría actualizada correctamente',
+            'filas_actualizadas' => $filas,
+        ]);
+    }
+
+    // GET /api/reporte-docentes/tipos-titulo
+    // Devuelve los tipos de título distintos que ya se usaron en CLASIFICACION_TITULO,
+    // para alimentar el combobox del frontend (useTiposTitulo.js).
+    public function tiposTitulo()
+    {
+        $tipos = DB::table('CLASIFICACION_TITULO')
+            ->select('TIPO_TITULO')
+            ->whereNotNull('TIPO_TITULO')
+            ->where('TIPO_TITULO', '<>', '')
+            ->distinct()
+            ->orderBy('TIPO_TITULO')
+            ->pluck('TIPO_TITULO')
+            ->values();
+
+        return response()->json($tipos);
+    }
+
+    // PUT /api/reporte-docentes/tipos-titulo
+    // Body: { "anterior": "DIPLOMADO", "nuevo": "DIPLOMADO ESPECIALIZADO" }
+    //
+    // No existe una tabla propia de tipos de título: son los valores distintos
+    // de CLASIFICACION_TITULO.TIPO_TITULO. "Editar" un tipo significa renombrarlo
+    // en TODOS los títulos que ya lo usan.
+    public function actualizarTipoTitulo(Request $request)
+    {
+        $request->validate([
+            'anterior' => 'required|string|max:60',
+            'nuevo' => 'required|string|max:60',
+        ]);
+
+        $anterior = trim($request->anterior);
+        $nuevo = trim($request->nuevo);
+
+        if ($anterior === '' || $nuevo === '') {
+            return response()->json(['ok' => false, 'error' => 'El nombre no puede estar vacío'], 422);
+        }
+
+        if ($anterior === $nuevo) {
+            return response()->json(['ok' => true, 'filas_actualizadas' => 0]);
+        }
+
+        $yaExiste = DB::table('CLASIFICACION_TITULO')
+            ->whereRaw('LOWER(TIPO_TITULO) = ?', [mb_strtolower($nuevo)])
+            ->where('TIPO_TITULO', '<>', $anterior)
+            ->exists();
+
+        if ($yaExiste) {
+            return response()->json(['ok' => false, 'error' => 'Ya existe un tipo de título con ese nombre'], 422);
+        }
+
+        $filas = DB::table('CLASIFICACION_TITULO')
+            ->where('TIPO_TITULO', $anterior)
+            ->update(['TIPO_TITULO' => $nuevo]);
+
+        return response()->json([
+            'ok' => true,
+            'mensaje' => 'Tipo de título actualizado correctamente',
+            'filas_actualizadas' => $filas,
+        ]);
+    }
 }
