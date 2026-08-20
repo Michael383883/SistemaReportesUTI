@@ -92,7 +92,14 @@ function calcularHijasIndices(materias) {
 }
 
 export function generarPDF(reporte, opts = {}) {
-    const { action = 'open', documentosCategoria = [], categoriasSeleccionadas = [] } = opts
+    const {
+        action = 'open',
+        documentosCategoria = [],
+        categoriasSeleccionadas = [],
+        // Cuando es true: omite la tabla de "Materias dictadas" y el PDF
+        // sólo contiene la tabla de documentos por categoría.
+        soloDocumentos = false,
+    } = opts
 
     // ── PORTRAIT Letter (216 × 279 mm) ──────────────────────────────────────────
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' })
@@ -129,7 +136,12 @@ export function generarPDF(reporte, opts = {}) {
 
         // ── Título centrado ──────────────────────────────────────────────────────
         doc.setFontSize(11)
-        doc.text('MATERIAS DICTADAS DE UN DOCENTE', PAGE_W / 2, 12, { align: 'center' })
+        doc.text(
+            soloDocumentos ? 'REPORTE DE DOCUMENTOS DEL DOCENTE' : 'MATERIAS DICTADAS DE UN DOCENTE',
+            PAGE_W / 2,
+            12,
+            { align: 'center' },
+        )
 
         // ── Línea divisoria ──────────────────────────────────────────────────────
         doc.setDrawColor(...COLOR_ROW_LINE)
@@ -140,10 +152,11 @@ export function generarPDF(reporte, opts = {}) {
         doc.setFont('helvetica', 'normal')
         doc.setFontSize(6.5)
         doc.setTextColor(40, 40, 40)
-        const descripcion =
-            'Datos Históricos pertenecientes a la Facultad de Ciencias Económicas registrados en el SISS ' +
-            'a partir de la gestión 2001. El reporte también detalla los grupos compartidos solo para los ' +
-            'cursos Intersemestrales de Verano e Invierno.'
+        const descripcion = soloDocumentos
+            ? 'Documentos registrados en el SISS para el docente, clasificados por categoría.'
+            : 'Datos Históricos pertenecientes a la Facultad de Ciencias Económicas registrados en el SISS ' +
+              'a partir de la gestión 2001. El reporte también detalla los grupos compartidos solo para los ' +
+              'cursos Intersemestrales de Verano e Invierno.'
         const descLines = doc.splitTextToSize(descripcion, CONTENT_W)
         doc.text(descLines, MARGIN_L, 21)
 
@@ -159,149 +172,159 @@ export function generarPDF(reporte, opts = {}) {
         return docenteY + 3
     }
 
-    doc.setProperties({ title: 'Materias dictadas de un docente' })
+    doc.setProperties({
+        title: soloDocumentos ? 'Reporte de documentos del docente' : 'Materias dictadas de un docente',
+    })
 
     const startY = drawHeader()
 
-    // ── Columnas ──────────────────────────────────────────────────────────────────
-    const columnas = [
-        { header: 'Nº', dataKey: 'nro' },
-        { header: 'GESTIÓN', dataKey: 'gestion' },
-        { header: 'PLAN', dataKey: 'plan' },
-        { header: 'MATERIA', dataKey: 'materia' },
-        { header: 'COMPARTIDO', dataKey: 'compartido' },
-        { header: 'GRP', dataKey: 'grp' },
-        { header: 'RESOLUCIÓN', dataKey: 'resolucion' },
-        { header: 'DESIGNACIÓN', dataKey: 'designacion' },
-        ...(reporte.__extraColumnas || []),
-    ]
+    // ════════════════════════════════════════════════════════════════
+    // Tabla de materias dictadas — se omite si soloDocumentos = true
+    // ════════════════════════════════════════════════════════════════
+    let finalYMaterias = startY
 
-    const materiasFuente = reporte.materias || []
-    const hijasIndices = calcularHijasIndices(materiasFuente)
+    if (!soloDocumentos) {
+        const columnas = [
+            { header: 'Nº', dataKey: 'nro' },
+            { header: 'GESTIÓN', dataKey: 'gestion' },
+            { header: 'PLAN', dataKey: 'plan' },
+            { header: 'MATERIA', dataKey: 'materia' },
+            { header: 'COMPARTIDO', dataKey: 'compartido' },
+            { header: 'GRP', dataKey: 'grp' },
+            { header: 'RESOLUCIÓN', dataKey: 'resolucion' },
+            { header: 'DESIGNACIÓN', dataKey: 'designacion' },
+            ...(reporte.__extraColumnas || []),
+        ]
 
-    const filas = materiasFuente.map((m, idx) => ({
-        nro: m.nro,
-        gestion: formatGestion(m.gestion),
-        plan: PLAN_MAP[m.plan] || m.plan || '',
-        materia: m.materia || '',
-        compartido: hijasIndices.has(idx) ? 'COMPARTIDO' : '',
-        grp: m.grp || '',
-        resolucion: m.resolucion || '',
-        designacion: m.designacion || '',
-        // ── pasa cualquier campo extra que haya inyectado el hijo ──
-        ...(reporte.__extraColumnas || []).reduce((acc, col) => {
-            acc[col.dataKey] = m[col.dataKey] ?? ''
-            return acc
-        }, {}),
-    }))
+        const materiasFuente = reporte.materias || []
+        const hijasIndices = calcularHijasIndices(materiasFuente)
 
-    // ── Tabla ─────────────────────────────────────────────────────────────────────
-    autoTable(doc, {
-        startY,
-        margin: { left: MARGIN_L, right: MARGIN_R },
-        tableWidth: CONTENT_W,
-        head: [columnas.map((c) => c.header)],
-        body: filas.map((f) => columnas.map((c) => f[c.dataKey])),
+        const filas = materiasFuente.map((m, idx) => ({
+            nro: m.nro,
+            gestion: formatGestion(m.gestion),
+            plan: PLAN_MAP[m.plan] || m.plan || '',
+            materia: m.materia || '',
+            compartido: hijasIndices.has(idx) ? 'COMPARTIDO' : '',
+            grp: m.grp || '',
+            resolucion: m.resolucion || '',
+            designacion: m.designacion || '',
+            // ── pasa cualquier campo extra que haya inyectado el hijo ──
+            ...(reporte.__extraColumnas || []).reduce((acc, col) => {
+                acc[col.dataKey] = m[col.dataKey] ?? ''
+                return acc
+            }, {}),
+        }))
 
-        styles: {
-            font: 'helvetica',
-            fontSize: 6.2,
-            cellPadding: { top: 1.2, bottom: 1.2, left: 1.5, right: 1.5 },
-            textColor: COLOR_BLACK,
-            lineColor: COLOR_ROW_LINE,
-            lineWidth: 0,
-            overflow: 'linebreak',
-            valign: 'middle',
-            fillColor: false,
-        },
+        // ── Tabla ─────────────────────────────────────────────────────────────────────
+        autoTable(doc, {
+            startY,
+            margin: { left: MARGIN_L, right: MARGIN_R },
+            tableWidth: CONTENT_W,
+            head: [columnas.map((c) => c.header)],
+            body: filas.map((f) => columnas.map((c) => f[c.dataKey])),
 
-        headStyles: {
-            fillColor: COLOR_GRAY_BG,
-            textColor: COLOR_BLACK,
-            fontStyle: 'bold',
-            fontSize: 6.2,
-            halign: 'center',
-            valign: 'middle',
-            lineColor: [130, 130, 130],
-            lineWidth: 0.3,
-        },
+            styles: {
+                font: 'helvetica',
+                fontSize: 6.2,
+                cellPadding: { top: 1.2, bottom: 1.2, left: 1.5, right: 1.5 },
+                textColor: COLOR_BLACK,
+                lineColor: COLOR_ROW_LINE,
+                lineWidth: 0,
+                overflow: 'linebreak',
+                valign: 'middle',
+                fillColor: false,
+            },
 
-        alternateRowStyles: {
-            fillColor: false,
-        },
+            headStyles: {
+                fillColor: COLOR_GRAY_BG,
+                textColor: COLOR_BLACK,
+                fontStyle: 'bold',
+                fontSize: 6.2,
+                halign: 'center',
+                valign: 'middle',
+                lineColor: [130, 130, 130],
+                lineWidth: 0.3,
+            },
 
-        columnStyles: {
-            0: { cellWidth: 10, halign: 'center' },  // Nº — cabe hasta 3 dígitos
-            1: { cellWidth: 22 },
-            2: { cellWidth: 12, halign: 'center' },  // PLAN — ancho suficiente para 1 línea
-            3: { cellWidth: 50 },
-            4: { cellWidth: 20, halign: 'center' },
-            5: { cellWidth: 8, halign: 'center' },
-            6: { cellWidth: 22 },
-            7: { cellWidth: reporte.__extraColumnas?.length ? 30 : 'auto' },
-            8: { cellWidth: 22, halign: 'center' },
-        },
+            alternateRowStyles: {
+                fillColor: false,
+            },
 
-        // ── Solo líneas horizontales entre filas, sin verticales ──────────────
-        didDrawCell(data) {
-            if (data.section !== 'body') return
+            columnStyles: {
+                0: { cellWidth: 10, halign: 'center' },  // Nº — cabe hasta 3 dígitos
+                1: { cellWidth: 22 },
+                2: { cellWidth: 12, halign: 'center' },  // PLAN — ancho suficiente para 1 línea
+                3: { cellWidth: 50 },
+                4: { cellWidth: 20, halign: 'center' },
+                5: { cellWidth: 8, halign: 'center' },
+                6: { cellWidth: 22 },
+                7: { cellWidth: reporte.__extraColumnas?.length ? 30 : 'auto' },
+                8: { cellWidth: 22, halign: 'center' },
+            },
 
-            // Dibuja una sola vez por fila (en la última columna)
-            const isLastCol = data.column.index === data.table.columns.length - 1
-            if (!isLastCol) return
+            // ── Solo líneas horizontales entre filas, sin verticales ──────────────
+            didDrawCell(data) {
+                if (data.section !== 'body') return
 
-            const { y, height } = data.cell
+                // Dibuja una sola vez por fila (en la última columna)
+                const isLastCol = data.column.index === data.table.columns.length - 1
+                if (!isLastCol) return
 
-            doc.setDrawColor(...COLOR_ROW_LINE)
-            doc.setLineWidth(0.2)
+                const { y, height } = data.cell
 
-            // Línea horizontal inferior de cada fila
-            doc.line(MARGIN_L, y + height, MARGIN_L + CONTENT_W, y + height)
-        },
+                doc.setDrawColor(...COLOR_ROW_LINE)
+                doc.setLineWidth(0.2)
 
-        didParseCell(data) {
-            // Materia y Designación: fuente ligeramente menor
-            if (data.section === 'body' && (data.column.index === 3 || data.column.index === 7)) {
-                data.cell.styles.fontSize = 6.0
-            }
-        },
+                // Línea horizontal inferior de cada fila
+                doc.line(MARGIN_L, y + height, MARGIN_L + CONTENT_W, y + height)
+            },
 
-        didAddPage() {
-            drawHeader()
-        },
+            didParseCell(data) {
+                // Materia y Designación: fuente ligeramente menor
+                if (data.section === 'body' && (data.column.index === 3 || data.column.index === 7)) {
+                    data.cell.styles.fontSize = 6.0
+                }
+            },
 
-        didDrawPage() {
-            const pageNum = doc.internal.getCurrentPageInfo().pageNumber
-            const footerY = PAGE_H - 5
+            didAddPage() {
+                drawHeader()
+            },
 
-            doc.setDrawColor(...COLOR_ROW_LINE)
-            doc.setLineWidth(0.2)
-            doc.line(MARGIN_L, footerY - 3.5, PAGE_W - MARGIN_R, footerY - 3.5)
+            didDrawPage() {
+                const pageNum = doc.internal.getCurrentPageInfo().pageNumber
+                const footerY = PAGE_H - 5
 
-            doc.setFont('helvetica', 'normal')
-            doc.setFontSize(6)
-            doc.setTextColor(90, 90, 90)
+                doc.setDrawColor(...COLOR_ROW_LINE)
+                doc.setLineWidth(0.2)
+                doc.line(MARGIN_L, footerY - 3.5, PAGE_W - MARGIN_R, footerY - 3.5)
 
-            doc.text('Procesado UTi - Facultad de Ciencias Económicas', MARGIN_L, footerY)
+                doc.setFont('helvetica', 'normal')
+                doc.setFontSize(6)
+                doc.setTextColor(90, 90, 90)
 
-            doc.text(
-                `Página ${pageNum} de {totalPages}`,
-                PAGE_W / 2,
-                footerY,
-                { align: 'center' },
-            )
+                doc.text('Procesado UTi - Facultad de Ciencias Económicas', MARGIN_L, footerY)
 
-            const now = new Date()
-            const ahora = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()} ${now.toLocaleString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`
-            doc.text(ahora, PAGE_W - MARGIN_R, footerY, { align: 'right' })
-        },
-    })
+                doc.text(
+                    `Página ${pageNum} de {totalPages}`,
+                    PAGE_W / 2,
+                    footerY,
+                    { align: 'center' },
+                )
+
+                const now = new Date()
+                const ahora = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()} ${now.toLocaleString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`
+                doc.text(ahora, PAGE_W - MARGIN_R, footerY, { align: 'right' })
+            },
+        })
+
+        finalYMaterias = doc.lastAutoTable?.finalY ?? startY
+    }
 
     // ════════════════════════════════════════════════════════════════
     // Tabla de documentos por categoría (al final, sin columna Documento)
     // ════════════════════════════════════════════════════════════════
     if (documentosCategoria.length) {
-        let y = (doc.lastAutoTable?.finalY ?? startY) + 8
+        let y = finalYMaterias + (soloDocumentos ? 0 : 8)
 
         if (y > PAGE_H - 30) {
             doc.addPage()
@@ -311,8 +334,7 @@ export function generarPDF(reporte, opts = {}) {
         doc.setFont('helvetica', 'bold')
         doc.setFontSize(8)
         doc.setTextColor(...COLOR_BLACK)
-    
-      
+
         y += 1
 
         const columnasCat = [
@@ -378,6 +400,30 @@ export function generarPDF(reporte, opts = {}) {
             didAddPage() {
                 drawHeader()
             },
+            didDrawPage() {
+                // Cuando la tabla de materias fue omitida, este bloque es el
+                // único contenido del PDF: hay que dibujar footer/paginación
+                // en cada página igual que en la tabla principal.
+                if (!soloDocumentos) return
+
+                const pageNum = doc.internal.getCurrentPageInfo().pageNumber
+                const footerY = PAGE_H - 5
+
+                doc.setDrawColor(...COLOR_ROW_LINE)
+                doc.setLineWidth(0.2)
+                doc.line(MARGIN_L, footerY - 3.5, PAGE_W - MARGIN_R, footerY - 3.5)
+
+                doc.setFont('helvetica', 'normal')
+                doc.setFontSize(6)
+                doc.setTextColor(90, 90, 90)
+
+                doc.text('Procesado UTi - Facultad de Ciencias Económicas', MARGIN_L, footerY)
+                doc.text(`Página ${pageNum} de {totalPages}`, PAGE_W / 2, footerY, { align: 'center' })
+
+                const now = new Date()
+                const ahora = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()} ${now.toLocaleString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`
+                doc.text(ahora, PAGE_W - MARGIN_R, footerY, { align: 'right' })
+            },
         })
     }
 
@@ -387,7 +433,9 @@ export function generarPDF(reporte, opts = {}) {
 
     // ── Acción ────────────────────────────────────────────────────────────────────
     const codigoDoc = reporte.docente?.codigo || 'doc'
-    const fileName = `reporte_docente_${codigoDoc}.pdf`
+    const fileName = soloDocumentos
+        ? `reporte_documentos_docente_${codigoDoc}.pdf`
+        : `reporte_docente_${codigoDoc}.pdf`
 
     if (action === 'save') {
         doc.save(fileName)

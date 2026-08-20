@@ -122,82 +122,78 @@
       Quitar filtros
     </button>
 
-    <!-- Botón PDF con menú desplegable compacto -->
+    <!-- ═══════════════════════════════════════════════════════════════════
+         Botón(es) PDF
+         - Modo documentos + hay categorías seleccionadas → un solo botón
+           "Generar Reporte de Documento" con su propio mini-menú.
+         - Modo normal → el menú de 3 secciones (estándar / modalidad /
+           compartido) de siempre.
+    ═══════════════════════════════════════════════════════════════════ -->
     <div class="relative ml-auto" ref="pdfMenuRef">
-      <div class="inline-flex rounded-lg overflow-hidden shadow-sm shadow-red-900/10 border border-red-700/40">
-        <button
-          :disabled="!reporte || loading"
-          class="
-            inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold
-            bg-red-700 hover:bg-red-600 active:bg-red-800
-            text-white transition-all duration-150 cursor-pointer border-none
-            disabled:opacity-40 disabled:cursor-not-allowed
-          "
-          @click.stop="toggleMenu"
-        >
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-            <polyline points="14 2 14 8 20 8"/>
-            <line x1="16" y1="13" x2="8" y2="13"/>
-            <line x1="16" y1="17" x2="8" y2="17"/>
-            <polyline points="10 9 9 9 8 9"/>
-          </svg>
-          Generar Reporte PDF
-        </button>
 
-        <button
-          :disabled="!reporte || loading"
-          class="
-            inline-flex items-center px-2.5 py-2
-            bg-red-800 hover:bg-red-700 active:bg-red-900
-            text-white border-l border-red-900/50 transition-all duration-150
-            cursor-pointer border-t-0 border-b-0 border-r-0
-            disabled:opacity-40 disabled:cursor-not-allowed
-          "
-          @click.stop="toggleMenu"
-        >
-          <svg
-            width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
-            :class="['transition-transform duration-200', menuOpen ? 'rotate-180' : '']"
+      <!-- ── Modo documentos: botón único ────────────────────────────────── -->
+      <template v-if="soloDocumentos">
+        <div class="inline-flex rounded-lg overflow-hidden shadow-sm shadow-red-900/10 border border-red-700/40">
+          <button
+            :disabled="!reporte || loading"
+            class="
+              inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold
+              bg-red-700 hover:bg-red-600 active:bg-red-800
+              text-white transition-all duration-150 cursor-pointer border-none
+              disabled:opacity-40 disabled:cursor-not-allowed
+            "
+            @click.stop="onPDF('open-documento')"
           >
-            <polyline points="6 9 12 15 18 9"/>
-          </svg>
-        </button>
-      </div>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <line x1="16" y1="13" x2="8" y2="13"/>
+              <line x1="16" y1="17" x2="8" y2="17"/>
+              <polyline points="10 9 9 9 8 9"/>
+            </svg>
+            Generar Reporte de Documento
+          </button>
 
-      <Transition
-        enter-active-class="transition ease-out duration-150"
-        enter-from-class="opacity-0 translate-y-1 scale-95"
-        enter-to-class="opacity-100 translate-y-0 scale-100"
-        leave-active-class="transition ease-in duration-100"
-        leave-from-class="opacity-100 translate-y-0 scale-100"
-        leave-to-class="opacity-0 translate-y-1 scale-95"
-      >
-        <!--
-          Rediseño: cada sección ahora es una tarjeta vertical.
-          Fila 1: título (encabezado) de la sección.
-          Fila 2: los 3 iconos, más grandes, en botones cuadrados
-                   que se pintan de gris al pasar el mouse o al
-                   estar "activos" (seleccionados con el teclado/focus).
-        -->
-        <div
-          v-if="menuOpen"
-          class="
-            absolute right-0 mt-1.5 w-60 rounded-xl
-            bg-white border border-slate-800
-            shadow-xl shadow-black/10 z-50 overflow-hidden
-          "
+          <button
+            :disabled="!reporte || loading"
+            class="
+              inline-flex items-center px-2.5 py-2
+              bg-red-800 hover:bg-red-700 active:bg-red-900
+              text-white border-l border-red-900/50 transition-all duration-150
+              cursor-pointer border-t-0 border-b-0 border-r-0
+              disabled:opacity-40 disabled:cursor-not-allowed
+            "
+            @click.stop="toggleMenu"
+          >
+            <svg
+              width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+              :class="['transition-transform duration-200', menuOpen ? 'rotate-180' : '']"
+            >
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
+          </button>
+        </div>
+
+        <Transition
+          enter-active-class="transition ease-out duration-150"
+          enter-from-class="opacity-0 translate-y-1 scale-95"
+          enter-to-class="opacity-100 translate-y-0 scale-100"
+          leave-active-class="transition ease-in duration-100"
+          leave-from-class="opacity-100 translate-y-0 scale-100"
+          leave-to-class="opacity-0 translate-y-1 scale-95"
         >
-          <template v-for="(sec, i) in pdfSecciones" :key="sec.key">
-            <div v-if="i > 0" class="mx-3.5 border-t border-slate-100"/>
-
+          <div
+            v-if="menuOpen"
+            class="
+              absolute right-0 mt-1.5 w-44 rounded-xl
+              bg-white border border-slate-800
+              shadow-xl shadow-black/10 z-50 overflow-hidden
+            "
+          >
             <div class="flex flex-col gap-2 px-3.5 py-3">
-              <!-- Encabezado de la sección -->
               <span class="text-[0.72rem] font-semibold text-slate-900">
-                {{ sec.titulo }}
+                Reporte de documento
               </span>
-
-              <!-- Fila de iconos, más grandes y con fondo gris al hover/selección -->
               <div class="flex items-center gap-2">
                 <button
                   title="Ver / Imprimir en el navegador"
@@ -209,7 +205,7 @@
                     active:bg-slate-300
                     transition-colors duration-100 cursor-pointer outline-none
                   "
-                  @click="onPDF(sec.acciones.open)"
+                  @click="onPDF('open-documento')"
                 >
                   <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
@@ -227,7 +223,7 @@
                     active:bg-slate-300
                     transition-colors duration-100 cursor-pointer outline-none
                   "
-                  @click="onPDF(sec.acciones.print)"
+                  @click="onPDF('print-documento')"
                 >
                   <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <polyline points="6 9 6 2 18 2 18 9"/>
@@ -246,7 +242,7 @@
                     active:bg-amber-300
                     transition-colors duration-100 cursor-pointer outline-none
                   "
-                  @click="onPDF(sec.acciones.save)"
+                  @click="onPDF('save-documento')"
                 >
                   <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
@@ -256,29 +252,167 @@
                 </button>
               </div>
             </div>
-          </template>
+          </div>
+        </Transition>
+      </template>
+
+      <!-- ── Modo normal: menú de 3 secciones ────────────────────────────── -->
+      <template v-else>
+        <div class="inline-flex rounded-lg overflow-hidden shadow-sm shadow-red-900/10 border border-red-700/40">
+          <button
+            :disabled="!reporte || loading"
+            class="
+              inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold
+              bg-red-700 hover:bg-red-600 active:bg-red-800
+              text-white transition-all duration-150 cursor-pointer border-none
+              disabled:opacity-40 disabled:cursor-not-allowed
+            "
+            @click.stop="toggleMenu"
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <line x1="16" y1="13" x2="8" y2="13"/>
+              <line x1="16" y1="17" x2="8" y2="17"/>
+              <polyline points="10 9 9 9 8 9"/>
+            </svg>
+            Generar Reporte PDF
+          </button>
+
+          <button
+            :disabled="!reporte || loading"
+            class="
+              inline-flex items-center px-2.5 py-2
+              bg-red-800 hover:bg-red-700 active:bg-red-900
+              text-white border-l border-red-900/50 transition-all duration-150
+              cursor-pointer border-t-0 border-b-0 border-r-0
+              disabled:opacity-40 disabled:cursor-not-allowed
+            "
+            @click.stop="toggleMenu"
+          >
+            <svg
+              width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+              :class="['transition-transform duration-200', menuOpen ? 'rotate-180' : '']"
+            >
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
+          </button>
         </div>
-      </Transition>
+
+        <Transition
+          enter-active-class="transition ease-out duration-150"
+          enter-from-class="opacity-0 translate-y-1 scale-95"
+          enter-to-class="opacity-100 translate-y-0 scale-100"
+          leave-active-class="transition ease-in duration-100"
+          leave-from-class="opacity-100 translate-y-0 scale-100"
+          leave-to-class="opacity-0 translate-y-1 scale-95"
+        >
+          <div
+            v-if="menuOpen"
+            class="
+              absolute right-0 mt-1.5 w-60 rounded-xl
+              bg-white border border-slate-800
+              shadow-xl shadow-black/10 z-50 overflow-hidden
+            "
+          >
+            <template v-for="(sec, i) in pdfSecciones" :key="sec.key">
+              <div v-if="i > 0" class="mx-3.5 border-t border-slate-100"/>
+
+              <div class="flex flex-col gap-2 px-3.5 py-3">
+                <span class="text-[0.72rem] font-semibold text-slate-900">
+                  {{ sec.titulo }}
+                </span>
+
+                <div class="flex items-center gap-2">
+                  <button
+                    title="Ver / Imprimir en el navegador"
+                    class="
+                      group inline-flex items-center justify-center flex-1 h-9 rounded-lg
+                      text-blue-800 bg-slate-50 border border-slate-300
+                      hover:bg-slate-200 hover:text-slate-800 hover:border-slate-300
+                      focus-visible:bg-slate-200 focus-visible:text-slate-800
+                      active:bg-slate-300
+                      transition-colors duration-100 cursor-pointer outline-none
+                    "
+                    @click="onPDF(sec.acciones.open)"
+                  >
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                      <circle cx="12" cy="12" r="3"/>
+                    </svg>
+                  </button>
+
+                  <button
+                    title="Imprimir directamente"
+                    class="
+                      group inline-flex items-center justify-center flex-1 h-9 rounded-lg
+                      text-slate-800 bg-slate-200 border border-slate-200
+                      hover:bg-slate-200 hover:text-slate-400 hover:border-slate-300
+                      focus-visible:bg-slate-200 focus-visible:text-slate-800
+                      active:bg-slate-300
+                      transition-colors duration-100 cursor-pointer outline-none
+                    "
+                    @click="onPDF(sec.acciones.print)"
+                  >
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <polyline points="6 9 6 2 18 2 18 9"/>
+                      <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+                      <rect x="6" y="14" width="12" height="8"/>
+                    </svg>
+                  </button>
+
+                  <button
+                    title="Descargar PDF"
+                    class="
+                      group inline-flex items-center justify-center flex-1 h-9 rounded-lg
+                      text-amber-600 bg-amber-50 border border-amber-200
+                      hover:bg-amber-200 hover:text-amber-800 hover:border-amber-300
+                      focus-visible:bg-amber-200 focus-visible:text-amber-800
+                      active:bg-amber-300
+                      transition-colors duration-100 cursor-pointer outline-none
+                    "
+                    @click="onPDF(sec.acciones.save)"
+                  >
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                      <polyline points="7 10 12 15 17 10"/>
+                      <line x1="12" y1="15" x2="12" y2="3"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </template>
+          </div>
+        </Transition>
+      </template>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { generarPDF } from '../composables/useGenerarPDF'
 import { generarPDFConTipoIngreso } from '../composables/useGenerarPDFConTipoIngreso'
 import { generarPDFCompartido } from '../composables/useGenerarPDFCompartido'
 
 const props = defineProps({
-  anio:      { type: [Number, String], default: null }, // ej: 2016 o "2016/1"
-  anioHasta: { type: [Number, String], default: null }, // ej: 2024 o "2024/2"
-  materia:   { type: String, default: '' },              // código o nombre
+  anio:      { type: [Number, String], default: null },
+  anioHasta: { type: [Number, String], default: null },
+  materia:   { type: String, default: '' },
   grupo:     { type: String, default: '' },
   loading:   { type: Boolean, default: false },
   reporte:   { type: Object, default: null },
   documentosCategoria:     { type: Array, default: () => [] },
   categoriasSeleccionadas: { type: Array, default: () => [] },
+  // true cuando venimos del modo "documentos" (query.modo === 'documentos')
+  modoDocumento: { type: Boolean, default: false },
 })
+
+// Sólo mostramos el botón único de "Generar Reporte de Documento" cuando
+// estamos en modo documento Y hay al menos una categoría seleccionada.
+const soloDocumentos = computed(() =>
+  props.modoDocumento && props.categoriasSeleccionadas.length > 0
+)
 
 const emit = defineEmits([
   'generar',
@@ -297,9 +431,6 @@ const grupoLocal     = ref(props.grupo     || '')
 const menuOpen   = ref(false)
 const pdfMenuRef = ref(null)
 
-// Cada sección = un encabezado arriba + fila de 3 iconos grandes debajo
-// (ver / imprimir / descargar), que se pintan de gris al pasar el mouse
-// o al estar enfocadas/seleccionadas.
 const pdfSecciones = [
   {
     key: 'estandar',
@@ -341,21 +472,23 @@ const onPDF = (action) => {
   if (action === 'save-tipo-ingreso')   return generarPDFConTipoIngreso(props.reporte, { action: 'save', ...opts })
   if (action === 'print-tipo-ingreso')  return generarPDFConTipoIngreso(props.reporte, { action: 'print', ...opts })
 
-
   if (action === 'open-compartido')     return generarPDFCompartido(props.reporte, { action: 'open', ...opts })
   if (action === 'save-compartido')     return generarPDFCompartido(props.reporte, { action: 'save', ...opts })
   if (action === 'print-compartido')    return generarPDFCompartido(props.reporte, { action: 'print', ...opts })
 
+  // ── Modo "solo documento": el mismo generador estándar, pero indicándole
+  // que omita la tabla de materias y sólo emita la tabla de documentos ──
+  if (action === 'open-documento')  return generarPDF(props.reporte, { action: 'open',  soloDocumentos: true, ...opts })
+  if (action === 'save-documento')  return generarPDF(props.reporte, { action: 'save',  soloDocumentos: true, ...opts })
+  if (action === 'print-documento') return generarPDF(props.reporte, { action: 'print', soloDocumentos: true, ...opts })
 
- generarPDF(props.reporte, {
+  generarPDF(props.reporte, {
     action,
-    documentosCategoria: props.documentosCategoria,
-    categoriasSeleccionadas: props.categoriasSeleccionadas,...opts 
+    ...opts,
   })
 }
 
 // ── Parseo de año/periodo ─────────────────────────────────────────────────────
-// Acepta "2016", "2016/1", "2016-1", "2016 1" → { anio: 2016, periodo: '1' | null }
 function parseAnioPeriodo(valorCrudo) {
   const valor = (valorCrudo || '').toString().trim()
   if (!valor) return { anio: null, periodo: null }

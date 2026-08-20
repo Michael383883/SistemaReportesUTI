@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\ClasificacionDocente;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
@@ -23,11 +24,15 @@ class ReporteExcelController extends Controller
             $periodo = $request->query('periodo');
             $version = $request->query('version', '5ta Versión');
 
+            // Ahora llegan como texto separado por comas: "Docentes Titulares,Acefala"
+            $categorias = $this->parseListaCsv($request->query('categoria'));
+            $tiposTitulo = $this->parseListaCsv($request->query('tipo_titulo'));
+
             $etiquetaGestion = $gestionHasta
                 ? "{$gestionDesde} - {$gestionHasta}"
                 : "Desde {$gestionDesde}";
 
-            $data = $this->construirDatos($gestionDesde, $gestionHasta, $periodo);
+            $data = $this->construirDatos($gestionDesde, $gestionHasta, $periodo, $categorias, $tiposTitulo);
 
             return response()->json([
                 'ok' => true,
@@ -44,6 +49,15 @@ class ReporteExcelController extends Controller
         }
     }
 
+    // Convierte "a,b, c" en ['a', 'b', 'c'], descartando vacíos. Si viene null/vacío, devuelve [].
+    private function parseListaCsv(?string $valor): array
+    {
+        if (empty($valor)) {
+            return [];
+        }
+        return array_values(array_filter(array_map('trim', explode(',', $valor))));
+    }
+
     private const ORDEN_NIVELES = [
         'PRIMER NIVEL' => 1,
         'SEGUNDO NIVEL' => 2,
@@ -57,6 +71,7 @@ class ReporteExcelController extends Controller
         'CONCURSO_MERITOS' => 'Concurso de Méritos',
     ];
 
+    // GET /api/reportes/docentes-clasificados/excel
     public function generarListadoDocentes(Request $request)
     {
         try {
@@ -65,11 +80,14 @@ class ReporteExcelController extends Controller
             $periodo = $request->query('periodo');
             $version = $request->query('version', '5ta Versión');
 
+            $categorias = $this->parseListaCsv($request->query('categoria'));
+            $tiposTitulo = $this->parseListaCsv($request->query('tipo_titulo'));
+
             $etiquetaGestion = $gestionHasta
                 ? "{$gestionDesde} - {$gestionHasta}"
                 : "Desde {$gestionDesde}";
 
-            $data = $this->construirDatos($gestionDesde, $gestionHasta, $periodo);
+            $data = $this->construirDatos($gestionDesde, $gestionHasta, $periodo, $categorias, $tiposTitulo);
 
             if (empty($data)) {
                 return response()->json([
@@ -88,20 +106,30 @@ class ReporteExcelController extends Controller
     }
 
     /**
-     * IMPORTANTE: ahora se trabaja a nivel CLASIFICACION_DOCENTE (documento + un docente).
+     * IMPORTANTE: trabaja a nivel CLASIFICACION_DOCENTE (documento + un docente).
      * GESTION, PERIODO, TIPO_DOCUMENTO, CATEGORIA, NIVEL, FOTOCOPIA_TITULAR viven en el
      * documento (documento()), las materias son propias del docente dentro del documento
-     * (materias(), vía ID_CLASIFICACION_DOCENTE), y las referencias son del documento
-     * completo y se comparten entre todos los docentes de ese documento (documento->referencias).
+     * (materias(), vía ID_CLASIFICACION_DOCENTE), las referencias son del documento
+     * completo (documento->referencias), y los títulos (CLASIFICACION_TITULO) se traen
+     * aparte por lote, agrupados por ID_CLASIFICACION_DOCENTE.
+     *
+     * $categoria filtra por CLASIFICACION_DOCUMENTO.CATEGORIA.
+     * $tipoTitulo filtra por CLASIFICACION_TITULO.TIPO_TITULO (solo aparecen docentes
+     * que tengan al menos un título de esa categoría).
      */
-    private function construirDatos(string $gestionDesde, ?string $gestionHasta = null, ?int $periodo = null): array
-    {
+    private function construirDatos(
+        string $gestionDesde,
+        ?string $gestionHasta = null,
+        ?int $periodo = null,
+        array $categorias = [],
+        array $tiposTitulo = []
+    ): array {
         $query = ClasificacionDocente::with([
             'docente',
             'documento.referencias',
             'materias',
         ])
-            ->whereHas('documento', function ($q) use ($gestionDesde, $gestionHasta, $periodo) {
+            ->whereHas('documento', function ($q) use ($gestionDesde, $gestionHasta, $periodo, $categorias) {
                 $q->whereRaw('CAST(GESTION AS INT) >= ?', [(int) $gestionDesde]);
 
                 if ($gestionHasta !== null) {
@@ -111,9 +139,32 @@ class ReporteExcelController extends Controller
                 if ($periodo !== null) {
                     $q->where('PERIODO', $periodo);
                 }
+
+                if (!empty($categoria)) {
+                    $q->whereIn('CATEGORIA', $categorias);
+                }
             });
 
+        // Filtro por categoría de título: se resuelve con una subconsulta contra
+        // CLASIFICACION_TITULO en vez de un JOIN, para no duplicar filas si un
+        // docente llegara a tener más de un título en el mismo documento.
+        if (!empty($tiposTitulo)) {
+            $query->whereIn('ID_CLASIFICACION_DOCENTE', function ($sub) use ($tiposTitulo) {
+                $sub->select('ID_CLASIFICACION_DOCENTE')
+                    ->from('CLASIFICACION_TITULO')
+                    ->whereIn('TIPO_TITULO', $tiposTitulo);
+            });
+        }
+
         $clasificaciones = $query->get();
+
+        // CLASIFICACION_TITULO no tiene relación Eloquent cargada aquí, se trae
+        // en un solo query por lote (evita N+1) y se agrupa por ID_CLASIFICACION_DOCENTE.
+        $idsClasificacion = $clasificaciones->pluck('ID_CLASIFICACION_DOCENTE');
+        $titulosPorClasificacion = DB::table('CLASIFICACION_TITULO')
+            ->whereIn('ID_CLASIFICACION_DOCENTE', $idsClasificacion)
+            ->get()
+            ->groupBy('ID_CLASIFICACION_DOCENTE');
 
         $porDocente = $clasificaciones->groupBy('COD_DOCENTE');
 
@@ -143,16 +194,14 @@ class ReporteExcelController extends Controller
 
             foreach ($clasificacionesDelDocente as $clasificacion) {
                 $documento = $clasificacion->documento;
-                $materias = $clasificacion->materias;
+                $materiasReales = $clasificacion->materias; // antes de meter el placeholder
+                $materias = $materiasReales;
 
                 if ($materias->isEmpty()) {
                     $materias = collect([
                         (object) [
                             'NOMBRE_MATERIA' => 'NO REGENTA MATERIA EN LA FCE',
-                            // CARGA_HORARIA no existe en CLASIFICACION_MATERIA con el esquema
-                            // actual; se deja null hasta que se agregue la columna si se necesita.
                             'CARGA_HORARIA' => null,
-                            'DETALLE' => $documento->DETALLE_GENERAL,
                         ]
                     ]);
                 }
@@ -160,6 +209,49 @@ class ReporteExcelController extends Controller
                 $referencias = $documento->referencias->pluck('NRO_REFERENCIA')->filter()->values();
                 $obs2 = $referencias->get(0, '');
                 $obs3 = $referencias->count() > 1 ? $referencias->slice(1)->implode(' - ') : '';
+
+                $titulosDeEsteDocente = $titulosPorClasificacion->get($clasificacion->ID_CLASIFICACION_DOCENTE, collect());
+
+                // ─── Columna DETALLE fusionada: Tipo de documento - Descripción general
+                //     - Nota(s) de materia - Referencia(s) - Título(s) ───
+                $partesDetalle = [];
+
+                $tipoDocumentoLabel = self::ETIQUETAS_TIPO_DOCUMENTO[$documento->TIPO_DOCUMENTO]
+                    ?? $documento->TIPO_DOCUMENTO
+                    ?? '';
+                if ($tipoDocumentoLabel !== '') {
+                    $partesDetalle[] = $tipoDocumentoLabel;
+                }
+
+                if (!empty($documento->DETALLE_GENERAL)) {
+                    $partesDetalle[] = $documento->DETALLE_GENERAL;
+                }
+
+                $notasMaterias = $materiasReales
+                    ->pluck('NOTA')
+                    ->filter(fn($n) => $n !== null && $n !== '')
+                    ->values();
+                if ($notasMaterias->isNotEmpty()) {
+                    $partesDetalle[] = 'Nota: ' . $notasMaterias->implode(', ');
+                }
+
+                if ($referencias->isNotEmpty()) {
+                    $partesDetalle[] = $referencias->implode(' - ');
+                }
+
+                if ($titulosDeEsteDocente->isNotEmpty()) {
+                    $textosTitulo = $titulosDeEsteDocente->map(function ($t) {
+                        $nombre = $t->NOMBRE_TITULO ?? '';
+                        $tipo = $t->TIPO_TITULO ?? '';
+                        return trim($nombre . ($tipo ? " ({$tipo})" : ''));
+                    })->filter()->values();
+
+                    if ($textosTitulo->isNotEmpty()) {
+                        $partesDetalle[] = 'Título: ' . $textosTitulo->implode(' - ');
+                    }
+                }
+
+                $detalleCombinado = implode(' - ', $partesDetalle);
 
                 $primeraFilaClasificacion = true;
                 $esGeneral = !empty($documento->DETALLE_GENERAL);
@@ -170,12 +262,7 @@ class ReporteExcelController extends Controller
                         'NOMBRE_DOCENTE' => $nombreDocente,
                         'NOMBRE_MATERIA' => $materia->NOMBRE_MATERIA ?: 'NO REGENTA MATERIA EN LA FCE',
                         'CH' => $materia->CARGA_HORARIA ?? null,
-                        'TIPO_DOCUMENTO' => $primeraFilaClasificacion
-                            ? (self::ETIQUETAS_TIPO_DOCUMENTO[$documento->TIPO_DOCUMENTO] ?? $documento->TIPO_DOCUMENTO ?? '')
-                            : '',
-                        'DETALLE' => $primeraFilaClasificacion
-                            ? ($documento->DETALLE_GENERAL ?: ($materia->DETALLE ?? ''))
-                            : ($materia->DETALLE ?? ''),
+                        'DETALLE' => $primeraFilaClasificacion ? $detalleCombinado : '',
                         'CATEGORIA' => $primeraFilaDocente ? $this->formatearCategoria($documento->CATEGORIA) : '',
                         'NIVEL' => $primeraFilaDocente ? $nivel : '',
                         'FOTOCOPIA_TITULAR' => ($primeraFilaDocente && $documento->FOTOCOPIA_TITULAR)
@@ -223,12 +310,10 @@ class ReporteExcelController extends Controller
         return $categoria;
     }
 
-    
-
     /**
      * Layout de columnas:
-     * B Nº | C NOMBRE DOCENTE | D NOMBRE MATERIA | E CH | F TIPO DOCUMENTO | G DETALLE
-     * H CATEGORIA | I NIVEL | J (separador vacío) | K FOTOCOPIA TITULAR | L OBS2 | M OBS3
+     * B Nº | C NOMBRE DOCENTE | D NOMBRE MATERIA | E CH | F DETALLE
+     * G CATEGORIA | H NIVEL | I (separador vacío) | J FOTOCOPIA TITULAR | K OBS2 | L OBS3
      */
     private function generarExcel(array $data, string $gestion, string $version)
     {
@@ -244,12 +329,12 @@ class ReporteExcelController extends Controller
         $sheet->setCellValue('B2', 'Facultad de Ciencias Económicas');
 
         $sheet->setCellValue('B3', "LISTA DE DOCENTES CLASIFICADOS EN PRIMER NIVEL, SEGUNDO NIVEL Y TERCER NIVEL - {$gestion} ({$version}) {$fechaHoy}");
-        $sheet->mergeCells('B3:I3');
+        $sheet->mergeCells('B3:H3');
         $sheet->getStyle('B3')->getFont()->setBold(true)->setSize(14);
         $sheet->getStyle('B3')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
         $sheet->setCellValue('B4', 'Nota: Este es un documento preliminar el mismo puede ser modificado de acuerdo a la solicitud debidamente documentado con Resolución.');
-        $sheet->mergeCells('B4:I4');
+        $sheet->mergeCells('B4:H4');
         $sheet->getStyle('B4')->getAlignment()->setWrapText(true)->setVertical(Alignment::VERTICAL_CENTER);
 
         // === CABECERA DE TABLA (fila 5) ===
@@ -258,32 +343,31 @@ class ReporteExcelController extends Controller
             'C' => 'NOMBRE DOCENTE',
             'D' => 'NOMBRE MATERIA',
             'E' => 'CH',
-            'F' => 'TIPO DE DOCUMENTO',
-            'G' => 'DETALLE',
-            'H' => 'CATEGORIA',
-            'I' => 'NIVEL',
-            'K' => 'FOTOCOPIA TITULAR',
-            'L' => 'OBS 2',
-            'M' => 'OBS3',
+            'F' => 'DETALLE',
+            'G' => 'CATEGORIA',
+            'H' => 'NIVEL',
+            'J' => 'FOTOCOPIA TITULAR',
+            'K' => 'OBS 2',
+            'L' => 'OBS3',
         ];
 
         foreach ($headers as $col => $texto) {
             $sheet->setCellValue($col . '5', $texto);
         }
-        $sheet->getStyle('B5:I5')->getFont()->setBold(true);
-        $sheet->getStyle('K5:M5')->getFont()->setBold(true);
-        $sheet->getStyle('B5:I5')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER)
+        $sheet->getStyle('B5:H5')->getFont()->setBold(true);
+        $sheet->getStyle('J5:L5')->getFont()->setBold(true);
+        $sheet->getStyle('B5:H5')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER)
             ->setVertical(Alignment::VERTICAL_CENTER);
-        $sheet->getStyle('K5:M5')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER)
+        $sheet->getStyle('J5:L5')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER)
             ->setVertical(Alignment::VERTICAL_CENTER);
-        $sheet->getStyle('B5:I5')->getFill()
+        $sheet->getStyle('B5:H5')->getFill()
             ->setFillType(Fill::FILL_SOLID)
             ->getStartColor()->setARGB('FFD9D9D9');
-        $sheet->getStyle('K5:M5')->getFill()
+        $sheet->getStyle('J5:L5')->getFill()
             ->setFillType(Fill::FILL_SOLID)
             ->getStartColor()->setARGB('FFD9D9D9');
-        $sheet->getStyle('B5:I5')->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
-        $sheet->getStyle('K5:M5')->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
+        $sheet->getStyle('B5:H5')->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
+        $sheet->getStyle('J5:L5')->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
         $sheet->getRowDimension(5)->setRowHeight(20);
 
         // === FILAS DE DATOS ===
@@ -294,31 +378,28 @@ class ReporteExcelController extends Controller
             $sheet->setCellValue('C' . $fila, $item['NOMBRE_DOCENTE']);
             $sheet->setCellValue('D' . $fila, $item['NOMBRE_MATERIA']);
             $sheet->setCellValue('E' . $fila, $item['CH']);
-            $sheet->setCellValue('F' . $fila, $item['TIPO_DOCUMENTO']);
-            $sheet->setCellValue('G' . $fila, $item['DETALLE']);
-            $sheet->setCellValue('H' . $fila, $item['CATEGORIA']);
-            $sheet->setCellValue('I' . $fila, $item['NIVEL']);
-            $sheet->setCellValue('K' . $fila, $item['FOTOCOPIA_TITULAR']);
-            $sheet->setCellValue('L' . $fila, $item['OBS2']);
-            $sheet->setCellValue('M' . $fila, $item['OBS3']);
+            $sheet->setCellValue('F' . $fila, $item['DETALLE']);
+            $sheet->setCellValue('G' . $fila, $item['CATEGORIA']);
+            $sheet->setCellValue('H' . $fila, $item['NIVEL']);
+            $sheet->setCellValue('J' . $fila, $item['FOTOCOPIA_TITULAR']);
+            $sheet->setCellValue('K' . $fila, $item['OBS2']);
+            $sheet->setCellValue('L' . $fila, $item['OBS3']);
 
-            $sheet->getStyle('B' . $fila . ':I' . $fila)->getAlignment()
+            $sheet->getStyle('B' . $fila . ':H' . $fila)->getAlignment()
                 ->setWrapText(true)
                 ->setVertical(Alignment::VERTICAL_CENTER);
-            $sheet->getStyle('K' . $fila . ':M' . $fila)->getAlignment()
+            $sheet->getStyle('J' . $fila . ':L' . $fila)->getAlignment()
                 ->setWrapText(true)
                 ->setVertical(Alignment::VERTICAL_CENTER);
 
             $sheet->getStyle('E' . $fila)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
             $sheet->getStyle('B' . $fila)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
-            // Grid uniforme fino
-            $sheet->getStyle('B' . $fila . ':I' . $fila)->getBorders()->getAllBorders()
+            $sheet->getStyle('B' . $fila . ':H' . $fila)->getBorders()->getAllBorders()
                 ->setBorderStyle(Border::BORDER_THIN);
-            $sheet->getStyle('K' . $fila . ':M' . $fila)->getBorders()->getAllBorders()
+            $sheet->getStyle('J' . $fila . ':L' . $fila)->getBorders()->getAllBorders()
                 ->setBorderStyle(Border::BORDER_THIN);
 
-            // Fusiona Nº y NOMBRE DOCENTE en todas las filas que pertenecen al mismo docente
             if (!empty($item['INICIO_GRUPO']) && $item['FILAS_GRUPO'] > 1) {
                 $filaInicio = $fila;
                 $filaFin = $fila + $item['FILAS_GRUPO'] - 1;
@@ -335,21 +416,20 @@ class ReporteExcelController extends Controller
                     ->setWrapText(true);
             }
 
-            // Borde grueso de cierre al final de cada grupo de docente
             if (!empty($item['FIN_GRUPO'])) {
-                $sheet->getStyle('B' . $fila . ':I' . $fila)->getBorders()->getBottom()
+                $sheet->getStyle('B' . $fila . ':H' . $fila)->getBorders()->getBottom()
                     ->setBorderStyle(Border::BORDER_MEDIUM);
-                $sheet->getStyle('K' . $fila . ':M' . $fila)->getBorders()->getBottom()
+                $sheet->getStyle('J' . $fila . ':L' . $fila)->getBorders()->getBottom()
                     ->setBorderStyle(Border::BORDER_MEDIUM);
             }
 
             $fila++;
         }
 
-        // === AUTOFILTRO (solo en CATEGORIA e NIVEL, que son columnas adyacentes: H e I) ===
+        // === AUTOFILTRO (CATEGORIA e NIVEL: G e H) ===
         $ultimaFila = $fila - 1;
         if ($ultimaFila >= 5) {
-            $sheet->setAutoFilter('H5:I' . $ultimaFila);
+            $sheet->setAutoFilter('G5:H' . $ultimaFila);
         }
 
         // === ANCHOS DE COLUMNA ===
@@ -358,14 +438,13 @@ class ReporteExcelController extends Controller
         $sheet->getColumnDimension('C')->setWidth(37.5);
         $sheet->getColumnDimension('D')->setWidth(38.7);
         $sheet->getColumnDimension('E')->setWidth(6);
-        $sheet->getColumnDimension('F')->setWidth(22);
-        $sheet->getColumnDimension('G')->setWidth(45);
-        $sheet->getColumnDimension('H')->setWidth(18);
-        $sheet->getColumnDimension('I')->setWidth(15.3);
-        $sheet->getColumnDimension('J')->setWidth(1.5);
-        $sheet->getColumnDimension('K')->setWidth(23.6);
-        $sheet->getColumnDimension('L')->setWidth(16);
-        $sheet->getColumnDimension('M')->setWidth(20);
+        $sheet->getColumnDimension('F')->setWidth(55);
+        $sheet->getColumnDimension('G')->setWidth(18);
+        $sheet->getColumnDimension('H')->setWidth(15.3);
+        $sheet->getColumnDimension('I')->setWidth(1.5);
+        $sheet->getColumnDimension('J')->setWidth(23.6);
+        $sheet->getColumnDimension('K')->setWidth(16);
+        $sheet->getColumnDimension('L')->setWidth(20);
 
         $sheet->freezePane('B6');
 

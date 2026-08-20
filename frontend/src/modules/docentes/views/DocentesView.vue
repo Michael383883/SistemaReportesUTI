@@ -88,41 +88,63 @@
             </div>
           </div>
 
-          <div class="flex items-center gap-2 self-start">
-            <button
-              ref="reportButtonRef"
-              class="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-[14px] font-semibold bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-slate-900 transition-all duration-150 cursor-pointer border-none shadow-lg shadow-amber-500/20 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-amber-500"
-              title="Generar reporte de materias dictadas"
-              :disabled="generandoReporte"
-              @click="irAlReporte"
-            >
-              <svg
-                v-if="generandoReporte"
-                width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
-                class="animate-spin"
-              >
-                <path d="M21 12a9 9 0 1 1-6.219-8.56" stroke-linecap="round"/>
-              </svg>
-              <svg v-else width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                <polyline points="14 2 14 8 20 8"/>
-                <line x1="16" y1="13" x2="8" y2="13"/>
-                <line x1="16" y1="17" x2="8" y2="17"/>
-                <polyline points="10 9 9 9 8 9"/>
-              </svg>
-              {{ generandoReporte ? 'Generando...' : 'Generar reporte' }}
-            </button>
+         <div class="flex items-center gap-2 self-start">
+  <button
+    ref="reportButtonRef"
+    class="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-[14px] font-semibold bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-slate-900 transition-all duration-150 cursor-pointer border-none shadow-lg shadow-amber-500/20 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-amber-500"
+    title="Generar reporte de materias dictadas"
+    :disabled="generandoReporte"
+    @click="irAlReporte"
+  >
+    <svg
+      v-if="generandoReporte"
+      width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+      class="animate-spin"
+    >
+      <path d="M21 12a9 9 0 1 1-6.219-8.56" stroke-linecap="round"/>
+    </svg>
+    <svg v-else width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+      <polyline points="14 2 14 8 20 8"/>
+      <line x1="16" y1="13" x2="8" y2="13"/>
+      <line x1="16" y1="17" x2="8" y2="17"/>
+      <polyline points="10 9 9 9 8 9"/>
+    </svg>
+    {{ generandoReporte ? 'Generando...' : 'Generar reporte' }}
+  </button>
 
-            <button
-              class="bg-transparent border-none cursor-pointer text-slate-400 p-1.5 rounded-lg flex items-center hover:text-slate-100 hover:bg-white/10 transition-colors"
-              title="Cerrar"
-              @click="clearSelection"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-              </svg>
-            </button>
-          </div>
+  <!-- NUEVO: Generar Reporte de Documento -->
+  <button
+    class="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-[14px] font-semibold bg-indigo-500 hover:bg-indigo-400 active:bg-indigo-600 text-white transition-all duration-150 cursor-pointer border-none shadow-lg shadow-indigo-500/20 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-indigo-500"
+    title="Generar reporte de documentos por categoría"
+    :disabled="generandoReporteDocumento"
+    @click="irAlReporteDocumento"
+  >
+    <svg
+      v-if="generandoReporteDocumento"
+      width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+      class="animate-spin"
+    >
+      <path d="M21 12a9 9 0 1 1-6.219-8.56" stroke-linecap="round"/>
+    </svg>
+    <svg v-else width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+      <path d="M9 12h6m-6 4h6M9 8h1"/>
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+      <polyline points="14 2 14 8 20 8"/>
+    </svg>
+    {{ generandoReporteDocumento ? 'Generando...' : 'Generar Reporte de Documento' }}
+  </button>
+
+  <button
+    class="bg-transparent border-none cursor-pointer text-slate-400 p-1.5 rounded-lg flex items-center hover:text-slate-100 hover:bg-white/10 transition-colors"
+    title="Cerrar"
+    @click="clearSelection"
+  >
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+      <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+    </svg>
+  </button>
+</div>
         </div>
       </div>
     </Transition>
@@ -172,6 +194,23 @@ const {
   clearSelection,
 } = useDocentes()
 
+
+const generandoReporteDocumento = ref(false)
+// ✅ Genera el reporte "solo documentos": misma página de reporte,
+// pero con modo=documentos para que ReportePage.vue oculte
+// ReporteFiltros + ReporteTabla y muestre directo ClasificacionCategoriasTabla.
+const irAlReporteDocumento = async () => {
+  if (!selectedDocente.value || generandoReporteDocumento.value) return
+  generandoReporteDocumento.value = true
+  try {
+    await router.push({
+      name: 'reporte',
+      query: { codigo: selectedDocente.value.codigo, modo: 'documentos' },
+    })
+  } finally {
+    generandoReporteDocumento.value = false
+  }
+}
 // Estado de carga del botón "Generar reporte"
 const generandoReporte = ref(false)
 

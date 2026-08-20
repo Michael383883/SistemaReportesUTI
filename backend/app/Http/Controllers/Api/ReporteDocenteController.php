@@ -15,6 +15,11 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 class ReporteDocenteController extends Controller
 {
 
+    private function bloqueosManuales(): array
+    {
+        return PeriodoAcademico::bloqueosActivos();
+    }
+
     // Whitelist de columnas opcionales de DOCENTES que el reporte puede agregar
     private const CAMPOS_DOCENTE_PERMITIDOS = [
         'CI' => 'd.CI',
@@ -174,12 +179,6 @@ class ReporteDocenteController extends Controller
             'materia' => 'nullable|string|max:60',
             'grupo' => 'nullable|string|max:2',
 
-            // ── Habilitación puntual de un periodo restringido ──────────────
-            // El frontend manda esto SOLO cuando el usuario hace click en
-            // "habilitar" para ese año/periodo específico. Si no se manda,
-            // el comportamiento sigue siendo el de siempre (oculta lo no
-            // concluido). No habilita todo lo pendiente, solo el que se
-            // indique en anio_habilitado + periodo_habilitado.
             'habilitar_restriccion' => 'nullable|boolean',
             'anio_habilitado' => 'required_if:habilitar_restriccion,true|nullable|numeric',
             'periodo_habilitado' => 'required_if:habilitar_restriccion,true|nullable|string|in:1,2,3,4',
@@ -197,12 +196,8 @@ class ReporteDocenteController extends Controller
         $anioHabilitado = $request->anio_habilitado;
         $periodoHabilitado = $request->periodo_habilitado;
 
-        // CONSULTAR DOCENTE
         $docenteInfo = DB::connection('sqlsrv')->selectOne("
-        SELECT 
-            CODIGO,
-            NOMBRES,
-            APELLIDOS
+        SELECT CODIGO, NOMBRES, APELLIDOS
         FROM DOCENTES
         WHERE CODIGO = ?
     ", [$docente]);
@@ -214,39 +209,40 @@ class ReporteDocenteController extends Controller
             ], 404);
         }
 
-        // ── Rango temporal (anio + periodo → anio_hasta + periodo_hasta) ──────
-        // Si solo viene anio (sin periodo y sin anio_hasta), se filtra el año completo.
         $ordenDesde = null;
         $ordenHasta = null;
         $filtroSoloAnioExacto = false;
 
         if ($anio && !$periodo && !$anioHasta) {
-            // Caso simple de siempre: un solo año, sin periodo ni rango
             $filtroSoloAnioExacto = true;
-        } elseif ($anio) {
-            $ordenDesde = $this->ordenTemporal((int) $anio, $periodo);
+        } elseif ($anio || $anioHasta) {
+            // Si no viene "anio" (Desde vacío), no hay tope mínimo
+            $ordenDesde = $anio
+                ? $this->ordenTemporal((int) $anio, $periodo)
+                : 0;
+
+            // Prioridad a anioHasta; si no viene, usa fin del año "desde";
+            // si tampoco hay "anio", en teoría no llegamos aquí (ya cubierto arriba)
             $ordenHasta = $anioHasta
-                ? $this->ordenTemporal((int) $anioHasta, $periodoHasta ?? '3') // '3' = verano, último periodo del año
-                : $this->ordenTemporal((int) $anio, '3'); // si no hay anio_hasta, tope = fin del mismo año
+                ? $this->ordenTemporal((int) $anioHasta, $periodoHasta ?? '3')
+                : $this->ordenTemporal((int) $anio, '3');
         }
 
-        // ── Materia: código exacto (numérico) o búsqueda por nombre ───────────
         $materiaEsCodigo = $materia && preg_match('/^\d+$/', $materia);
 
-        // FILTROS OPCIONALES (SQL)
         $filtroAnioExacto = $filtroSoloAnioExacto ? "AND GRUPOS.ANIO = :anio" : "";
 
         $filtroRango = ($ordenDesde !== null)
             ? "AND (
-                (GRUPOS.ANIO * 10 + CASE
-                    WHEN GRUPOS.PERIODO = '1' THEN 1
-                    WHEN GRUPOS.PERIODO = '4' THEN 2
-                    WHEN GRUPOS.PERIODO = '2' THEN 3
-                    WHEN GRUPOS.PERIODO = '3' THEN 4
-                    ELSE 1
-                END)
-                BETWEEN :orden_desde AND :orden_hasta
-            )"
+            (GRUPOS.ANIO * 10 + CASE
+                WHEN GRUPOS.PERIODO = '1' THEN 1
+                WHEN GRUPOS.PERIODO = '4' THEN 2
+                WHEN GRUPOS.PERIODO = '2' THEN 3
+                WHEN GRUPOS.PERIODO = '3' THEN 4
+                ELSE 1
+            END)
+            BETWEEN :orden_desde AND :orden_hasta
+        )"
             : "";
 
         $filtroMateria = "";
@@ -278,15 +274,10 @@ class ReporteDocenteController extends Controller
             $bindings['grupo'] = $grupo;
         }
 
-        // ── Exclusión dinámica de periodos aún no concluidos ───────────────────
-        // Reemplaza el antiguo filtro estático NOT IN ('2026-1').
-        //
-        // Comportamiento:
-        // - Por defecto: se ocultan TODOS los periodos aún no concluidos.
-        // - Si habilitar_restriccion=true y viene anio_habilitado/periodo_habilitado,
-        //   se libera SOLO esa combinación puntual (si efectivamente estaba
-        //   restringida); el resto de periodos no concluidos sigue oculto.
-        $noConcluidos = $this->periodosNoConcluidos();
+        $noConcluidos = array_unique(array_merge(
+            $this->periodosNoConcluidos(),
+            PeriodoAcademico::bloqueosActivos()
+        ));
         $claveHabilitada = null;
         $restriccionFueHabilitada = false;
 
@@ -294,13 +285,9 @@ class ReporteDocenteController extends Controller
             $claveHabilitada = "{$anioHabilitado}-{$periodoHabilitado}";
 
             if (in_array($claveHabilitada, $noConcluidos, true)) {
-                // Se remueve únicamente esa combinación de la lista de exclusión
                 $noConcluidos = array_values(array_diff($noConcluidos, [$claveHabilitada]));
                 $restriccionFueHabilitada = true;
             }
-            // Si $claveHabilitada no estaba en $noConcluidos (ej. ya concluyó
-            // o el año/periodo no existe como restricción), no se hace nada:
-            // no tiene sentido "habilitar" algo que no estaba restringido.
         }
 
         $filtroNoConcluidos = "";
@@ -314,109 +301,124 @@ class ReporteDocenteController extends Controller
             }
 
             $filtroNoConcluidos = "AND (
-                CONVERT(VARCHAR(4), GRUPOS.ANIO) + '-' + GRUPOS.PERIODO
-            ) NOT IN (" . implode(',', $placeholders) . ")";
+            CONVERT(VARCHAR(4), GRUPOS.ANIO) + '-' + GRUPOS.PERIODO
+        ) NOT IN (" . implode(',', $placeholders) . ")";
         }
 
         $materias = DB::connection('sqlsrv')->select("
 
-        SELECT
-            ROW_NUMBER() OVER (
-                ORDER BY 
-                    GRUPOS.ANIO,
+    SELECT
+        ROW_NUMBER() OVER (
+            ORDER BY
+                GRUPOS.ANIO,
+                CASE
+                    WHEN GRUPOS.PERIODO = '1' THEN 1
+                    WHEN GRUPOS.PERIODO = '4' THEN 2
+                    WHEN GRUPOS.PERIODO = '2' THEN 3
+                    WHEN GRUPOS.PERIODO = '3' THEN 4
+                    ELSE 5
+                END,
+                GRUPOS.GRUPO ASC,
+                GRUPOS.MATERIA,
+                GRUPOS.[PLAN]
+        ) AS nro,
 
-                    CASE
-                        WHEN GRUPOS.PERIODO = '1' THEN 1
-                        WHEN GRUPOS.PERIODO = '4' THEN 2
-                        WHEN GRUPOS.PERIODO = '2' THEN 3
-                        WHEN GRUPOS.PERIODO = '3' THEN 4
-                        ELSE 5
-                    END,
+        DOCENTES.CODIGO,
+        (DOCENTES.APELLIDOS + ' ' + DOCENTES.NOMBRES) AS docente,
 
-                    GRUPOS.GRUPO ASC,
-                    GRUPOS.MATERIA,
-                    GRUPOS.[PLAN]
-            ) AS nro,
+        CONVERT(VARCHAR(4), GRUPOS.ANIO) + '/' +
+        CASE
+            WHEN GRUPOS.PERIODO = '3' THEN '3 - Verano'
+            WHEN GRUPOS.PERIODO = '4' THEN '4 - Invierno'
+            ELSE GRUPOS.PERIODO
+        END AS gestion,
 
-            DOCENTES.CODIGO,
+        CASE
+            WHEN [PLANES].NOMBRE LIKE '%ADMINISTRACION%' THEN 'ADM'
+            WHEN [PLANES].NOMBRE LIKE '%COMERCIAL%' THEN 'COM'
+            WHEN [PLANES].NOMBRE LIKE '%FINANCIERA%' THEN 'FIN'
+            WHEN [PLANES].NOMBRE LIKE '%ECONOMIA%' THEN 'ECO'
+            WHEN [PLANES].NOMBRE LIKE '%CONTADURIA%' THEN 'CON'
+            ELSE LEFT([PLANES].NOMBRE, 3)
+        END AS plan_abrev,
 
-            (DOCENTES.APELLIDOS + ' ' + DOCENTES.NOMBRES) AS docente,
+        GRUPOS.MATERIA + ' ' + ISNULL(MATERIAS.NOMBRE, 'SIN NOMBRE') AS materia,
 
-            CONVERT(VARCHAR(4), GRUPOS.ANIO) + '/' +
+        -- ── NUEVA REGLA: primer dígito del GRUPO decide padre/hijo ──────
+        -- '0' por delante  → grupo padre (no compartido)
+        -- cualquier otro dígito por delante → grupo hijo (compartido)
+        -- Solo aplica en periodo Verano(3)/Invierno(4)
+        CASE
+            WHEN GRUPOS.PERIODO IN ('3','4')
+                 AND LEFT(LTRIM(RTRIM(GRUPOS.GRUPO)), 1) <> '0'
+            THEN 'COMPARTIDO'
+            ELSE ''
+        END AS compartido,
 
-            CASE
-                WHEN GRUPOS.PERIODO = '3' THEN '3 - Verano'
-                WHEN GRUPOS.PERIODO = '4' THEN '4 - Invierno'
-                ELSE GRUPOS.PERIODO
-            END AS gestion,
+        -- Código del grupo padre correspondiente (solo informativo)
+        CASE
+            WHEN GRUPOS.PERIODO IN ('3','4')
+                 AND LEFT(LTRIM(RTRIM(GRUPOS.GRUPO)), 1) <> '0'
+            THEN '0' + RIGHT(LTRIM(RTRIM(GRUPOS.GRUPO)), 1)
+            ELSE NULL
+        END AS grupo_padre,
 
-            CASE
-                WHEN [PLANES].NOMBRE LIKE '%ADMINISTRACION%' THEN 'ADM'
-                WHEN [PLANES].NOMBRE LIKE '%COMERCIAL%' THEN 'COM'
-                WHEN [PLANES].NOMBRE LIKE '%FINANCIERA%' THEN 'FIN'
-                WHEN [PLANES].NOMBRE LIKE '%ECONOMIA%' THEN 'ECO'
-                WHEN [PLANES].NOMBRE LIKE '%CONTADURIA%' THEN 'CON'
-                ELSE LEFT([PLANES].NOMBRE, 3)
-            END AS plan_abrev,
+        -- Carrera dueña del prefijo con el que se comparte (solo informativo)
+        CASE LEFT(LTRIM(RTRIM(GRUPOS.GRUPO)), 1)
+            WHEN '4' THEN 'ADMINISTRACIÓN DE EMPRESAS'
+            WHEN '5' THEN 'ING. COMERCIAL'
+            WHEN '6' THEN 'CONTADURÍA PÚBLICA'
+            WHEN '7' THEN 'ING. FINANCIERA'
+            WHEN '8' THEN 'ECONOMÍA'
+            ELSE NULL
+        END AS comparte_con_carrera,
 
-            GRUPOS.MATERIA + ' ' + ISNULL(MATERIAS.NOMBRE, 'SIN NOMBRE') AS materia,
+        GRUPOS.GRUPO AS grp,
+        GRUPOS.RESOLUCION,
+        GRUPOS.DESIGNACION,
+        GRUPOS.TIEMPO,
+        GRUPOS.TIPO_INGRESO,
+        GRUPOS.ANIO,
+        GRUPOS.PERIODO,
+        GRUPOS.[PLAN]
 
-            CASE
-                WHEN GRUPOS.GRUPO > '30'
-                     AND GRUPOS.PERIODO IN ('3','4')
-                THEN 'COMPARTIDO'
-                ELSE ''
-            END AS compartido,
+    FROM GRUPOS
 
-            GRUPOS.GRUPO AS grp,
-            GRUPOS.RESOLUCION,
-            GRUPOS.DESIGNACION,
-            GRUPOS.TIEMPO,
-            GRUPOS.TIPO_INGRESO, 
-            GRUPOS.ANIO,
-            GRUPOS.PERIODO,
-            GRUPOS.[PLAN]
+    INNER JOIN DOCENTES
+        ON DOCENTES.CODIGO = GRUPOS.DOCENTE
 
-        FROM GRUPOS
+    INNER JOIN MATERIAS
+        ON MATERIAS.CODIGO = GRUPOS.MATERIA
+        AND MATERIAS.ANIO = GRUPOS.ANIO
+        AND MATERIAS.PERIODO = GRUPOS.PERIODO
+        AND MATERIAS.[PLAN] = GRUPOS.[PLAN]
 
-        INNER JOIN DOCENTES
-            ON DOCENTES.CODIGO = GRUPOS.DOCENTE
+    LEFT JOIN [PLANES]
+        ON [PLANES].CODIGO = GRUPOS.[PLAN]
+        AND [PLANES].ANIO = GRUPOS.ANIO
 
-        INNER JOIN MATERIAS
-            ON MATERIAS.CODIGO = GRUPOS.MATERIA
-            AND MATERIAS.ANIO = GRUPOS.ANIO
-            AND MATERIAS.PERIODO = GRUPOS.PERIODO
-            AND MATERIAS.[PLAN] = GRUPOS.[PLAN]
+    WHERE DOCENTES.CODIGO = :docente
+      AND GRUPOS.PRIMARIO = 'Y'
+      AND GRUPOS.TIPO = 'N'
 
-        LEFT JOIN [PLANES]
-            ON [PLANES].CODIGO = GRUPOS.[PLAN]
-            AND [PLANES].ANIO = GRUPOS.ANIO
+      {$filtroNoConcluidos}
+      {$filtroAnioExacto}
+      {$filtroRango}
+      {$filtroMateria}
+      {$filtroGrupo}
 
-        WHERE DOCENTES.CODIGO = :docente
-          AND GRUPOS.PRIMARIO = 'Y'
-          AND GRUPOS.TIPO = 'N'
-
-          {$filtroNoConcluidos}
-
-          {$filtroAnioExacto}
-          {$filtroRango}
-          {$filtroMateria}
-          {$filtroGrupo}
-
-        ORDER BY
-            GRUPOS.ANIO,
-
-            CASE
-                WHEN GRUPOS.PERIODO = '1' THEN 1
-                WHEN GRUPOS.PERIODO = '4' THEN 2
-                WHEN GRUPOS.PERIODO = '2' THEN 3
-                WHEN GRUPOS.PERIODO = '3' THEN 4
-                ELSE 5
-            END ASC,
-
-            GRUPOS.GRUPO ASC,
-            GRUPOS.MATERIA,
-            GRUPOS.[PLAN]
+    ORDER BY
+        GRUPOS.ANIO,
+        CASE
+            WHEN GRUPOS.PERIODO = '1' THEN 1
+            WHEN GRUPOS.PERIODO = '4' THEN 2
+            WHEN GRUPOS.PERIODO = '2' THEN 3
+            WHEN GRUPOS.PERIODO = '3' THEN 4
+            ELSE 5
+        END ASC,
+        GRUPOS.GRUPO ASC,
+        GRUPOS.MATERIA,
+        GRUPOS.[PLAN]
 
     ", $bindings);
 
@@ -425,10 +427,7 @@ class ReporteDocenteController extends Controller
 
             'docente' => [
                 'codigo' => $docenteInfo->CODIGO,
-                'nombre' => trim(
-                    $docenteInfo->APELLIDOS . ' ' .
-                    $docenteInfo->NOMBRES
-                ),
+                'nombre' => trim($docenteInfo->APELLIDOS . ' ' . $docenteInfo->NOMBRES),
             ],
 
             'anio_filtro' => $anio ?? 'todos',
@@ -438,8 +437,6 @@ class ReporteDocenteController extends Controller
             'materia_filtro' => $materia ?? 'todas',
             'grupo_filtro' => $grupo ?? 'todos',
 
-            // Info de la restricción, útil para que el frontend muestre
-            // el botón de "habilitar" solo cuando aplica.
             'restriccion' => [
                 'periodos_no_concluidos' => $this->periodosNoConcluidos(),
                 'habilitacion_solicitada' => $claveHabilitada,
@@ -447,11 +444,9 @@ class ReporteDocenteController extends Controller
             ],
 
             'total' => count($materias),
-
             'materias' => $materias,
         ]);
     }
-
 
     public function horario(Request $request): JsonResponse
     {
@@ -689,12 +684,18 @@ class ReporteDocenteController extends Controller
 
         if ($anio && !$periodo && !$anioHasta) {
             $filtroSoloAnioExacto = true;
-        } elseif ($anio) {
-            $ordenDesde = $this->ordenTemporal((int) $anio, $periodo);
+        } elseif ($anio || $anioHasta) {
+            // Si no viene "anio" (Desde vacío), no hay tope mínimo
+            $ordenDesde = $anio
+                ? $this->ordenTemporal((int) $anio, $periodo)
+                : 0;
+
+            // Prioridad a anioHasta; si no viene, usa fin del año "desde"
             $ordenHasta = $anioHasta
                 ? $this->ordenTemporal((int) $anioHasta, $periodoHasta ?? '3')
                 : $this->ordenTemporal((int) $anio, '3');
         }
+
 
         $materiaEsCodigo = $materia && preg_match('/^\d+$/', $materia);
 
@@ -743,7 +744,10 @@ class ReporteDocenteController extends Controller
         }
 
         // ── Exclusión dinámica de periodos aún no concluidos ────────────
-        $noConcluidos = $this->periodosNoConcluidos();
+        $noConcluidos = array_unique(array_merge(
+            $this->periodosNoConcluidos(),
+            PeriodoAcademico::bloqueosActivos()
+        ));
         $claveHabilitada = null;
         $restriccionFueHabilitada = false;
 

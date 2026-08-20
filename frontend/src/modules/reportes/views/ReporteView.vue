@@ -47,52 +47,52 @@
 
     <!-- Reporte cargado -->
     <template v-else-if="reporteActivo">
-  <!-- Header del docente -->
-  <ReporteHeader
-    :reporte="reporteActivo"
-    :loading="loadingActivo"
-    :categorias="categorias"
-    :tiene-categorias="tieneCategorias"
-    :loading-categorias="loadingCategorias"
-    :categorias-seleccionadas="categoriasSeleccionadas"
-    @volver="$router.back()"
-    @toggle-restriccion="onToggleRestriccion"
-    @seleccionar-categorias="onSeleccionarCategorias"
-  />
+      <!-- Header del docente -->
+      <ReporteHeader
+        :reporte="reporteActivo"
+        :loading="loadingActivo"
+        :categorias="categorias"
+        :tiene-categorias="tieneCategorias"
+        :loading-categorias="loadingCategorias"
+        :categorias-seleccionadas="categoriasSeleccionadas"
+        @volver="$router.back()"
+        @toggle-restriccion="onToggleRestriccion"
+        @seleccionar-categorias="onSeleccionarCategorias"
+      />
 
+      <!-- Filtros: SIEMPRE visibles, tanto en modo normal como en modo documento -->
+      <div class="mb-5">
+        <ReporteFiltros
+  v-model:anio="anioFiltro"
+  v-model:anio-hasta="anioHastaFiltro"
+  v-model:materia="materiaFiltro"
+  v-model:grupo="grupoFiltro"
+  :loading="loadingActivo"
+  :reporte="reporteActivo"
+  :documentos-categoria="documentosCategoria"
+  :categorias-seleccionadas="categoriasSeleccionadas"
+  :modo-documento="modoDocumento"
+  @generar="reGenerar"
+/>
+      </div>
 
-  <!-- Filtros — se pasa :reporte para que el botón PDF tenga acceso a los datos -->
-  <div class="mb-5">
-    <ReporteFiltros
-    v-model:anio="anioFiltro"
-    v-model:anio-hasta="anioHastaFiltro"
-    v-model:materia="materiaFiltro"
-    v-model:grupo="grupoFiltro"
-    :loading="loadingActivo"
-    :reporte="reporteActivo"
-    :documentos-categoria="documentosCategoria"
-    :categorias-seleccionadas="categoriasSeleccionadas"
-    @generar="reGenerar"
-  />
+      <!-- Tabla de materias: solo en el modo normal -->
+      <ReporteTabla
+        v-if="!modoDocumento"
+        :materias="reporteActivo.materias"
+        :cod-docente="reporteActivo.docente?.codigo"
+        :agrupar-compartidos="verCompartidos"
+      />
 
-  </div>
-
-  <!-- Tabla: normal o de compartidos según la versión activa -->
-  <ReporteTabla
-    :materias="reporteActivo.materias"
-    :cod-docente="reporteActivo.docente?.codigo"
-    :agrupar-compartidos="verCompartidos"
-  />
-
- <!-- ... filtros y ReporteTabla ... -->
-
-  <ClasificacionCategoriasTabla
-    :documentos="documentosCategoria"
-    :loading="loadingDocumentos"
-    :categorias="categoriasSeleccionadas"
-    @ver-pdf="verPdfCategoria"
-  />
-</template>
+      <!-- Tabla de clasificación por categoría: solo en el modo documento -->
+      <ClasificacionCategoriasTabla
+        v-if="modoDocumento"
+        :documentos="documentosCategoria"
+        :loading="loadingDocumentos"
+        :categorias="categoriasSeleccionadas"
+        @ver-pdf="verPdfCategoria"
+      />
+    </template>
 
     <!-- Empty -->
     <div v-else-if="!loadingActivo && !errorActivo" class="flex flex-col items-center justify-center py-20 text-center text-slate-400">
@@ -121,6 +121,10 @@ import { useClasificacionCategorias } from '../composables/useClasificacionCateg
 
 const route  = useRoute()
 const router = useRouter()
+
+// Modo "solo documentos": viene desde el botón "Generar Reporte de Documento"
+// en la lista de docentes, ej: router.push({ query: { codigo, modo: 'documentos' } })
+const modoDocumento = computed(() => route.query.modo === 'documentos')
 
 // Version 1: reporte normal
 const { reporte, loading, error, generarReporte } = useReporte()
@@ -237,6 +241,8 @@ const reGenerar = async ({ anio, periodo, anioHasta, periodoHasta, materia, grup
       ...(anioHastaQuery ? { anioHasta: anioHastaQuery } : {}),
       ...(materia         ? { materia }                  : {}),
       ...(grupo           ? { grupo }                    : {}),
+      // Preserva el modo (documentos) al re-generar, si estaba presente
+      ...(route.query.modo ? { modo: route.query.modo } : {}),
     }
   })
 
@@ -303,4 +309,23 @@ watch(
     if (codigo) cargarCategorias(codigo)
   }
 )
+
+// ── Modo "Generar Reporte de Documento": al llegar con ?modo=documentos,
+// apenas se cargan las categorías del docente, se seleccionan TODAS
+// automáticamente (mismo efecto que tocar "Todas" en el dropdown de
+// ReporteHeader), para no obligar al usuario a habilitarlas a mano. ──────
+watch(
+  categorias,
+  (cats) => {
+    if (!modoDocumento.value) return
+    if (!cats.length) return
+    // Sólo auto-selecciona si todavía no hay nada elegido (evita pisar
+    // una deselección manual que haga el usuario después)
+    if (categoriasSeleccionadas.value.length > 0) return
+
+    onSeleccionarCategorias([...cats])
+  },
+  { immediate: true }
+)
+
 </script>

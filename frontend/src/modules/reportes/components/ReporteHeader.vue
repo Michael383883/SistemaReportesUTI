@@ -38,7 +38,7 @@
       <div class="flex-1"/>
 
       <!-- ── Botón Habilitar Categorías (click directo, sin Aplicar) ─────── -->
-      <div v-if="tieneCategorias" class="relative">
+      <div v-if="tieneCategorias" class="relative" ref="categoriasMenuRef">
         <button
           type="button"
           :disabled="loadingCategorias"
@@ -139,7 +139,7 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, ref, onMounted, onUnmounted } from 'vue'
 
 const props = defineProps({
   reporte: { type: Object, required: true },
@@ -201,6 +201,7 @@ const onToggle = () => {
 
 // ── Categorías: cada click aplica al instante, sin botón "Aplicar" ───────
 const mostrarDropdown = ref(false)
+const categoriasMenuRef = ref(null)
 
 const todasSeleccionadas = computed(() =>
   props.categorias.length > 0 && props.categoriasSeleccionadas.length === props.categorias.length
@@ -227,4 +228,13 @@ const etiquetaBoton = computed(() => {
   if (n === props.categorias.length) return 'Todas las categorías'
   return `${n} categorías`
 })
+
+// ── Cierra el dropdown al hacer click fuera de él ────────────────────────
+const onClickOutside = (e) => {
+  if (categoriasMenuRef.value && !categoriasMenuRef.value.contains(e.target)) {
+    mostrarDropdown.value = false
+  }
+}
+onMounted(()  => document.addEventListener('click', onClickOutside))
+onUnmounted(() => document.removeEventListener('click', onClickOutside))
 </script>

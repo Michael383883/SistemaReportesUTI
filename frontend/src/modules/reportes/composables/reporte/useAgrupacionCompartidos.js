@@ -5,6 +5,15 @@ function norm(v) {
     return String(v).trim()
 }
 
+// Extrae el código numérico de materia para poder comparar "más alto".
+// Ajustá esto si el código viene en un campo propio (ej. m.codigo_materia)
+// en vez de venir pegado al nombre (ej. "1302028 COSTOS II").
+function codigoMateriaNum(m) {
+    const fuente = norm(m.codigo_materia) || norm(m.materia) || norm(m.nombre_materia)
+    const match = fuente.match(/^\d+/)
+    return match ? parseInt(match[0], 10) : 0
+}
+
 // Única fuente de verdad para detectar qué materias son "hijas" de un compartido.
 // Antes este algoritmo (PASO 1 y PASO 2) estaba copiado dos veces:
 // una vez en ReporteTabla.vue (para pintar el badge "Compartido")
@@ -49,9 +58,14 @@ export function useAgrupacionCompartidos(materiasRef) {
         }
 
         // PASO 2: verano/invierno (3 y 4), sin orden_comparte.
-        // El flag compartido="COMPARTIDO" marca al padre; la otra materia
-        // de la misma gestión, sin ese flag, es la hija.
-        const esCompartido = (m) => norm(m.compartido) === 'COMPARTIDO'
+        // La HIJA es la que tiene algo marcado en la columna "compartido".
+        // El PADRE es el que NO tiene nada marcado ahí.
+        //
+        // Si en el mismo grupo compiten dos candidatos a padre (ambos con
+        // "compartido" vacío), gana el de código de materia más alto:
+        // ese se queda con todas las hijas, el otro queda como padre solo
+        // (no se le cuelga nada, sigue como fila normal).
+        const tieneCompartidoMarcado = (m) => norm(m.compartido) !== ''
         const porGestionVI = new Map()
         materias.forEach((m, idx) => {
             if (usadaComoHermana[idx] || hermanasDe.has(idx)) return
@@ -65,12 +79,21 @@ export function useAgrupacionCompartidos(materiasRef) {
 
         for (const [, indices] of porGestionVI) {
             if (indices.length < 2) continue
-            const padres = indices.filter(i => esCompartido(materias[i]))
-            const hijas = indices.filter(i => !esCompartido(materias[i]))
-            if (padres.length === 1 && hijas.length >= 1) {
-                hermanasDe.set(padres[0], hijas)
-                hijas.forEach(i => { usadaComoHermana[i] = true })
+            const padres = indices.filter(i => !tieneCompartidoMarcado(materias[i]))
+            const hijas = indices.filter(i => tieneCompartidoMarcado(materias[i]))
+            if (padres.length === 0 || hijas.length === 0) continue
+
+            // Desempate: si hay más de un candidato a padre, gana el de
+            // código de materia más alto. Los demás quedan solos.
+            let padreGanador = padres[0]
+            if (padres.length > 1) {
+                padreGanador = padres.reduce((mejor, actual) =>
+                    codigoMateriaNum(materias[actual]) > codigoMateriaNum(materias[mejor]) ? actual : mejor
+                , padres[0])
             }
+
+            hermanasDe.set(padreGanador, hijas)
+            hijas.forEach(i => { usadaComoHermana[i] = true })
         }
 
         return { materias, hermanasDe, usadaComoHermana }
