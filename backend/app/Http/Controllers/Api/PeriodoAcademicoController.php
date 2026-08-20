@@ -101,4 +101,49 @@ class PeriodoAcademicoController extends Controller
             'periodos' => PeriodoAcademico::with('actualizadoPor:id,name')->get(),
         ]);
     }
+
+
+    /**
+     * Bloquea un periodo académico: deja de mostrarse en "Materias dictadas"
+     * para la gestión actual (año en curso), hasta que se desbloquee.
+     * No requiere año/periodo escritos a mano: se toma el año actual del servidor.
+     */
+    public function bloquear(Request $request, $id)
+    {
+        $periodo = PeriodoAcademico::findOrFail($id);
+
+        $periodo->bloqueado = true;
+        $periodo->bloqueado_anio = (int) now()->year;
+        $periodo->bloqueado_por = $request->user()?->id;
+        $periodo->bloqueado_en = now();
+        $periodo->save(); // dispara 'saved' -> limpia la caché
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Periodo bloqueado. Ya no se mostrará en Materias dictadas.',
+            'periodo' => $periodo->fresh(['actualizadoPor:id,name', 'bloqueadoPor:id,name']),
+        ]);
+    }
+
+    /**
+     * Desbloquea un periodo académico: vuelve a mostrarse normalmente
+     * en "Materias dictadas".
+     */
+    public function desbloquear(Request $request, $id)
+    {
+        $periodo = PeriodoAcademico::findOrFail($id);
+
+        $periodo->bloqueado = false;
+        $periodo->bloqueado_anio = null;
+        $periodo->bloqueado_por = null;
+        $periodo->bloqueado_en = null;
+        $periodo->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Periodo desbloqueado.',
+            'periodo' => $periodo->fresh('actualizadoPor:id,name'),
+        ]);
+    }
+
 }
