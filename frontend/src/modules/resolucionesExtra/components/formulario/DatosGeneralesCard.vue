@@ -55,7 +55,7 @@
           </select>
           <p class="mt-1 text-[11px] text-gray-400">
             ¿Falta una categoría?
-            <router-link to="/configuracion/categorias" class="text-orange-500 hover:underline">
+            <router-link to="/periodos-academicos" class="text-orange-500 hover:underline">
               Agrégala en Configuración
             </router-link>.
           </p>

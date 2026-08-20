@@ -50,7 +50,7 @@
           (buscando materias...)
         </span>
 
-        <!-- ← NUEVO: mensaje cuando la búsqueda no encuentra resultados -->
+        <!-- Mensaje cuando la búsqueda no encuentra resultados -->
         <span v-else-if="cargaExitosa && materiasFiltradas.length === 0 && searchTerm !== ''" class="ml-2 text-gray-500">
           No hay materias que coincidan con "{{ searchTerm }}"
         </span>
@@ -58,6 +58,46 @@
           ⚠️ {{ error }}
         </span>
       </span>
+    </div>
+
+    <!-- Link para agregar materia manual (siempre visible mientras no esté ya en modo manual) -->
+    <button
+      v-if="!modoManual"
+      type="button"
+      class="mt-1 text-[11px] text-blue-500 hover:text-blue-700 hover:underline"
+      @mousedown.prevent="activarModoManual()"
+    >
+      ¿La materia no aparece en la lista? Agregarla manualmente
+    </button>
+
+    <!-- Mini formulario de materia manual -->
+    <div v-if="modoManual" class="mt-2 p-3 border border-blue-200 bg-blue-50 rounded-lg space-y-2">
+      <label class="block text-[11px] font-medium text-blue-700">
+        Nombre de la materia
+        <span class="font-normal text-blue-500">— sin código, no se aplicará en GRUPOS</span>
+      </label>
+      <input
+        ref="inputManualRef"
+        v-model="nombreManual"
+        type="text"
+        placeholder="Ej. TALLER DE TESIS II"
+        class="w-full px-2 py-1.5 text-[12px] border border-blue-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-400"
+        @keydown.enter.prevent="confirmarMateriaManual"
+        @keydown.esc="cancelarModoManual"
+      />
+      <div class="flex items-center justify-end gap-2">
+        <button type="button" class="text-[11px] text-gray-500 hover:text-gray-700" @click="cancelarModoManual">
+          Cancelar
+        </button>
+        <button
+          type="button"
+          class="text-[11px] px-3 py-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded"
+          :disabled="!nombreManual.trim()"
+          @click="confirmarMateriaManual"
+        >
+          Agregar materia
+        </button>
+      </div>
     </div>
 
     <!-- Mensaje de alerta por duplicado -->
@@ -120,8 +160,18 @@
       </div>
 
       <!-- Sin resultados de búsqueda -->
-      <div v-else-if="cargaExitosa && materiasFiltradas.length === 0 && searchTerm" class="px-3 py-3 text-[12px] text-gray-500 text-center">
-        No se encontraron materias para "{{ searchTerm }}"
+      <div
+        v-else-if="cargaExitosa && materiasFiltradas.length === 0 && searchTerm"
+        class="px-3 py-3 text-[12px] text-gray-500 text-center space-y-1.5"
+      >
+        <p>No se encontraron materias para "{{ searchTerm }}"</p>
+        <button
+          type="button"
+          class="text-[11px] font-medium text-blue-600 hover:underline"
+          @mousedown.prevent="activarModoManual(searchTerm)"
+        >
+          + Agregar "{{ searchTerm }}" como materia manual (sin código)
+        </button>
       </div>
 
       <!-- Lista de materias -->
@@ -199,7 +249,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import { useMaterias } from '../composables/useMaterias'
 
 // ── Única destructuración del composable (antes estaba duplicada, eso
@@ -404,6 +454,55 @@ function onSearchInput() {
   }, 300)
 }
 
+// ─── Modo manual: materia que no está en el catálogo ───
+// Se agrega sin cod_materia, sin grupo y sin cod_plan. Esa ausencia de
+// código es la señal que usamos después para NO aplicarla en GRUPOS
+// (ver ClasificacionMateriasSection.vue → onAgregarMateria y el flag `manual`).
+const modoManual = ref(false)
+const nombreManual = ref('')
+const inputManualRef = ref(null)
+
+function activarModoManual(prefill = '') {
+  modoManual.value = true
+  nombreManual.value = (prefill || searchTerm.value || '').trim()
+  dropdownOpen.value = false
+  nextTick(() => inputManualRef.value?.focus())
+}
+
+function cancelarModoManual() {
+  modoManual.value = false
+  nombreManual.value = ''
+}
+
+function confirmarMateriaManual() {
+  const nombre = nombreManual.value.trim()
+  if (!nombre) return
+
+  // Evita duplicar la misma materia manual (comparando por nombre, ya que no hay código)
+  const yaExiste = props.materiasSeleccionadas.some(
+    m => !m.cod_materia && m.nombre_materia?.trim().toLowerCase() === nombre.toLowerCase()
+  )
+  if (yaExiste) {
+    mensajeDuplicado.value = `⚠️ La materia "${nombre}" ya fue agregada manualmente`
+    setTimeout(() => { mensajeDuplicado.value = '' }, 3000)
+    return
+  }
+
+  emit('agregar-materia', {
+    cod_materia: null,
+    nombre_materia: nombre,
+    cod_plan: null,
+    nombre_plan: null,
+    grupo: null,
+    nota: null,
+    detalle: '',
+    manual: true, // ← marca: sin código, no se debe aplicar en GRUPOS
+  })
+
+  cancelarModoManual()
+  searchTerm.value = ''
+}
+
 // ─── Resetear cuando cambia docente/gestión/periodo ───
 watch(() => [props.docente, props.gestion, props.periodo], () => {
   searchTerm.value = ''
@@ -413,6 +512,8 @@ watch(() => [props.docente, props.gestion, props.periodo], () => {
   highlightIndex.value = -1
   mensajeDuplicado.value = ''
   cargaExitosa.value = false
+  // No cerramos el modo manual automáticamente al cambiar gestión/periodo,
+  // pero sí si cambia el docente (ya no aplicaría el mismo contexto)
 })
 
 onMounted(async () => {

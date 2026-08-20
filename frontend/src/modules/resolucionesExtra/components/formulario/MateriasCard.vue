@@ -54,6 +54,14 @@
               <span v-if="m.cod_materia" class="text-orange-600 text-[12px]">({{ m.cod_materia }})</span>
               <span v-if="m.grupo" class="text-orange-500 text-[12px] font-semibold ml-1">Grupo {{ m.grupo }}</span>
             </span>
+            <span class="truncate">
+  {{ m.nombre_materia }}
+  <span v-if="m.cod_materia" class="text-orange-600 text-[12px]">({{ m.cod_materia }})</span>
+  <span v-if="m.grupo" class="text-orange-500 text-[12px] font-semibold ml-1">Grupo {{ m.grupo }}</span>
+  <span v-if="!m.cod_materia" class="block text-[10px] text-slate-500 font-normal mt-0.5">
+    Sin código · no se aplicará en GRUPOS
+  </span>
+</span>
 
             <button
               @click="form.materias.splice(i, 1)"
@@ -175,12 +183,20 @@ function toggleNoRegenta(event) {
 
 // ─── Manejo de materias ───
 function onAgregarMateria(materiaData) {
-  const existe = form.materias.some(m => m.cod_materia === materiaData.cod_materia)
+  // Con código: dedup por cod_materia (como antes).
+  // Sin código (manual): dedup por nombre, porque cod_materia siempre es null.
+  const existe = materiaData.cod_materia
+    ? form.materias.some(m => m.cod_materia === materiaData.cod_materia)
+    : form.materias.some(
+        m => !m.cod_materia &&
+             m.nombre_materia?.trim().toLowerCase() === materiaData.nombre_materia?.trim().toLowerCase()
+      )
   if (existe) return
 
   form.materias.push({
     ...materiaData,
     grupo: materiaData.grupo ?? null,
+    manual: materiaData.manual ?? !materiaData.cod_materia,
     docente: props.selectedDocente
       ? {
           cod_docente: props.selectedDocente.codigo,
