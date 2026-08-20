@@ -23,6 +23,8 @@ return [
             'prefix_indexes' => true,
             'encrypt' => 'no',
             'trust_server_certificate' => true,
+
+            'language' => 'us_english',
             // 'encrypt' => env('DB_ENCRYPT', 'false'),
             //'trust_server_certificate' => env('DB_TRUST_SERVER_CERTIFICATE', 'true'),
         ],
@@ -39,7 +41,7 @@ return [
             'prefix' => '',
             'prefix_indexes' => true,
             'encrypt' => 'no',
-            'trust_server_certificate' => true,
+            'language' => 'us_english',
         ],
 
     ],

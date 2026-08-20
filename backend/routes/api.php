@@ -58,12 +58,14 @@ Route::prefix('auth')->group(function () {
 });
 
 
-
 Route::prefix('periodos-academicos')->group(function () {
     Route::get('/', [PeriodoAcademicoController::class, 'index']);
     Route::put('/', [PeriodoAcademicoController::class, 'actualizarMasivo']);
     Route::post('/restaurar', [PeriodoAcademicoController::class, 'restaurarValoresPredeterminados']);
 });
+
+Route::post('/periodos-academicos/{id}/bloquear', [PeriodoAcademicoController::class, 'bloquear']);
+Route::post('/periodos-academicos/{id}/desbloquear', [PeriodoAcademicoController::class, 'desbloquear']);
 
 
 /*
@@ -124,6 +126,7 @@ Route::get('/reporte-horario', [ReporteDocenteController::class, 'horario']);
 Route::post('/reporte-docente2', [ReporteDocenteController::class, 'materiasDictadasCompartidas']);
 
 Route::get('reporte-docentes/tipos-titulo', [ReporteDocenteController::class, 'tiposTitulo']);
+Route::put('/reporte-docentes/tipos-titulo', [ClasificacionDocenteController::class, 'actualizarTipoTitulo']);
 Route::get('reporte-docentes/con-titulo', [ReporteDocenteController::class, 'docentesConTitulo']);
 Route::get('reporte-docentes/con-titulo/excel', [ReporteDocenteController::class, 'excel']);
 /*
@@ -229,6 +232,7 @@ Route::get('/clasificaciones/{id}/pdf', [ClasificacionDocenteController::class, 
 Route::delete('/clasificaciones/{id}', [ClasificacionDocenteController::class, 'destroy'])
     ->where('id', '[0-9]+');
 Route::get('/categorias', [ClasificacionDocenteController::class, 'categorias']);
+Route::put('/categorias', [ClasificacionDocenteController::class, 'actualizarCategoria']);
 // Reportes
 Route::get('/reportes/clasificacion', [ReporteClasificacionController::class, 'listado']);
 Route::get('/reportes/clasificacion/docente/{cod_docente}', [ReporteClasificacionController::class, 'porDocente'])
