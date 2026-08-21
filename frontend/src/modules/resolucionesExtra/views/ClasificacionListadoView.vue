@@ -478,10 +478,97 @@
             >
               Actualizar vista previa
             </button>
+
+            <div class="w-px h-8 bg-gray-200"></div>
+
+            <!-- Solo Activos -->
+            <div>
+              <label class="block text-[11px] font-medium text-gray-600 mb-0.5">Año activos</label>
+              <input
+                v-model.number="reporteExcel.anioActivos.value"
+                type="number"
+                class="w-20 px-2.5 py-1.5 text-[13px] border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label class="block text-[11px] font-medium text-gray-600 mb-0.5">Periodo activos</label>
+              <select
+                v-model.number="reporteExcel.periodoActivos.value"
+                class="px-2.5 py-1.5 text-[13px] border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              >
+                <option :value="1">1</option>
+                <option :value="2">2</option>
+                <option :value="3">3</option>
+                <option :value="4">4</option>
+              </select>
+            </div>
+
+            <button
+              @click="reporteExcel.alternarSoloActivos({ anio: reporteExcel.anioActivos.value, periodo: reporteExcel.periodoActivos.value })"
+              :disabled="reporteExcel.cargandoActivos.value"
+              class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
+              :class="reporteExcel.soloActivos.value ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
+            >
+              <svg v-if="reporteExcel.cargandoActivos.value" class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+              </svg>
+              {{ reporteExcel.soloActivos.value ? '✓ Solo Activos' : 'Solo Activos' }}
+            </button>
+
+            <button
+              v-if="reporteExcel.soloActivos.value"
+              @click="reporteExcel.cargarDocentesActivos({ anio: reporteExcel.anioActivos.value, periodo: reporteExcel.periodoActivos.value })"
+              :disabled="reporteExcel.cargandoActivos.value"
+              class="px-2.5 py-1.5 text-sm text-gray-500 hover:text-blue-600"
+              title="Recargar lista de docentes activos"
+            >
+              Actualizar
+            </button>
+
+            <!-- Asignar Carga Horaria (solo visible con "Solo Activos" activo) -->
+            <button
+              v-if="reporteExcel.soloActivos.value"
+              @click="confirmarAsignarCargaHoraria"
+              :disabled="reporteExcel.cargandoCargaHoraria.value"
+              class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
+              :class="reporteExcel.cargaHorariaAsignada.value ? 'bg-purple-100 text-purple-700' : 'bg-purple-600 hover:bg-purple-700 text-white'"
+              title="Compara docente + nombre de materia contra la carga horaria real y la asigna si coincide"
+            >
+              <svg v-if="reporteExcel.cargandoCargaHoraria.value" class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+              </svg>
+              <svg v-else class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+              {{ reporteExcel.cargaHorariaAsignada.value ? 'CH asignada ✓' : 'Asignar Carga Horaria' }}
+            </button>
+
+            <span v-if="resultadoCargaHoraria?.asignadas !== undefined" class="text-xs text-emerald-600 font-medium">
+              ✓ {{ resultadoCargaHoraria.asignadas }} materia(s) con CH asignada
+              <span v-if="resultadoCargaHoraria.sinCoincidencia" class="text-amber-600">
+                · {{ resultadoCargaHoraria.sinCoincidencia }} sin coincidencia
+              </span>
+            </span>
+            <span v-if="resultadoCargaHoraria?.error" class="text-xs text-red-500 font-medium">
+              {{ resultadoCargaHoraria.error }}
+            </span>
+
             <span v-if="!reporteExcel.loading.value && !reporteExcel.error.value" class="text-xs text-gray-400 mb-1.5 ml-auto">
-              {{ reporteExcel.totalFilas.value }} fila(s) · {{ reporteExcel.gestionEtiqueta.value }}
+              {{ reporteExcel.previewMostrado.value.length }} fila(s)
+              <span v-if="reporteExcel.soloActivos.value">de {{ reporteExcel.totalFilas.value }}</span>
+              · {{ reporteExcel.gestionEtiqueta.value }}
             </span>
           </div>
+
+          <p v-if="reporteExcel.errorActivos.value" class="px-6 text-xs text-red-500 pt-2">
+            {{ reporteExcel.errorActivos.value }}
+          </p>
+          <p v-if="reporteExcel.soloActivos.value" class="px-6 text-xs text-gray-400 pt-2">
+            Mostrando solo docentes con materia asignada en {{ reporteExcel.anioActivos.value }} / periodo {{ reporteExcel.periodoActivos.value }}
+            ({{ reporteExcel.docentesActivos.value.length }} activos)
+          </p>
 
           <!-- Contenido -->
           <div class="flex-1 overflow-auto px-6 py-3">
@@ -497,7 +584,7 @@
               {{ reporteExcel.error.value }}
             </div>
 
-            <table v-else-if="reporteExcel.preview.value.length" class="w-full text-xs border-collapse">
+            <table v-else-if="reporteExcel.previewMostrado.value.length" class="w-full text-xs border-collapse">
               <thead class="sticky top-0 bg-white">
                 <tr class="border-b border-gray-200">
                   <th class="text-center font-medium text-gray-500 px-2 py-2 uppercase tracking-wider w-10">Nº</th>
@@ -513,7 +600,7 @@
                 </tr>
               </thead>
               <tbody>
-                <template v-for="(item, i) in reporteExcel.preview.value" :key="i">
+                <template v-for="(item, i) in reporteExcel.previewMostrado.value" :key="i">
                   <tr
                     class="border-b border-gray-50"
                     :class="item.FIN_GRUPO ? 'border-b-2 border-b-gray-300' : ''"
@@ -550,7 +637,15 @@
             </table>
 
             <div v-else class="text-center py-12 text-sm text-gray-400">
-              No hay registros para los parámetros indicados
+              <template v-if="reporteExcel.soloActivos.value && reporteExcel.preview.value.length">
+                Ningún docente coincide con la lista de activos de {{ reporteExcel.anioActivos.value }} / periodo {{ reporteExcel.periodoActivos.value }}.
+                <div class="mt-2">
+                  <button @click="reporteExcel.soloActivos.value = false" class="text-blue-500 hover:underline">Quitar filtro</button>
+                </div>
+              </template>
+              <template v-else>
+                No hay registros para los parámetros indicados
+              </template>
             </div>
           </div>
 
@@ -564,13 +659,59 @@
             </button>
             <button
               @click="descargarExcelConfirmado"
-              :disabled="!reporteExcel.preview.value.length"
+              :disabled="!reporteExcel.previewMostrado.value.length"
               class="inline-flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors"
             >
               <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H6a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
               </svg>
               Descargar Excel
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- Modal de Confirmación: Asignar Carga Horaria (experimental) -->
+    <Teleport to="body">
+      <div v-if="mostrarModalCargaHoraria" class="fixed inset-0 z-[10000] flex items-center justify-center bg-black/50 backdrop-blur-sm" @click.self="cerrarModalCargaHoraria">
+        <div class="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 p-6">
+          <div class="flex items-center justify-center mb-4">
+            <div class="w-14 h-14 rounded-full bg-amber-100 flex items-center justify-center">
+              <svg class="w-7 h-7 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+              </svg>
+            </div>
+          </div>
+          <h3 class="text-center text-lg font-semibold text-gray-900 mb-2">
+            ¿Asignar carga horaria automáticamente?
+          </h3>
+          <p class="text-center text-sm text-gray-500 mb-2">
+            Esta función es <span class="font-semibold text-amber-600">experimental</span>.
+          </p>
+          <p class="text-center text-sm text-gray-500 mb-6">
+            Se compara cada docente activo y el nombre de su materia contra la carga horaria real
+            de {{ reporteExcel.anioActivos.value }} / periodo {{ reporteExcel.periodoActivos.value }}.
+            Si el nombre de la materia coincide exactamente, se asigna la CH. Si no hay coincidencia,
+            la columna CH queda vacía. Revisa el resultado con cuidado antes de descargar el Excel.
+          </p>
+          <div class="flex gap-3">
+            <button
+              @click="cerrarModalCargaHoraria"
+              class="flex-1 px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              @click="ejecutarAsignarCargaHoraria"
+              :disabled="reporteExcel.cargandoCargaHoraria.value"
+              class="flex-1 px-4 py-2 text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors flex items-center justify-center gap-2"
+            >
+              <svg v-if="reporteExcel.cargandoCargaHoraria.value" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+              </svg>
+              {{ reporteExcel.cargandoCargaHoraria.value ? 'Asignando...' : 'Sí, adelante' }}
             </button>
           </div>
         </div>
@@ -792,14 +933,15 @@ async function abrirPreviewExcel() {
 }
 
 async function cargarPreviewExcel() {
+  resultadoCargaHoraria.value = null
   try {
     await reporteExcel.previsualizar({
       gestion_desde: excelParams.value.gestion_desde,
       gestion_hasta: excelParams.value.gestion_hasta,
       periodo: excelParams.value.periodo,
       version: excelParams.value.version,
-      categoria: excelParams.value.categoria,     // ← nuevo
-      tipo_titulo: excelParams.value.tipo_titulo, // ← nuevo
+      categoria: excelParams.value.categorias,     // ✅ corregido (plural)
+      tipo_titulo: excelParams.value.tiposTitulo,  // ✅ corregido
     })
   } catch (e) {
     console.error('Error cargando vista previa de Excel:', e)
@@ -810,14 +952,56 @@ function cerrarPreviewExcel() {
   mostrarPreviewExcel.value = false
 }
 
-function descargarExcelConfirmado() {
+// ─── Asignar Carga Horaria (experimental) ───
+const mostrarModalCargaHoraria = ref(false)
+const resultadoCargaHoraria = ref(null) // { asignadas, sinCoincidencia } | { error }
+
+function confirmarAsignarCargaHoraria() {
+  resultadoCargaHoraria.value = null
+  mostrarModalCargaHoraria.value = true
+}
+
+function cerrarModalCargaHoraria() {
+  mostrarModalCargaHoraria.value = false
+}
+
+async function ejecutarAsignarCargaHoraria() {
+  try {
+    const resumen = await reporteExcel.asignarCargaHoraria({
+      anio: reporteExcel.anioActivos.value,
+      periodo: reporteExcel.periodoActivos.value,
+    })
+    resultadoCargaHoraria.value = resumen
+    mostrarModalCargaHoraria.value = false
+  } catch (e) {
+    console.error('Error asignando carga horaria:', e)
+    resultadoCargaHoraria.value = { error: reporteExcel.errorCargaHoraria.value || 'Error al asignar la carga horaria' }
+  }
+}
+
+async function descargarExcelConfirmado() {
+  // Si ya se asignó carga horaria automática en la vista previa, se descarga
+  // con esos datos exactos (vía POST) para no perder la asignación hecha en pantalla.
+  if (reporteExcel.cargaHorariaAsignada.value) {
+    try {
+      await reporteExcel.descargarExcelPersonalizado({
+        gestion: reporteExcel.gestionEtiqueta.value,
+        version: excelParams.value.version,
+      })
+      cerrarPreviewExcel()
+    } catch (e) {
+      alert('No se pudo descargar el Excel con la carga horaria asignada')
+    }
+    return
+  }
+
   const url = reporteExcel.urlDescarga({
     gestion_desde: excelParams.value.gestion_desde,
     gestion_hasta: excelParams.value.gestion_hasta,
     periodo: excelParams.value.periodo,
     version: excelParams.value.version,
-    categoria: excelParams.value.categoria,       // ← nuevo
-    tipo_titulo: excelParams.value.tipo_titulo,   // ← nuevo
+    categoria: excelParams.value.categorias,       // ✅ corregido
+    tipo_titulo: excelParams.value.tiposTitulo,    // ✅ corregido
   })
 
   window.open(url, '_blank')

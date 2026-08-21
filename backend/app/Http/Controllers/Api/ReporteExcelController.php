@@ -106,6 +106,42 @@ class ReporteExcelController extends Controller
     }
 
     /**
+     * POST /api/reportes/docentes-clasificados/excel-personalizado
+     *
+     * Genera el Excel a partir de datos YA ARMADOS que llegan desde el frontend
+     * (mismo shape que devuelve construirDatos()/preview, incluyendo N, COD_DOCENTE,
+     * NOMBRE_DOCENTE, NOMBRE_MATERIA, CH, DETALLE, CATEGORIA, NIVEL, FOTOCOPIA_TITULAR,
+     * OBS2, OBS3, NEGRITA, INICIO_GRUPO, FILAS_GRUPO, FIN_GRUPO).
+     *
+     * Se usa cuando en la vista previa del Excel se asignó automáticamente la
+     * Carga Horaria (botón "Asignar Carga Horaria") y se quiere descargar el
+     * archivo EXACTAMENTE con esos valores, sin que el backend los recalcule
+     * desde cero (lo que perdería esa asignación hecha en el navegador).
+     */
+    public function generarListadoDocentesDesdeDatos(Request $request)
+    {
+        try {
+            $data = $request->input('data', []);
+            $gestion = $request->input('gestion', '');
+            $version = $request->input('version', '5ta Versión');
+
+            if (empty($data) || !is_array($data)) {
+                return response()->json([
+                    'ok' => false,
+                    'error' => 'No se recibieron datos para generar el Excel',
+                ], 422);
+            }
+
+            return $this->generarExcel($data, $gestion, $version);
+        } catch (\Exception $e) {
+            return response()->json([
+                'ok' => false,
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
      * IMPORTANTE: trabaja a nivel CLASIFICACION_DOCENTE (documento + un docente).
      * GESTION, PERIODO, TIPO_DOCUMENTO, CATEGORIA, NIVEL, FOTOCOPIA_TITULAR viven en el
      * documento (documento()), las materias son propias del docente dentro del documento
@@ -117,6 +153,7 @@ class ReporteExcelController extends Controller
      * $tipoTitulo filtra por CLASIFICACION_TITULO.TIPO_TITULO (solo aparecen docentes
      * que tengan al menos un título de esa categoría).
      */
+
     private function construirDatos(
         string $gestionDesde,
         ?string $gestionHasta = null,
@@ -140,7 +177,7 @@ class ReporteExcelController extends Controller
                     $q->where('PERIODO', $periodo);
                 }
 
-                if (!empty($categoria)) {
+                if (!empty($categorias)) {
                     $q->whereIn('CATEGORIA', $categorias);
                 }
             });
@@ -259,13 +296,14 @@ class ReporteExcelController extends Controller
                 foreach ($materias as $materia) {
                     $data[] = [
                         'N' => $primeraFilaDocente ? $contadorPorNivel[$nivel] : null,
+                        'COD_DOCENTE' => $clasificacion->COD_DOCENTE,
                         'NOMBRE_DOCENTE' => $nombreDocente,
                         'NOMBRE_MATERIA' => $materia->NOMBRE_MATERIA ?: 'NO REGENTA MATERIA EN LA FCE',
                         'CH' => $materia->CARGA_HORARIA ?? null,
                         'DETALLE' => $primeraFilaClasificacion ? $detalleCombinado : '',
-                        'CATEGORIA' => $primeraFilaDocente ? $this->formatearCategoria($documento->CATEGORIA) : '',
-                        'NIVEL' => $primeraFilaDocente ? $nivel : '',
-                        'FOTOCOPIA_TITULAR' => ($primeraFilaDocente && $documento->FOTOCOPIA_TITULAR)
+                        'CATEGORIA' => $primeraFilaClasificacion ? $this->formatearCategoria($documento->CATEGORIA) : '',
+                        'NIVEL' => $primeraFilaClasificacion ? $nivel : '',
+                        'FOTOCOPIA_TITULAR' => ($primeraFilaClasificacion && $documento->FOTOCOPIA_TITULAR)
                             ? 'PRESENTO FOTOCOPIA'
                             : '',
                         'OBS2' => $primeraFilaClasificacion ? $obs2 : '',
@@ -458,5 +496,188 @@ class ReporteExcelController extends Controller
 
         $writer->save('php://output');
         exit;
+    }
+
+    /**
+     * Lista de docentes activos (con materia asignada) en una gestión dada.
+     * "Activo" = tiene al menos un grupo/materia en GRUPOS para ese anio/periodo,
+     * sin importar si ya tiene o no estudiantes inscritos.
+     *
+     * GET /api/reportes/docentes-activos?anio=2026&periodo=1
+     */
+    public function obtenerDocentesActivos(Request $request)
+    {
+        $anio = (int) $request->query('anio', date('Y'));
+        $periodo = (int) $request->query('periodo', 1);
+
+        if (!in_array($periodo, [1, 2, 3, 4], true)) {
+            return response()->json([
+                'message' => 'El parámetro periodo debe ser 1, 2, 3 o 4.',
+            ], 422);
+        }
+
+        $bindings = [
+            'anio' => $anio,
+            'periodo' => $periodo,
+        ];
+
+        $sql = "
+            SELECT DISTINCT
+                DOCENTES.CODIGO    AS codigo,
+                DOCENTES.APELLIDOS AS apellidos,
+                DOCENTES.NOMBRES   AS nombres
+            FROM GRUPOS
+            INNER JOIN DOCENTES
+                ON DOCENTES.CODIGO = GRUPOS.DOCENTE
+            WHERE GRUPOS.ANIO     = :anio
+              AND GRUPOS.PERIODO  = :periodo
+              AND GRUPOS.[PLAN]   IN ('109401','125091','089801','126091','059801')
+              AND GRUPOS.PRIMARIO = 'Y'
+              AND GRUPOS.TIPO     = 'N'
+            ORDER BY DOCENTES.APELLIDOS, DOCENTES.NOMBRES
+        ";
+
+        $docentes = DB::select($sql, $bindings);
+
+        return response()->json([
+            'anio' => $anio,
+            'periodo' => $periodo,
+            'total' => count($docentes),
+            'data' => $docentes,
+        ]);
+    }
+
+    /**
+     * Carga horaria por docente y por materia, para un anio/periodo dado.
+     * Misma lógica de CARGA_HORARIA que HorarioAdminController::resumen()
+     * (SUM de 8 si HORA>0 y GRUPO='NN', 2 en caso contrario, por cada fila
+     * de HORARIOS2 agrupada por materia/grupo/día/hora), pero agrupada aquí
+     * a nivel docente -> materias, con el total de CH sumado por docente.
+     *
+     * GET /api/reportes/carga-horaria-docentes?anio=2026&periodo=1
+     * GET /api/reportes/carga-horaria-docentes?anio=2026&periodo=1&docente=123
+     */
+    public function obtenerCargaHorariaDocentes(Request $request)
+    {
+        $anio = (int) $request->query('anio', date('Y'));
+        $periodo = (int) $request->query('periodo', 1);
+        $docente = $request->query('docente');
+
+        if (!in_array($periodo, [1, 2, 3, 4], true)) {
+            return response()->json([
+                'message' => 'El parámetro periodo debe ser 1, 2, 3 o 4.',
+            ], 422);
+        }
+
+        $docenteFilter = $docente ? "AND HORARIOS2.DOCENTE = :docente" : "";
+
+        $bindings = [
+            'anio' => $anio,
+            'periodo' => $periodo,
+        ];
+
+        if ($docente) {
+            $bindings['docente'] = $docente;
+        }
+
+        $sql = "
+            SELECT
+                HORARIOS2.DOCENTE  AS codigo,
+                DOCENTES.APELLIDOS AS apellidos,
+                DOCENTES.NOMBRES   AS nombres,
+
+                CASE GRUPOS.[PLAN]
+                    WHEN '059801' THEN 'ECO'
+                    WHEN '109401' THEN 'ADM'
+                    WHEN '089801' THEN 'CCP'
+                    WHEN '125091' THEN 'COM'
+                    WHEN '126091' THEN 'FIN'
+                    ELSE 'NN'
+                END AS carrera,
+
+                GRUPOS.MATERIA  AS cod_materia,
+                MATERIAS.NOMBRE AS nom_materia,
+                GRUPOS.GRUPO    AS grupo,
+                gc.COMP         AS comp,
+
+                SUM(
+                    CASE
+                        WHEN gc.COMP = 1 THEN 0
+                        WHEN HORARIOS2.HORA > 0
+                        AND HORARIOS2.GRUPO = 'NN'
+                        THEN 8
+                        ELSE 2
+                    END
+                ) AS carga_horaria
+
+            FROM HORARIOS2
+            INNER JOIN GRUPOS
+                ON HORARIOS2.ANIO = GRUPOS.ANIO
+                AND HORARIOS2.PERIODO = GRUPOS.PERIODO
+                AND HORARIOS2.MATERIA = GRUPOS.MATERIA
+                AND HORARIOS2.GRUPO = GRUPOS.GRUPO
+                AND HORARIOS2.DOCENTE = GRUPOS.DOCENTE
+            INNER JOIN MATERIAS
+                ON GRUPOS.ANIO = MATERIAS.ANIO
+                AND GRUPOS.PERIODO = MATERIAS.PERIODO
+                AND GRUPOS.[PLAN] = MATERIAS.[PLAN]
+                AND GRUPOS.MATERIA = MATERIAS.CODIGO
+            INNER JOIN DOCENTES
+                ON HORARIOS2.DOCENTE = DOCENTES.CODIGO
+            LEFT JOIN GRUPOS_COMPARTIDOS gc
+                ON GRUPOS.[PLAN] = gc.[PLAN]
+                AND GRUPOS.MATERIA = gc.MATERIA
+                AND GRUPOS.GRUPO = gc.GRUPO
+                AND GRUPOS.PRIMARIO = gc.PRIMARIO
+
+            WHERE HORARIOS2.ANIO = :anio
+              AND HORARIOS2.PERIODO = :periodo
+              AND HORARIOS2.TIPO IN ('C')
+              AND GRUPOS.[PLAN] IN ('109401','125091','089801','126091','059801')
+              AND GRUPOS.TIPO = 'N'
+              AND GRUPOS.PRIMARIO = 'Y'
+              AND HORARIOS2.HORA NOT IN (
+                  730,900,1030,1200,1330,
+                  1500,1630,1800,1930,2100
+              )
+              $docenteFilter
+
+            GROUP BY
+                HORARIOS2.DOCENTE, DOCENTES.APELLIDOS, DOCENTES.NOMBRES,
+                GRUPOS.[PLAN], GRUPOS.MATERIA, MATERIAS.NOMBRE, GRUPOS.GRUPO, gc.COMP
+
+            ORDER BY
+                DOCENTES.APELLIDOS, DOCENTES.NOMBRES, GRUPOS.MATERIA, GRUPOS.GRUPO
+        ";
+
+        $filas = collect(DB::select($sql, $bindings));
+
+        $data = $filas->groupBy('codigo')->map(function ($materias) {
+            $first = $materias->first();
+
+            return [
+                'codigo' => $first->codigo,
+                'apellidos' => $first->apellidos,
+                'nombres' => $first->nombres,
+                'materias' => $materias->map(function ($m) {
+                    return [
+                        'carrera' => $m->carrera,
+                        'cod_materia' => $m->cod_materia,
+                        'nom_materia' => $m->nom_materia,
+                        'grupo' => $m->grupo,
+                        'comp' => $m->comp,
+                        'carga_horaria' => $m->carga_horaria,
+                    ];
+                })->values(),
+                'total_ch' => $materias->sum('carga_horaria'),
+            ];
+        })->values();
+
+        return response()->json([
+            'anio' => $anio,
+            'periodo' => $periodo,
+            'total_docentes' => $data->count(),
+            'data' => $data,
+        ]);
     }
 }

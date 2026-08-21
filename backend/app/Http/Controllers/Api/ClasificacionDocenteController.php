@@ -531,6 +531,7 @@ class ClasificacionDocenteController extends Controller
     }
 
     // DELETE /clasificaciones/docente/{idClasificacionDocente}
+    // DELETE /clasificaciones/docente/{idClasificacionDocente}
     public function destroyDocente($idClasificacionDocente)
     {
         $ccd = DB::table('CLASIFICACION_DOCENTE')
@@ -541,17 +542,33 @@ class ClasificacionDocenteController extends Controller
             return response()->json(['ok' => false, 'error' => 'Registro de docente no encontrado'], 404);
         }
 
-        DB::transaction(function () use ($idClasificacionDocente) {
-            DB::table('CLASIFICACION_MATERIA')
-                ->where('ID_CLASIFICACION_DOCENTE', $idClasificacionDocente)
-                ->update(['ID_CLASIFICACION_DOCENTE' => null]);
+        try {
+            DB::transaction(function () use ($idClasificacionDocente) {
+                DB::table('CLASIFICACION_MATERIA')
+                    ->where('ID_CLASIFICACION_DOCENTE', $idClasificacionDocente)
+                    ->delete();
 
-            DB::table('CLASIFICACION_DOCENTE')
-                ->where('ID_CLASIFICACION_DOCENTE', $idClasificacionDocente)
-                ->delete();
-        });
+                DB::table('CLASIFICACION_TITULO')
+                    ->where('ID_CLASIFICACION_DOCENTE', $idClasificacionDocente)
+                    ->delete();
 
-        return response()->json(['ok' => true, 'mensaje' => 'Docente eliminado de la clasificación']);
+                DB::table('CLASIFICACION_DOCENTE')
+                    ->where('ID_CLASIFICACION_DOCENTE', $idClasificacionDocente)
+                    ->delete();
+            });
+
+            return response()->json(['ok' => true, 'mensaje' => 'Docente eliminado de la clasificación']);
+
+        } catch (\Throwable $e) {
+            $mensajeSeguro = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x80-\xFF]/', '?', $e->getMessage());
+
+            \Log::error('Error al eliminar docente de clasificación', [
+                'id_clasificacion_docente' => $idClasificacionDocente,
+                'mensaje' => $mensajeSeguro,
+            ]);
+
+            return response()->json(['ok' => false, 'error' => $mensajeSeguro], 500);
+        }
     }
 
     // PUT /clasificaciones/{id}/aplicar

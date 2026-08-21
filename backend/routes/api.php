@@ -284,3 +284,7 @@ Route::get('/referencias/anios', [ReferenciaController::class, 'anios']);
 // Reporte Excel
 Route::get('/reportes/docentes-clasificados/excel', [ReporteExcelController::class, 'generarListadoDocentes']);
 Route::get('/reportes/docentes-clasificados/preview', [ReporteExcelController::class, 'previsualizar']);
+
+Route::get('/reportes/docentes-activos', [ReporteExcelController::class, 'obtenerDocentesActivos']);
+Route::get('/reportes/carga-horaria-docentes', [ReporteExcelController::class, 'obtenerCargaHorariaDocentes']);
+Route::post('/reportes/docentes-clasificados/excel-personalizado', [ReporteExcelController::class, 'generarListadoDocentesDesdeDatos']);
