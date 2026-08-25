@@ -237,7 +237,7 @@ class ReporteExcelController extends Controller
                 if ($materias->isEmpty()) {
                     $materias = collect([
                         (object) [
-                            'NOMBRE_MATERIA' => 'NO REGENTA MATERIA EN LA FCE',
+                            'NOMBRE_MATERIA' => '-',
                             'CARGA_HORARIA' => null,
                         ]
                     ]);
@@ -298,7 +298,7 @@ class ReporteExcelController extends Controller
                         'N' => $primeraFilaDocente ? $contadorPorNivel[$nivel] : null,
                         'COD_DOCENTE' => $clasificacion->COD_DOCENTE,
                         'NOMBRE_DOCENTE' => $nombreDocente,
-                        'NOMBRE_MATERIA' => $materia->NOMBRE_MATERIA ?: 'NO REGENTA MATERIA EN LA FCE',
+                        'NOMBRE_MATERIA' => $materia->NOMBRE_MATERIA ?: '-',
                         'CH' => $materia->CARGA_HORARIA ?? null,
                         'DETALLE' => $primeraFilaClasificacion ? $detalleCombinado : '',
                         'CATEGORIA' => $primeraFilaClasificacion ? $this->formatearCategoria($documento->CATEGORIA) : '',
