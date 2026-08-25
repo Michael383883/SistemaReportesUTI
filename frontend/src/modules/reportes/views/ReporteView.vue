@@ -63,20 +63,20 @@
       <!-- Filtros: SIEMPRE visibles, tanto en modo normal como en modo documento -->
       <div class="mb-5">
         <ReporteFiltros
-  v-model:anio="anioFiltro"
-  v-model:anio-hasta="anioHastaFiltro"
-  v-model:materia="materiaFiltro"
-  v-model:grupo="grupoFiltro"
-  :loading="loadingActivo"
-  :reporte="reporteActivo"
-  :documentos-categoria="documentosCategoria"
-  :categorias-seleccionadas="categoriasSeleccionadas"
-  :modo-documento="modoDocumento"
-  @generar="reGenerar"
-/>
+          v-model:anio="anioFiltro"
+          v-model:anio-hasta="anioHastaFiltro"
+          v-model:materia="materiaFiltro"
+          v-model:grupo="grupoFiltro"
+          :loading="loadingActivo"
+          :reporte="reporteActivo"
+          :documentos-categoria="documentosCategoria"
+          :categorias-seleccionadas="categoriasSeleccionadas"
+          :modo-documento="modoDocumento"
+          @generar="reGenerar"
+        />
       </div>
 
-      <!-- Tabla de materias: solo en el modo normal -->
+      <!-- Tabla de materias: solo en el modo normal (no en modo documento) -->
       <ReporteTabla
         v-if="!modoDocumento"
         :materias="reporteActivo.materias"
@@ -84,14 +84,18 @@
         :agrupar-compartidos="verCompartidos"
       />
 
-      <!-- Tabla de clasificación por categoría: solo en el modo documento -->
-      <ClasificacionCategoriasTabla
-        v-if="modoDocumento"
-        :documentos="documentosCategoria"
-        :loading="loadingDocumentos"
-        :categorias="categoriasSeleccionadas"
-        @ver-pdf="verPdfCategoria"
-      />
+      <!-- Tabla de clasificación por categoría:
+           - Camino 1 (modoDocumento): se muestra sola, reemplaza a la de materias.
+           - Camino 2 (modo normal): se muestra DEBAJO de la tabla de materias,
+             en cuanto el usuario elige categorías desde ReporteHeader. -->
+      <div v-if="modoDocumento || categoriasSeleccionadas.length > 0" :class="{ 'mt-5': !modoDocumento }">
+        <ClasificacionCategoriasTabla
+          :documentos="documentosCategoria"
+          :loading="loadingDocumentos"
+          :categorias="categoriasSeleccionadas"
+          @ver-pdf="verPdfCategoria"
+        />
+      </div>
     </template>
 
     <!-- Empty -->

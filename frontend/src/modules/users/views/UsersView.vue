@@ -92,28 +92,33 @@
                 </span>
               </td>
               <td class="px-4 py-3 text-right">
-                <button
-                  @click="openEdit(u)"
-                  class="inline-flex items-center gap-1 px-2 py-1 rounded text-[0.68rem] font-medium
-                         bg-blue-50 text-blue-600 hover:bg-blue-100
-                         dark:bg-blue-500/10 dark:text-blue-400 dark:hover:bg-blue-500/20
-                         transition-colors mr-1.5"
-                  title="Editar"
-                  aria-label="Editar usuario"
-                >
-                  <Pencil class="w-3 h-3" />
-                </button>
-                <button
-                  @click="openDelete(u)"
-                  class="inline-flex items-center gap-1 px-2 py-1 rounded text-[0.68rem] font-medium
-                         bg-red-50 text-red-600 hover:bg-red-100
-                         dark:bg-red-500/10 dark:text-red-400 dark:hover:bg-red-500/20
-                         transition-colors"
-                  title="Eliminar"
-                  aria-label="Eliminar usuario"
-                >
-                  <Trash2 class="w-3 h-3" />
-                </button>
+                <template v-if="u.role !== 'admin'">
+                  <button
+                    @click="openEdit(u)"
+                    class="inline-flex items-center gap-1 px-2 py-1 rounded text-[0.68rem] font-medium
+                           bg-blue-50 text-blue-600 hover:bg-blue-100
+                           dark:bg-blue-500/10 dark:text-blue-400 dark:hover:bg-blue-500/20
+                           transition-colors mr-1.5"
+                    title="Editar"
+                    aria-label="Editar usuario"
+                  >
+                    <Pencil class="w-3 h-3" />
+                  </button>
+                  <button
+                    @click="openDelete(u)"
+                    class="inline-flex items-center gap-1 px-2 py-1 rounded text-[0.68rem] font-medium
+                           bg-red-50 text-red-600 hover:bg-red-100
+                           dark:bg-red-500/10 dark:text-red-400 dark:hover:bg-red-500/20
+                           transition-colors"
+                    title="Eliminar"
+                    aria-label="Eliminar usuario"
+                  >
+                    <Trash2 class="w-3 h-3" />
+                  </button>
+                </template>
+                <span v-else class="text-[0.68rem] text-slate-400 dark:text-slate-600 italic">
+                  Sin acciones
+                </span>
               </td>
             </tr>
 
