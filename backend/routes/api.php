@@ -48,6 +48,9 @@ use App\Http\Controllers\Api\ReporteExcelController;
 //periodos
 use App\Http\Controllers\Api\PeriodoAcademicoController;
 
+//categorias clasificacion
+use App\Http\Controllers\Api\CategoriaClasificacionController;
+
 /*
 |--------------------------------------------------------------------------
 | AUTH (público)
@@ -96,13 +99,8 @@ Route::middleware('auth:sanctum')->group(function () {
 |--------------------------------------------------------------------------
 */
 Route::prefix('database')->group(function () {
-    Route::get('status', [DatabaseController::class, 'status']);
-    Route::post('carga-inicial', [DatabaseController::class, 'cargaInicial']);
-    Route::post('migrar-catalogos', [DatabaseController::class, 'migrarCatalogos']);
-    Route::post('migrar-catalogo/{tabla}', [DatabaseController::class, 'migrarCatalogo']);
-    Route::post('migrar-grupos', [DatabaseController::class, 'migrarGrupos']);
-    Route::post('migrar-semestre', [DatabaseController::class, 'migrarSemestre']);
-    Route::post('/migrar-docentes', [DatabaseController::class, 'migrarDocentes']);
+    Route::get('/status', [\App\Http\Controllers\Api\DatabaseController::class, 'status']);
+    Route::get('/tables', [\App\Http\Controllers\Api\DatabaseController::class, 'tables']);
 });
 /*
 |--------------------------------------------------------------------------
@@ -288,3 +286,10 @@ Route::get('/reportes/docentes-clasificados/preview', [ReporteExcelController::c
 Route::get('/reportes/docentes-activos', [ReporteExcelController::class, 'obtenerDocentesActivos']);
 Route::get('/reportes/carga-horaria-docentes', [ReporteExcelController::class, 'obtenerCargaHorariaDocentes']);
 Route::post('/reportes/docentes-clasificados/excel-personalizado', [ReporteExcelController::class, 'generarListadoDocentesDesdeDatos']);
+
+// routes/api.php
+Route::pattern('tipo', 'documento|titulo');
+
+Route::get('/categorias-clasificacion/{tipo}', [CategoriaClasificacionController::class, 'index']);
+Route::post('/categorias-clasificacion/{tipo}', [CategoriaClasificacionController::class, 'store']);
+Route::put('/categorias-clasificacion/{tipo}', [CategoriaClasificacionController::class, 'update']);
