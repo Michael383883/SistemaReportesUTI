@@ -27,7 +27,11 @@ RUN DB_CONNECTION=sqlite \
     composer install --no-dev --optimize-autoloader && \
     chown -R www-data:www-data /var/www/backend && \
     chmod -R 775 storage bootstrap/cache
-# Fix TLS para SQL Server 2008
+
+# Fix TLS para conectar contra SQL Server 2008 (no soporta TLS moderno).
+# ⚠️ Esto baja el nivel de seguridad TLS de TODO el contenedor, no solo
+# de esta conexión. Si en el futuro se agregan integraciones HTTPS con
+# servicios externos, van a heredar esta misma configuración debilitada.
 COPY openssl-fix.cnf /usr/lib/ssl/openssl-fix.cnf
 
 RUN cp /usr/lib/ssl/openssl.cnf /usr/lib/ssl/openssl.cnf.bak && \
@@ -39,7 +43,7 @@ RUN { \
     echo "post_max_size=25M"; \
     echo "memory_limit=256M"; \
     } > /usr/local/etc/php/conf.d/99-uploads.ini
-    
+
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 EXPOSE 8000
