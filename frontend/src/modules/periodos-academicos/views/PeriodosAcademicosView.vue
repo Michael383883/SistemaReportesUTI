@@ -729,11 +729,11 @@ const {
 
 const nuevoTipo = ref('')
 
-function agregarTipo() {
+async function agregarTipo() {
   const valor = nuevoTipo.value.trim()
   if (!valor) return
 
-  const resultado = agregarTipoLocal(valor)
+  const resultado = await agregarTipoLocal(valor)
   if (resultado?.success !== false) {
     nuevoTipo.value = ''
     notify.success('Tipo de título agregado')
