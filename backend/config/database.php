@@ -1,7 +1,6 @@
 <?php
 
 use Illuminate\Support\Str;
-use Pdo\Mysql;
 
 return [
 
@@ -9,7 +8,7 @@ return [
 
     'connections' => [
 
-        // SQL Server 2022 (Destino)
+        // SQL Server (única BD en uso: prueba2)
         'sqlsrv' => [
             'driver' => 'sqlsrv',
             'url' => env('DB_URL'),
@@ -23,24 +22,6 @@ return [
             'prefix_indexes' => true,
             'encrypt' => 'no',
             'trust_server_certificate' => true,
-
-            'language' => 'us_english',
-            // 'encrypt' => env('DB_ENCRYPT', 'false'),
-            //'trust_server_certificate' => env('DB_TRUST_SERVER_CERTIFICATE', 'true'),
-        ],
-
-        // SQL Server 2008 (Origen)
-        'sqlsrv2' => [
-            'driver' => 'sqlsrv',
-            'host' => env('DB_HOST_SQLSRV'),
-            'port' => env('DB_PORT_SQLSRV'),
-            'database' => env('DB_DATABASE_SQLSRV'),
-            'username' => env('DB_USERNAME_SQLSRV'),
-            'password' => env('DB_PASSWORD_SQLSRV'),
-            'charset' => 'utf8',
-            'prefix' => '',
-            'prefix_indexes' => true,
-            'encrypt' => 'no',
             'language' => 'us_english',
         ],
 
