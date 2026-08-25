@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Models\PeriodoAcademico;
+use Illuminate\Support\Facades\Log;
 
 class HorarioAdminController extends Controller
 {
@@ -16,113 +17,153 @@ class HorarioAdminController extends Controller
 
     public function index(Request $request)
     {
+        // Red de seguridad: sube el limite de tiempo solo para esta ruta,
+        // mientras confirmamos que el problema de fondo (bloqueo / indices)
+        // esta resuelto. Una vez confirmado que corre rapido, puedes bajarlo.
+        set_time_limit(60);
+
+        $tInicio = microtime(true);
+        Log::info('========== INICIO index() ==========');
+
         $anio = (int) $request->query('anio', date('Y'));
         $periodo = (int) $request->query('periodo');
-        $docente = $request->query('docente');
+        $docente = $request->query('docente'); // opcional, se filtra en PHP
 
-        $docenteFilter = $docente ? "AND h.DOCENTE = :docente" : "";
-        $bindings = [
+        Log::info('Parametros recibidos', [
             'anio' => $anio,
             'periodo' => $periodo,
-            'anio2' => $anio,
-            'periodo2' => $periodo,
-        ];
-        if ($docente)
-            $bindings['docente'] = $docente;
+            'docente' => $docente,
+        ]);
 
-        $sql = "
+        // ---------------------------------------------------------------
+        // QUERY 1: Horarios (solo depende de anio + periodo, sin docente)
+        // Los CAST explicitos evitan que PDO mande el parametro como
+        // NVARCHAR y SQL Server tenga que convertir cada fila (lo cual
+        // invalida el uso de indices).
+        // ---------------------------------------------------------------
+        $sqlHorarios = "
     SELECT
-        TBL.ANIO, TBL.PERIODO, TBL.[PLAN], TBL.CARRERA, TBL.NIVEL,
-        TBL.DOCENTE, TBL.APELLIDOS, TBL.NOMBRES,
-        TBL.MATERIA, TBL.NOMBRE, TBL.TIPO, TBL.TIPO2,
-        TBL.GRUPO, TBL.DIA, TBL.ORDEN_DIA, TBL.HORA, TBL.HORARIO,
-        TBL.AMBIENTE, TBL.[CARGA HORARIA] AS CARGA_HORARIA,
-        TBL.COMP, TBL.COMPARTIDO, TBL.ORDEN,
-        INS.INSCRITOS AS TOTAL_NORMAL
-    FROM (
-        SELECT
-            h.ANIO, h.PERIODO, g.[PLAN],
-            CASE g.[PLAN]
-                WHEN '059801' THEN 'ECO' WHEN '109401' THEN 'ADM'
-                WHEN '089801' THEN 'CCP' WHEN '125091' THEN 'COM'
-                WHEN '126091' THEN 'FIN' ELSE 'NN'
-            END AS CARRERA,
-            m.NIVEL, h.DOCENTE, d.APELLIDOS, d.NOMBRES,
-            g.MATERIA, m.NOMBRE, h.TIPO,
-            CASE WHEN h.TIPO = 'C' THEN '' WHEN h.TIPO = 'P' THEN '[AUX]' ELSE 'N' END AS TIPO2,
-            g.GRUPO, h.DIA,
-            CASE h.DIA
-                WHEN 'LU' THEN 1 WHEN 'MA' THEN 2 WHEN 'MI' THEN 3
-                WHEN 'JU' THEN 4 WHEN 'VI' THEN 5 WHEN 'SA' THEN 6 ELSE 0
-            END AS ORDEN_DIA,
-            h.HORA,
-            CASE
-                WHEN h.HORA = 645  THEN '06:45 - 08:15'
-                WHEN h.HORA = 815  THEN '08:15 - 09:45'
-                WHEN h.HORA = 945  THEN '09:45 - 11:15'
-                WHEN h.HORA = 1115 THEN '11:15 - 12:45'
-                WHEN h.HORA = 1245 THEN '12:45 - 14:15'
-                WHEN h.HORA = 1415 THEN '14:15 - 15:45'
-                WHEN h.HORA = 1545 THEN '15:45 - 17:15'
-                WHEN h.HORA = 1715 THEN '17:15 - 18:45'
-                WHEN h.HORA = 1845 THEN '18:45 - 20:15'
-                WHEN h.HORA = 2015 THEN '20:15 - 21:45'
-                ELSE '00:00 - 00:00'
-            END AS HORARIO,
-            h.AMBIENTE,
-            SUM(CASE WHEN h.HORA > 0 AND h.GRUPO = 'NN' THEN 8 ELSE 2 END) AS [CARGA HORARIA],
-            gc.COMP, gc.COMPARTIDO, gc.ORDEN
-        FROM HORARIOS2 h
-        INNER JOIN GRUPOS g
-            ON h.ANIO = g.ANIO AND h.PERIODO = g.PERIODO
-            AND h.MATERIA = g.MATERIA AND h.GRUPO = g.GRUPO AND h.DOCENTE = g.DOCENTE
-        INNER JOIN MATERIAS m
-            ON g.ANIO = m.ANIO AND g.PERIODO = m.PERIODO
-            AND g.[PLAN] = m.[PLAN] AND g.MATERIA = m.CODIGO
-        INNER JOIN DOCENTES d ON h.DOCENTE = d.CODIGO
-        LEFT JOIN GRUPOS_COMPARTIDOS gc
-            ON g.[PLAN] = gc.[PLAN] AND g.MATERIA = gc.MATERIA
-            AND g.GRUPO = gc.GRUPO AND g.PRIMARIO = gc.PRIMARIO
-        WHERE h.ANIO = :anio
-          AND h.PERIODO = :periodo
-          AND h.TIPO IN ('C')
-          AND g.[PLAN] IN ('109401','125091','089801','126091','059801')
-          AND g.TIPO = 'N'
-          AND g.PRIMARIO IN ('Y')
-          AND h.HORA NOT IN (730,900,1030,1200,1330,1500,1630,1800,1930,2100)
-          $docenteFilter
-        GROUP BY
-            h.ANIO, h.PERIODO, g.[PLAN], m.NIVEL,
-            h.DOCENTE, d.APELLIDOS, d.NOMBRES,
-            g.MATERIA, m.NOMBRE, h.TIPO, g.GRUPO, h.DIA, h.HORA,
-            h.AMBIENTE, gc.COMP, gc.COMPARTIDO, gc.ORDEN
-    ) AS TBL
-    LEFT JOIN (
-        SELECT
-            g.ANIO, g.PERIODO, g.[PLAN], g.MATERIA, g.GRUPO,
-            COUNT(k.ESTUDIANTE) AS INSCRITOS
-        FROM GRUPOS g
-        LEFT JOIN KARDEX_EXT k
-            ON g.ANIO = k.ANIO AND g.PERIODO = k.PERIODO
-            AND g.[PLAN] = k.[PLAN] AND g.MATERIA = k.MATERIA
-            AND g.GRUPO = k.GRUPO
-            AND (k.TIPO_EXAMEN = 'N' OR k.TIPO_EXAMEN IS NULL)
-            AND k.CANCELADO IS NULL
-        WHERE g.ANIO = :anio2
-          AND g.PERIODO = :periodo2
-          AND g.[PLAN] IN ('109401','125091','089801','126091','059801')
-          AND g.PRIMARIO = 'Y'
-          AND g.TIPO = 'N'
-        GROUP BY g.ANIO, g.PERIODO, g.[PLAN], g.MATERIA, g.GRUPO
-    ) AS INS
-        ON TBL.ANIO = INS.ANIO AND TBL.PERIODO = INS.PERIODO
-        AND TBL.[PLAN] = INS.[PLAN] AND TBL.MATERIA = INS.MATERIA
-        AND TBL.GRUPO = INS.GRUPO
-    ORDER BY TBL.APELLIDOS, TBL.NOMBRES, TBL.ORDEN, TBL.MATERIA,
-             TBL.GRUPO, TBL.[PLAN], TBL.ORDEN_DIA, TBL.COMPARTIDO
+        h.ANIO, h.PERIODO, g.[PLAN],
+        CASE g.[PLAN]
+            WHEN '059801' THEN 'ECO' WHEN '109401' THEN 'ADM'
+            WHEN '089801' THEN 'CCP' WHEN '125091' THEN 'COM'
+            WHEN '126091' THEN 'FIN' ELSE 'NN'
+        END AS CARRERA,
+        m.NIVEL, h.DOCENTE, d.APELLIDOS, d.NOMBRES,
+        g.MATERIA, m.NOMBRE, h.TIPO,
+        CASE WHEN h.TIPO = 'C' THEN '' WHEN h.TIPO = 'P' THEN '[AUX]' ELSE 'N' END AS TIPO2,
+        g.GRUPO, h.DIA,
+        CASE h.DIA
+            WHEN 'LU' THEN 1 WHEN 'MA' THEN 2 WHEN 'MI' THEN 3
+            WHEN 'JU' THEN 4 WHEN 'VI' THEN 5 WHEN 'SA' THEN 6 ELSE 0
+        END AS ORDEN_DIA,
+        h.HORA,
+        CASE
+            WHEN h.HORA = 645  THEN '06:45 - 08:15'
+            WHEN h.HORA = 815  THEN '08:15 - 09:45'
+            WHEN h.HORA = 945  THEN '09:45 - 11:15'
+            WHEN h.HORA = 1115 THEN '11:15 - 12:45'
+            WHEN h.HORA = 1245 THEN '12:45 - 14:15'
+            WHEN h.HORA = 1415 THEN '14:15 - 15:45'
+            WHEN h.HORA = 1545 THEN '15:45 - 17:15'
+            WHEN h.HORA = 1715 THEN '17:15 - 18:45'
+            WHEN h.HORA = 1845 THEN '18:45 - 20:15'
+            WHEN h.HORA = 2015 THEN '20:15 - 21:45'
+            ELSE '00:00 - 00:00'
+        END AS HORARIO,
+        h.AMBIENTE,
+        SUM(CASE WHEN h.HORA > 0 AND h.GRUPO = 'NN' THEN 8 ELSE 2 END) AS CARGA_HORARIA,
+        gc.COMP, gc.COMPARTIDO, gc.ORDEN
+    FROM HORARIOS2 h
+    INNER JOIN GRUPOS g
+        ON h.ANIO = g.ANIO AND h.PERIODO = g.PERIODO
+        AND h.MATERIA = g.MATERIA AND h.GRUPO = g.GRUPO AND h.DOCENTE = g.DOCENTE
+    INNER JOIN MATERIAS m
+        ON g.ANIO = m.ANIO AND g.PERIODO = m.PERIODO
+        AND g.[PLAN] = m.[PLAN] AND g.MATERIA = m.CODIGO
+    INNER JOIN DOCENTES d ON h.DOCENTE = d.CODIGO
+    LEFT JOIN GRUPOS_COMPARTIDOS gc
+        ON g.[PLAN] = gc.[PLAN] AND g.MATERIA = gc.MATERIA
+        AND g.GRUPO = gc.GRUPO AND g.PRIMARIO = gc.PRIMARIO
+    WHERE h.ANIO = CAST(:anio AS INT)
+      AND h.PERIODO = CAST(:periodo AS INT)
+      AND h.TIPO = 'C'
+      AND g.[PLAN] IN ('109401','125091','089801','126091','059801')
+      AND g.TIPO = 'N'
+      AND g.PRIMARIO = 'Y'
+      AND h.HORA NOT IN (730,900,1030,1200,1330,1500,1630,1800,1930,2100)
+    GROUP BY
+        h.ANIO, h.PERIODO, g.[PLAN], m.NIVEL,
+        h.DOCENTE, d.APELLIDOS, d.NOMBRES,
+        g.MATERIA, m.NOMBRE, h.TIPO, g.GRUPO, h.DIA, h.HORA,
+        h.AMBIENTE, gc.COMP, gc.COMPARTIDO, gc.ORDEN
+    ORDER BY d.APELLIDOS, d.NOMBRES, gc.ORDEN, g.MATERIA,
+             g.GRUPO, g.[PLAN]
     ";
 
-        $data = collect(DB::select($sql, $bindings));
+        $tA = microtime(true);
+        $horarios = collect(DB::select($sqlHorarios, [
+            'anio' => $anio,
+            'periodo' => $periodo,
+        ]));
+        Log::info('Query horarios OK', [
+            'segundos' => round(microtime(true) - $tA, 4),
+            'filas' => $horarios->count(),
+        ]);
+
+        // ---------------------------------------------------------------
+        // QUERY 2: Inscritos (independiente, tambien solo anio + periodo)
+        // Separarla de la query de horarios evita que un JOIN pesado en
+        // KARDEX_EXT bloquee o ralentice todo el resultado si algo falla
+        // solo en esta parte.
+        // ---------------------------------------------------------------
+        $sqlInscritos = "
+    SELECT
+        g.ANIO, g.PERIODO, g.[PLAN], g.MATERIA, g.GRUPO,
+        COUNT(k.ESTUDIANTE) AS INSCRITOS
+    FROM GRUPOS g
+    LEFT JOIN KARDEX_EXT k
+        ON g.ANIO = k.ANIO AND g.PERIODO = k.PERIODO
+        AND g.[PLAN] = k.[PLAN] AND g.MATERIA = k.MATERIA
+        AND g.GRUPO = k.GRUPO
+        AND (k.TIPO_EXAMEN = 'N' OR k.TIPO_EXAMEN IS NULL)
+        AND k.CANCELADO IS NULL
+    WHERE g.ANIO = CAST(:anio AS INT)
+      AND g.PERIODO = CAST(:periodo AS INT)
+      AND g.[PLAN] IN ('109401','125091','089801','126091','059801')
+      AND g.PRIMARIO = 'Y'
+      AND g.TIPO = 'N'
+    GROUP BY g.ANIO, g.PERIODO, g.[PLAN], g.MATERIA, g.GRUPO
+    ";
+
+        $tB = microtime(true);
+        $inscritos = collect(DB::select($sqlInscritos, [
+            'anio' => $anio,
+            'periodo' => $periodo,
+        ]));
+        Log::info('Query inscritos OK', [
+            'segundos' => round(microtime(true) - $tB, 4),
+            'filas' => $inscritos->count(),
+        ]);
+
+        // ---------------------------------------------------------------
+        // Merge en PHP: mucho mas barato que hacerlo en SQL con dos
+        // subconsultas anidadas, y mas facil de debuggear si algo falla.
+        // ---------------------------------------------------------------
+        $inscritosMap = $inscritos->keyBy(function ($row) {
+            return $row->PLAN . '|' . $row->MATERIA . '|' . $row->GRUPO;
+        });
+
+        $data = $horarios->map(function ($row) use ($inscritosMap) {
+            $key = $row->PLAN . '|' . $row->MATERIA . '|' . $row->GRUPO;
+            $row->TOTAL_NORMAL = $inscritosMap->get($key)->INSCRITOS ?? 0;
+            return $row;
+        });
+
+        // Filtro opcional por docente, ya en memoria (rapido, sin tocar la BD de nuevo)
+        if ($docente) {
+            $data = $data->filter(fn($row) => (string) $row->DOCENTE === (string) $docente)->values();
+        }
 
         $grouped = $data->groupBy('DOCENTE')->map(function ($rows) {
             $first = $rows->first();
@@ -134,6 +175,11 @@ class HorarioAdminController extends Controller
                 'total_ch' => $rows->sum('CARGA_HORARIA'),
             ];
         })->values();
+
+        Log::info('========== FIN index() ==========', [
+            'tiempo_total_segundos' => round(microtime(true) - $tInicio, 4),
+            'docentes' => $grouped->count(),
+        ]);
 
         return response()->json([
             'anio' => $anio,

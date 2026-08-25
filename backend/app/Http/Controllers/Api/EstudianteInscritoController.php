@@ -12,22 +12,9 @@ class EstudianteInscritoController extends Controller
     /**
      * Lista de estudiantes inscritos por anio/periodo, segun los planes
      * de estudio definidos (CON, ADM, COM, FIN, ECO).
-     *
-     * Parametros opcionales (query string):
-     *   - anio      (default: 2026)
-     *   - periodo   (default: 1)
-     *   - plan      (filtra por un plan especifico, ej: 089801)
-     *   - materia   (filtra por codigo de materia)
-     *   - grupo     (filtra por grupo)
-     *   - nivel     (filtra por un nivel especifico, ej: A, B, C...)
-     *   - page      (default: 1) numero de pagina
-     *   - per_page  (default: 100, maximo: 500) registros por pagina
-     *
-     * Ejemplo: GET /api/estudiantes-inscritos?anio=2026&periodo=1&nivel=A&page=1&per_page=100
      */
     public function index(Request $request)
     {
-        // anio y periodo ahora son obligatorios, sin valor por defecto
         $request->validate([
             'anio' => 'required',
             'periodo' => 'required',
@@ -71,6 +58,12 @@ class EstudianteInscritoController extends Controller
             'X',
         ];
 
+        $nivelesPlaceholders = implode(', ', array_map(
+            fn($idx) => ":nivel_permitido_{$idx}",
+            array_keys($nivelesPermitidos)
+        ));
+
+        // ── SELECT base con ROW_NUMBER() en vez de OFFSET/FETCH ──
         $selectData = "
         SELECT
             K.ANIO,
@@ -88,20 +81,20 @@ class EstudianteInscritoController extends Controller
             K.MATERIA,
             M.NOMBRE AS NOMBRE_MATERIA,
             K.GRUPO,
-
-            -- DOCENTE
             D.CODIGO AS COD_DOCENTE,
             D.APELLIDOS + ' ' + D.NOMBRES AS DOCENTE,
-
-            -- ESTUDIANTE
             B.CODIGO AS COD_ESTUDIANTE,
-            B.APELLIDOS + ' ' + B.NOMBRES AS ESTUDIANTE
+            B.APELLIDOS + ' ' + B.NOMBRES AS ESTUDIANTE,
+            ROW_NUMBER() OVER (
+                ORDER BY
+                    M.NIVEL ASC,
+                    K.[PLAN],
+                    K.MATERIA,
+                    K.GRUPO,
+                    B.APELLIDOS,
+                    B.NOMBRES
+            ) AS RN
     ";
-
-        $nivelesPlaceholders = implode(', ', array_map(
-            fn($idx) => ":nivel_permitido_{$idx}",
-            array_keys($nivelesPermitidos)
-        ));
 
         $fromWhere = "
         FROM KARDEX_EXT K
@@ -174,27 +167,26 @@ class EstudianteInscritoController extends Controller
 
         $sqlCount = "SELECT COUNT(*) AS TOTAL " . $fromWhere;
 
-        $sqlData = $selectData . $fromWhere . "
-        ORDER BY
-            M.NIVEL ASC,
-            K.[PLAN],
-            K.MATERIA,
-            K.GRUPO,
-            B.APELLIDOS,
-            B.NOMBRES
-        OFFSET :offset ROWS FETCH NEXT :per_page ROWS ONLY
-            ";
+        // ── Paginación vía CTE + ROW_NUMBER() (compatible con SQL Server 2008+) ──
+        $sqlData = "
+        WITH PAGINADO AS (
+            {$selectData}
+            {$fromWhere}
+        )
+        SELECT * FROM PAGINADO
+        WHERE RN BETWEEN :row_inicio AND :row_fin
+        ORDER BY RN
+    ";
 
         $bindingsData = $bindings + [
-            'offset' => $offset,
-            'per_page' => $perPage,
+            'row_inicio' => $offset + 1,
+            'row_fin' => $offset + $perPage,
         ];
 
         try {
             $total = (int) (DB::select($sqlCount, $bindings)[0]->TOTAL ?? 0);
             $resultados = DB::select($sqlData, $bindingsData);
 
-            // Agrupar por PLAN + MATERIA + GRUPO + NIVEL, con su docente y lista de estudiantes
             $grupos = [];
 
             foreach ($resultados as $fila) {
@@ -246,20 +238,6 @@ class EstudianteInscritoController extends Controller
 
     /**
      * Resumen de inscritos/aprobados/reprobados por grupo, materia y docente.
-     *
-     * Parametros obligatorios (query string):
-     *   - anio
-     *   - periodo
-     *
-     * Parametros opcionales (query string):
-     *   - plan      (filtra por un plan especifico, ej: 089801)
-     *   - materia   (filtra por codigo de materia)
-     *   - grupo     (filtra por grupo)
-     *   - nivel     (filtra por un nivel especifico, ej: A, B, C...)
-     *   - page      (default: 1) numero de pagina
-     *   - per_page  (default: 100, maximo: 500) registros por pagina
-     *
-     * Ejemplo: GET /api/estudiantes-inscritos/resumen-grupo?anio=2025&periodo=2
      */
     public function resumenPorGrupo(Request $request)
     {
@@ -313,7 +291,6 @@ class EstudianteInscritoController extends Controller
             array_keys($nivelesPermitidos)
         ));
 
-        // CTE compartido entre el conteo total y la consulta paginada
         $baseCte = "
         WITH BASE AS (
             SELECT
@@ -404,8 +381,9 @@ class EstudianteInscritoController extends Controller
             $bindings['nivel_filtro'] = $nivel;
         }
 
-        $baseCte .= " ) "; // cierra el CTE
+        $baseCte .= " ) ";
 
+        // ── RESUMEN con ROW_NUMBER() en vez de OFFSET/FETCH ──
         $groupBySelect = "
         SELECT
             ANIO,
@@ -433,19 +411,25 @@ class EstudianteInscritoController extends Controller
     ";
 
         $sqlData = "
-        {$baseCte}
-        {$groupBySelect}
-        ORDER BY
-            [PLAN],
-            NIVEL ASC,
-            MATERIA,
-            GRUPO
-        OFFSET :offset ROWS FETCH NEXT :per_page ROWS ONLY
+        {$baseCte},
+        RESUMEN AS (
+            {$groupBySelect}
+        ),
+        PAGINADO AS (
+            SELECT *,
+                ROW_NUMBER() OVER (
+                    ORDER BY [PLAN], NIVEL ASC, MATERIA, GRUPO
+                ) AS RN
+            FROM RESUMEN
+        )
+        SELECT * FROM PAGINADO
+        WHERE RN BETWEEN :row_inicio AND :row_fin
+        ORDER BY RN
     ";
 
         $bindingsData = $bindings + [
-            'offset' => $offset,
-            'per_page' => $perPage,
+            'row_inicio' => $offset + 1,
+            'row_fin' => $offset + $perPage,
         ];
 
         try {
@@ -470,8 +454,9 @@ class EstudianteInscritoController extends Controller
         }
     }
 
-
-
+    /**
+     * Resumen de aprobados/reprobados por docente (sin paginación, no usa OFFSET/FETCH).
+     */
     public function resumenAprobadosReprobados(Request $request)
     {
         $anio = $request->query('anio');
@@ -513,8 +498,6 @@ class EstudianteInscritoController extends Controller
             array_keys($nivelesPermitidos)
         ));
 
-        // ── BASE: igual que resumenPorGrupo, pero exponiendo cod_docente,
-        //          apellidos y nombres por separado (no concatenados) ──
         $sql = "
         WITH BASE AS (
             SELECT
@@ -581,7 +564,6 @@ class EstudianteInscritoController extends Controller
         try {
             $filas = DB::select($sql, $bindings);
 
-            // ── Agrupar filas planas (docente+carrera) en la estructura anidada ──
             $porDocente = [];
             foreach ($filas as $f) {
                 $cod = $f->COD_DOCENTE;

@@ -385,6 +385,7 @@ class ResolucionPdfController extends Controller
     }
 
     // PUT/POST /resoluciones/{id}   (multipart, por eso se recibe como POST con _method=PUT)
+    // PUT/POST /resoluciones/{id}   (multipart, por eso se recibe como POST con _method=PUT)
     public function update(Request $request, $id)
     {
         DB::beginTransaction();
@@ -409,6 +410,16 @@ class ResolucionPdfController extends Controller
                 'periodo' => 'required|string|max:2',
                 'archivo_pdf' => 'nullable|file|mimes:pdf|max:20480', // opcional al editar
             ]);
+
+            // ── Guardamos los valores VIEJOS antes de pisarlos ──────────────
+            // GRUPOS.RESOLUCION y GRUPOS.DESIGNACION son copias denormalizadas
+            // que aplicarEnGrupos() escribió en su momento. Si acá solo
+            // actualizamos RESOLUCIONES_PDF, esas copias en GRUPOS quedan
+            // desactualizadas (se ve el cambio en el listado pero no en las
+            // materias/docentes ya enlazados). Por eso necesitamos el valor
+            // anterior para poder ubicar esas filas y sincronizarlas.
+            $nroAnterior = $resolucion->NRO_RESOLUCION;
+            $descripcionAnterior = $resolucion->DESCRIPCION;
 
             $datosActualizar = [
                 'NRO_RESOLUCION' => $request->nro_resolucion,
@@ -445,6 +456,31 @@ class ResolucionPdfController extends Controller
                 ->where('ID_RESOLUCION', $id)
                 ->update($datosActualizar);
 
+            // ── NUEVO: sincronizar GRUPOS que ya tienen esta resolución aplicada ──
+            // Buscamos por el NRO_RESOLUCION anterior (no por ID_RESOLUCION,
+            // porque GRUPOS no guarda ese ID, solo el texto que copió
+            // aplicarEnGrupos). Si el número o la descripción cambiaron,
+            // propagamos el cambio a todas las filas de GRUPOS que
+            // coincidan con el valor viejo.
+            $gruposSincronizados = 0;
+
+            $cambioNumero = $nroAnterior !== $request->nro_resolucion;
+            $cambioDescripcion = $descripcionAnterior !== $request->descripcion;
+
+            if ($nroAnterior && ($cambioNumero || $cambioDescripcion)) {
+                $gruposSincronizados = DB::update("
+                    UPDATE GRUPOS
+                    SET
+                        RESOLUCION  = ?,
+                        DESIGNACION = ?
+                    WHERE RESOLUCION COLLATE Modern_Spanish_CI_AS = ? COLLATE Modern_Spanish_CI_AS
+                ", [
+                    $request->nro_resolucion,
+                    $request->descripcion,
+                    $nroAnterior,
+                ]);
+            }
+
             DB::commit();
 
             // Recién después del commit borramos el PDF viejo (si se reemplazó)
@@ -463,6 +499,7 @@ class ResolucionPdfController extends Controller
             return response()->json([
                 'ok' => true,
                 'mensaje' => 'Resolución actualizada correctamente',
+                'grupos_sincronizados' => $gruposSincronizados, // ← útil para mostrar feedback en el front
             ]);
 
         } catch (\Illuminate\Validation\ValidationException $e) {

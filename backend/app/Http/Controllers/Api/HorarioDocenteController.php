@@ -190,13 +190,13 @@ class HorarioDocenteController extends Controller
             ->mergeBindings($subquery)
             ->select([
                 'TBL.*',
-                DB::raw('[NROINSMATGRPNE].[TOTAL NORMAL] AS total_normal'),
+                DB::raw('[dbo].[NroInsMatGrpNE].[TOTAL NORMAL] AS total_normal'),
             ])
-            ->leftJoin('NROINSMATGRPNE', function ($join) {
-                $join->on('TBL.PLAN', '=', 'NROINSMATGRPNE.PLAN')
-                    ->on('TBL.DOCENTE', '=', 'NROINSMATGRPNE.CODIGO')
-                    ->on('TBL.MATERIA', '=', 'NROINSMATGRPNE.MATERIA')
-                    ->on('TBL.GRUPO', '=', 'NROINSMATGRPNE.GRUPO');
+            ->leftJoin('dbo.NroInsMatGrpNE', function ($join) {
+                $join->on('TBL.PLAN', '=', 'dbo.NroInsMatGrpNE.PLAN')
+                    ->on('TBL.DOCENTE', '=', 'dbo.NroInsMatGrpNE.CODIGO')
+                    ->on('TBL.MATERIA', '=', 'dbo.NroInsMatGrpNE.MATERIA')
+                    ->on('TBL.GRUPO', '=', 'dbo.NroInsMatGrpNE.GRUPO');
             })
             ->orderBy('TBL.APELLIDOS')
             ->orderBy('TBL.NOMBRES')
