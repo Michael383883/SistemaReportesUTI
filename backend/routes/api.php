@@ -288,8 +288,9 @@ Route::get('/reportes/carga-horaria-docentes', [ReporteExcelController::class, '
 Route::post('/reportes/docentes-clasificados/excel-personalizado', [ReporteExcelController::class, 'generarListadoDocentesDesdeDatos']);
 
 // routes/api.php
-Route::pattern('tipo', 'documento|titulo');
+Route::pattern('tipoCategoria', 'documento|titulo|kardex');
 
-Route::get('/categorias-clasificacion/{tipo}', [CategoriaClasificacionController::class, 'index']);
-Route::post('/categorias-clasificacion/{tipo}', [CategoriaClasificacionController::class, 'store']);
-Route::put('/categorias-clasificacion/{tipo}', [CategoriaClasificacionController::class, 'update']);
+Route::get('/categorias-clasificacion/{tipoCategoria}', [CategoriaClasificacionController::class, 'index']);
+Route::post('/categorias-clasificacion/{tipoCategoria}', [CategoriaClasificacionController::class, 'store']);
+Route::put('/categorias-clasificacion/{tipoCategoria}', [CategoriaClasificacionController::class, 'update']);
+Route::delete('/categorias-clasificacion/{tipo}', [CategoriaClasificacionController::class, 'destroy']);
