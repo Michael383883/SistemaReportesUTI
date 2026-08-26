@@ -508,16 +508,198 @@
         </div>
       </div>
     </div>
+
+    <!-- ══════════════ Categorías de tipo de ingreso (Kardex) (misma vista, debajo de Tipos de título) ══════════════ -->
+
+    <div
+      class="rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800 overflow-hidden shadow-md shadow-slate-900/5 mt-4"
+    >
+      <button
+        type="button"
+        @click="kardexAbierto = !kardexAbierto"
+        class="w-full flex items-center justify-between gap-3 px-4 py-3 text-left
+               hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors cursor-pointer"
+      >
+        <div class="min-w-0">
+          <h2 class="text-[14px] font-bold text-slate-900 dark:text-white flex items-center gap-2">
+            Categorías de tipo de ingreso (Kardex)
+            <span
+              class="px-1.5 py-0.5 rounded text-[10px] font-semibold
+                     bg-slate-100 text-slate-500 border border-slate-200
+                     dark:bg-slate-700/40 dark:text-slate-400 dark:border-slate-600"
+            >
+              {{ categoriasKardex.length }}
+            </span>
+          </h2>
+          <p class="text-[11px] font-normal text-slate-500 dark:text-slate-400 mt-0.5 truncate">
+            Catálogo usado en "Tipo de ingreso" al editar el modo de ingreso de una materia.
+          </p>
+        </div>
+        <ChevronDown
+          class="w-4 h-4 shrink-0 text-slate-400 transition-transform duration-150"
+          :class="{ '-rotate-180': kardexAbierto }"
+        />
+      </button>
+
+      <div v-show="kardexAbierto" class="border-t border-slate-200 dark:border-slate-700">
+
+        <transition
+          enter-active-class="transition-opacity duration-200"
+          leave-active-class="transition-opacity duration-200"
+          enter-from-class="opacity-0"
+          leave-to-class="opacity-0"
+        >
+          <div
+            v-if="errorKardex"
+            class="flex items-center gap-2 bg-red-50 border-b border-red-200 text-red-600
+                   dark:bg-red-500/10 dark:border-red-500/20 dark:text-red-400
+                   px-3 py-2 text-[12px]"
+          >
+            <AlertCircle class="w-3.5 h-3.5 shrink-0" />
+            {{ errorKardex }}
+            <button class="ml-auto" @click="clearErrorKardex" aria-label="Cerrar error">
+              <X class="w-3 h-3" />
+            </button>
+          </div>
+        </transition>
+
+        <div class="flex items-center gap-2 px-4 py-2 border-b border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-900/20">
+          <input
+            v-model="nuevaKardex"
+            type="text"
+            maxlength="60"
+            placeholder="Escribe el tipo de ingreso y presiona Enter para agregarlo"
+            class="flex-1 px-3 py-1.5 text-[12.5px] uppercase placeholder:normal-case bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-600
+                   rounded-lg placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-400
+                   focus:border-transparent transition-colors"
+            :disabled="agregandoKardex"
+            @keydown.enter.prevent="agregarKardex"
+          />
+          <button
+            type="button"
+            :disabled="!nuevaKardex.trim() || agregandoKardex"
+            @click="agregarKardex"
+            class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12.5px] font-bold
+                   bg-amber-500 hover:bg-amber-400 active:bg-amber-600
+                   text-slate-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Plus class="w-3.5 h-3.5" /> Agregar
+          </button>
+        </div>
+
+        <div class="overflow-x-auto max-h-72 overflow-y-auto">
+          <div v-if="loadingKardex && !categoriasKardex.length" class="py-8 text-center">
+            <Loader2 class="w-4 h-4 animate-spin mx-auto mb-2 text-gray-400 dark:text-slate-600" />
+            <p class="text-[12px] text-gray-500 dark:text-slate-500">Cargando categorías...</p>
+          </div>
+
+          <table v-else class="w-full text-[12.5px] border-collapse">
+            <thead>
+              <tr class="border-b border-b-black-800 bg-[rgb(8,31,51)] dark:border-slate-700 dark:bg-slate-900/60">
+                <th class="text-left px-4 py-2 text-[0.65rem] font-semibold tracking-widest uppercase text-slate-100 dark:text-slate-400">
+                  Tipo de ingreso
+                </th>
+                <th class="text-right px-4 py-2 text-[0.65rem] font-semibold tracking-widest uppercase text-slate-100 dark:text-slate-400 w-28">
+                  Acciones
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="(c, i) in categoriasKardex"
+                :key="c"
+                class="border-b border-slate-100 dark:border-slate-700/60 transition-colors hover:bg-slate-50 dark:hover:bg-white/[0.025]"
+                :class="i % 2 === 0 ? 'bg-white' : 'bg-slate-50/70 dark:bg-slate-900/20'"
+              >
+                <td class="px-4 py-1.5">
+                  <input
+                    v-if="kardexEditando === c"
+                    v-model="valorEdicionKardex"
+                    type="text"
+                    maxlength="60"
+                    class="w-full uppercase rounded-md border border-amber-300 dark:border-amber-500 dark:bg-slate-900
+                           text-slate-800 dark:text-slate-200 text-[12.5px] px-2 py-1
+                           focus:outline-none focus:ring-2 focus:ring-amber-400"
+                    ref="inputEdicionKardexRef"
+                    @keydown.enter.prevent="guardarEdicionKardex(c)"
+                    @keydown.esc="cancelarEdicionKardex"
+                  />
+                  <span v-else class="font-medium text-slate-800 dark:text-slate-200">
+                    {{ c }}
+                  </span>
+                </td>
+                <td class="px-4 py-1.5 text-right whitespace-nowrap">
+                  <template v-if="kardexEditando === c">
+                    <button
+                      type="button"
+                      :disabled="guardandoEdicionKardexNombre === c"
+                      @click="guardarEdicionKardex(c)"
+                      class="inline-flex items-center gap-1 px-1.5 py-1 rounded-lg text-[11.5px] font-semibold
+                             text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 transition-colors"
+                    >
+                      <Check class="w-3.5 h-3.5" /> Guardar
+                    </button>
+                    <button
+                      type="button"
+                      @click="cancelarEdicionKardex"
+                      class="inline-flex items-center gap-1 px-1.5 py-1 rounded-lg text-[11.5px] font-semibold
+                             text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                    >
+                      <X class="w-3.5 h-3.5" /> Cancelar
+                    </button>
+                  </template>
+                  <template v-else>
+                    <button
+                      type="button"
+                      @click="iniciarEdicionKardex(c)"
+                      class="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-[11.5px] font-semibold
+                             text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700
+                             transition-colors"
+                      title="Editar"
+                    >
+                      <Pencil class="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      :disabled="eliminandoKardexNombre === c"
+                      @click="eliminarKardex(c)"
+                      class="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-[11.5px] font-semibold
+                             text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10
+                             transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Eliminar"
+                    >
+                      <Loader2 v-if="eliminandoKardexNombre === c" class="w-3.5 h-3.5 animate-spin" />
+                      <Trash2 v-else class="w-3.5 h-3.5" />
+                    </button>
+                  </template>
+                </td>
+              </tr>
+
+              <tr v-if="!categoriasKardex.length && !loadingKardex">
+                <td colspan="2" class="px-4 py-6 text-center text-[12px] text-slate-600 dark:text-slate-500">
+                  No hay categorías de tipo de ingreso registradas todavía.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="px-4 py-1.5 border-t border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-900/30 text-[11px] text-slate-600 dark:text-slate-500 text-right">
+          {{ categoriasKardex.length }} categoría{{ categoriasKardex.length !== 1 ? 's' : '' }}
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, watch, onMounted, nextTick } from 'vue'
-import { RotateCcw, Save, AlertCircle, X, Info, Loader2, Plus, Pencil, Check, ChevronDown, Lock, Unlock } from 'lucide-vue-next'
-// (todos los iconos usados por la sección de Tipos de título ya están en este import)
+import { RotateCcw, Save, AlertCircle, X, Info, Loader2, Plus, Pencil, Check, ChevronDown, Lock, Unlock, Trash2 } from 'lucide-vue-next'
+// (todos los iconos usados por las secciones de catálogos ya están en este import)
 import { usePeriodosAcademicos } from '../composables/usePeriodosAcademicos'
 import { useCategorias } from '../composables/useCategorias'
 import { useTiposTitulo } from '../composables/useTiposTitulo'
+import { useCategoriasKardex } from '../composables/useCategoriasKardex'
 import { useNotify } from '@/shared/composables/useNotify'
 import PeriodoFechaSelector from '../components/PeriodoFechaSelector.vue'
 
@@ -789,4 +971,114 @@ async function guardarEdicionTipo(t) {
 }
 
 onMounted(cargarTipos)
+
+// ══════════════ Categorías de tipo de ingreso (Kardex) ══════════════
+// Catálogo usado en TipoIngresoTabla.vue (Edición de Modo de Ingreso).
+
+const kardexAbierto = ref(false)
+
+const {
+  categorias: categoriasKardex,
+  loading: loadingKardex,
+  error: errorKardex,
+  cargar: cargarKardex,
+  agregar: agregarKardexApi,
+  actualizar: actualizarKardexApi,
+  eliminar: eliminarKardexApi,
+  clearError: clearErrorKardex,
+} = useCategoriasKardex()
+
+const nuevaKardex = ref('')
+const agregandoKardex = ref(false)
+
+async function agregarKardex() {
+  const valor = nuevaKardex.value.trim()
+  if (!valor) return
+
+  const yaExiste = categoriasKardex.value.some(
+    (c) => c.toString().trim().toLowerCase() === valor.toLowerCase()
+  )
+  if (yaExiste) {
+    notify.error('Ya existe una categoría con ese nombre')
+    return
+  }
+
+  agregandoKardex.value = true
+  try {
+    const resultado = await agregarKardexApi(valor)
+    if (resultado?.success !== false) {
+      nuevaKardex.value = ''
+      notify.success('Categoría de tipo de ingreso agregada')
+    } else {
+      notify.error(resultado?.message ?? 'Error al agregar la categoría')
+    }
+  } finally {
+    agregandoKardex.value = false
+  }
+}
+
+const kardexEditando = ref(null)
+const valorEdicionKardex = ref('')
+const guardandoEdicionKardexNombre = ref(null)
+const inputEdicionKardexRef = ref(null)
+
+function iniciarEdicionKardex(c) {
+  kardexEditando.value = c
+  valorEdicionKardex.value = c
+  nextTick(() => inputEdicionKardexRef.value?.[0]?.focus?.())
+}
+
+function cancelarEdicionKardex() {
+  kardexEditando.value = null
+  valorEdicionKardex.value = ''
+}
+
+async function guardarEdicionKardex(c) {
+  const valor = valorEdicionKardex.value.trim().toUpperCase()
+  if (!valor) return
+
+  if (valor === c) {
+    cancelarEdicionKardex()
+    return
+  }
+
+  const yaExiste = categoriasKardex.value.some((otro) => otro !== c && otro === valor)
+  if (yaExiste) {
+    notify.error('Ya existe una categoría con ese nombre')
+    return
+  }
+
+  guardandoEdicionKardexNombre.value = c
+  try {
+    const resultado = await actualizarKardexApi(c, valor)
+    if (resultado?.success !== false) {
+      notify.success('Categoría actualizada')
+      cancelarEdicionKardex()
+    } else {
+      notify.error(resultado?.message ?? 'Error al actualizar la categoría')
+    }
+  } finally {
+    guardandoEdicionKardexNombre.value = null
+  }
+}
+
+const eliminandoKardexNombre = ref(null)
+
+async function eliminarKardex(c) {
+  if (!confirm(`¿Eliminar la categoría "${c}" del catálogo?\n\nSi todavía está en uso en algún grupo o resolución, va a seguir apareciendo en la lista hasta que ya no se use.`)) return
+
+  eliminandoKardexNombre.value = c
+  try {
+    const resultado = await eliminarKardexApi(c)
+    if (resultado?.success !== false) {
+      notify.success('Categoría eliminada del catálogo')
+    } else {
+      notify.error(resultado?.message ?? 'Error al eliminar la categoría')
+    }
+  } finally {
+    eliminandoKardexNombre.value = null
+  }
+}
+
+onMounted(cargarKardex)
 </script>
