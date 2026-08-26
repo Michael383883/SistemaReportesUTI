@@ -79,20 +79,22 @@
               <span v-else class="text-gray-300 text-xs">—</span>
             </td>
 
-            <!-- Tipo de designacion-->
+            <!-- Tipo de designacion (cargado dinámicamente desde la BD) -->
             <td class="px-4 py-3">
               <select
                 v-model="m.tipo_ingreso"
+                :disabled="loadingCategorias"
                 class="w-full rounded-lg border border-gray-200 bg-white text-gray-700 text-xs px-2 py-1 outline-none focus:ring-2 focus:ring-amber-200 focus:border-amber-400"
-              @change="emit('tipo-ingreso-change', m)"
-                >
-                <option value="">-- Seleccionar --</option>
-                <option value="ACEFALIA">ACEFALIA</option>
-                <option value="TEMPORAL">TEMPORAL</option>
-                <option value="TITULAR">TITULAR</option>
-                <option value="EXAMEN SUFICIENCIA">EXAMEN SUFICIENCIA</option>
-                <option value="EXAMEN COMPETENCIA">EXAMEN COMPETENCIA</option>
+                @change="emit('tipo-ingreso-change', m)"
+              >
+                <option value="">{{ loadingCategorias ? 'Cargando...' : '-- Seleccionar --' }}</option>
+                <option v-for="cat in categoriasKardex" :key="cat" :value="cat">
+                  {{ cat }}
+                </option>
               </select>
+              <span v-if="errorCategorias" class="block mt-1 text-[0.65rem] text-red-500">
+                {{ errorCategorias }}
+              </span>
             </td>
 
             <!-- Asignar / Editar -->
@@ -188,8 +190,9 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import { GRP_MAP } from '../utils/planes' 
+import { ref, onMounted } from 'vue'
+import { GRP_MAP } from '../utils/planes'
+import { useCategoriasKardex } from '../../periodos-academicos/composables/useCategoriasKardex' // 👈 ajustá si tu estructura real es distinta
 
 const props = defineProps({
   materias: { type: Array, default: () => [] },
@@ -199,6 +202,19 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['toggle', 'tipo-ingreso-change'])
+
+// ─── Tipos de ingreso (KARDEX), ahora traídos desde la BD ─────────
+const {
+  categorias: categoriasKardex,
+  loading: loadingCategorias,
+  error: errorCategorias,
+  cargar: cargarCategoriasKardex,
+} = useCategoriasKardex()
+
+onMounted(() => {
+  cargarCategoriasKardex()
+})
+
 function keyDe(m) {
   return `${props.docenteCod}__${m.plan}__${m.materia}__${m.grp}__${m.gestion}`
 }
@@ -282,6 +298,5 @@ const tipoGestion = (gestion) => {
 
 const tipoGrp = (plan) =>
   GRP_MAP[plan] ?? { label: plan, class: 'bg-gray-100 text-gray-600', dot: 'bg-gray-400' }
-
 
 </script>
