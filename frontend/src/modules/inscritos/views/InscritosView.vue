@@ -247,7 +247,7 @@
             >
               <!-- Lista completa -->
               <div class="px-4 pt-3 pb-1.5">
-                <p class="text-[0.7rem] font-semibold text-slate-800">Lista completa</p>
+                <p class="text-[0.7rem] font-semibold text-slate-800">Lista completa de inscritos</p>
               </div>
               <div class="px-4 pb-3 flex items-center gap-2">
                 <button
@@ -322,7 +322,7 @@
 
               <!-- Totales por docente -->
               <div class="px-4 pt-3 pb-1.5">
-                <p class="text-[0.7rem] font-semibold text-slate-800">Totales por docente</p>
+                <p class="text-[0.7rem] font-semibold text-slate-800">Inscritos totales por docente</p>
               </div>
               <div class="px-4 pb-3 flex items-center gap-2">
                 <button
