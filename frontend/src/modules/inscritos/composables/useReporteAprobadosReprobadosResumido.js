@@ -153,8 +153,8 @@ function generarResumenAprobadosReprobadosResumido(data, anio, periodo, modo = '
     const MR = 8
     const CW = PAGE_W - ML - MR
     const fechaActual = fechaFormateada()
-    const TITULO = 'APROBADOS Y REPROBADOS RESUMIDOS'
-    const NOTA = 'Detalle por grupo'
+    const TITULO = 'APROBADOS Y REPROBADOS COMPLETO'
+    const NOTA = 'La columna T. Exam.: E = Examen de Mesa · N = Modalidad Normal'
     const HEADER_H = drawPageHeader(doc, { titulo: TITULO, anio, periodo, fechaActual, notaSuperior: NOTA })
 
     const totalIns = data.reduce((s, d) => s + (Number(d.INSCRITOS) || 0), 0)
@@ -219,9 +219,9 @@ function generarResumenAprobadosReprobadosResumido(data, anio, periodo, modo = '
             1: { cellWidth: 16 },
             2: { cellWidth: 16 },
             3: { cellWidth: 12 },
-            4: { cellWidth: 42, halign: 'left' },
+            4: { cellWidth: 62, halign: 'left' },
             5: { cellWidth: 18, font: 'courier' },
-            6: { cellWidth: 46, halign: 'left' },
+            6: { cellWidth: 56, halign: 'left' },
             7: { cellWidth: 14 },
             8: { cellWidth: 14 },
         },

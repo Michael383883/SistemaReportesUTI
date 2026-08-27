@@ -161,7 +161,7 @@ function generarResumenAprobadosReprobados(data, anio, periodo, modo = 'descarga
     const MR = 8
     const CW = PAGE_W - ML - MR
     const fechaActual = fechaFormateada()
-    const TITULO = 'RESUMEN DE APROBADOS Y REPROBADOS'
+    const TITULO = 'APROBADOS Y REPROBADOS RESUMEN'
     const NOTA = 'No incluye alumnos de mesa'
     const HEADER_H = drawPageHeader(doc, { titulo: TITULO, anio, periodo, fechaActual, notaSuperior: NOTA })
 

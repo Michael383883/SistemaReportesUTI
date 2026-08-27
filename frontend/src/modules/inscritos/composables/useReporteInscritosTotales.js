@@ -164,7 +164,7 @@ function generarResumenTotales(data, anio, periodo, modo = 'descargar', ventanaP
     const MR = 8
     const CW = PAGE_W - ML - MR
     const fechaActual = fechaFormateada()
-    const TITULO = 'RESUMEN DE INSCRITOS — SOLO TOTALES'
+    const TITULO = 'INSCRITOS — SOLO TOTALES'
     const NOTA = 'No incluye alumnnos de mesa'
     const HEADER_H = drawPageHeader(doc, { titulo: TITULO, anio, periodo, fechaActual, notaSuperior: NOTA })
 
