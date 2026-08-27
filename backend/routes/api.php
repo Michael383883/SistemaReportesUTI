@@ -109,6 +109,7 @@ Route::prefix('database')->group(function () {
 */
 Route::prefix('admin/dashboard')->group(function () {
     Route::get('/kpis', [DashboardAdminController::class, 'kpis']);
+    Route::post('/refresh', [DashboardAdminController::class, 'refreshKpis']);
 });
 
 

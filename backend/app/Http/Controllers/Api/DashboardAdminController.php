@@ -67,12 +67,15 @@ class DashboardAdminController extends Controller
 
             // Cantidad de resoluciones
             'total_resoluciones' => DB::table('RESOLUCIONES_PDF')->count(),
+
+            // Cantidad de documentos clasificados (CV, títulos, certificados, etc.)
+            'total_documentos' => DB::table('CLASIFICACION_DOCUMENTO')->count(),
         ];
 
         // =====================================================
         // RESOLUCIONES RECIENTES
         // =====================================================
-        $resoluciones_recientes = DB::table('RESOLUCIONES_PDF') // ← FIX: era DB::table('s')
+        $resoluciones_recientes = DB::table('RESOLUCIONES_PDF')
             ->select(
                 'ID_RESOLUCION',
                 'NRO_RESOLUCION',
@@ -91,6 +94,43 @@ class DashboardAdminController extends Controller
                 'fecha' => $r->FECHA_SUBIDA,
                 'url_pdf' => url("/api/resoluciones/{$r->ID_RESOLUCION}/pdf")
             ]);
+
+        // =====================================================
+        // DOCUMENTOS RECIENTES (clasificación)
+        // =====================================================
+        $documentos_recientes = DB::table('CLASIFICACION_DOCUMENTO')
+            ->select(
+                'ID_DOCUMENTO',
+                'TIPO_DOCUMENTO',
+                'CATEGORIA',
+                'NIVEL',
+                'GESTION',
+                'NOMBRE_ARCHIVO',
+                'FECHA_REGISTRO'
+            )
+            ->orderByDesc('FECHA_REGISTRO')
+            ->limit(8)
+            ->get()
+            ->map(fn($d) => [
+                'id' => $d->ID_DOCUMENTO,
+                'tipo' => $d->TIPO_DOCUMENTO,
+                'categoria' => $d->CATEGORIA,
+                'nivel' => $d->NIVEL,
+                'gestion' => $d->GESTION,
+                'archivo' => $d->NOMBRE_ARCHIVO,
+                'fecha' => $d->FECHA_REGISTRO,
+            ]);
+
+        // =====================================================
+        // DISTRIBUCION POR CATEGORIA DE DOCUMENTO
+        // =====================================================
+        $distribucion_documentos = DB::table('CLASIFICACION_DOCUMENTO')
+            ->select(
+                'CATEGORIA',
+                DB::raw('COUNT(*) AS CANTIDAD')
+            )
+            ->groupBy('CATEGORIA')
+            ->get();
 
         // =====================================================
         // DISTRIBUCION POR TIPO DE MATERIA
@@ -120,14 +160,16 @@ class DashboardAdminController extends Controller
             ],
             'resumen' => $resumen,
             'resoluciones_recientes' => $resoluciones_recientes,
+            'documentos_recientes' => $documentos_recientes,
             'distribucion_tipo' => $distribucion_tipo,
+            'distribucion_documentos' => $distribucion_documentos,
         ];
     }
 
     /**
      * Gestión académica activa. Usado por kpis(), refreshKpis() y por
      * cualquier otro controller que necesite invalidar la caché del
-     * dashboard tras crear/editar/borrar datos (ej. resoluciones).
+     * dashboard tras crear/editar/borrar datos (ej. resoluciones, documentos).
      */
     public static function getGestionActual(): array
     {
@@ -148,7 +190,7 @@ class DashboardAdminController extends Controller
     /**
      * Invalida la caché del dashboard para la gestión actual.
      * Llamar esto desde cualquier controller que modifique datos que
-     * afecten al dashboard (resoluciones, docentes, materias, etc.)
+     * afecten al dashboard (resoluciones, documentos, docentes, materias, etc.)
      * justo después de guardar en la BD. Ejemplo:
      *
      *   use App\Http\Controllers\Api\DashboardAdminController;
