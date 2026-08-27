@@ -7,6 +7,7 @@ use App\Models\ResolucionDetalle;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Http\Controllers\Api\DashboardAdminController;
 
 class ResolucionPdfController extends Controller
 {
@@ -156,6 +157,8 @@ class ResolucionPdfController extends Controller
 
             DB::commit();
 
+            DashboardAdminController::limpiarCacheDashboard();
+
             // ===============================
             // RESPUESTA OK
             // ===============================
@@ -302,6 +305,7 @@ class ResolucionPdfController extends Controller
                 ->delete();
 
             DB::commit();
+            DashboardAdminController::limpiarCacheDashboard();
 
             // 3) Borrar el archivo físico. Si esto falla no revertimos
             //    el borrado en BD, solo lo dejamos registrado en el log
@@ -482,6 +486,7 @@ class ResolucionPdfController extends Controller
             }
 
             DB::commit();
+            DashboardAdminController::limpiarCacheDashboard();
 
             // Recién después del commit borramos el PDF viejo (si se reemplazó)
             if ($huboArchivoNuevo && $rutaAnterior && \Storage::disk('public')->exists($rutaAnterior)) {

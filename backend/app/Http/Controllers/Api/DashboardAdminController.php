@@ -12,11 +12,11 @@ class DashboardAdminController extends Controller
     public function kpis(): JsonResponse
     {
         try {
-            $gestion = $this->getGestionActual();
+            $gestion = self::getGestionActual();
             $anio = $gestion['anio'];
             $periodo = $gestion['periodo'];
 
-            $cacheKey = "dashboard_kpis_{$anio}_{$periodo}";
+            $cacheKey = self::cacheKey($anio, $periodo);
 
             $data = Cache::remember($cacheKey, now()->addHours(6), function () use ($anio, $periodo) {
                 return $this->buildDashboardData($anio, $periodo);
@@ -27,6 +27,8 @@ class DashboardAdminController extends Controller
                 'data' => $data,
             ]);
         } catch (\Exception $e) {
+            \Log::error('Error en DashboardAdminController@kpis: ' . $e->getMessage());
+
             return response()->json([
                 'success' => false,
                 'message' => 'Error al obtener datos del dashboard.',
@@ -37,9 +39,7 @@ class DashboardAdminController extends Controller
 
     public function refreshKpis(): JsonResponse
     {
-        $gestion = $this->getGestionActual();
-        $cacheKey = "dashboard_kpis_{$gestion['anio']}_{$gestion['periodo']}";
-        Cache::forget($cacheKey);
+        self::limpiarCacheDashboard();
 
         return response()->json([
             'success' => true,
@@ -72,7 +72,7 @@ class DashboardAdminController extends Controller
         // =====================================================
         // RESOLUCIONES RECIENTES
         // =====================================================
-        $resoluciones_recientes = DB::table('RESOLUCIONES_PDF')
+        $resoluciones_recientes = DB::table('RESOLUCIONES_PDF') // ← FIX: era DB::table('s')
             ->select(
                 'ID_RESOLUCION',
                 'NRO_RESOLUCION',
@@ -124,11 +124,40 @@ class DashboardAdminController extends Controller
         ];
     }
 
-    private function getGestionActual(): array
+    /**
+     * Gestión académica activa. Usado por kpis(), refreshKpis() y por
+     * cualquier otro controller que necesite invalidar la caché del
+     * dashboard tras crear/editar/borrar datos (ej. resoluciones).
+     */
+    public static function getGestionActual(): array
     {
         return [
             'anio' => 2026,
             'periodo' => 1
         ];
+    }
+
+    /**
+     * Clave de cache determinística para una gestión dada.
+     */
+    private static function cacheKey(int $anio, int $periodo): string
+    {
+        return "dashboard_kpis_{$anio}_{$periodo}";
+    }
+
+    /**
+     * Invalida la caché del dashboard para la gestión actual.
+     * Llamar esto desde cualquier controller que modifique datos que
+     * afecten al dashboard (resoluciones, docentes, materias, etc.)
+     * justo después de guardar en la BD. Ejemplo:
+     *
+     *   use App\Http\Controllers\Api\DashboardAdminController;
+     *   ...
+     *   DashboardAdminController::limpiarCacheDashboard();
+     */
+    public static function limpiarCacheDashboard(): void
+    {
+        $gestion = self::getGestionActual();
+        Cache::forget(self::cacheKey($gestion['anio'], $gestion['periodo']));
     }
 }

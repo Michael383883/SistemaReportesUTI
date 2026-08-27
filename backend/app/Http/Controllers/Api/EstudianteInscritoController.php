@@ -291,54 +291,73 @@ class EstudianteInscritoController extends Controller
             array_keys($nivelesPermitidos)
         ));
 
+        // ── Igual que en listaInscritos(): solo periodos regulares (1 y 2)
+        // tienen horario real cargado en HORARIOS2. Los periodos 3/4 (mesa /
+        // intersemestral) no lo exigen.
+        $periodosConHorarioRegular = [1, 2];
+        $filtroHorario = in_array((int) $periodo, $periodosConHorarioRegular, true)
+            ? "AND EXISTS (
+                SELECT 1
+                FROM HORARIOS2 H
+                WHERE H.ANIO = G.ANIO
+                  AND H.PERIODO = G.PERIODO
+                  AND H.MATERIA = G.MATERIA
+                  AND H.GRUPO = G.GRUPO
+                  AND H.DOCENTE = G.DOCENTE
+                  AND H.TIPO = 'C'
+                  AND H.HORA NOT IN (730,900,1030,1200,1330,1500,1630,1800,1930,2100)
+           )"
+            : "";
+
         $baseCte = "
-        WITH BASE AS (
-            SELECT
-                K.ANIO,
-                K.PERIODO,
-                K.[PLAN],
-                CASE K.[PLAN]
-                    WHEN '089801' THEN 'CON'
-                    WHEN '109401' THEN 'ADM'
-                    WHEN '125091' THEN 'COM'
-                    WHEN '126091' THEN 'FIN'
-                    WHEN '059801' THEN 'ECO'
-                    ELSE K.[PLAN]
-                END AS CARRERA,
-                M.NIVEL,
-                D.APELLIDOS + ' ' + D.NOMBRES AS NOMBRE_DOCENTE,
-                K.MATERIA,
-                M.NOMBRE,
-                K.GRUPO,
-                K.TIPO_EXAMEN,
-                K.ESTUDIANTE,
-                K.NOTA_FINAL
-            FROM KARDEX_EXT K
-            INNER JOIN BIOGRAFICOS B
-                ON B.CODIGO = K.ESTUDIANTE
-            INNER JOIN MATERIAS M
-                ON M.ANIO = K.ANIO
-                AND M.PERIODO = K.PERIODO
-                AND M.[PLAN] = K.[PLAN]
-                AND M.CODIGO = K.MATERIA
-            INNER JOIN GRUPOS G
-                ON G.ANIO = K.ANIO
-                AND G.PERIODO = K.PERIODO
-                AND G.[PLAN] = K.[PLAN]
-                AND G.MATERIA = K.MATERIA
-                AND G.GRUPO = K.GRUPO
-            LEFT JOIN BIOGRAFICOS D
-                ON D.CODIGO = G.DOCENTE
-            WHERE
-                K.ANIO = :anio
-                AND K.PERIODO = :periodo
-                AND K.CANCELADO IS NULL
-                AND K.TIPO_EXAMEN IN ('N','E')
-                AND G.PRIMARIO = 'Y'
-                AND G.TIPO = 'N'
-                AND K.[PLAN] IN ('089801','109401','125091','126091','059801')
-                AND M.NIVEL IN ($nivelesPlaceholders)
-    ";
+    WITH BASE AS (
+        SELECT
+            K.ANIO,
+            K.PERIODO,
+            K.[PLAN],
+            CASE K.[PLAN]
+                WHEN '089801' THEN 'CON'
+                WHEN '109401' THEN 'ADM'
+                WHEN '125091' THEN 'COM'
+                WHEN '126091' THEN 'FIN'
+                WHEN '059801' THEN 'ECO'
+                ELSE K.[PLAN]
+            END AS CARRERA,
+            M.NIVEL,
+            D.APELLIDOS + ' ' + D.NOMBRES AS NOMBRE_DOCENTE,
+            K.MATERIA,
+            M.NOMBRE,
+            K.GRUPO,
+            K.TIPO_EXAMEN,
+            K.ESTUDIANTE,
+            K.NOTA_FINAL
+        FROM KARDEX_EXT K
+        INNER JOIN BIOGRAFICOS B
+            ON B.CODIGO = K.ESTUDIANTE
+        INNER JOIN MATERIAS M
+            ON M.ANIO = K.ANIO
+            AND M.PERIODO = K.PERIODO
+            AND M.[PLAN] = K.[PLAN]
+            AND M.CODIGO = K.MATERIA
+        INNER JOIN GRUPOS G
+            ON G.ANIO = K.ANIO
+            AND G.PERIODO = K.PERIODO
+            AND G.[PLAN] = K.[PLAN]
+            AND G.MATERIA = K.MATERIA
+            AND G.GRUPO = K.GRUPO
+        INNER JOIN DOCENTES D
+            ON D.CODIGO = G.DOCENTE
+        WHERE
+            K.ANIO = :anio
+            AND K.PERIODO = :periodo
+            AND K.CANCELADO IS NULL
+            AND K.TIPO_EXAMEN IN ('N','E')
+            AND G.PRIMARIO = 'Y'
+            AND G.TIPO = 'N'
+            AND K.[PLAN] IN ('089801','109401','125091','126091','059801')
+            AND M.NIVEL IN ($nivelesPlaceholders)
+            $filtroHorario
+";
 
         $bindings = [
             'anio' => $anio,
@@ -383,49 +402,34 @@ class EstudianteInscritoController extends Controller
 
         $baseCte .= " ) ";
 
-        // ── RESUMEN con ROW_NUMBER() en vez de OFFSET/FETCH ──
+        // ── resto de la función IGUAL (GROUP BY, paginación con ROW_NUMBER, etc.) ──
         $groupBySelect = "
-        SELECT
-            ANIO,
-            PERIODO,
-            [PLAN],
-            CARRERA,
-            NIVEL,
-            NOMBRE_DOCENTE,
-            MATERIA,
-            NOMBRE,
-            GRUPO,
-            TIPO_EXAMEN,
-            COUNT(*) AS INSCRITOS,
-            SUM(CASE WHEN NOTA_FINAL >= 51 THEN 1 ELSE 0 END) AS APROBADOS,
-            SUM(CASE WHEN NOTA_FINAL < 51  THEN 1 ELSE 0 END) AS REPROBADOS
-        FROM BASE
-        GROUP BY
-            ANIO, PERIODO, [PLAN], CARRERA, NIVEL, NOMBRE_DOCENTE,
-            MATERIA, NOMBRE, GRUPO, TIPO_EXAMEN
-    ";
+    SELECT
+        ANIO, PERIODO, [PLAN], CARRERA, NIVEL, NOMBRE_DOCENTE,
+        MATERIA, NOMBRE, GRUPO, TIPO_EXAMEN,
+        COUNT(*) AS INSCRITOS,
+        SUM(CASE WHEN NOTA_FINAL >= 51 THEN 1 ELSE 0 END) AS APROBADOS,
+        SUM(CASE WHEN NOTA_FINAL < 51  THEN 1 ELSE 0 END) AS REPROBADOS
+    FROM BASE
+    GROUP BY
+        ANIO, PERIODO, [PLAN], CARRERA, NIVEL, NOMBRE_DOCENTE,
+        MATERIA, NOMBRE, GRUPO, TIPO_EXAMEN
+";
 
-        $sqlCount = "
-        {$baseCte}
-        SELECT COUNT(*) AS TOTAL FROM ({$groupBySelect}) AS RESUMEN
-    ";
+        $sqlCount = " {$baseCte} SELECT COUNT(*) AS TOTAL FROM ({$groupBySelect}) AS RESUMEN ";
 
         $sqlData = "
-        {$baseCte},
-        RESUMEN AS (
-            {$groupBySelect}
-        ),
-        PAGINADO AS (
-            SELECT *,
-                ROW_NUMBER() OVER (
-                    ORDER BY [PLAN], NIVEL ASC, MATERIA, GRUPO
-                ) AS RN
-            FROM RESUMEN
-        )
-        SELECT * FROM PAGINADO
-        WHERE RN BETWEEN :row_inicio AND :row_fin
-        ORDER BY RN
-    ";
+    {$baseCte},
+    RESUMEN AS ( {$groupBySelect} ),
+    PAGINADO AS (
+        SELECT *,
+            ROW_NUMBER() OVER (ORDER BY [PLAN], NIVEL ASC, MATERIA, GRUPO) AS RN
+        FROM RESUMEN
+    )
+    SELECT * FROM PAGINADO
+    WHERE RN BETWEEN :row_inicio AND :row_fin
+    ORDER BY RN
+";
 
         $bindingsData = $bindings + [
             'row_inicio' => $offset + 1,
@@ -456,6 +460,9 @@ class EstudianteInscritoController extends Controller
 
     /**
      * Resumen de aprobados/reprobados por docente (sin paginación, no usa OFFSET/FETCH).
+     */
+    /**
+     * Resumen de aprobados/reprobados por docente y carrera.
      */
     public function resumenAprobadosReprobados(Request $request)
     {
@@ -498,6 +505,25 @@ class EstudianteInscritoController extends Controller
             array_keys($nivelesPermitidos)
         ));
 
+        // ── Igual que en listaInscritos(): solo los periodos regulares (1 y 2)
+        // tienen horario real cargado en HORARIOS2. Sin este filtro, GRUPOS.DOCENTE
+        // puede quedar con un valor desactualizado y traer docentes que en
+        // realidad no dictaron nada en esa gestion.
+        $periodosConHorarioRegular = [1, 2];
+        $filtroHorario = in_array((int) $periodo, $periodosConHorarioRegular, true)
+            ? "AND EXISTS (
+                SELECT 1
+                FROM HORARIOS2 H
+                WHERE H.ANIO = G.ANIO
+                  AND H.PERIODO = G.PERIODO
+                  AND H.MATERIA = G.MATERIA
+                  AND H.GRUPO = G.GRUPO
+                  AND H.DOCENTE = G.DOCENTE
+                  AND H.TIPO = 'C'
+                  AND H.HORA NOT IN (730,900,1030,1200,1330,1500,1630,1800,1930,2100)
+           )"
+            : "";
+
         $sql = "
         WITH BASE AS (
             SELECT
@@ -527,7 +553,7 @@ class EstudianteInscritoController extends Controller
                 AND G.[PLAN] = K.[PLAN]
                 AND G.MATERIA = K.MATERIA
                 AND G.GRUPO = K.GRUPO
-            LEFT JOIN BIOGRAFICOS D
+            INNER JOIN DOCENTES D
                 ON D.CODIGO = G.DOCENTE
             WHERE
                 K.ANIO = :anio
@@ -538,7 +564,7 @@ class EstudianteInscritoController extends Controller
                 AND G.TIPO = 'N'
                 AND K.[PLAN] IN ('089801','109401','125091','126091','059801')
                 AND M.NIVEL IN ($nivelesPlaceholders)
-                AND D.CODIGO IS NOT NULL
+                $filtroHorario
         )
         SELECT
             COD_DOCENTE,
