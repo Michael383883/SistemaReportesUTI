@@ -47,6 +47,10 @@
           </div>
           <p class="text-[15px] font-semibold text-gray-900">{{ successMessage }}</p>
 
+          <p v-if="desvinculado" class="text-[13px] text-blue-600 mt-2 font-medium">
+            🔗 Este registro se independizó: los cambios ya no afectan a los demás docentes del documento original.
+          </p>
+
           <p v-if="aplicadoAGrupos === true" class="text-[13px] text-green-600 mt-2 font-medium">
             ✓ Cambios aplicados en GRUPOS correctamente.
           </p>
@@ -63,15 +67,24 @@
         </div>
 
         <!-- Formulario -->
-        <ClasificacionForm
-          v-else
-          :initial="datosIniciales"
-          :saving="clasificacion.loading.value"
-          :error="clasificacion.error.value"
-          :archivo-nombre="nombreArchivoActual"
-          @guardar="onActualizar"
-          @back="intentarCerrar"
-        />
+        <template v-else>
+          <!-- Checkbox: editar solo este docente, sin afectar a los hermanos del documento -->
+          <label
+            class="flex items-center gap-2 mb-4 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg text-[12px] text-amber-800 cursor-pointer select-none"
+          >
+            <input type="checkbox" v-model="soloEsteDocente" class="w-3.5 h-3.5 accent-amber-500" />
+            Guardar cambios solo para este docente (no afectar a los demás docentes vinculados a este mismo documento)
+          </label>
+
+          <ClasificacionForm
+            :initial="datosIniciales"
+            :saving="clasificacion.loading.value"
+            :error="clasificacion.error.value"
+            :archivo-nombre="nombreArchivoActual"
+            @guardar="onActualizar"
+            @back="intentarCerrar"
+          />
+        </template>
       </div>
     </div>
   </div>
@@ -97,9 +110,11 @@ const nombreArchivoActual = ref('')
 
 const successMessage = ref('')
 const aplicadoAGrupos = ref(null)
+const desvinculado = ref(false)
 
 const materiasOriginales = ref([])
 const huboCambiosGuardados = ref(false)
+const soloEsteDocente = ref(false)
 
 function mapearDatos(data) {
   const materias = (data.materias || []).map(m => ({
@@ -167,7 +182,9 @@ onMounted(async () => {
 })
 
 async function onActualizar(formData, debeAplicarAGrupos) {
-  const idDocumento = datosIniciales.value.idDocumento
+  // ID_DOCUMENTO ORIGINAL: se usa para limpiar GRUPOS antes de guardar,
+  // porque las materias todavía apuntan a este documento en ese momento.
+  const idDocumentoOriginal = datosIniciales.value.idDocumento
 
   try {
     const idsMateriaViejas = materiasOriginales.value
@@ -176,18 +193,26 @@ async function onActualizar(formData, debeAplicarAGrupos) {
 
     if (idsMateriaViejas.length) {
       try {
-        await clasificacion.quitarDeGrupos(idDocumento, idsMateriaViejas)
+        await clasificacion.quitarDeGrupos(idDocumentoOriginal, idsMateriaViejas)
       } catch (e) {
         console.warn('No se pudo limpiar GRUPOS antes de editar:', e)
       }
     }
 
-    await clasificacion.actualizarClasificacion(props.id, formData)
+    const resUpdate = await clasificacion.actualizarClasificacion(props.id, {
+      ...formData,
+      solo_este_docente: soloEsteDocente.value,
+    })
     huboCambiosGuardados.value = true
+    desvinculado.value = !!resUpdate?.desvinculado
+
+    // Si el backend independizó el registro, las materias ahora viven en un
+    // documento NUEVO (resUpdate.id_documento) y ya no en el original.
+    const idDocumentoParaGrupos = resUpdate?.id_documento ?? idDocumentoOriginal
 
     if (debeAplicarAGrupos) {
       try {
-        const resGrupos = await clasificacion.aplicarEnGrupos(idDocumento)
+        const resGrupos = await clasificacion.aplicarEnGrupos(idDocumentoParaGrupos)
         aplicadoAGrupos.value = resGrupos.filas_afectadas > 0
       } catch (e) {
         aplicadoAGrupos.value = false

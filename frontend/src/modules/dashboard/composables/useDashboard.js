@@ -16,7 +16,7 @@ export function useDashboard() {
             const { data } = await axios.get(`${API_BASE}/api/admin/dashboard/kpis`, {
                 headers: { Authorization: `Bearer ${token}` },
             })
-            
+
             if (data.success) kpis.value = data.data
         } catch (e) {
             error.value = e?.response?.data?.message ?? 'Error al cargar el dashboard.'
@@ -28,6 +28,7 @@ export function useDashboard() {
     const resumen = computed(() => kpis.value?.resumen ?? {})
     const topDocentes = computed(() => kpis.value?.top_docentes ?? [])
     const resolucionesRecientes = computed(() => kpis.value?.resoluciones_recientes ?? [])
+    const documentosRecientes = computed(() => kpis.value?.documentos_recientes ?? [])
     const distribucionTipo = computed(() => kpis.value?.distribucion_tipo ?? [])
     const porcentajeDocActivos = computed(() => {
         const r = resumen.value
@@ -37,7 +38,7 @@ export function useDashboard() {
 
     return {
         loading, error, resumen,
-        topDocentes, resolucionesRecientes,
+        topDocentes, resolucionesRecientes, documentosRecientes,
         distribucionTipo, porcentajeDocActivos,
         fetchKpis,
     }

@@ -856,11 +856,11 @@ const listadoFiltrado = computed(() => {
 
 // ─── Badge de categoria ───
 function badgeCategoria(categoria) {
-  if (categoria === 'Docentes Titulares')  return 'bg-emerald-50 text-emerald-700'
-  if (categoria === 'Docentes Temporales') return 'bg-amber-50 text-amber-700'
-  if (categoria === 'Examen de suficiencia') return 'bg-blue-50 text-blue-700'
-  if (categoria === 'Acefala') return 'bg-gray-50 text-gray-700'
-  if (categoria === 'Sin Examen de suficiencia') return 'bg-orange-50 text-red-700'
+  if (categoria === 'DOCENTES TITULARES')  return 'bg-emerald-50 text-emerald-700'
+  if (categoria === 'DOCENTES TEMPORALES') return 'bg-amber-50 text-amber-700'
+  if (categoria === 'EXAMEN SUFICIENCIA') return 'bg-blue-50 text-blue-700'
+  if (categoria === 'ACEFALA') return 'bg-gray-50 text-gray-700'
+  if (categoria === 'SIN CATEGORIA') return 'bg-orange-50 text-red-700'
 
   return 'bg-gray-50 text-gray-600'
 }

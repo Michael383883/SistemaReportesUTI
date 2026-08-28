@@ -5,7 +5,7 @@
       <div class="flex items-center justify-between">
         <div>
           <h1 class="text-2xl font-bold text-slate-800 dark:text-white">Dashboard</h1>
-          <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Gestión I-2026</p>
+       
         </div>
         <div class="flex items-center gap-3">
           <button 
@@ -35,8 +35,8 @@
           icon="users"
           label="Docentes Registrados"
           :value="resumen.total_docentes ?? 0"
-          sub="activos este periodo"
-          :progress="porcentajeDocActivos"
+        
+          
           color="#D28B45"
           :loading="loading"
         />
@@ -50,9 +50,9 @@
         />
 
         <StatCard
-          icon="layers"
-          label="Grupos Asignados"
-          :value="resumen.total_grupos ?? 0"
+          icon="file-text"
+          label="Documentos de Docentes"
+          :value="resumen.total_documentos ?? 0"
           color="#3b82f6"
           :loading="loading"
         />
@@ -71,6 +71,12 @@
         :items="resolucionesRecientes"
         :loading="loading"
       />
+
+      <!-- Documentos recientes -->
+      <DocumentosRecientes
+        :items="documentosRecientes"
+        :loading="loading"
+      />
     </div>
   </div>
 </template>
@@ -83,6 +89,7 @@ import { useDashboard } from '../composables/useDashboard'
 
 import StatCard from '../components/StatCard.vue'
 import ResolucionesRecientes from '../components/ResolucionesRecientes.vue'
+import DocumentosRecientes from '../components/DocumentosRecientes.vue'
 
 const {
   loading,
@@ -90,6 +97,7 @@ const {
   resumen,
   resolucionesRecientes,
   porcentajeDocActivos,
+  documentosRecientes,
   fetchKpis,
 } = useDashboard()
 

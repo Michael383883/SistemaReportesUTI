@@ -53,15 +53,10 @@
               {{ m.nombre_materia }}
               <span v-if="m.cod_materia" class="text-orange-600 text-[12px]">({{ m.cod_materia }})</span>
               <span v-if="m.grupo" class="text-orange-500 text-[12px] font-semibold ml-1">Grupo {{ m.grupo }}</span>
+              <span v-if="!m.cod_materia" class="block text-[10px] text-slate-500 font-normal mt-0.5">
+                Sin código · no se aplicará en GRUPOS
+              </span>
             </span>
-            <span class="truncate">
-  {{ m.nombre_materia }}
-  <span v-if="m.cod_materia" class="text-orange-600 text-[12px]">({{ m.cod_materia }})</span>
-  <span v-if="m.grupo" class="text-orange-500 text-[12px] font-semibold ml-1">Grupo {{ m.grupo }}</span>
-  <span v-if="!m.cod_materia" class="block text-[10px] text-slate-500 font-normal mt-0.5">
-    Sin código · no se aplicará en GRUPOS
-  </span>
-</span>
 
             <button
               @click="form.materias.splice(i, 1)"
@@ -73,7 +68,8 @@
             </button>
           </div>
 
-          <div class="flex items-center gap-2">
+          <!-- Nota + botón para agregar observación (va a DETALLE en la BD) -->
+          <div class="flex items-center gap-2 flex-wrap">
             <input
               v-model="m.nota"
               type="text"
@@ -85,6 +81,54 @@
                 : 'border-orange-300 focus:ring-orange-400'"
               @keypress="soloNumeros"
             />
+
+            <button
+              v-if="!obsAbierta(i) && !m.detalle"
+              type="button"
+              class="text-[10px] text-orange-500 hover:text-orange-700 underline"
+              @click="abrirObs(i)"
+            >
+              + Agregar obs
+            </button>
+
+            <span
+              v-else-if="!obsAbierta(i) && m.detalle"
+              class="inline-flex items-center gap-1 text-[10px] text-orange-600"
+            >
+              <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+              </svg>
+              Obs. agregada
+              <button type="button" class="underline hover:text-orange-800" @click="abrirObs(i)">editar</button>
+            </span>
+          </div>
+
+          <!-- Textarea de observación, ligado a m.detalle -->
+          <div v-if="obsAbierta(i)" class="pt-1">
+            <textarea
+              :ref="el => setObsInputRef(el, i)"
+              v-model="m.detalle"
+              rows="2"
+              placeholder="Observación de esta materia..."
+              class="w-full px-2 py-1.5 text-[11px] border border-orange-300 rounded focus:outline-none focus:ring-1 focus:ring-orange-400 resize-none bg-white text-slate-800 font-normal"
+              @keydown.esc="cerrarObs(i)"
+            ></textarea>
+            <div class="flex items-center justify-end gap-2 mt-1">
+              <button
+                type="button"
+                class="text-[10px] text-gray-500 hover:text-gray-700"
+                @click="quitarObs(i)"
+              >
+                Quitar
+              </button>
+              <button
+                type="button"
+                class="text-[10px] px-2 py-0.5 bg-orange-500 hover:bg-orange-600 text-white rounded"
+                @click="cerrarObs(i)"
+              >
+                Listo
+              </button>
+            </div>
           </div>
 
           <div class="pt-1.5 border-t border-orange-200/70">
@@ -183,19 +227,15 @@ function toggleNoRegenta(event) {
 
 // ─── Manejo de materias ───
 function onAgregarMateria(materiaData) {
-  // Con código: dedup por cod_materia (como antes).
-  // Sin código (manual): dedup por nombre, porque cod_materia siempre es null.
   const existe = materiaData.cod_materia
     ? form.materias.some(m => m.cod_materia === materiaData.cod_materia)
-    : form.materias.some(
-        m => !m.cod_materia &&
-             m.nombre_materia?.trim().toLowerCase() === materiaData.nombre_materia?.trim().toLowerCase()
-      )
+    : false // las manuales ya se confirmaron en BuscadorMaterias
   if (existe) return
 
   form.materias.push({
     ...materiaData,
     grupo: materiaData.grupo ?? null,
+    detalle: materiaData.detalle ?? null,
     manual: materiaData.manual ?? !materiaData.cod_materia,
     docente: props.selectedDocente
       ? {
@@ -221,6 +261,36 @@ function notaInvalida(m) {
   const valor = Number(m.nota)
   if (Number.isNaN(valor)) return false
   return valor > 100
+}
+
+// ─── Observación por materia (columna DETALLE en CLASIFICACION_MATERIA) ───
+// Guarda qué tarjetas tienen el textarea de observación abierto.
+const obsAbiertasIdx = ref(new Set())
+const obsInputRefs = ref({})
+
+function obsAbierta(i) {
+  return obsAbiertasIdx.value.has(i)
+}
+
+function setObsInputRef(el, i) {
+  if (el) obsInputRefs.value[i] = el
+}
+
+function abrirObs(i) {
+  obsAbiertasIdx.value.add(i)
+  // forzar reactividad del Set
+  obsAbiertasIdx.value = new Set(obsAbiertasIdx.value)
+  nextTick(() => obsInputRefs.value[i]?.focus())
+}
+
+function cerrarObs(i) {
+  obsAbiertasIdx.value.delete(i)
+  obsAbiertasIdx.value = new Set(obsAbiertasIdx.value)
+}
+
+function quitarObs(i) {
+  form.materias[i].detalle = null
+  cerrarObs(i)
 }
 
 // ─── Buscador de docente POR MATERIA ───

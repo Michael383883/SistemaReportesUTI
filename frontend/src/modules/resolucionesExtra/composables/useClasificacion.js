@@ -33,7 +33,7 @@ export function useClasificacion() {
         }
     }
 
-    function buildFormData({ cod_docente, categoria, nivel, tipo_documento, gestion, periodo, detalle_general, observacion, observacion2, materias, referencias, titulo, archivo }) {
+    function buildFormData({ cod_docente, categoria, nivel, tipo_documento, gestion, periodo, detalle_general, observacion, observacion2, materias, referencias, titulo, archivo, solo_este_docente }) {
         const fd = new FormData()
         if (cod_docente) fd.append('cod_docente', cod_docente)
         fd.append('categoria', categoria)
@@ -48,6 +48,9 @@ export function useClasificacion() {
         fd.append('referencias', JSON.stringify(referencias || []))
         if (titulo) fd.append('titulo', JSON.stringify(titulo))   // 👈 esto faltaba
         if (archivo) fd.append('archivo_pdf', archivo)
+
+
+        if (solo_este_docente) fd.append('solo_este_docente', '1')
         return fd
     }
     async function guardarClasificacion(payload) {
@@ -318,7 +321,7 @@ export function useClasificacion() {
         listar,
         obtener,
         guardarClasificacion,
-        actualizarClasificacion,  
+        actualizarClasificacion,
         eliminar,
         eliminarDocente,
         aplicarEnGrupos,

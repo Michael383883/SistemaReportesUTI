@@ -265,6 +265,8 @@ const {
   materiasRegistradas,
 } = useMaterias()
 
+const pendienteConfirmarDuplicado = ref(false)
+
 const props = defineProps({
   docente: { type: [String, Number], default: null },
   gestion: { type: String, default: '' },
@@ -474,17 +476,19 @@ function cancelarModoManual() {
   nombreManual.value = ''
 }
 
+
 function confirmarMateriaManual() {
   const nombre = nombreManual.value.trim()
   if (!nombre) return
 
-  // Evita duplicar la misma materia manual (comparando por nombre, ya que no hay código)
   const yaExiste = props.materiasSeleccionadas.some(
     m => !m.cod_materia && m.nombre_materia?.trim().toLowerCase() === nombre.toLowerCase()
   )
-  if (yaExiste) {
-    mensajeDuplicado.value = `⚠️ La materia "${nombre}" ya fue agregada manualmente`
-    setTimeout(() => { mensajeDuplicado.value = '' }, 3000)
+
+  if (yaExiste && !pendienteConfirmarDuplicado.value) {
+    mensajeDuplicado.value = `⚠️ "${nombre}" ya está agregada. Pulsa "Agregar materia" de nuevo si quieres agregarla igual.`
+    pendienteConfirmarDuplicado.value = true
+    setTimeout(() => { pendienteConfirmarDuplicado.value = false }, 4000)
     return
   }
 
@@ -496,11 +500,12 @@ function confirmarMateriaManual() {
     grupo: null,
     nota: null,
     detalle: '',
-    manual: true, // ← marca: sin código, no se debe aplicar en GRUPOS
+    manual: true,
   })
 
   cancelarModoManual()
   searchTerm.value = ''
+  pendienteConfirmarDuplicado.value = false
 }
 
 // ─── Resetear cuando cambia docente/gestión/periodo ───
