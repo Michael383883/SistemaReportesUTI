@@ -264,12 +264,22 @@ class ReporteExcelController extends Controller
                     $partesDetalle[] = $documento->DETALLE_GENERAL;
                 }
 
-                $notasMaterias = $materiasReales
-                    ->pluck('NOTA')
-                    ->filter(fn($n) => $n !== null && $n !== '')
+                // Observación + nota de cada materia, formato "Recuperatorio, Nota: 85".
+// Si una materia tiene nota pero NO observación, queda solo "Nota: 85".
+                $notasConObs = $materiasReales
+                    ->filter(fn($m) => $m->NOTA !== null && $m->NOTA !== '')
+                    ->map(function ($m) {
+                        $partes = [];
+                        if (!empty($m->DETALLE)) {
+                            $partes[] = trim($m->DETALLE);
+                        }
+                        $partes[] = 'Nota: ' . $m->NOTA;
+                        return implode(', ', $partes);
+                    })
                     ->values();
-                if ($notasMaterias->isNotEmpty()) {
-                    $partesDetalle[] = 'Nota: ' . $notasMaterias->implode(', ');
+
+                if ($notasConObs->isNotEmpty()) {
+                    $partesDetalle[] = $notasConObs->implode(', ');
                 }
 
                 if ($referencias->isNotEmpty()) {

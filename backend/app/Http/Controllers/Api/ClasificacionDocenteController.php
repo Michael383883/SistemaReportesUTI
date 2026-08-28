@@ -328,7 +328,7 @@ class ClasificacionDocenteController extends Controller
                 return response()->json(['ok' => false, 'error' => 'Clasificación no encontrada'], 404);
             }
 
-            $idDocumento = $ccd->ID_DOCUMENTO;
+            $idDocumentoOriginal = $ccd->ID_DOCUMENTO;
 
             $request->validate([
                 'categoria' => 'required|string|max:60',
@@ -343,23 +343,30 @@ class ClasificacionDocenteController extends Controller
                 'materias' => 'nullable|string',
                 'referencias' => 'nullable|string',
                 'titulo' => 'nullable|string',
+                'solo_este_docente' => 'nullable|boolean',
             ]);
 
             $materias = [];
             if ($request->filled('materias')) {
                 $materias = json_decode($request->materias, true);
-                if (!is_array($materias)) {
+                if (!is_array($materias))
                     throw new \Exception('materias inválidas: el JSON no es un array');
-                }
             }
 
             $titulo = null;
             if ($request->filled('titulo')) {
                 $titulo = json_decode($request->titulo, true);
-                if (!is_array($titulo)) {
+                if (!is_array($titulo))
                     throw new \Exception('titulo inválido: el JSON no es un objeto');
-                }
             }
+
+            // ¿Hay otros docentes (hermanos) vinculados al mismo documento?
+            $tieneHermanos = DB::table('CLASIFICACION_DOCENTE')
+                ->where('ID_DOCUMENTO', $idDocumentoOriginal)
+                ->where('ID_CLASIFICACION_DOCENTE', '!=', $id)
+                ->exists();
+
+            $desvincular = $request->boolean('solo_este_docente') && $tieneHermanos;
 
             $datosDocumento = [
                 'CATEGORIA' => $request->categoria,
@@ -372,6 +379,8 @@ class ClasificacionDocenteController extends Controller
                 'OBSERVACION2' => $request->observacion2,
             ];
 
+            $docActual = DB::table('CLASIFICACION_DOCUMENTO')->where('ID_DOCUMENTO', $idDocumentoOriginal)->first();
+
             if ($request->hasFile('archivo_pdf')) {
                 $archivo = $request->file('archivo_pdf');
                 if (!$archivo->isValid()) {
@@ -379,8 +388,9 @@ class ClasificacionDocenteController extends Controller
                     return response()->json(['ok' => false, 'error' => 'Archivo inválido'], 400);
                 }
 
-                $docActual = DB::table('CLASIFICACION_DOCUMENTO')->where('ID_DOCUMENTO', $idDocumento)->first();
-                if ($docActual && $docActual->RUTA_ARCHIVO && Storage::disk('public')->exists($docActual->RUTA_ARCHIVO)) {
+                // Solo borramos el archivo físico anterior si NO nos desvinculamos
+                // (si nos desvinculamos, los hermanos lo siguen usando)
+                if (!$desvincular && $docActual && $docActual->RUTA_ARCHIVO && Storage::disk('public')->exists($docActual->RUTA_ARCHIVO)) {
                     Storage::disk('public')->delete($docActual->RUTA_ARCHIVO);
                 }
 
@@ -391,14 +401,33 @@ class ClasificacionDocenteController extends Controller
                 $datosDocumento['RUTA_ARCHIVO'] = $rutaArchivo;
                 $datosDocumento['NOMBRE_ARCHIVO'] = $archivo->getClientOriginalName();
                 $datosDocumento['FOTOCOPIA_TITULAR'] = true;
+            } elseif ($desvincular && $docActual) {
+                // Sin archivo nuevo: el documento nuevo apunta al mismo archivo físico
+                $datosDocumento['RUTA_ARCHIVO'] = $docActual->RUTA_ARCHIVO;
+                $datosDocumento['NOMBRE_ARCHIVO'] = $docActual->NOMBRE_ARCHIVO;
+                $datosDocumento['FOTOCOPIA_TITULAR'] = $docActual->FOTOCOPIA_TITULAR;
             }
 
-            DB::table('CLASIFICACION_DOCUMENTO')
-                ->where('ID_DOCUMENTO', $idDocumento)
-                ->update($datosDocumento);
+            if ($desvincular) {
+                // ── Modo "solo este docente": documento nuevo e independiente ──
+                $idDocumento = DB::table('CLASIFICACION_DOCUMENTO')->insertGetId(array_merge($datosDocumento, [
+                    'FECHA_REGISTRO' => DB::raw('GETDATE()'),
+                ]), 'ID_DOCUMENTO');
 
+                DB::table('CLASIFICACION_DOCENTE')
+                    ->where('ID_CLASIFICACION_DOCENTE', $id)
+                    ->update(['ID_DOCUMENTO' => $idDocumento]);
+            } else {
+                $idDocumento = $idDocumentoOriginal;
+                DB::table('CLASIFICACION_DOCUMENTO')
+                    ->where('ID_DOCUMENTO', $idDocumento)
+                    ->update($datosDocumento);
+            }
+
+            // Materias: siempre se borran/insertan filtradas por ID_CLASIFICACION_DOCENTE,
+            // usando el documento (original o nuevo, según $desvincular)
             DB::table('CLASIFICACION_MATERIA')
-                ->where('ID_DOCUMENTO', $idDocumento)
+                ->where('ID_DOCUMENTO', $idDocumentoOriginal)
                 ->where('ID_CLASIFICACION_DOCENTE', $id)
                 ->delete();
 
@@ -419,7 +448,7 @@ class ClasificacionDocenteController extends Controller
             }
 
             DB::table('CLASIFICACION_TITULO')
-                ->where('ID_DOCUMENTO', $idDocumento)
+                ->where('ID_DOCUMENTO', $idDocumentoOriginal)
                 ->where('ID_CLASIFICACION_DOCENTE', $id)
                 ->delete();
 
@@ -438,11 +467,15 @@ class ClasificacionDocenteController extends Controller
                 $tituloActualizado = true;
             }
 
+            // Referencias: son por documento (compartidas). Si nos desvinculamos,
+            // se copian al documento nuevo sin tocar las del original (hermanos).
             $referenciasActualizadas = 0;
             if ($request->has('referencias')) {
-                DB::table('CLASIFICACION_REFERENCIA')->where('ID_DOCUMENTO', $idDocumento)->delete();
-
                 $referencias = json_decode($request->referencias, true) ?: [];
+
+                if (!$desvincular) {
+                    DB::table('CLASIFICACION_REFERENCIA')->where('ID_DOCUMENTO', $idDocumento)->delete();
+                }
                 foreach ($referencias as $r) {
                     DB::table('CLASIFICACION_REFERENCIA')->insert([
                         'ID_DOCUMENTO' => $idDocumento,
@@ -457,12 +490,15 @@ class ClasificacionDocenteController extends Controller
 
             return response()->json([
                 'ok' => true,
-                'mensaje' => 'Clasificación actualizada correctamente',
+                'mensaje' => $desvincular
+                    ? 'Clasificación actualizada correctamente (se independizó de los demás docentes del documento)'
+                    : 'Clasificación actualizada correctamente',
                 'id_documento' => $idDocumento,
                 'id_clasificacion_docente' => (int) $id,
                 'materias_actualizadas' => $materiasInsertadas,
                 'titulo_actualizado' => $tituloActualizado,
                 'referencias_actualizadas' => $referenciasActualizadas,
+                'desvinculado' => $desvincular,
             ]);
 
         } catch (\Illuminate\Validation\ValidationException $e) {
