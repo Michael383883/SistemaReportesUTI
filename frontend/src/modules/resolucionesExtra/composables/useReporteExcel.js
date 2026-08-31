@@ -45,6 +45,10 @@ export function useReporteExcel() {
     const errorCargaHoraria = ref(null)
     const cargaHorariaAsignada = ref(false) // true si el preview actual ya tiene CH asignada automáticamente
 
+    // ── Combinar Materias ──
+    const materiasCombinadas = ref(false) // true si el preview actual tiene materias combinadas
+    let previewSinCombinar = null // snapshot para poder deshacer la combinación
+
     function authHeaders(extra = {}) {
         const token = localStorage.getItem('token')
         return {
@@ -59,6 +63,8 @@ export function useReporteExcel() {
         loading.value = true
         error.value = null
         cargaHorariaAsignada.value = false // un preview nuevo descarta cualquier CH asignada previamente
+        materiasCombinadas.value = false   // un preview nuevo descarta cualquier combinación previa
+        previewSinCombinar = null
         try {
             const { data } = await axios.get(
                 `${API_BASE}/api/reportes/docentes-clasificados/preview`,
@@ -217,8 +223,166 @@ export function useReporteExcel() {
         return { asignadas, sinCoincidencia }
     }
 
+    // ── Combinar Materias (toggle) ──
+    // Dentro de cada docente (bloque INICIO_GRUPO..FILAS_GRUPO), agrupa las
+    // filas que tengan el MISMO nombre de materia (normalizado) para que en
+    // el Excel/preview se vean como una sola celda combinada (rowspan) en la
+    // columna de Materia. NUNCA combina '-' ni "NO REGENTA MATERIA EN LA FCE":
+    // esas siempre quedan como filas independientes.
+    // El resto de columnas (CH, DETALLE, CATEGORIA, NIVEL, FOTOCOPIA, OBS2,
+    // OBS3) NO se tocan: cada fila conserva sus propios datos tal cual, solo
+    // se fusiona visualmente la celda de NOMBRE_MATERIA.
+    function claveMateria(nombreMateria) {
+        const norm = normalizarNombreMateria(nombreMateria)
+        if (norm === '-' || norm === PLACEHOLDER_SIN_MATERIA) return null
+        return norm
+    }
+
+    // Reordena las filas de un bloque de un mismo docente para que las
+    // materias iguales queden contiguas (necesario para poder fusionar
+    // celdas), preservando el orden de la primera aparición de cada materia.
+    function combinarMateriasBloque(bloque) {
+        const gruposPorClave = new Map()
+        bloque.forEach((fila, idx) => {
+            const clave = claveMateria(fila.NOMBRE_MATERIA)
+            const claveReal = clave === null ? `__unico_${idx}` : clave
+            if (!gruposPorClave.has(claveReal)) gruposPorClave.set(claveReal, [])
+            gruposPorClave.get(claveReal).push(fila)
+        })
+
+        const yaColocadas = new Set()
+        const ordenado = []
+        bloque.forEach((fila, idx) => {
+            const clave = claveMateria(fila.NOMBRE_MATERIA)
+            const claveReal = clave === null ? `__unico_${idx}` : clave
+            if (yaColocadas.has(claveReal)) return
+            yaColocadas.add(claveReal)
+            ordenado.push(...gruposPorClave.get(claveReal))
+        })
+
+        return ordenado
+    }
+
+    // Recorre todo el preview, docente por docente, y arma el arreglo nuevo
+    // con las materias iguales agrupadas + las marcas INICIO_MATERIA/FILAS_MATERIA
+    // que el frontend y el backend usan para dibujar/generar el rowspan.
+    function combinarMaterias() {
+        const filas = preview.value
+        const resultado = []
+        let i = 0
+
+        while (i < filas.length) {
+            const filaActual = filas[i]
+
+            // Si no es el inicio de un bloque de docente, se copia tal cual
+            // (no debería pasar con datos generados normalmente).
+            if (!filaActual.INICIO_GRUPO) {
+                resultado.push({ ...filaActual })
+                i++
+                continue
+            }
+
+            const filasGrupo = filaActual.FILAS_GRUPO || 1
+            const bloqueOriginal = filas.slice(i, i + filasGrupo).map(f => ({ ...f }))
+
+            // Se guardan los datos que solo vivían en la primera fila del bloque
+            const nValor = bloqueOriginal[0].N
+            const nombreDocenteValor = bloqueOriginal[0].NOMBRE_DOCENTE
+
+            // Se limpian marcas de grupo/materia previas, se recalculan después
+            bloqueOriginal.forEach(f => {
+                delete f.N
+                delete f.NOMBRE_DOCENTE
+                delete f.INICIO_GRUPO
+                delete f.FILAS_GRUPO
+                delete f.FIN_GRUPO
+                delete f.INICIO_MATERIA
+                delete f.FILAS_MATERIA
+            })
+
+            const ordenado = combinarMateriasBloque(bloqueOriginal)
+
+            // Reasignar el marcador de "primera fila del docente" (Nº / Nombre)
+            // a quien haya quedado primero después de reordenar
+            ordenado[0].N = nValor
+            ordenado[0].NOMBRE_DOCENTE = nombreDocenteValor
+            ordenado[0].INICIO_GRUPO = true
+            ordenado[0].FILAS_GRUPO = ordenado.length
+            for (let k = 1; k < ordenado.length; k++) {
+                ordenado[k].N = null
+                ordenado[k].NOMBRE_DOCENTE = ''
+            }
+            ordenado[ordenado.length - 1].FIN_GRUPO = true
+
+            // Marcar los tramos de materia igual (ya quedaron consecutivos
+            // tras reordenar) con INICIO_MATERIA / FILAS_MATERIA, y dejar
+            // un solo valor de CH para todo el tramo (NO se suma, se toma
+            // el primer CH no vacío que aparezca dentro del tramo).
+            let idx = 0
+            while (idx < ordenado.length) {
+                const clave = claveMateria(ordenado[idx].NOMBRE_MATERIA)
+
+                if (clave === null) {
+                    ordenado[idx].INICIO_MATERIA = true
+                    ordenado[idx].FILAS_MATERIA = 1
+                    idx++
+                    continue
+                }
+
+                let fin = idx + 1
+                while (fin < ordenado.length && claveMateria(ordenado[fin].NOMBRE_MATERIA) === clave) {
+                    fin++
+                }
+                const cantidad = fin - idx
+
+                // Toma el primer CH no nulo/no vacío del tramo (no suma)
+                let chUnico = null
+                for (let k = idx; k < fin; k++) {
+                    const ch = ordenado[k].CH
+                    if (ch !== null && ch !== undefined && ch !== '') {
+                        chUnico = ch
+                        break
+                    }
+                }
+
+                ordenado[idx].INICIO_MATERIA = true
+                ordenado[idx].FILAS_MATERIA = cantidad
+                ordenado[idx].CH = chUnico
+
+                for (let k = idx + 1; k < fin; k++) {
+                    ordenado[k].INICIO_MATERIA = false
+                    ordenado[k].CH = null // se combina visualmente con la de arriba
+                }
+
+                idx = fin
+            }
+            resultado.push(...ordenado)
+            i += filasGrupo
+        }
+
+        return resultado
+    }
+
+    // Botón "Combinar Materias": si ya estaba activo, restaura el snapshot
+    // sin combinar (deshacer). Si estaba apagado, guarda snapshot y combina.
+    function alternarCombinarMaterias() {
+        if (materiasCombinadas.value) {
+            if (previewSinCombinar) {
+                preview.value = previewSinCombinar
+                previewSinCombinar = null
+            }
+            materiasCombinadas.value = false
+            return
+        }
+
+        previewSinCombinar = preview.value
+        preview.value = combinarMaterias()
+        materiasCombinadas.value = true
+    }
+
     // Construye la URL de descarga real del Excel (mismo endpoint que ya existe,
-    // vía GET). Se usa cuando NO se asignó carga horaria automática en el preview.
+    // vía GET). Se usa cuando NO se asignó carga horaria automática ni se
+    // combinaron materias en el preview.
     // Si "Solo Activos" está activo, manda también anio/periodo y el flag
     // solo_activos=1 para que el backend aplique el mismo filtro al generar
     // el archivo (requiere el soporte correspondiente en el controller).
@@ -245,11 +409,11 @@ export function useReporteExcel() {
     }
 
     // POST /api/reportes/docentes-clasificados/excel-personalizado
-    // Se usa SOLO cuando ya se asignó carga horaria automática en el preview
-    // (cargaHorariaAsignada = true): manda el arreglo `preview` tal cual está
-    // en pantalla (con la CH ya asignada) para que el backend genere el Excel
-    // exactamente con esos datos, en vez de reconstruirlos desde cero y perder
-    // la asignación hecha en el navegador.
+    // Se usa cuando ya se asignó carga horaria automática y/o se combinaron
+    // materias en el preview: manda el arreglo `preview` tal cual está en
+    // pantalla para que el backend genere el Excel exactamente con esos
+    // datos, en vez de reconstruirlos desde cero y perder los cambios
+    // hechos en el navegador.
     async function descargarExcelPersonalizado({ gestion, version } = {}) {
         try {
             const response = await axios.post(
@@ -280,7 +444,7 @@ export function useReporteExcel() {
             link.remove()
             window.URL.revokeObjectURL(url)
         } catch (e) {
-            error.value = 'No se pudo descargar el Excel con la carga horaria asignada'
+            error.value = 'No se pudo descargar el Excel con los cambios aplicados en la vista previa'
             throw e
         }
     }
@@ -295,6 +459,8 @@ export function useReporteExcel() {
         docentesActivos.value = []
         cargaHorariaAsignada.value = false
         errorCargaHoraria.value = null
+        materiasCombinadas.value = false
+        previewSinCombinar = null
     }
 
     return {
@@ -326,5 +492,9 @@ export function useReporteExcel() {
         obtenerCargaHorariaDocentes,
         asignarCargaHoraria,
         descargarExcelPersonalizado,
+
+        // Combinar Materias
+        materiasCombinadas,
+        alternarCombinarMaterias,
     }
 }

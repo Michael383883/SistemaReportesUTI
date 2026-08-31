@@ -400,7 +400,7 @@
               <button
                 type="button"
                 @click="catDocDropdownOpen = !catDocDropdownOpen; catTituloDropdownOpen = false"
-                class="w-44 flex items-center justify-between gap-2 px-2.5 py-1.5 text-[13px] border border-gray-300 rounded-lg bg-white text-left"
+                class="w-56 flex items-center justify-between gap-2 px-2.5 py-1.5 text-[13px] border border-gray-300 rounded-lg bg-white text-left"
               >
                 <span class="truncate" :class="excelParams.categorias.length ? 'text-gray-800' : 'text-gray-400'">
                   {{ excelParams.categorias.length ? `${excelParams.categorias.length} seleccionada(s)` : 'Todas' }}
@@ -411,7 +411,7 @@
               </button>
               <div
                 v-if="catDocDropdownOpen"
-                class="absolute z-30 mt-1 w-56 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto"
+                class="absolute z-30 mt-1 w-64 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto"
               >
                 <label
                   v-for="cat in categorias"
@@ -433,13 +433,13 @@
               </div>
             </div>
 
-            <!-- Categoría de título: multi-selección -->
+            <!-- Categoría de título: multi-selección (incluye "Sin título registrado") -->
             <div class="relative">
               <label class="block text-[11px] font-medium text-gray-600 mb-0.5">Categoría de título</label>
               <button
                 type="button"
                 @click="catTituloDropdownOpen = !catTituloDropdownOpen; catDocDropdownOpen = false"
-                class="w-44 flex items-center justify-between gap-2 px-2.5 py-1.5 text-[13px] border border-gray-300 rounded-lg bg-white text-left"
+                class="w-56 flex items-center justify-between gap-2 px-2.5 py-1.5 text-[13px] border border-gray-300 rounded-lg bg-white text-left"
               >
                 <span class="truncate" :class="excelParams.tiposTitulo.length ? 'text-gray-800' : 'text-gray-400'">
                   {{ excelParams.tiposTitulo.length ? `${excelParams.tiposTitulo.length} seleccionada(s)` : 'Todas' }}
@@ -450,8 +450,14 @@
               </button>
               <div
                 v-if="catTituloDropdownOpen"
-                class="absolute z-30 mt-1 w-56 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto"
+                class="absolute z-30 mt-1 w-64 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto"
               >
+                <!-- Opción especial: docentes/clasificaciones sin ningún título registrado -->
+                <label class="flex items-center gap-2 px-3 py-2 text-[13px] text-slate-700 hover:bg-blue-50 cursor-pointer border-b border-gray-100">
+                  <input type="checkbox" value="__SIN_TITULO__" v-model="excelParams.tiposTitulo" class="accent-blue-600" />
+                  <span class="italic text-gray-500">Sin título registrado</span>
+                </label>
+
                 <label
                   v-for="tipo in tiposTitulo"
                   :key="tipo"
@@ -477,6 +483,19 @@
               class="px-3 py-1.5 text-sm font-medium text-blue-600 hover:text-blue-700"
             >
               Actualizar vista previa
+            </button>
+
+            <!-- Combinar Materias -->
+            <button
+              @click="reporteExcel.alternarCombinarMaterias()"
+              class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors"
+              :class="reporteExcel.materiasCombinadas.value ? 'bg-teal-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
+              title="Combina en una sola celda las materias repetidas de un mismo docente (excepto '-' y 'NO REGENTA MATERIA EN LA FCE')"
+            >
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4M16 17H4m0 0l4 4m-4-4l4-4"/>
+              </svg>
+              {{ reporteExcel.materiasCombinadas.value ? 'Materias combinadas ✓' : 'Combinar Materias' }}
             </button>
 
             <div class="w-px h-8 bg-gray-200"></div>
@@ -621,10 +640,25 @@
                       {{ item.NOMBRE_DOCENTE }}
                     </td>
 
-                    <td class="px-2 py-2 text-gray-700" :class="item.NEGRITA ? 'font-semibold' : ''">
+                    <!-- Materia: cuando está en modo "Combinar Materias" respeta el
+                         rowspan (INICIO_MATERIA/FILAS_MATERIA); en modo normal esas
+                         propiedades no existen y la celda se dibuja como siempre -->
+                    <td
+                      v-if="item.INICIO_MATERIA !== false"
+                      :rowspan="item.FILAS_MATERIA || 1"
+                      class="px-2 py-2 text-gray-700 align-middle"
+                      :class="item.NEGRITA ? 'font-semibold' : ''"
+                    >
                       {{ item.NOMBRE_MATERIA }}
                     </td>
-                    <td class="px-2 py-2 text-center text-gray-600">{{ item.CH || '—' }}</td>
+                    <!-- CH: cuando está combinado sigue el mismo rowspan que la materia -->
+                    <td
+                      v-if="item.INICIO_MATERIA !== false"
+                      :rowspan="item.FILAS_MATERIA || 1"
+                      class="px-2 py-2 text-center text-gray-600 align-middle"
+                    >
+                      {{ item.CH || '—' }}
+                    </td>
                     <td class="px-2 py-2 text-gray-600">{{ item.DETALLE || '—' }}</td>
                     <td class="px-2 py-2 text-gray-600">{{ item.CATEGORIA || '—' }}</td>
                     <td class="px-2 py-2 text-gray-600">{{ item.NIVEL || '—' }}</td>
@@ -912,7 +946,7 @@ const excelParams = ref({
   periodo: '',
   version: '5ta Versión',
   categorias: [],    // ← array: multi-selección
-  tiposTitulo: [],  
+  tiposTitulo: [],   // puede incluir el sentinel '__SIN_TITULO__'
 })
 
 // Estado de los dos dropdowns de checkboxes (categoría doc / categoría título)
@@ -941,7 +975,7 @@ async function cargarPreviewExcel() {
       periodo: excelParams.value.periodo,
       version: excelParams.value.version,
       categoria: excelParams.value.categorias,     // ✅ corregido (plural)
-      tipo_titulo: excelParams.value.tiposTitulo,  // ✅ corregido
+      tipo_titulo: excelParams.value.tiposTitulo,  // ✅ corregido (puede incluir __SIN_TITULO__)
     })
   } catch (e) {
     console.error('Error cargando vista previa de Excel:', e)
@@ -980,9 +1014,12 @@ async function ejecutarAsignarCargaHoraria() {
 }
 
 async function descargarExcelConfirmado() {
-  // Si ya se asignó carga horaria automática en la vista previa, se descarga
-  // con esos datos exactos (vía POST) para no perder la asignación hecha en pantalla.
-  if (reporteExcel.cargaHorariaAsignada.value) {
+  // Si ya se asignó carga horaria automática y/o se combinaron materias en
+  // la vista previa, se descarga con esos datos exactos (vía POST) para no
+  // perder los cambios hechos en pantalla.
+  const usarDatosPersonalizados = reporteExcel.cargaHorariaAsignada.value || reporteExcel.materiasCombinadas.value
+
+  if (usarDatosPersonalizados) {
     try {
       await reporteExcel.descargarExcelPersonalizado({
         gestion: reporteExcel.gestionEtiqueta.value,
@@ -990,7 +1027,7 @@ async function descargarExcelConfirmado() {
       })
       cerrarPreviewExcel()
     } catch (e) {
-      alert('No se pudo descargar el Excel con la carga horaria asignada')
+      alert('No se pudo descargar el Excel con los cambios aplicados en la vista previa')
     }
     return
   }
