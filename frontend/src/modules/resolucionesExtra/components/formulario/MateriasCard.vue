@@ -49,14 +49,39 @@
           class="flex flex-col gap-1.5 px-3 py-2 bg-orange-50 border border-orange-200 rounded-xl text-[12px] text-orange-700 min-w-[230px] font-semibold"
         >
           <div class="flex items-center justify-between gap-2">
-            <span class="truncate">
-              {{ m.nombre_materia }}
-              <span v-if="m.cod_materia" class="text-orange-600 text-[12px]">({{ m.cod_materia }})</span>
-              <span v-if="m.grupo" class="text-orange-500 text-[12px] font-semibold ml-1">Grupo {{ m.grupo }}</span>
-              <span v-if="!m.cod_materia" class="block text-[10px] text-slate-500 font-normal mt-0.5">
-                Sin código · no se aplicará en GRUPOS
-              </span>
-            </span>
+            <!-- Nombre de la materia: editable SOLO si no tiene código (manual) -->
+            <div class="flex-1 min-w-0">
+              <template v-if="nombreEditIndex === i">
+                <input
+                  :ref="el => setNombreInputRef(el, i)"
+                  v-model="nombreEditValor"
+                  type="text"
+                  class="w-full px-1.5 py-0.5 text-[12px] border border-orange-400 rounded focus:outline-none focus:ring-1 focus:ring-orange-500 bg-white text-slate-800 font-semibold"
+                  @keydown.enter.prevent="confirmarEdicionNombre(i)"
+                  @keydown.esc="cancelarEdicionNombre"
+                  @blur="confirmarEdicionNombre(i)"
+                />
+              </template>
+              <template v-else>
+                <span class="truncate">
+                  {{ m.nombre_materia }}
+                  <span v-if="m.cod_materia" class="text-orange-600 text-[12px]">({{ m.cod_materia }})</span>
+                  <span v-if="m.grupo" class="text-orange-500 text-[12px] font-semibold ml-1">Grupo {{ m.grupo }}</span>
+                </span>
+                <span v-if="!m.cod_materia" class="flex items-center gap-1.5 mt-0.5">
+                  <span class="text-[10px] text-slate-500 font-normal">
+                    Sin código · no se aplicará en GRUPOS
+                  </span>
+                  <button
+                    type="button"
+                    class="text-[10px] text-orange-500 hover:text-orange-700 underline flex-shrink-0"
+                    @click="abrirEdicionNombre(i)"
+                  >
+                    editar nombre
+                  </button>
+                </span>
+              </template>
+            </div>
 
             <button
               @click="form.materias.splice(i, 1)"
@@ -261,6 +286,40 @@ function notaInvalida(m) {
   const valor = Number(m.nota)
   if (Number.isNaN(valor)) return false
   return valor > 100
+}
+
+// ─── Editar nombre de materia MANUAL (sin cod_materia) ───
+// Solo tiene sentido para materias sin código: las que sí tienen código
+// vienen del catálogo (GRUPOS/MATERIAS) y su nombre no debe divergir de ahí.
+const nombreEditIndex = ref(null)
+const nombreEditValor = ref('')
+const nombreInputRefs = ref({})
+
+function setNombreInputRef(el, i) {
+  if (el) nombreInputRefs.value[i] = el
+}
+
+function abrirEdicionNombre(i) {
+  nombreEditIndex.value = i
+  nombreEditValor.value = form.materias[i].nombre_materia
+  nextTick(() => {
+    const el = nombreInputRefs.value[i]
+    el?.focus()
+    el?.select()
+  })
+}
+
+function confirmarEdicionNombre(i) {
+  if (nombreEditIndex.value !== i) return // ya se cerró (p. ej. por Esc)
+  const nuevo = nombreEditValor.value.trim()
+  if (nuevo) {
+    form.materias[i].nombre_materia = nuevo
+  }
+  nombreEditIndex.value = null
+}
+
+function cancelarEdicionNombre() {
+  nombreEditIndex.value = null
 }
 
 // ─── Observación por materia (columna DETALLE en CLASIFICACION_MATERIA) ───

@@ -244,13 +244,20 @@ class ReporteExcelController extends Controller
                 }
 
                 $referencias = $documento->referencias->pluck('NRO_REFERENCIA')->filter()->values();
-                $obs2 = $referencias->get(0, '');
-                $obs3 = $referencias->count() > 1 ? $referencias->slice(1)->implode(' - ') : '';
+
+                // Las columnas reales en CLASIFICACION_DOCUMENTO son OBSERVACION y
+                // OBSERVACION2 (no OBS2/OBS3 — esos son solo los nombres de columna
+                // del Excel/preview). No se derivan de las referencias, que solo
+                // alimentan el número de referencia usado en DETALLE.
+                $obs2 = $documento->OBSERVACION ?? '';
+                $obs3 = $documento->OBSERVACION2 ?? '';
 
                 $titulosDeEsteDocente = $titulosPorClasificacion->get($clasificacion->ID_CLASIFICACION_DOCENTE, collect());
 
-                // ─── Columna DETALLE fusionada: Tipo de documento - Descripción general
-                //     - Nota(s) de materia - Referencia(s) - Título(s) ───
+                // ─── DETALLE general del documento: Tipo de documento - Descripción
+                //     general - Referencia(s) - Título(s). NO incluye las notas de
+                //     materia: esas se calculan por-materia dentro del loop de abajo,
+                //     para que cada fila muestre la nota que le corresponde. ───
                 $partesDetalle = [];
 
                 $tipoDocumentoLabel = self::ETIQUETAS_TIPO_DOCUMENTO[$documento->TIPO_DOCUMENTO]
@@ -262,24 +269,6 @@ class ReporteExcelController extends Controller
 
                 if (!empty($documento->DETALLE_GENERAL)) {
                     $partesDetalle[] = $documento->DETALLE_GENERAL;
-                }
-
-                // Observación + nota de cada materia, formato "Recuperatorio, Nota: 85".
-// Si una materia tiene nota pero NO observación, queda solo "Nota: 85".
-                $notasConObs = $materiasReales
-                    ->filter(fn($m) => $m->NOTA !== null && $m->NOTA !== '')
-                    ->map(function ($m) {
-                        $partes = [];
-                        if (!empty($m->DETALLE)) {
-                            $partes[] = trim($m->DETALLE);
-                        }
-                        $partes[] = 'Nota: ' . $m->NOTA;
-                        return implode(', ', $partes);
-                    })
-                    ->values();
-
-                if ($notasConObs->isNotEmpty()) {
-                    $partesDetalle[] = $notasConObs->implode(', ');
                 }
 
                 if ($referencias->isNotEmpty()) {
@@ -298,26 +287,47 @@ class ReporteExcelController extends Controller
                     }
                 }
 
-                $detalleCombinado = implode(' - ', $partesDetalle);
+                $detalleGeneral = implode(' - ', $partesDetalle);
 
                 $primeraFilaClasificacion = true;
                 $esGeneral = !empty($documento->DETALLE_GENERAL);
 
                 foreach ($materias as $materia) {
+                    // Nota propia de ESTA materia (una fila = una materia = su nota),
+                    // formato "Recuperatorio, Nota: 85". Si tiene nota pero no
+                    // observación, queda solo "Nota: 85".
+                    $notaTexto = '';
+                    if (isset($materia->NOTA) && $materia->NOTA !== null && $materia->NOTA !== '') {
+                        $partesNota = [];
+                        if (!empty($materia->DETALLE)) {
+                            $partesNota[] = trim($materia->DETALLE);
+                        }
+                        $partesNota[] = 'Nota: ' . $materia->NOTA;
+                        $notaTexto = implode(', ', $partesNota);
+                    }
+
+                    // El detalle general del documento (tipo, descripción, referencias,
+                    // título) se repite en TODAS las filas de materia, y cada una
+                    // agrega además su propia nota.
+                    $detalleFila = $detalleGeneral;
+                    if ($notaTexto !== '') {
+                        $detalleFila = $detalleFila !== ''
+                            ? $detalleFila . ' - ' . $notaTexto
+                            : $notaTexto;
+                    }
+
                     $data[] = [
                         'N' => $primeraFilaDocente ? $contadorPorNivel[$nivel] : null,
                         'COD_DOCENTE' => $clasificacion->COD_DOCENTE,
                         'NOMBRE_DOCENTE' => $nombreDocente,
                         'NOMBRE_MATERIA' => $materia->NOMBRE_MATERIA ?: '-',
                         'CH' => $materia->CARGA_HORARIA ?? null,
-                        'DETALLE' => $primeraFilaClasificacion ? $detalleCombinado : '',
-                        'CATEGORIA' => $primeraFilaClasificacion ? $this->formatearCategoria($documento->CATEGORIA) : '',
+                        'DETALLE' => $detalleFila,
+                        'CATEGORIA' => $this->formatearCategoria($documento->CATEGORIA),
                         'NIVEL' => $primeraFilaClasificacion ? $nivel : '',
-                        'FOTOCOPIA_TITULAR' => ($primeraFilaClasificacion && $documento->FOTOCOPIA_TITULAR)
-                            ? 'PRESENTO FOTOCOPIA'
-                            : '',
-                        'OBS2' => $primeraFilaClasificacion ? $obs2 : '',
-                        'OBS3' => $primeraFilaClasificacion ? $obs3 : '',
+                        'FOTOCOPIA_TITULAR' => $documento->FOTOCOPIA_TITULAR ? 'PRESENTO FOTOCOPIA' : '',
+                        'OBS2' => $obs2,
+                        'OBS3' => $obs3,
                         'NEGRITA' => $primeraFilaClasificacion && $esGeneral,
                     ];
 

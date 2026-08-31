@@ -208,13 +208,13 @@
             <div v-if="c.OBSERVACION || c.OBSERVACION2 || c.GESTION || c.PERIODO || c.materias?.length || c.referencias?.length || c.titulo"
                  class="px-5 pb-3 space-y-2.5 border-t border-gray-100 pt-2.5">
 
-              <!-- Observaciones -->
+              <!-- Observaciones: etiquetadas OBS1 / OBS2, cada una solo si tiene valor -->
               <div v-if="c.OBSERVACION || c.OBSERVACION2" class="flex flex-wrap gap-2">
                 <span v-if="c.OBSERVACION" class="inline-flex items-center px-3 py-1.5 bg-gray-100 rounded-lg text-sm text-gray-700 leading-snug">
-                  {{ c.OBSERVACION }}
+                  <span class="font-semibold text-gray-500 mr-1">OBS1:</span>{{ c.OBSERVACION }}
                 </span>
                 <span v-if="c.OBSERVACION2" class="inline-flex items-center px-3 py-1.5 bg-gray-100 rounded-lg text-sm text-gray-700 leading-snug">
-                  {{ c.OBSERVACION2 }}
+                  <span class="font-semibold text-gray-500 mr-1">OBS2:</span>{{ c.OBSERVACION2 }}
                 </span>
               </div>
 
@@ -246,6 +246,10 @@
                     class="inline-flex items-center gap-1.5 pl-2.5 pr-1 py-1 bg-blue-50 border border-blue-100 rounded-lg text-sm text-blue-900 leading-none"
                   >
                     <span class="font-semibold">{{ m.NOMBRE_MATERIA }}</span>
+                    <!-- Detalle propio de la materia (ej. "Recuperatorio"), solo si existe -->
+                    <span v-if="m.DETALLE" class="text-blue-700">
+                      <span class="font-semibold">Detalle:</span> {{ m.DETALLE }}
+                    </span>
                     <span
                       class="text-[11px] font-bold px-1.5 py-1 rounded"
                       :class="tieneNota(m) ? 'bg-blue-600 text-white' : 'bg-white text-gray-500 border border-blue-100'"
@@ -371,7 +375,7 @@
                 {{ c.CATEGORIA }}
               </span>
               <span v-if="c.titulo" class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-purple-50 text-purple-700 flex-shrink-0">
-                🎓 {{ c.titulo.TIPO_TITULO }}
+                {{ c.titulo.TIPO_TITULO }}
               </span>
               <p class="text-sm font-medium text-gray-800 truncate">
                 {{ c.TIPO_DOCUMENTO || c.NOMBRE_ARCHIVO || 'Sin archivo' }}
@@ -563,22 +567,22 @@ const clasificacionesFiltradas = computed(() => {
 
 // ─── Badge de Categoria ───
 function badgeCategoria(categoria) {
-  if (categoria === 'Docentes Titulares')  return 'bg-emerald-50 text-emerald-700'
-  if (categoria === 'Docentes Temporales') return 'bg-amber-50 text-amber-700'
-  if (categoria === 'Examen de suficiencia') return 'bg-blue-50 text-blue-700'
-  if (categoria === 'Acefala') return 'bg-gray-50 text-gray-700'
-  if (categoria === 'Sin Examen de suficiencia') return 'bg-orange-50 text-orange-700'
+  if (categoria === 'DOCENTES TITULARES')  return 'bg-emerald-50 text-emerald-700'
+  if (categoria === 'DOCENTES TEMPORALES') return 'bg-amber-50 text-amber-700'
+  if (categoria === 'EXAMEN SUFICIENCIA') return 'bg-blue-50 text-blue-700'
+  if (categoria === 'ACEFALA') return 'bg-gray-50 text-gray-700'
+  if (categoria === 'SIN CATEGORIA') return 'bg-orange-50 text-red-700'
 
   return 'bg-gray-50 text-gray-600'
 }
 
 // ─── Dot de Categoria ───
 function dotCategoria(categoria) {
-  if (categoria === 'Docentes Titulares')  return 'bg-emerald-500'
-  if (categoria === 'Docentes Temporales') return 'bg-amber-500'
-  if (categoria === 'Examen de suficiencia') return 'bg-blue-500'
-  if (categoria === 'Acefala') return 'bg-gray-500'
-  if (categoria === 'Sin Examen de suficiencia') return 'bg-orange-500'
+  if (categoria === 'DOCENTES TITULARES')  return 'bg-emerald-500'
+  if (categoria === 'DOCENTES TEMPORALES') return 'bg-amber-500'
+  if (categoria === 'EXAMEN SUFICIENCIA') return 'bg-blue-500'
+  if (categoria === 'ACEFALA') return 'bg-gray-500'
+  if (categoria === 'SIN CATEGORIA') return 'bg-orange-500'
 
   return 'bg-gray-400'
 }
