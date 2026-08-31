@@ -15,6 +15,8 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class ReporteExcelController extends Controller
 {
+
+    private const SIN_TITULO = '__SIN_TITULO__';
     // GET /api/reportes/docentes-clasificados/preview
     public function previsualizar(Request $request)
     {
@@ -111,12 +113,14 @@ class ReporteExcelController extends Controller
      * Genera el Excel a partir de datos YA ARMADOS que llegan desde el frontend
      * (mismo shape que devuelve construirDatos()/preview, incluyendo N, COD_DOCENTE,
      * NOMBRE_DOCENTE, NOMBRE_MATERIA, CH, DETALLE, CATEGORIA, NIVEL, FOTOCOPIA_TITULAR,
-     * OBS2, OBS3, NEGRITA, INICIO_GRUPO, FILAS_GRUPO, FIN_GRUPO).
+     * OBS2, OBS3, NEGRITA, INICIO_GRUPO, FILAS_GRUPO, FIN_GRUPO, y opcionalmente
+     * INICIO_MATERIA/FILAS_MATERIA cuando el usuario combinó materias en el preview).
      *
      * Se usa cuando en la vista previa del Excel se asignó automáticamente la
-     * Carga Horaria (botón "Asignar Carga Horaria") y se quiere descargar el
-     * archivo EXACTAMENTE con esos valores, sin que el backend los recalcule
-     * desde cero (lo que perdería esa asignación hecha en el navegador).
+     * Carga Horaria (botón "Asignar Carga Horaria") y/o se combinaron materias
+     * repetidas (botón "Combinar Materias"), y se quiere descargar el archivo
+     * EXACTAMENTE con esos valores, sin que el backend los recalcule desde cero
+     * (lo que perdería esos cambios hechos en el navegador).
      */
     public function generarListadoDocentesDesdeDatos(Request $request)
     {
@@ -182,14 +186,28 @@ class ReporteExcelController extends Controller
                 }
             });
 
-        // Filtro por categoría de título: se resuelve con una subconsulta contra
-        // CLASIFICACION_TITULO en vez de un JOIN, para no duplicar filas si un
-        // docente llegara a tener más de un título en el mismo documento.
         if (!empty($tiposTitulo)) {
-            $query->whereIn('ID_CLASIFICACION_DOCENTE', function ($sub) use ($tiposTitulo) {
-                $sub->select('ID_CLASIFICACION_DOCENTE')
-                    ->from('CLASIFICACION_TITULO')
-                    ->whereIn('TIPO_TITULO', $tiposTitulo);
+            // Separa el sentinel "sin título" de los tipos reales, porque
+            // requieren lógica opuesta: unos filtran por whereIn, el otro por
+            // whereNotIn contra CLASIFICACION_TITULO.
+            $tiposReales = array_values(array_diff($tiposTitulo, [self::SIN_TITULO]));
+            $quiereSinTitulo = in_array(self::SIN_TITULO, $tiposTitulo, true);
+
+            $query->where(function ($q) use ($tiposReales, $quiereSinTitulo) {
+                if (!empty($tiposReales)) {
+                    $q->orWhereIn('ID_CLASIFICACION_DOCENTE', function ($sub) use ($tiposReales) {
+                        $sub->select('ID_CLASIFICACION_DOCENTE')
+                            ->from('CLASIFICACION_TITULO')
+                            ->whereIn('TIPO_TITULO', $tiposReales);
+                    });
+                }
+
+                if ($quiereSinTitulo) {
+                    $q->orWhereNotIn('ID_CLASIFICACION_DOCENTE', function ($sub) {
+                        $sub->select('ID_CLASIFICACION_DOCENTE')
+                            ->from('CLASIFICACION_TITULO');
+                    });
+                }
             });
         }
 
@@ -474,6 +492,32 @@ class ReporteExcelController extends Controller
                     ->setWrapText(true);
             }
 
+            // Combinar Materias: fusiona la columna D (NOMBRE_MATERIA) y también
+            // la columna E (CH) cuando el frontend marcó un tramo de filas con la
+            // misma materia para un mismo docente (botón "Combinar Materias").
+            // El CH ya viene unificado (un solo valor, no sumado) desde el
+            // frontend en la fila de inicio del tramo. Estas marcas solo llegan
+            // por POST /excel-personalizado; el endpoint GET normal nunca las
+            // trae, así que ahí este bloque no tiene efecto. NUNCA fusiona '-' ni
+            // "NO REGENTA MATERIA EN LA FCE" porque el frontend no les asigna
+            // FILAS_MATERIA > 1. No afecta ninguna otra columna.
+            if (!empty($item['INICIO_MATERIA']) && ($item['FILAS_MATERIA'] ?? 1) > 1) {
+                $filaInicioMateria = $fila;
+                $filaFinMateria = $fila + $item['FILAS_MATERIA'] - 1;
+
+                $sheet->mergeCells('D' . $filaInicioMateria . ':D' . $filaFinMateria);
+                $sheet->mergeCells('E' . $filaInicioMateria . ':E' . $filaFinMateria);
+
+                $sheet->getStyle('D' . $filaInicioMateria . ':D' . $filaFinMateria)->getAlignment()
+                    ->setHorizontal(Alignment::HORIZONTAL_LEFT)
+                    ->setVertical(Alignment::VERTICAL_CENTER)
+                    ->setWrapText(true);
+
+                $sheet->getStyle('E' . $filaInicioMateria . ':E' . $filaFinMateria)->getAlignment()
+                    ->setHorizontal(Alignment::HORIZONTAL_CENTER)
+                    ->setVertical(Alignment::VERTICAL_CENTER);
+            }
+
             if (!empty($item['FIN_GRUPO'])) {
                 $sheet->getStyle('B' . $fila . ':H' . $fila)->getBorders()->getBottom()
                     ->setBorderStyle(Border::BORDER_MEDIUM);
@@ -497,7 +541,7 @@ class ReporteExcelController extends Controller
         $sheet->getColumnDimension('D')->setWidth(38.7);
         $sheet->getColumnDimension('E')->setWidth(6);
         $sheet->getColumnDimension('F')->setWidth(55);
-        $sheet->getColumnDimension('G')->setWidth(18);
+        $sheet->getColumnDimension('G')->setWidth(26);
         $sheet->getColumnDimension('H')->setWidth(15.3);
         $sheet->getColumnDimension('I')->setWidth(1.5);
         $sheet->getColumnDimension('J')->setWidth(23.6);
@@ -506,18 +550,17 @@ class ReporteExcelController extends Controller
 
         $sheet->freezePane('B6');
 
-        // === GENERAR ARCHIVO ===
         $writer = new Xlsx($spreadsheet);
         $filename = "LISTA_DOCENTES_CLASIFICADOS_" . str_replace('/', '-', $gestion) . ".xlsx";
 
-        header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        header('Content-Disposition: attachment; filename="' . $filename . '"');
-        header('Cache-Control: max-age=0');
+        // Guardar a un archivo temporal en vez de php://output
+        $tempPath = tempnam(sys_get_temp_dir(), 'xlsx_') . '.xlsx';
+        $writer->save($tempPath);
 
-        $writer->save('php://output');
-        exit;
+        return response()->download($tempPath, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ])->deleteFileAfterSend(true);
     }
-
     /**
      * Lista de docentes activos (con materia asignada) en una gestión dada.
      * "Activo" = tiene al menos un grupo/materia en GRUPOS para ese anio/periodo,
