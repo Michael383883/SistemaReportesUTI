@@ -30,11 +30,15 @@ class ReporteExcelController extends Controller
             $categorias = $this->parseListaCsv($request->query('categoria'));
             $tiposTitulo = $this->parseListaCsv($request->query('tipo_titulo'));
 
+            // Botón "Mostrar Referencias": si no está activo, el DETALLE no
+            // incluye el número de referencia del documento (CLASIFICACION_REFERENCIA).
+            $mostrarReferencias = filter_var($request->query('mostrar_referencias', false), FILTER_VALIDATE_BOOLEAN);
+
             $etiquetaGestion = $gestionHasta
                 ? "{$gestionDesde} - {$gestionHasta}"
                 : "Desde {$gestionDesde}";
 
-            $data = $this->construirDatos($gestionDesde, $gestionHasta, $periodo, $categorias, $tiposTitulo);
+            $data = $this->construirDatos($gestionDesde, $gestionHasta, $periodo, $categorias, $tiposTitulo, $mostrarReferencias);
 
             return response()->json([
                 'ok' => true,
@@ -85,11 +89,15 @@ class ReporteExcelController extends Controller
             $categorias = $this->parseListaCsv($request->query('categoria'));
             $tiposTitulo = $this->parseListaCsv($request->query('tipo_titulo'));
 
+            // Mismo flag que en previsualizar(), para que la descarga directa
+            // (sin pasar por el preview) respete el botón "Mostrar Referencias".
+            $mostrarReferencias = filter_var($request->query('mostrar_referencias', false), FILTER_VALIDATE_BOOLEAN);
+
             $etiquetaGestion = $gestionHasta
                 ? "{$gestionDesde} - {$gestionHasta}"
                 : "Desde {$gestionDesde}";
 
-            $data = $this->construirDatos($gestionDesde, $gestionHasta, $periodo, $categorias, $tiposTitulo);
+            $data = $this->construirDatos($gestionDesde, $gestionHasta, $periodo, $categorias, $tiposTitulo, $mostrarReferencias);
 
             if (empty($data)) {
                 return response()->json([
@@ -120,7 +128,9 @@ class ReporteExcelController extends Controller
      * Carga Horaria (botón "Asignar Carga Horaria") y/o se combinaron materias
      * repetidas (botón "Combinar Materias"), y se quiere descargar el archivo
      * EXACTAMENTE con esos valores, sin que el backend los recalcule desde cero
-     * (lo que perdería esos cambios hechos en el navegador).
+     * (lo que perdería esos cambios hechos en el navegador). El estado del botón
+     * "Mostrar Referencias" también viaja implícito aquí: el DETALLE de cada fila
+     * ya trae o no trae la referencia, según lo que se veía en pantalla.
      */
     public function generarListadoDocentesDesdeDatos(Request $request)
     {
@@ -150,12 +160,15 @@ class ReporteExcelController extends Controller
      * GESTION, PERIODO, TIPO_DOCUMENTO, CATEGORIA, NIVEL, FOTOCOPIA_TITULAR viven en el
      * documento (documento()), las materias son propias del docente dentro del documento
      * (materias(), vía ID_CLASIFICACION_DOCENTE), las referencias son del documento
-     * completo (documento->referencias), y los títulos (CLASIFICACION_TITULO) se traen
-     * aparte por lote, agrupados por ID_CLASIFICACION_DOCENTE.
+     * completo (documento->referencias, tabla CLASIFICACION_REFERENCIA), y los títulos
+     * (CLASIFICACION_TITULO) se traen aparte por lote, agrupados por
+     * ID_CLASIFICACION_DOCENTE.
      *
      * $categoria filtra por CLASIFICACION_DOCUMENTO.CATEGORIA.
      * $tipoTitulo filtra por CLASIFICACION_TITULO.TIPO_TITULO (solo aparecen docentes
      * que tengan al menos un título de esa categoría).
+     * $mostrarReferencias controla si el número de referencia (CLASIFICACION_REFERENCIA)
+     * se agrega al texto de DETALLE. Por defecto (false) no se incluye.
      */
 
     private function construirDatos(
@@ -163,7 +176,8 @@ class ReporteExcelController extends Controller
         ?string $gestionHasta = null,
         ?int $periodo = null,
         array $categorias = [],
-        array $tiposTitulo = []
+        array $tiposTitulo = [],
+        bool $mostrarReferencias = false
     ): array {
         $query = ClasificacionDocente::with([
             'docente',
@@ -266,7 +280,8 @@ class ReporteExcelController extends Controller
                 // Las columnas reales en CLASIFICACION_DOCUMENTO son OBSERVACION y
                 // OBSERVACION2 (no OBS2/OBS3 — esos son solo los nombres de columna
                 // del Excel/preview). No se derivan de las referencias, que solo
-                // alimentan el número de referencia usado en DETALLE.
+                // alimentan el número de referencia usado en DETALLE (y solo cuando
+                // el botón "Mostrar Referencias" está activo).
                 $obs2 = $documento->OBSERVACION ?? '';
                 $obs3 = $documento->OBSERVACION2 ?? '';
 
@@ -289,7 +304,9 @@ class ReporteExcelController extends Controller
                     $partesDetalle[] = $documento->DETALLE_GENERAL;
                 }
 
-                if ($referencias->isNotEmpty()) {
+                // Botón "Mostrar Referencias": si no está activo, se omite el
+                // número de referencia (CLASIFICACION_REFERENCIA) del DETALLE.
+                if ($mostrarReferencias && $referencias->isNotEmpty()) {
                     $partesDetalle[] = $referencias->implode(' - ');
                 }
 

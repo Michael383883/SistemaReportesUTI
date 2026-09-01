@@ -373,6 +373,22 @@ class HorarioAdminController extends Controller
     /**
      * Lista de inscritos por docente, agrupados por carrera y materia.
      * Optimizado para evitar memory exhaustion - agrupamiento en SQL.
+     *
+     * FIX (materias/grupos sin inscritos no aparecían):
+     * sqlDocentes y sqlMaterias arrancaban desde DOCENTES/GRUPOS pero
+     * hacían INNER JOIN contra KARDEX_EXT, y ademas filtraban columnas
+     * de KARDEX_EXT en el WHERE (CANCELADO IS NULL, TIPO_EXAMEN IN (...)).
+     * Eso descartaba cualquier grupo sin ningun registro en KARDEX_EXT
+     * -ej. una materia con 0 inscritos, como el caso de
+     * "1302057 - TALLER GRP 52"-, porque ni siquiera llegaba a generar
+     * una fila.
+     *
+     * La correccion: LEFT JOIN KARDEX_EXT con las condiciones de filtro
+     * (CANCELADO, TIPO_EXAMEN) movidas al ON en vez del WHERE. Si se
+     * dejan en el WHERE, SQL Server las evalua contra NULL cuando no hay
+     * match y el LEFT JOIN se comporta como INNER JOIN de todas formas.
+     * sqlInscritos se deja igual (INNER JOIN), porque ahi si solo
+     * queremos filas cuando existe al menos un estudiante inscrito.
      */
     public function listaInscritos(Request $request)
     {
@@ -428,6 +444,9 @@ class HorarioAdminController extends Controller
             : "";
 
         // ── 1. Docentes involucrados ──────────────────────────────────────────
+        // LEFT JOIN KARDEX_EXT (antes INNER): un docente con grupos asignados
+        // pero sin ningun inscrito en KARDEX_EXT debe seguir apareciendo en
+        // la lista. Las condiciones de KARDEX_EXT van en el ON, no en el WHERE.
         $sqlDocentes = "
     SELECT DISTINCT
         DOCENTES.CODIGO   AS COD_DOCENTE,
@@ -436,16 +455,16 @@ class HorarioAdminController extends Controller
     FROM DOCENTES
     INNER JOIN GRUPOS
         ON DOCENTES.CODIGO = GRUPOS.DOCENTE
-    INNER JOIN KARDEX_EXT
+    LEFT JOIN KARDEX_EXT
         ON KARDEX_EXT.ANIO     = GRUPOS.ANIO
         AND KARDEX_EXT.PERIODO = GRUPOS.PERIODO
         AND KARDEX_EXT.[PLAN]  = GRUPOS.[PLAN]
         AND KARDEX_EXT.MATERIA = GRUPOS.MATERIA
         AND KARDEX_EXT.GRUPO   = GRUPOS.GRUPO
+        AND KARDEX_EXT.CANCELADO   IS NULL
+        AND KARDEX_EXT.TIPO_EXAMEN IN ('N', 'E')
     WHERE GRUPOS.ANIO            = :anio
       AND GRUPOS.PERIODO         = :periodo
-      AND KARDEX_EXT.CANCELADO   IS NULL
-      AND KARDEX_EXT.TIPO_EXAMEN IN ('N', 'E')
       AND GRUPOS.[PLAN]          IN ('109401','125091','089801','126091','059801')
       AND GRUPOS.PRIMARIO        = 'Y'
       AND GRUPOS.TIPO            = 'N'
@@ -457,6 +476,9 @@ class HorarioAdminController extends Controller
         $docentes = DB::select($sqlDocentes, $bindings);
 
         // ── 2. Materias por docente (conteo de inscritos, separado regular/especial) ──
+        // Mismo fix: LEFT JOIN KARDEX_EXT con condiciones en el ON, para que
+        // una materia/grupo sin inscritos siga generando su fila (con
+        // SUBTOTAL_REGULAR y SUBTOTAL_ESPECIAL en 0 en vez de desaparecer).
         $sqlMaterias = "
     SELECT
         DOCENTES.CODIGO AS COD_DOCENTE,
@@ -477,12 +499,14 @@ class HorarioAdminController extends Controller
     FROM DOCENTES
     INNER JOIN GRUPOS
         ON DOCENTES.CODIGO = GRUPOS.DOCENTE
-    INNER JOIN KARDEX_EXT
+    LEFT JOIN KARDEX_EXT
         ON KARDEX_EXT.ANIO     = GRUPOS.ANIO
         AND KARDEX_EXT.PERIODO = GRUPOS.PERIODO
         AND KARDEX_EXT.[PLAN]  = GRUPOS.[PLAN]
         AND KARDEX_EXT.MATERIA = GRUPOS.MATERIA
         AND KARDEX_EXT.GRUPO   = GRUPOS.GRUPO
+        AND KARDEX_EXT.CANCELADO   IS NULL
+        AND KARDEX_EXT.TIPO_EXAMEN IN ('N', 'E')
     INNER JOIN MATERIAS
         ON GRUPOS.ANIO     = MATERIAS.ANIO
         AND GRUPOS.PERIODO = MATERIAS.PERIODO
@@ -490,8 +514,6 @@ class HorarioAdminController extends Controller
         AND GRUPOS.MATERIA = MATERIAS.CODIGO
     WHERE GRUPOS.ANIO            = :anio
       AND GRUPOS.PERIODO         = :periodo
-      AND KARDEX_EXT.CANCELADO   IS NULL
-      AND KARDEX_EXT.TIPO_EXAMEN IN ('N', 'E')
       AND GRUPOS.[PLAN]          IN ('109401','125091','089801','126091','059801')
       AND GRUPOS.PRIMARIO        = 'Y'
       AND GRUPOS.TIPO            = 'N'
@@ -512,6 +534,8 @@ class HorarioAdminController extends Controller
         $materias = DB::select($sqlMaterias, $bindings);
 
         // ── 3. Inscritos por materia ──────────────────────────────────────────
+        // Se deja INNER JOIN a propósito: aquí solo interesa listar
+        // estudiantes reales, no generar filas "vacías" por estudiante.
         $sqlInscritos = "
     SELECT
         DOCENTES.CODIGO  AS COD_DOCENTE,
