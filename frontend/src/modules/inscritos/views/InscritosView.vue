@@ -46,7 +46,7 @@
 
       <!-- Área (multi-selección) -->
       <div class="flex flex-col gap-1.5 relative" ref="areaDropdownRef">
-        <label class="text-[0.68rem] font-semibold tracking-widest uppercase text-slate-400">Área</label>
+        <label class="text-[0.68rem] font-semibold tracking-widest uppercase text-slate-400">Plan</label>
 
         <button
           type="button"
@@ -83,7 +83,7 @@
           >
             <div class="px-4 pt-3 pb-1 flex items-center justify-between sticky top-0 bg-white">
               <p class="text-[0.65rem] font-semibold tracking-widest uppercase text-slate-400">
-                Áreas
+                Planes
               </p>
               <button
                 v-if="filtros.area.length > 0"
@@ -541,9 +541,9 @@ const loadingPdf = computed(() =>
 // Texto resumen del botón: "Todas las áreas" / "ADM" / "ADM, FIN" / "3 áreas seleccionadas"
 const areaLabelResumen = computed(() => {
   const sel = filtros.value.area
-  if (sel.length === 0) return 'Todas las áreas'
+  if (sel.length === 0) return 'Todas los planes'
   if (sel.length <= 2) return sel.join(', ')
-  return `${sel.length} áreas seleccionadas`
+  return `${sel.length} planes seleccionados`
 })
 
 // ─── Filtra por una o varias áreas (lista de inscritos) ──────────────────

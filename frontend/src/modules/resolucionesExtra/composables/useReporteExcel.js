@@ -49,6 +49,12 @@ export function useReporteExcel() {
     const materiasCombinadas = ref(false) // true si el preview actual tiene materias combinadas
     let previewSinCombinar = null // snapshot para poder deshacer la combinación
 
+    // ── Mostrar Referencias (CLASIFICACION_REFERENCIA en DETALLE) ──
+    // El DETALLE se arma en el backend, así que este flag solo se guarda
+    // como estado y se reenvía en cada previsualizar()/urlDescarga(); no hay
+    // nada que transformar en el cliente sobre datos ya cargados.
+    const mostrarReferencias = ref(false)
+
     function authHeaders(extra = {}) {
         const token = localStorage.getItem('token')
         return {
@@ -59,12 +65,19 @@ export function useReporteExcel() {
 
     // GET /api/reportes/docentes-clasificados/preview
     // categoria y tipo_titulo pueden venir como array (multi-selección) o string
-    async function previsualizar({ gestion_desde, gestion_hasta, periodo, version, categoria, tipo_titulo } = {}) {
+    async function previsualizar({ gestion_desde, gestion_hasta, periodo, version, categoria, tipo_titulo, mostrar_referencias } = {}) {
         loading.value = true
         error.value = null
         cargaHorariaAsignada.value = false // un preview nuevo descarta cualquier CH asignada previamente
         materiasCombinadas.value = false   // un preview nuevo descarta cualquier combinación previa
         previewSinCombinar = null
+
+        // Si no se pasa explícitamente, se usa el valor actual del ref (para
+        // que llamadas internas de recarga no necesiten repetir el flag).
+        const referenciasActivas = mostrar_referencias !== undefined
+            ? mostrar_referencias
+            : mostrarReferencias.value
+
         try {
             const { data } = await axios.get(
                 `${API_BASE}/api/reportes/docentes-clasificados/preview`,
@@ -76,6 +89,7 @@ export function useReporteExcel() {
                         version: version || undefined,
                         categoria: serializarLista(categoria),
                         tipo_titulo: serializarLista(tipo_titulo),
+                        mostrar_referencias: referenciasActivas ? 1 : undefined,
                     },
                     headers: authHeaders(),
                 }
@@ -91,6 +105,7 @@ export function useReporteExcel() {
             gestionEtiqueta.value = data.gestion
             versionEtiqueta.value = data.version
             totalFilas.value = data.total_filas
+            mostrarReferencias.value = referenciasActivas
         } catch (e) {
             error.value = e?.response?.data?.error || 'No se pudo obtener la vista previa'
             preview.value = []
@@ -380,13 +395,28 @@ export function useReporteExcel() {
         materiasCombinadas.value = true
     }
 
+    // ── Botón "Mostrar Referencias" (toggle) ──
+    // El texto de DETALLE (incluida la referencia, CLASIFICACION_REFERENCIA)
+    // se arma en el backend, así que no hay nada que transformar sobre los
+    // datos ya cargados en el cliente: hay que volver a pedir la vista previa
+    // con el flag correspondiente. Se expone como función async para que el
+    // componente pueda esperar a que termine antes de, por ejemplo, cerrar un
+    // loader.
+    async function alternarMostrarReferencias(params = {}) {
+        mostrarReferencias.value = !mostrarReferencias.value
+        await previsualizar({
+            ...params,
+            mostrar_referencias: mostrarReferencias.value,
+        })
+    }
+
     // Construye la URL de descarga real del Excel (mismo endpoint que ya existe,
     // vía GET). Se usa cuando NO se asignó carga horaria automática ni se
     // combinaron materias en el preview.
     // Si "Solo Activos" está activo, manda también anio/periodo y el flag
     // solo_activos=1 para que el backend aplique el mismo filtro al generar
     // el archivo (requiere el soporte correspondiente en el controller).
-    function urlDescarga({ gestion_desde, gestion_hasta, periodo, version, categoria, tipo_titulo } = {}) {
+    function urlDescarga({ gestion_desde, gestion_hasta, periodo, version, categoria, tipo_titulo, mostrar_referencias } = {}) {
         const params = new URLSearchParams()
         if (gestion_desde) params.set('gestion_desde', gestion_desde)
         if (gestion_hasta) params.set('gestion_hasta', gestion_hasta)
@@ -398,6 +428,12 @@ export function useReporteExcel() {
 
         const tipoTituloCsv = serializarLista(tipo_titulo)
         if (tipoTituloCsv) params.set('tipo_titulo', tipoTituloCsv)
+
+        // Si no se pasa explícitamente, se usa el estado actual del toggle.
+        const referenciasActivas = mostrar_referencias !== undefined
+            ? mostrar_referencias
+            : mostrarReferencias.value
+        if (referenciasActivas) params.set('mostrar_referencias', '1')
 
         if (soloActivos.value) {
             params.set('solo_activos', '1')
@@ -413,7 +449,9 @@ export function useReporteExcel() {
     // materias en el preview: manda el arreglo `preview` tal cual está en
     // pantalla para que el backend genere el Excel exactamente con esos
     // datos, en vez de reconstruirlos desde cero y perder los cambios
-    // hechos en el navegador.
+    // hechos en el navegador. El estado de "Mostrar Referencias" ya viene
+    // implícito en el texto de DETALLE de cada fila, así que no hace falta
+    // reenviarlo aparte.
     async function descargarExcelPersonalizado({ gestion, version } = {}) {
         try {
             const response = await axios.post(
@@ -461,6 +499,7 @@ export function useReporteExcel() {
         errorCargaHoraria.value = null
         materiasCombinadas.value = false
         previewSinCombinar = null
+        mostrarReferencias.value = false
     }
 
     return {
@@ -496,5 +535,9 @@ export function useReporteExcel() {
         // Combinar Materias
         materiasCombinadas,
         alternarCombinarMaterias,
+
+        // Mostrar Referencias
+        mostrarReferencias,
+        alternarMostrarReferencias,
     }
 }

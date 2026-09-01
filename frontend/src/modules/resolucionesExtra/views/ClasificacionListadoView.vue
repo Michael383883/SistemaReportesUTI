@@ -498,6 +498,23 @@
               {{ reporteExcel.materiasCombinadas.value ? 'Materias combinadas ✓' : 'Combinar Materias' }}
             </button>
 
+            <!-- Mostrar Referencias: incluye/oculta el Nº de CLASIFICACION_REFERENCIA
+                 dentro del texto de la columna Detalle. Como el DETALLE se arma en
+                 el backend, este botón vuelve a pedir la vista previa con el flag
+                 correspondiente (no es un filtro puramente visual del cliente). -->
+            <button
+              @click="alternarMostrarReferencias"
+              :disabled="reporteExcel.loading.value"
+              class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
+              :class="reporteExcel.mostrarReferencias.value ? 'bg-cyan-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
+              title="Incluye el número de referencia del documento (CLASIFICACION_REFERENCIA) dentro de la columna Detalle"
+            >
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+              </svg>
+              {{ reporteExcel.mostrarReferencias.value ? 'Referencias visibles ✓' : 'Mostrar Referencias' }}
+            </button>
+
             <div class="w-px h-8 bg-gray-200"></div>
 
             <!-- Solo Activos -->
@@ -976,6 +993,9 @@ async function cargarPreviewExcel() {
       version: excelParams.value.version,
       categoria: excelParams.value.categorias,     // ✅ corregido (plural)
       tipo_titulo: excelParams.value.tiposTitulo,  // ✅ corregido (puede incluir __SIN_TITULO__)
+      // No se manda mostrar_referencias aquí: previsualizar() reutiliza el
+      // valor actual de reporteExcel.mostrarReferencias cuando no se pasa
+      // explícito, así el toggle sobrevive a "Actualizar vista previa".
     })
   } catch (e) {
     console.error('Error cargando vista previa de Excel:', e)
@@ -984,6 +1004,26 @@ async function cargarPreviewExcel() {
 
 function cerrarPreviewExcel() {
   mostrarPreviewExcel.value = false
+}
+
+// ─── Mostrar Referencias (botón) ───
+// Delega en el composable, pasándole los mismos parámetros que usa el resto
+// del preview, para que la nueva consulta al backend respete gestión,
+// categorías, etc. actualmente seleccionadas.
+async function alternarMostrarReferencias() {
+  resultadoCargaHoraria.value = null
+  try {
+    await reporteExcel.alternarMostrarReferencias({
+      gestion_desde: excelParams.value.gestion_desde,
+      gestion_hasta: excelParams.value.gestion_hasta,
+      periodo: excelParams.value.periodo,
+      version: excelParams.value.version,
+      categoria: excelParams.value.categorias,
+      tipo_titulo: excelParams.value.tiposTitulo,
+    })
+  } catch (e) {
+    console.error('Error alternando Mostrar Referencias:', e)
+  }
 }
 
 // ─── Asignar Carga Horaria (experimental) ───
@@ -1016,7 +1056,9 @@ async function ejecutarAsignarCargaHoraria() {
 async function descargarExcelConfirmado() {
   // Si ya se asignó carga horaria automática y/o se combinaron materias en
   // la vista previa, se descarga con esos datos exactos (vía POST) para no
-  // perder los cambios hechos en pantalla.
+  // perder los cambios hechos en pantalla. El estado de "Mostrar Referencias"
+  // ya viene incluido en el DETALLE de cada fila del preview, así que no
+  // hace falta reenviarlo aparte en ese caso.
   const usarDatosPersonalizados = reporteExcel.cargaHorariaAsignada.value || reporteExcel.materiasCombinadas.value
 
   if (usarDatosPersonalizados) {
@@ -1039,6 +1081,7 @@ async function descargarExcelConfirmado() {
     version: excelParams.value.version,
     categoria: excelParams.value.categorias,       // ✅ corregido
     tipo_titulo: excelParams.value.tiposTitulo,    // ✅ corregido
+    mostrar_referencias: reporteExcel.mostrarReferencias.value, // ← nuevo
   })
 
   window.open(url, '_blank')
