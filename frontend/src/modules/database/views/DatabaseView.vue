@@ -74,18 +74,92 @@
       </ul>
     </section>
 
+    <!-- Índices de reportes (colapsado por default) -->
+    <section class="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm" aria-labelledby="section-indices">
+      <button
+        type="button"
+        @click="indicesAbiertos = !indicesAbiertos"
+        :aria-expanded="indicesAbiertos"
+        class="w-full bg-slate-900 px-6 py-4 flex items-center justify-between outline-none focus-visible:ring-1 focus-visible:ring-slate-400"
+      >
+        <span id="section-indices" class="text-white font-bold text-sm uppercase tracking-wide">
+          Índices de reportes
+        </span>
+        <div class="flex items-center gap-3">
+          <span
+            v-if="creandoIndices"
+            class="flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-md bg-blue-500/50 text-white"
+          >
+            <Loader2 class="w-3.5 h-3.5 animate-spin" aria-hidden="true" />
+            Creando...
+          </span>
+          <span
+            v-else
+            role="button"
+            tabindex="0"
+            @click.stop="crearIndices"
+            @keydown.enter.stop="crearIndices"
+            @keydown.space.stop.prevent="crearIndices"
+            class="flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-md
+                   bg-blue-500 text-white hover:bg-blue-600 transition-colors outline-none
+                   focus-visible:ring-1 focus-visible:ring-blue-300"
+          >
+            <ListPlus class="w-3.5 h-3.5" aria-hidden="true" />
+            Crear índices
+          </span>
+          <ChevronDown class="w-4 h-4 text-slate-300 transition-transform" :class="indicesAbiertos ? 'rotate-180' : ''" aria-hidden="true" />
+        </div>
+      </button>
+
+      <div v-show="indicesAbiertos" class="p-6 bg-gray-50 border-t border-gray-200">
+        <p v-if="!resultadoIndices.length" class="text-[12.5px] text-gray-500 m-0">
+          Presiona "Crear índices" para verificar y crear los índices necesarios para los reportes.
+          Los que ya existan se omiten automáticamente.
+        </p>
+
+        <div v-else class="flex flex-col gap-2">
+          <div
+            v-for="r in resultadoIndices"
+            :key="r.indice"
+            class="flex items-center justify-between gap-3 bg-white border border-gray-200 rounded-lg px-4 py-2.5"
+          >
+            <div class="flex flex-col min-w-0">
+              <span class="font-mono text-[12px] font-medium text-gray-900 truncate">{{ r.indice }}</span>
+              <span class="text-[11px] text-gray-500 font-mono">{{ r.tabla }}</span>
+            </div>
+            <span
+              class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold shrink-0"
+              :class="badgeClass(r.estado)"
+            >
+              <CheckCircle2 v-if="r.estado === 'creado'" class="w-3 h-3" aria-hidden="true" />
+              <Info v-else-if="r.estado === 'omitido'" class="w-3 h-3" aria-hidden="true" />
+              <XCircle v-else class="w-3 h-3" aria-hidden="true" />
+              {{ estadoLabel(r.estado) }}
+            </span>
+          </div>
+        </div>
+      </div>
+    </section>
+
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { Database, AlertTriangle, RefreshCw, ChevronDown } from 'lucide-vue-next'
+import {
+  Database, AlertTriangle, RefreshCw, ChevronDown,
+  ListPlus, Loader2, CheckCircle2, XCircle, Info,
+} from 'lucide-vue-next'
 import { databaseService } from '../services/databaseService'
 
 const status = ref({ connected: false, host: '', database: '' })
 const tablas = ref([])
 const loading = ref(false)
 const tablasAbiertas = ref(false) // colapsado por default
+const indicesAbiertos = ref(false) // colapsado por default
+
+const resultadoIndices = ref([])
+const creandoIndices = ref(false)
 
 async function loadAll() {
   loading.value = true
@@ -101,6 +175,37 @@ async function loadAll() {
   } finally {
     loading.value = false
   }
+}
+
+async function crearIndices() {
+  creandoIndices.value = true
+  try {
+    const data = await databaseService.crearIndices()
+    if (data?.success) {
+      resultadoIndices.value = data.resultados
+      indicesAbiertos.value = true // abre la sección para mostrar el resultado
+    }
+  } catch (e) {
+    console.error('Error al crear índices:', e)
+  } finally {
+    creandoIndices.value = false
+  }
+}
+
+function estadoLabel(estado) {
+  return {
+    creado: 'Creado',
+    omitido: 'Ya existía',
+    error: 'Error',
+  }[estado] ?? estado
+}
+
+function badgeClass(estado) {
+  return {
+    creado: 'bg-emerald-500/15 text-emerald-600',
+    omitido: 'bg-slate-500/15 text-slate-600',
+    error: 'bg-red-500/15 text-red-600',
+  }[estado] ?? 'bg-gray-100 text-gray-600'
 }
 
 onMounted(loadAll)

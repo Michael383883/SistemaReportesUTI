@@ -51,6 +51,10 @@ use App\Http\Controllers\Api\PeriodoAcademicoController;
 //categorias clasificacion
 use App\Http\Controllers\Api\CategoriaClasificacionController;
 
+//indises de base de datos
+use App\Http\Controllers\Api\DatabaseIndexController;
+
+
 /*
 |--------------------------------------------------------------------------
 | AUTH (público)
@@ -295,3 +299,9 @@ Route::get('/categorias-clasificacion/{tipoCategoria}', [CategoriaClasificacionC
 Route::post('/categorias-clasificacion/{tipoCategoria}', [CategoriaClasificacionController::class, 'store']);
 Route::put('/categorias-clasificacion/{tipoCategoria}', [CategoriaClasificacionController::class, 'update']);
 Route::delete('/categorias-clasificacion/{tipo}', [CategoriaClasificacionController::class, 'destroy']);
+
+
+Route::prefix('indices')->group(function () {
+    Route::post('/crear', [DatabaseIndexController::class, 'crearIndices']);
+    Route::get('/verificar', [DatabaseIndexController::class, 'verificarIndices']);
+});
