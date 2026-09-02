@@ -238,11 +238,13 @@ const noRegentaFCE = computed(() =>
 
 // Determina si, tras guardar, corresponde llamar a aplicarEnGrupos().
 // Un documento de título nunca cruza contra GRUPOS.
+
+
 const asignaAGrupos = computed(() => {
  if (esTitulo.value) return false
   if (noRegentaFCE.value) return false
   if (form.materias.length === 0) return false
-  return form.materias.every(m => m.cod_materia && m.cod_plan && m.grupo)
+  return form.materias.some(m => m.cod_materia && m.cod_plan && m.grupo)
 })
 
 function formCopiado() {

@@ -287,8 +287,10 @@ function irAlPaso2() {
     nombreDocenteBusqueda.value = docentesUnicos[0] || formData.nombre_docente_general || ''
 
     if (debeAplicarAGrupos && resultado.materiasInsertadas > 0) {
-      try {
+    try {
         const resGrupos = await clasificacion.aplicarEnGrupos(resultado.idDocumento)
+        // sin ids_materia → el backend ya filtra por whereNotNull('COD_MATERIA')
+        // así que aplica automáticamente solo las que tienen código, ignorando las manuales
         aplicadoAGrupos.value = resGrupos.filas_afectadas > 0
         errorGrupos.value = null
       } catch (e) {
