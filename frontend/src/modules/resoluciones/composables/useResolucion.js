@@ -1,4 +1,4 @@
-// composables/useResolucion.js
+﻿// composables/useResolucion.js
 import { ref } from 'vue'
 import axios from 'axios'
 
@@ -62,7 +62,7 @@ function mensajeError(e, fallback = 'Ocurrió un error inesperado. Inténtalo de
         case 409:
             return data?.error ?? 'Ya existe una resolución con ese número para el año y periodo seleccionados.'
         case 413:
-            return 'El archivo PDF es demasiado grande. El tamaño máximo permitido es de 10 MB.'
+            return 'El archivo PDF es demasiado grande. El tamaño máximo permitido es de 20 MB.'
         case 415:
             return 'El archivo debe estar en formato PDF.'
         case 422:
@@ -98,7 +98,7 @@ export function useResolucion() {
                     error.value = 'El archivo debe ser un PDF.'
                     throw new Error(error.value)
                 }
-                const MAX_MB = 10
+                const MAX_MB = 20
                 if (archivo.size > MAX_MB * 1024 * 1024) {
                     error.value = `El archivo PDF supera el tamaño máximo de ${MAX_MB} MB.`
                     throw new Error(error.value)

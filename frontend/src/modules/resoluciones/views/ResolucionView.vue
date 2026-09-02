@@ -133,7 +133,7 @@
                 </span>
               </label>
 
-              <p class="text-[13px] text-gray-700">Solo archivos .pdf · Máximo 10 MB</p>
+              <p class="text-[13px] text-gray-700">Solo archivos .pdf · Máximo 20 MB</p>
             </div>
           </div>
 
@@ -249,8 +249,8 @@ function validarArchivo(file) {
     uploadError.value = 'Solo se permiten archivos PDF.'
     return false
   }
-  if (file.size > 5 * 1024 * 1024) {
-    uploadError.value = 'El archivo supera 5 MB.'
+  if (file.size > 20  * 1024 * 1024) {
+    uploadError.value = 'El archivo supera 20 MB.'
     return false
   }
   return true
