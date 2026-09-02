@@ -6,7 +6,7 @@
 
 import { ref } from 'vue'
 
-const BASE_URL = import.meta.env.VITE_API_URL ?? ''
+const BASE_URL = import.meta.env.VITE_API_URL 
 const MAX_PAGINAS_SEGURIDAD = 50 // evita loops infinitossi algo falla en el backend
 
 // /api/admin/horarios/inscritos/agrupados/aprobados-reprobados ahora está

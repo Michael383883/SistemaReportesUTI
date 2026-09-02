@@ -65,7 +65,7 @@ import { ref } from 'vue'
 import axios from 'axios'
 import { ArrowRight, FileText } from 'lucide-vue-next'
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'
+const API_BASE = import.meta.env.VITE_API_URL
 
 const props = defineProps({
   items:   { type: Array,   default: () => [] },

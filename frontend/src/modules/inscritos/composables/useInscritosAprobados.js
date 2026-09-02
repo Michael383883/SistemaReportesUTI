@@ -28,7 +28,7 @@
 
 import { ref } from 'vue'
 
-const BASE_URL = import.meta.env.VITE_API_URL ?? ''
+const BASE_URL = import.meta.env.VITE_API_URL 
 
 // /api/admin/horarios/inscritos/aprobados-reprobados ahora está protegida
 // con auth:sanctum. Antes este fetch no mandaba ningún header, así que

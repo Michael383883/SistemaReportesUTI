@@ -1,7 +1,7 @@
 import { ref, computed } from 'vue'
 import axios from 'axios'
 
-const API_BASE = import.meta.env.VITE_API_URL ?? ''
+const API_BASE = import.meta.env.VITE_API_URL 
 
 // Acepta array (['a','b']) o string ('a') o undefined, y devuelve
 // siempre el formato que espera el backend: "a,b" (o undefined si está vacío).

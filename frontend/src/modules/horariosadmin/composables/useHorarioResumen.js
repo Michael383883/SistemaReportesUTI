@@ -3,7 +3,7 @@
 import { ref } from 'vue'
 import axios from 'axios'
 
-const API_BASE = import.meta.env.VITE_API_URL || '/api'
+const API_BASE = import.meta.env.VITE_API_URL 
 
 // /api/admin/horarios/resumen/* ahora está protegido con auth:sanctum.
 // Antes estas llamadas no mandaban ningún header y devolvían 401 siempre.

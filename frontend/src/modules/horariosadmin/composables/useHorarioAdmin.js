@@ -3,7 +3,7 @@
 import { ref } from 'vue'
 import axios from 'axios'
 
-const API_BASE = import.meta.env.VITE_API_URL || '/api'
+const API_BASE = import.meta.env.VITE_API_URL 
 
 // /api/admin/horarios y /api/admin/horarios/{docente} ahora están
 // protegidas con auth:sanctum. Antes estas llamadas no mandaban ningún

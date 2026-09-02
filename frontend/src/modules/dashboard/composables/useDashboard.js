@@ -1,7 +1,7 @@
 import { ref, computed } from 'vue'
 import axios from 'axios'
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'  // ← raíz, sin /api
+const API_BASE = import.meta.env.VITE_API_URL
 
 export function useDashboard() {
     const loading = ref(false)

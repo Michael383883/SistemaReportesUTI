@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.VITE_API_URL || ''
+const API_BASE = import.meta.env.VITE_API_URL 
 
 export const ANIO_ACTUAL = '2026'
 export const PERIODO_ACTUAL = '1'

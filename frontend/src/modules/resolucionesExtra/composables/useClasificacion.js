@@ -1,7 +1,7 @@
 ﻿import { ref } from 'vue'
 import axios from 'axios'
 
-const API_BASE = import.meta.env.VITE_API_URL ?? ''
+const API_BASE = import.meta.env.VITE_API_URL 
 
 export function useClasificacion() {
     const loading = ref(false)
