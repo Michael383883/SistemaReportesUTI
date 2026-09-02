@@ -30,15 +30,15 @@
         v-for="(res, index) in items"
         :key="res.id"
         type="button"
-        :disabled="!res.url_pdf"
+        :disabled="!res.id || abriendoId === res.id"
         :class="[
           'flex items-center gap-3 px-2 py-2.5 rounded-xl transition-colors text-left w-full',
           index % 2 === 0
             ? 'bg-white hover:bg-amber-50'
             : 'bg-slate-50 hover:bg-amber-50',
-          res.url_pdf ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'
+          res.id ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'
         ]"
-        :title="res.url_pdf ? `Ver ${res.archivo ?? 'PDF'}` : 'PDF no disponible'"
+        :title="res.id ? `Ver ${res.archivo ?? 'PDF'}` : 'PDF no disponible'"
         @click="verResolucion(res)"
       >
         <div class="w-9 h-9 rounded-xl bg-amber-50 flex items-center justify-center flex-shrink-0">
@@ -53,7 +53,7 @@
           </p>
         </div>
         <span class="text-[11px] text-slate-800 whitespace-nowrap flex-shrink-0">
-          {{ formatDate(res.fecha) }}
+          {{ abriendoId === res.id ? 'Abriendo...' : formatDate(res.fecha) }}
         </span>
       </button>
     </div>
@@ -61,7 +61,11 @@
 </template>
 
 <script setup>
+import { ref } from 'vue'
+import axios from 'axios'
 import { ArrowRight, FileText } from 'lucide-vue-next'
+
+const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'
 
 const props = defineProps({
   items:   { type: Array,   default: () => [] },
@@ -78,9 +82,35 @@ function formatDate(iso) {
     { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
-// Abre el PDF de la resolución en una nueva pestaña
-function verResolucion(res) {
-  if (!res.url_pdf) return
-  window.open(res.url_pdf, '_blank', 'noopener')
+function authHeaders() {
+  const token = localStorage.getItem('token')
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
+
+const abriendoId = ref(null)
+
+// Abre el PDF de la resolución en una nueva pestaña vía axios (blob),
+// para que el token Bearer viaje en el header de la petición.
+// Reemplaza el viejo window.open(res.url_pdf) que era una navegación
+// directa del navegador y por lo tanto nunca mandaba el token.
+async function verResolucion(res) {
+  if (!res.id || abriendoId.value) return
+  abriendoId.value = res.id
+  try {
+    const { data } = await axios.get(
+      `${API_BASE}/api/resoluciones/${res.id}/pdf`,
+      {
+        headers: authHeaders(),
+        responseType: 'blob',
+      }
+    )
+    const blobUrl = URL.createObjectURL(new Blob([data], { type: 'application/pdf' }))
+    window.open(blobUrl, '_blank')
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000)
+  } catch (e) {
+    console.error('No se pudo abrir el PDF:', e.response?.data ?? e.message)
+  } finally {
+    abriendoId.value = null
+  }
 }
 </script>

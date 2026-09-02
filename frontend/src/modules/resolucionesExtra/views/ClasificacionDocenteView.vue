@@ -267,20 +267,26 @@
                 </span>
                 <div class="flex flex-wrap gap-1.5 flex-1 min-w-0">
                   <template v-for="r in c.referencias" :key="r.ID_REF">
-                    <a
+                    <!--
+                      Antes esto era <a :href="`${API_BASE}/api/resoluciones/${r.ID_RESOLUCION}/pdf`">.
+                      Esa ruta está protegida con auth:sanctum: un <a> normal del navegador
+                      NO manda el header Authorization, así que siempre daba 401.
+                      Ahora es un botón que pide el PDF con axios (con token) y lo abre como blob.
+                    -->
+                    <button
                       v-if="r.ID_RESOLUCION"
-                      :href="`${API_BASE}/api/resoluciones/${r.ID_RESOLUCION}/pdf`"
-                      target="_blank"
-                      class="group inline-flex items-center bg-green-50 border border-green-100 hover:border-green-200 rounded-lg text-sm text-green-800 font-semibold transition-colors overflow-hidden leading-none"
+                      @click="verPdfResolucion(r.ID_RESOLUCION)"
+                      :disabled="descargandoId === `res-${r.ID_RESOLUCION}`"
+                      class="group inline-flex items-center bg-green-50 border border-green-100 hover:border-green-200 rounded-lg text-sm text-green-800 font-semibold transition-colors overflow-hidden leading-none disabled:opacity-60"
                     >
                       <span class="px-2.5 py-1.5">{{ r.NRO_REFERENCIA }}</span>
                       <span class="inline-flex items-center gap-1 px-2 py-1.5 bg-green-600 group-hover:bg-green-700 text-white text-[11px] font-bold h-full transition-colors">
                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                           <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h3m5-13v4a1 1 0 001 1h4m-5-5H8a2 2 0 00-2 2v14a2 2 0 002 2h8a2 2 0 002-2V8l-5-5z"/>
                         </svg>
-                        Ver PDF
+                        {{ descargandoId === `res-${r.ID_RESOLUCION}` ? 'Abriendo...' : 'Ver PDF' }}
                       </span>
-                    </a>
+                    </button>
                     <span
                       v-else
                       class="inline-flex items-center px-2.5 py-1.5 bg-gray-100 border border-gray-100 rounded-lg text-sm text-gray-600 leading-none"
@@ -335,15 +341,23 @@
                 Eliminar
               </button>
 
-              <a v-if="c.NOMBRE_ARCHIVO" :href="clasificacion.urlPdf(c.ID_DOCUMENTO, 'inline')"
-                target="_blank"
-                class="inline-flex items-center gap-1.5 px-4 py-1.5 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition-colors"
+              <!--
+                Antes: <a :href="clasificacion.urlPdf(c.ID_DOCUMENTO, 'inline')">.
+                Mismo problema: /api/clasificaciones/{id}/pdf está protegida con
+                auth:sanctum, un <a> normal no manda el token. Ahora usa
+                clasificacion.verPdf(), que sí manda el Authorization header.
+              -->
+              <button
+                v-if="c.NOMBRE_ARCHIVO"
+                @click="verPdfClasificacion(c.ID_DOCUMENTO)"
+                :disabled="descargandoId === `clas-${c.ID_DOCUMENTO}`"
+                class="inline-flex items-center gap-1.5 px-4 py-1.5 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition-colors disabled:opacity-60"
               >
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h3m5-13v4a1 1 0 001 1h4m-5-5H8a2 2 0 00-2 2v14a2 2 0 002 2h8a2 2 0 002-2V8l-5-5z"/>
                 </svg>
-                Ver PDF
-              </a>
+                {{ descargandoId === `clas-${c.ID_DOCUMENTO}` ? 'Abriendo...' : 'Ver PDF' }}
+              </button>
               <span v-else class="inline-flex items-center px-3 py-1.5 text-sm text-gray-400">
                 Sin PDF adjunto
               </span>
@@ -398,18 +412,21 @@
           </div>
           <span v-else class="hidden md:inline text-xs text-gray-300 flex-shrink-0">Sin referencias</span>
 
-          <!-- Ver PDF -->
-          <a
+          <!--
+            Antes: <a :href="clasificacion.urlPdf(c.ID_CLASIFICACION, 'inline')">.
+            Mismo motivo que arriba: reemplazado por botón + verPdfClasificacion().
+          -->
+          <button
             v-if="c.NOMBRE_ARCHIVO"
-            :href="clasificacion.urlPdf(c.ID_CLASIFICACION, 'inline')"
-            target="_blank"
-            class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition-colors flex-shrink-0"
+            @click="verPdfClasificacion(c.ID_CLASIFICACION)"
+            :disabled="descargandoId === `clas-${c.ID_CLASIFICACION}`"
+            class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition-colors flex-shrink-0 disabled:opacity-60"
           >
             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h3m5-13v4a1 1 0 001 1h4m-5-5H8a2 2 0 00-2 2v14a2 2 0 002 2h8a2 2 0 002-2V8l-5-5z"/>
             </svg>
-            Ver PDF
-          </a>
+            {{ descargandoId === `clas-${c.ID_CLASIFICACION}` ? 'Abriendo...' : 'Ver PDF' }}
+          </button>
           <span v-else class="text-sm text-gray-300 px-2 flex-shrink-0">Sin PDF</span>
 
           <!-- Editar -->
@@ -493,6 +510,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import axios from 'axios'
 import { useReporteClasificacion } from '../composables/useReporteClasificacion'
 import { useClasificacion } from '../composables/useClasificacion'
 import EditarClasificacionModal from '../components/EditarClasificacionModal.vue'
@@ -522,6 +540,11 @@ const eliminando = ref(false)
 
 // Modal de editar: guarda el ID_CLASIFICACION_DOCENTE en edición, o null si está cerrado
 const idEditando = ref(null)
+
+// Id (con prefijo) del PDF que se está abriendo ahora mismo, para deshabilitar
+// el botón correspondiente y evitar doble click mientras carga.
+const descandoIdInicial = null
+const descargandoId = ref(descandoIdInicial)
 
 const nombreDocente = computed(() => {
   if (!docente.value) return 'Docente'
@@ -601,6 +624,50 @@ function formatearFecha(fecha) {
     month: '2-digit',
     year: 'numeric'
   })
+}
+
+// ─── Ver PDF de una Resolución (GET /api/resoluciones/{id}/pdf, protegida con auth:sanctum) ───
+// Un <a href> normal no manda el token; por eso se pide con axios y se abre como blob.
+async function verPdfResolucion(idResolucion) {
+  const key = `res-${idResolucion}`
+  descargandoId.value = key
+  try {
+    const token = localStorage.getItem('token')
+    const response = await axios.get(`${API_BASE}/api/resoluciones/${idResolucion}/pdf`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      responseType: 'blob',
+    })
+
+    const blobUrl = window.URL.createObjectURL(
+      new Blob([response.data], { type: 'application/pdf' })
+    )
+    window.open(blobUrl, '_blank')
+    setTimeout(() => window.URL.revokeObjectURL(blobUrl), 60_000)
+  } catch (e) {
+    console.error('Error al abrir PDF de resolución:', e)
+    alert(e?.response?.status === 401
+      ? 'Tu sesión expiró. Vuelve a iniciar sesión.'
+      : 'No se pudo abrir el PDF de la resolución'
+    )
+  } finally {
+    descargandoId.value = null
+  }
+}
+
+// ─── Ver PDF de una Clasificación (GET /api/clasificaciones/{id}/pdf, protegida con auth:sanctum) ───
+async function verPdfClasificacion(id) {
+  const key = `clas-${id}`
+  descargandoId.value = key
+  try {
+    await clasificacion.verPdf(id, 'inline')
+  } catch (e) {
+    alert(e?.response?.status === 401
+      ? 'Tu sesión expiró. Vuelve a iniciar sesión.'
+      : 'No se pudo abrir el PDF de la clasificación'
+    )
+  } finally {
+    descargandoId.value = null
+  }
 }
 
 // ─── Eliminar Clasificación ───

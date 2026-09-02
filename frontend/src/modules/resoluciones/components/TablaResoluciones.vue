@@ -183,10 +183,8 @@
               <div class="flex items-center gap-2">
 
                 <!-- Ver -->
-                <a
-                  :href="urlVer(fila.idResolucion)"
-                  target="_blank"
-                  rel="noopener"
+                <button
+                  @click="verPdf(fila.idResolucion)"
                   title="Ver"
                   class="
                     inline-flex items-center justify-center
@@ -202,11 +200,11 @@
                     <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/>
                     <circle cx="12" cy="12" r="3"/>
                   </svg>
-                </a>
+                </button>
 
                 <!-- Descargar -->
-                <a
-                  :href="urlDescargar(fila.idResolucion)"
+                <button
+                  @click="descargarPdf(fila.idResolucion)"
                   title="Descargar"
                   class="
                     inline-flex items-center justify-center
@@ -223,27 +221,27 @@
                     <polyline points="7 10 12 15 17 10"/>
                     <line x1="12" y1="15" x2="12" y2="3"/>
                   </svg>
-                </a>
+                </button>
 
                 <!-- Editar -->
-<button
-  title="Editar"
-  @click="$emit('editar', fila)"
-  class="
-    inline-flex items-center justify-center
-    w-8 h-8
-    rounded-lg
-    bg-blue-50
-    text-indigo-700
-    hover:bg-blue-100
-    transition-colors
-  "
->
-  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z"/>
-  </svg>
-</button>
+                <button
+                  title="Editar"
+                  @click="$emit('editar', fila)"
+                  class="
+                    inline-flex items-center justify-center
+                    w-8 h-8
+                    rounded-lg
+                    bg-blue-50
+                    text-indigo-700
+                    hover:bg-blue-100
+                    transition-colors
+                  "
+                >
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z"/>
+                  </svg>
+                </button>
 
                 <!-- Borrar -->
                 <button
@@ -283,11 +281,10 @@
 defineProps({
   filas: { type: Array, required: true },
   loading: { type: Boolean, default: false },
-  urlVer: { type: Function, required: true },
-  urlDescargar: { type: Function, required: true },
+  verPdf: { type: Function, required: true },
+  descargarPdf: { type: Function, required: true },
   formatearFecha: { type: Function, required: true },
   claseBadgePeriodo: { type: Function, required: true },
 })
 defineEmits(['borrar', 'recargar', 'editar'])
-
 </script>

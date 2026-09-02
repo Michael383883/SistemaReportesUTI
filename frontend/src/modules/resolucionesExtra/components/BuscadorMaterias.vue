@@ -189,11 +189,11 @@
               ? 'bg-blue-100 border-l-4 border-l-blue-500 ring-1 ring-inset ring-blue-200'
               : 'hover:bg-gray-50',
             materiaRegistrada(m) ? 'bg-amber-50/60' : '',
-            materiaYaSeleccionada(m.codigo) ? 'opacity-60 cursor-not-allowed' : ''
+            materiaYaSeleccionada(m.codigo, m.grupo) ? 'opacity-60 cursor-not-allowed' : ''
           ]"
           @mousedown.prevent="onSelectMateria(m)"
           @mouseenter="highlightIndex = idx"
-          :disabled="materiaYaSeleccionada(m.codigo) && !materiaRegistrada(m)"
+          :disabled="materiaYaSeleccionada(m.codigo, m.grupo) && !materiaRegistrada(m)"
         >
           <div class="flex-1 min-w-0">
             <span
@@ -221,7 +221,7 @@
             >
               <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
             </svg>
-            <svg v-else-if="materiaYaSeleccionada(m.codigo)" class="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <svg v-else-if="materiaYaSeleccionada(m.codigo, m.grupo)" class="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
             </svg>
             <svg
@@ -298,8 +298,14 @@ const usaFiltroDocente = computed(() => {
 
 const materiasFiltradas = computed(() => materias.value)
 
-function materiaYaSeleccionada(codigo) {
-  return props.materiasSeleccionadas.some(m => m.cod_materia === codigo)
+// ⚠️ FIX Caso 2: antes solo comparaba `cod_materia`, lo que bloqueaba
+// agregar la misma materia con otro grupo (p. ej. para otro docente).
+// Ahora dos grupos distintos de una misma materia se consideran entradas
+// distintas, igual que ya se identifican en la lista con `${codigo}-${grupo}`.
+function materiaYaSeleccionada(codigo, grupo = null) {
+  return props.materiasSeleccionadas.some(
+    m => m.cod_materia === codigo && (m.grupo ?? null) === (grupo ?? null)
+  )
 }
 
 // Busca si una materia del listado ya tiene una CLASIFICACION_MATERIA
@@ -419,7 +425,7 @@ function onSelectMateria(materia) {
     return
   }
 
-  if (materiaYaSeleccionada(materia.codigo)) {
+  if (materiaYaSeleccionada(materia.codigo, materia.grupo)) {
     mensajeDuplicado.value = `⚠️ La materia "${materia.nombre}" ya está seleccionada`
     setTimeout(() => { mensajeDuplicado.value = '' }, 3000)
     return

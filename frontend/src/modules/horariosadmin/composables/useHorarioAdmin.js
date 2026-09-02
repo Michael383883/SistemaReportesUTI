@@ -5,6 +5,17 @@ import axios from 'axios'
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api'
 
+// /api/admin/horarios y /api/admin/horarios/{docente} ahora están
+// protegidas con auth:sanctum. Antes estas llamadas no mandaban ningún
+// header y devolvían 401 siempre (con o sin sesión).
+function authHeaders(extra = {}) {
+    const token = localStorage.getItem('token')
+    return {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...extra,
+    }
+}
+
 export function useHorarioAdmin() {
     const docentes = ref([])
     const docenteSeleccionado = ref(null)
@@ -22,6 +33,7 @@ export function useHorarioAdmin() {
                 `${API_BASE}/api/admin/horarios`,
                 {
                     params: { anio, periodo },
+                    headers: authHeaders(),
                 }
             )
 
@@ -51,6 +63,7 @@ export function useHorarioAdmin() {
                 `${API_BASE}/api/admin/horarios/${codigoDocente}`,
                 {
                     params: { anio, periodo },
+                    headers: authHeaders(),
                 }
             )
 
@@ -62,7 +75,7 @@ export function useHorarioAdmin() {
             } else {
                 docenteSeleccionado.value = null
                 docentes.value = []
-                error.value = `No se encontraron horarios para el docente en la gestión ${anio} período ${periodo}`
+                error.value = `No se encontraron horariospara el docente en la gestión ${anio} período ${periodo}`
             }
 
         } catch (e) {
@@ -226,7 +239,7 @@ export function useHorarioAdmin() {
             const diaNormalizado = abreviaturaDia(h.DIA)
 
             item.sesiones.push({
-                dia: diaNormalizado,  // 🔥 Guardar el día normalizado (LU, MA, MI, etc.)
+                dia: diaNormalizado,  //  Guardar el día normalizado (LU, MA, MI, etc.)
                 horario: h.HORARIO,
                 ambiente: h.AMBIENTE,
                 ch: Number(h.CARGA_HORARIA || 0),
@@ -249,6 +262,6 @@ export function useHorarioAdmin() {
         agruparPorMateriaGrupo,
         DIAS_LABEL,
         DIAS_ORDEN,
-        abreviaturaDia,  // 🔥 Exportar la función para usarla en otros archivos
+        abreviaturaDia,  //  Exportar la función para usarla en otros archivos
     }
 }

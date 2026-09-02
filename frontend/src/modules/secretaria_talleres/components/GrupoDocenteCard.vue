@@ -1,9 +1,9 @@
 <template>
-  <div class="bg-white rounded-2xl shadow-sm ring-1 ring-slate-200 overflow-hidden">
+  <div class="bg-white dark:bg-[#0f1729] rounded-2xl shadow-sm ring-1 ring-slate-200 dark:ring-white/[0.08] overflow-hidden">
     <!-- Header docente (clickable para desplegar/colapsar) -->
     <button
       @click="abierto = !abierto"
-      class="w-full flex items-center justify-between px-6 py-3 bg-slate-800 hover:bg-slate-700 transition-colors text-left rounded-t-xl"
+      class="w-full flex items-center justify-between px-6 py-3 bg-slate-800 dark:bg-[#081F33] hover:bg-slate-700 dark:hover:bg-[#0c2947] transition-colors text-left rounded-t-xl"
     >
       <div class="flex items-center gap-3 text-white min-w-0">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-300 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -15,10 +15,10 @@
       </div>
 
       <div class="flex items-center gap-2 shrink-0">
-        <span class="rounded-full bg-slate-700 px-3 py-1 text-xs text-white">
+        <span class="rounded-full bg-slate-700 dark:bg-white/10 px-3 py-1 text-xs text-white">
           {{ materias.length }} materia{{ materias.length !== 1 ? 's' : '' }}
         </span>
-        <span class="rounded-full bg-green-600/20 px-3 py-1 text-xs text-green-300 font-semibold">
+        <span class="rounded-full bg-green-600/20 dark:bg-green-400/15 px-3 py-1 text-xs text-green-300 dark:text-green-400 font-semibold">
           {{ totalEstudiantes }} inscritos
         </span>
         <svg
@@ -39,7 +39,7 @@
       enter-from-class="opacity-0"
       leave-to-class="opacity-0"
     >
-      <div v-if="abierto" class="divide-y divide-slate-100">
+      <div v-if="abierto" class="divide-y divide-slate-100 dark:divide-white/[0.06]">
         <MateriaGrupoCard
           v-for="m in materias"
           :plan="m.plan"

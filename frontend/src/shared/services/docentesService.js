@@ -1,15 +1,27 @@
-// src/modules/secretaria/services/docentesService.js
+// src/shared/services/docentesService.js
 
 const API_BASE = import.meta.env.VITE_API_URL || ''
+
+function authHeaders(extra = {}) {
+    const token = localStorage.getItem('token')
+    return {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...extra,
+    }
+}
 
 async function apiFetch(path, options = {}) {
     try {
         const url = `${API_BASE}${path}`
 
+        // /api/secretaria/* ahora está protegida con auth:sanctum.
+        // Antes este fetch solo mandaba Content-Type/Accept, sin
+        // Authorization, así que devolvía 401 siempre (ver getAll/getById).
         const res = await fetch(url, {
             headers: {
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',
+                ...authHeaders(),
                 ...options.headers,
             },
             ...options,
@@ -56,6 +68,10 @@ export const docentesService = {
      *
      * Acepta anio/periodo opcionales para pedir una gestión específica.
      * Si no se envían, el backend calcula la gestión actual automáticamente.
+     *
+     * /api/horarios/docentes/* ahora está protegida con auth:sanctum.
+     * Antes este fetch solo mandaba Content-Type/Accept, sin Authorization,
+     * así que devolvía 401 siempre. Se agrega el token con authHeaders().
      */
     async getHorario(codigo, filtros = {}) {
         const params = new URLSearchParams()
@@ -66,7 +82,7 @@ export const docentesService = {
         const url = `${API_BASE}/api/horarios/docentes/${codigo}${query ? '?' + query : ''}`
 
         const res = await fetch(url, {
-            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            headers: authHeaders({ 'Content-Type': 'application/json', 'Accept': 'application/json' }),
         })
 
         if (!res.ok) {
@@ -79,12 +95,12 @@ export const docentesService = {
 
         const resultado = item
             ? {
-                  docente: item.docente,
-                  nombre_completo: item.nombre_completo,
-                  carga_horaria_total: item.carga_horaria_total,
-                  total_horarios: item.total_horarios,
-                  materias: transformarHorarios(item.horarios || [])
-              }
+                docente: item.docente,
+                nombre_completo: item.nombre_completo,
+                carga_horaria_total: item.carga_horaria_total,
+                total_horarios: item.total_horarios,
+                materias: transformarHorarios(item.horarios || [])
+            }
             : { materias: [] }
 
         return {
@@ -102,6 +118,10 @@ export const docentesService = {
      * Acepta anio/periodo opcionales. Si no se envían, el backend
      * calcula la gestión actual (semestral) automáticamente y la
      * informa de vuelta en `filtros.anio` / `filtros.periodo`.
+     *
+     * /api/horarios/docentes ahora está protegida con auth:sanctum.
+     * Antes este fetch solo mandaba Content-Type/Accept, sin Authorization,
+     * así que devolvía 401 siempre. Se agrega el token con authHeaders().
      */
     async getAllHorarios(filtros = {}) {
         const params = new URLSearchParams()
@@ -112,7 +132,7 @@ export const docentesService = {
         const url = `${API_BASE}/api/horarios/docentes${query ? '?' + query : ''}`
 
         const res = await fetch(url, {
-            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            headers: authHeaders({ 'Content-Type': 'application/json', 'Accept': 'application/json' }),
         })
 
         if (!res.ok) {
@@ -124,9 +144,9 @@ export const docentesService = {
 
         const data = Array.isArray(response.data)
             ? response.data.map(docente => ({
-                  ...docente,
-                  materias: transformarHorarios(docente.horarios || [])
-              }))
+                ...docente,
+                materias: transformarHorarios(docente.horarios || [])
+            }))
             : []
 
         return {

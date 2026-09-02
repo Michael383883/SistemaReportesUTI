@@ -30,6 +30,17 @@ import { ref } from 'vue'
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? ''
 
+// /api/admin/horarios/inscritos/aprobados-reprobados ahora está protegida
+// con auth:sanctum. Antes este fetch no mandaba ningún header, así que
+// devolvía 401 siempre.
+function authHeaders(extra = {}) {
+    const token = localStorage.getItem('token')
+    return {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...extra,
+    }
+}
+
 export function useInscritosAprobados() {
     const data = ref([])
     const loading = ref(false)
@@ -46,7 +57,8 @@ export function useInscritosAprobados() {
         error.value = null
         try {
             const res = await fetch(
-                `${BASE_URL}/api/admin/horarios/inscritos/aprobados-reprobados?anio=${anio}&periodo=${periodo}`
+                `${BASE_URL}/api/admin/horarios/inscritos/aprobados-reprobados?anio=${anio}&periodo=${periodo}`,
+                { headers: authHeaders() }
             )
             if (!res.ok) throw new Error(`Error ${res.status}: ${res.statusText}`)
             const json = await res.json()

@@ -165,27 +165,27 @@
 
     <!-- Tabla (componente hijo) -->
     <TablaResoluciones
-  :filas="filas"
-  :loading="loading"
-  :url-ver="urlVer"
-  :url-descargar="urlDescargar"
-  :formatear-fecha="formatearFecha"
-  :clase-badge-periodo="claseBadgePeriodo"
-  @borrar="pedirConfirmacionBorrar"
-  @recargar="cargarListado"
-  @editar="abrirEdicion"
-/>
+      :filas="filas"
+      :loading="loading"
+      :ver-pdf="verPdf"
+      :descargar-pdf="descargarPdf"
+      :formatear-fecha="formatearFecha"
+      :clase-badge-periodo="claseBadgePeriodo"
+      @borrar="pedirConfirmacionBorrar"
+      @recargar="cargarListado"
+      @editar="abrirEdicion"
+    />
 
     <!-- ... modal de borrado que ya tenías ... -->
 
-<ModalEditarResolucion
-  v-if="filaParaEditar"
-  :resolucion="filaParaEditar"
-  :editando="editando"
-  :error-editar="errorEditar"
-  @cerrar="cerrarEdicion"
-  @guardar="guardarEdicion"
-/>
+    <ModalEditarResolucion
+      v-if="filaParaEditar"
+      :resolucion="filaParaEditar"
+      :editando="editando"
+      :error-editar="errorEditar"
+      @cerrar="cerrarEdicion"
+      @guardar="guardarEdicion"
+    />
 
     <!-- Modal de confirmación de borrado -->
     <div
@@ -293,8 +293,8 @@ const {
   busqueda,
   anioSeleccionado,
   aniosDisponibles,
-  urlVer,
-  urlDescargar,
+  verPdf,
+  descargarPdf,
   formatearFecha,
   cargarListado,
   buscar,

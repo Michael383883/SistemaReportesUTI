@@ -1,4 +1,4 @@
-import { ref } from 'vue'
+﻿import { ref } from 'vue'
 import axios from 'axios'
 
 const API_BASE = import.meta.env.VITE_API_URL ?? ''
@@ -161,8 +161,40 @@ export function useClasificacion() {
     }
 
     // GET /api/clasificaciones/{id}/pdf
+    // Se mantiene por si se usa en algún otro lado (ej. como referencia de texto),
+    // pero OJO: esta URL NO debe usarse directo en un <a href>, porque esa ruta
+    // está protegida con auth:sanctum y un <a> normal no manda el token.
     function urlPdf(id, modo = 'inline') {
         return `${API_BASE}/api/clasificaciones/${id}/pdf?modo=${modo}`
+    }
+
+    // Descarga el PDF protegido usando axios (sí manda el token) y lo abre
+    // en una pestaña nueva como blob. Esta es la forma correcta de "ver" el PDF.
+    async function verPdf(id, modo = 'inline') {
+        loading.value = true
+        error.value = null
+        try {
+            const response = await axios.get(`${API_BASE}/api/clasificaciones/${id}/pdf`, {
+                params: { modo },
+                headers: authHeaders(),
+                responseType: 'blob',
+            })
+
+            const blobUrl = window.URL.createObjectURL(
+                new Blob([response.data], { type: 'application/pdf' })
+            )
+            window.open(blobUrl, '_blank')
+
+            // Libera la memoria del blob después de un rato
+            setTimeout(() => window.URL.revokeObjectURL(blobUrl), 60_000)
+        } catch (e) {
+            error.value = e?.response?.data?.error || 'No se pudo abrir el PDF'
+            errorDetalle.value = parseErrorDetalle(e?.response?.data)
+            console.error('❌ Error en verPdf:', e)
+            throw e
+        } finally {
+            loading.value = false
+        }
     }
 
     function reset() {
@@ -327,6 +359,7 @@ export function useClasificacion() {
         aplicarEnGrupos,
         quitarDeGrupos,
         urlPdf,
+        verPdf,
         reset,
     }
 }

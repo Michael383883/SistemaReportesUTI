@@ -192,7 +192,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { GRP_MAP } from '../utils/planes'
-import { useCategoriasKardex } from '../../periodos-academicos/composables/useCategoriasKardex' // 👈 ajustá si tu estructura real es distinta
+import { useCategoriasKardex } from '../../periodos-academicos/composables/useCategoriasKardex' //  ajustá si tu estructura real es distinta
 
 const props = defineProps({
   materias: { type: Array, default: () => [] },

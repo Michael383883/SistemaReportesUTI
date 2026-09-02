@@ -444,6 +444,55 @@ export function useReporteExcel() {
         return `${API_BASE}/api/reportes/docentes-clasificados/excel?${params.toString()}`
     }
 
+    // GET /api/reportes/docentes-clasificados/excel — con token, vía blob
+    // Reemplaza a urlDescarga() + window.open(), que no puede llevar
+    // el header Authorization y se rompe si la ruta queda protegida.
+    async function descargarExcel({ gestion_desde, gestion_hasta, periodo, version, categoria, tipo_titulo, mostrar_referencias } = {}) {
+        const params = new URLSearchParams()
+        if (gestion_desde) params.set('gestion_desde', gestion_desde)
+        if (gestion_hasta) params.set('gestion_hasta', gestion_hasta)
+        if (periodo) params.set('periodo', periodo)
+        if (version) params.set('version', version)
+        const categoriaCsv = serializarLista(categoria)
+        if (categoriaCsv) params.set('categoria', categoriaCsv)
+        const tipoTituloCsv = serializarLista(tipo_titulo)
+        if (tipoTituloCsv) params.set('tipo_titulo', tipoTituloCsv)
+        const referenciasActivas = mostrar_referencias !== undefined
+            ? mostrar_referencias
+            : mostrarReferencias.value
+        if (referenciasActivas) params.set('mostrar_referencias', '1')
+        if (soloActivos.value) {
+            params.set('solo_activos', '1')
+            params.set('anio_activos', anioActivos.value)
+            params.set('periodo_activos', periodoActivos.value)
+        }
+        try {
+            const response = await axios.get(
+                `${API_BASE}/api/reportes/docentes-clasificados/excel?${params.toString()}`,
+                {
+                    headers: authHeaders(),
+                    responseType: 'blob',
+                }
+            )
+            const blob = new Blob([response.data], {
+                type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            })
+            const nombreArchivo = `LISTA_DOCENTES_CLASIFICADOS.xlsx`
+            const url = window.URL.createObjectURL(blob)
+            const link = document.createElement('a')
+            link.href = url
+            link.download = nombreArchivo
+            document.body.appendChild(link)
+            link.click()
+            link.remove()
+            window.URL.revokeObjectURL(url)
+        } catch (e) {
+            console.error('Error al descargar el Excel:', e)
+            throw e
+        }
+    }
+
+
     // POST /api/reportes/docentes-clasificados/excel-personalizado
     // Se usa cuando ya se asignó carga horaria automática y/o se combinaron
     // materias en el preview: manda el arreglo `preview` tal cual está en
@@ -466,13 +515,11 @@ export function useReporteExcel() {
                     responseType: 'blob',
                 }
             )
-
             const blob = new Blob([response.data], {
                 type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             })
             const nombreGestion = (gestion || gestionEtiqueta.value || '').toString().replace(/\//g, '-')
             const nombreArchivo = `LISTA_DOCENTES_CLASIFICADOS_${nombreGestion}.xlsx`
-
             const url = window.URL.createObjectURL(blob)
             const link = document.createElement('a')
             link.href = url
@@ -482,11 +529,11 @@ export function useReporteExcel() {
             link.remove()
             window.URL.revokeObjectURL(url)
         } catch (e) {
-            error.value = 'No se pudo descargar el Excel con los cambios aplicados en la vista previa'
+            console.error('Error al descargar el Excel personalizado:', e)
             throw e
         }
     }
-
+    
     function reset() {
         error.value = null
         preview.value = []
@@ -531,6 +578,7 @@ export function useReporteExcel() {
         obtenerCargaHorariaDocentes,
         asignarCargaHoraria,
         descargarExcelPersonalizado,
+        descargarExcel,
 
         // Combinar Materias
         materiasCombinadas,

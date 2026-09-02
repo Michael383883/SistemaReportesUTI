@@ -2,6 +2,14 @@ import { ref } from 'vue'
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? ''
 
+function authHeaders(extra = {}) {
+    const token = localStorage.getItem('token')
+    return {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...extra,
+    }
+}
+
 export function useInscritos() {
     const data = ref([])
     const loading = ref(false)
@@ -18,7 +26,8 @@ export function useInscritos() {
         error.value = null
         try {
             const res = await fetch(
-                `${BASE_URL}/api/admin/horarios/inscritos/listado?anio=${anio}&periodo=${periodo}`
+                `${BASE_URL}/api/admin/horarios/inscritos/listado?anio=${anio}&periodo=${periodo}`,
+                { headers: authHeaders() }
             )
             if (!res.ok) throw new Error(`Error ${res.status}: ${res.statusText}`)
             const json = await res.json()
@@ -47,7 +56,8 @@ export function useInscritos() {
         error.value = null
         try {
             const res = await fetch(
-                `${BASE_URL}/api/admin/horarios/inscritos/docente/${codigoDocente}?anio=${anio}&periodo=${periodo}`
+                `${BASE_URL}/api/admin/horarios/inscritos/docente/${codigoDocente}?anio=${anio}&periodo=${periodo}`,
+                { headers: authHeaders() }
             )
             if (!res.ok) throw new Error(`Error ${res.status}: ${res.statusText}`)
             const json = await res.json()

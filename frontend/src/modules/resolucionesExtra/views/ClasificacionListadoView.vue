@@ -230,16 +230,22 @@
 
               <!-- PDF -->
               <td class="px-4 py-3">
-
-                <a v-if="c.NOMBRE_ARCHIVO" :href="clasificacion.urlPdf(c.ID_DOCUMENTO, 'inline')"
-                  target="_blank"
-                  class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-800 hover:bg-blue-900 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors"
+                <!--
+                  Antes: <a :href="clasificacion.urlPdf(c.ID_DOCUMENTO, 'inline')" target="_blank">.
+                  /api/clasificaciones/{id}/pdf está protegida con auth:sanctum; un <a> normal
+                  no manda el token. Ahora usa clasificacion.verPdf(), que sí lo manda (axios + blob).
+                -->
+                <button
+                  v-if="c.NOMBRE_ARCHIVO"
+                  @click="verPdf(c.ID_DOCUMENTO)"
+                  :disabled="abriendoPdfId === c.ID_DOCUMENTO"
+                  class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-800 hover:bg-blue-900 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors disabled:opacity-60"
                 >
                   <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h3m5-13v4a1 1 0 001 1h4m-5-5H8a2 2 0 00-2 2v14a2 2 0 002 2h8a2 2 0 002-2V8l-5-5z"/>
                   </svg>
-                  Ver PDF
-                </a>
+                  {{ abriendoPdfId === c.ID_DOCUMENTO ? 'Abriendo...' : 'Ver PDF' }}
+                </button>
                 <span v-else class="text-gray-300 text-sm">—</span>
               </td>
 
@@ -787,6 +793,28 @@ const { categorias, cargarCategorias } = useCategorias()
 const { tipos: tiposTitulo, cargarTipos } = useTiposTitulo()
 const API_BASE = import.meta.env.VITE_API_URL ?? ''
 
+// ─── Ver PDF (protegido con auth:sanctum) ───
+// El endpoint /api/clasificaciones/{id}/pdf requiere el token Bearer.
+// Un <a href> normal no lo manda, así que usamos clasificacion.verPdf(),
+// que hace la petición con axios (incluye el header Authorization) y
+// abre el resultado como blob en una pestaña nueva.
+const abriendoPdfId = ref(null)
+
+async function verPdf(idDocumento) {
+  if (abriendoPdfId.value) return
+  abriendoPdfId.value = idDocumento
+  try {
+    await clasificacion.verPdf(idDocumento, 'inline')
+  } catch (e) {
+    alert(e?.response?.status === 401
+      ? 'Tu sesión expiró. Vuelve a iniciar sesión.'
+      : 'No se pudo abrir el PDF'
+    )
+  } finally {
+    abriendoPdfId.value = null
+  }
+}
+
 // Filtros de la tabla principal
 const filtroNombre = ref('')
 const filtros = ref({
@@ -1074,17 +1102,15 @@ async function descargarExcelConfirmado() {
     return
   }
 
-  const url = reporteExcel.urlDescarga({
+    await reporteExcel.descargarExcel({
     gestion_desde: excelParams.value.gestion_desde,
     gestion_hasta: excelParams.value.gestion_hasta,
     periodo: excelParams.value.periodo,
     version: excelParams.value.version,
-    categoria: excelParams.value.categorias,       // ✅ corregido
-    tipo_titulo: excelParams.value.tiposTitulo,    // ✅ corregido
-    mostrar_referencias: reporteExcel.mostrarReferencias.value, // ← nuevo
+    categoria: excelParams.value.categorias,
+    tipo_titulo: excelParams.value.tiposTitulo,
+    mostrar_referencias: reporteExcel.mostrarReferencias.value,
   })
-
-  window.open(url, '_blank')
   cerrarPreviewExcel()
 }
 

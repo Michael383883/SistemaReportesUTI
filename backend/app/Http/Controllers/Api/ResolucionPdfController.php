@@ -239,15 +239,16 @@ class ResolucionPdfController extends Controller
     }
 
     // DELETE /resoluciones/{id}
-    //
-    // Borra la resolución completa:
-    //   1) Todos los docentes/materias asignados en RESOLUCION_DETALLE
-    //      para esa resolución.
-    //   2) El registro en RESOLUCIONES_PDF.
-    //   3) El archivo PDF físico en storage.
-    // Los pasos 1 y 2 van en una transacción de BD: si algo falla, no
-    // queda nada a medio borrar. El archivo físico se borra después,
-    // ya que el storage no participa de la transacción de la BD.
+//
+// Borra la resolución completa:
+//   1) Limpia en GRUPOS lo que aplicarEnGrupos() había escrito.
+//   2) Borra los docentes/materias asignados en RESOLUCION_DETALLE.
+//   3) Borra el registro en RESOLUCIONES_PDF.
+//   4) Borra el archivo PDF físico.
+//
+// Si la resolución tiene documentos de clasificación docente enlazados
+// (CLASIFICACION_REFERENCIA), el borrado se bloquea con un mensaje claro
+// en vez de dejar pasar el error crudo de SQL Server.
     public function destroy($id)
     {
         DB::beginTransaction();
@@ -259,40 +260,35 @@ class ResolucionPdfController extends Controller
 
             if (!$resolucion) {
                 DB::rollBack();
-
                 return response()->json([
                     'ok' => false,
                     'error' => 'Resolución no encontrada'
                 ], 404);
             }
 
-            // 1) Limpiar en GRUPOS lo que aplicarEnGrupos() había escrito
-            //    para esta resolución (RESOLUCION, DESIGNACION, TIPO_INGRESO).
-            //    OJO: esto va ANTES de borrar RESOLUCION_DETALLE, porque el
-            //    JOIN necesita que esas filas todavía existan para poder
-            //    identificar qué filas de GRUPOS corresponden a esta
-            //    resolución. No se borran filas de GRUPOS, solo se limpian
-            //    esos 3 campos (el grupo/materia sigue existiendo).
+            // 1) Limpiar GRUPOS lo que aplicarEnGrupos() había escrito para
+            //    esta resolución. Va antes de borrar RESOLUCION_DETALLE porque
+            //    el JOIN necesita que esas filas todavía existan.
             $gruposLimpiados = DB::update("
-                UPDATE g
-                SET
-                    g.RESOLUCION   = NULL,
-                    g.DESIGNACION  = NULL,
-                    g.TIPO_INGRESO = NULL
-                FROM GRUPOS g
-                JOIN RESOLUCION_DETALLE dr
-                    ON  g.DOCENTE                          = dr.COD_DOCENTE
-                    AND g.[PLAN]  COLLATE Modern_Spanish_CI_AS = dr.COD_PLAN   COLLATE Modern_Spanish_CI_AS
-                    AND g.MATERIA COLLATE Modern_Spanish_CI_AS = dr.COD_MATERIA COLLATE Modern_Spanish_CI_AS
-                    AND g.[GRUPO] COLLATE Modern_Spanish_CI_AS = dr.[GRUPO]     COLLATE Modern_Spanish_CI_AS
-                    AND g.[TIPO]  COLLATE Modern_Spanish_CI_AS = dr.[TIPO]      COLLATE Modern_Spanish_CI_AS
-                JOIN RESOLUCIONES_PDF rp
-                    ON rp.ID_RESOLUCION = dr.ID_RESOLUCION
-                WHERE
-                    rp.ID_RESOLUCION = ?
-                    AND g.ANIO    = rp.ANIO
-                    AND g.PERIODO COLLATE Modern_Spanish_CI_AS = CAST(rp.PERIODO AS NVARCHAR(10)) COLLATE Modern_Spanish_CI_AS
-            ", [$id]);
+            UPDATE g
+            SET
+                g.RESOLUCION   = NULL,
+                g.DESIGNACION  = NULL,
+                g.TIPO_INGRESO = NULL
+            FROM GRUPOS g
+            JOIN RESOLUCION_DETALLE dr
+                ON  g.DOCENTE                          = dr.COD_DOCENTE
+                AND g.[PLAN]  COLLATE Modern_Spanish_CI_AS = dr.COD_PLAN   COLLATE Modern_Spanish_CI_AS
+                AND g.MATERIA COLLATE Modern_Spanish_CI_AS = dr.COD_MATERIA COLLATE Modern_Spanish_CI_AS
+                AND g.[GRUPO] COLLATE Modern_Spanish_CI_AS = dr.[GRUPO]     COLLATE Modern_Spanish_CI_AS
+                AND g.[TIPO]  COLLATE Modern_Spanish_CI_AS = dr.[TIPO]      COLLATE Modern_Spanish_CI_AS
+            JOIN RESOLUCIONES_PDF rp
+                ON rp.ID_RESOLUCION = dr.ID_RESOLUCION
+            WHERE
+                rp.ID_RESOLUCION = ?
+                AND g.ANIO    = rp.ANIO
+                AND g.PERIODO COLLATE Modern_Spanish_CI_AS = CAST(rp.PERIODO AS NVARCHAR(10)) COLLATE Modern_Spanish_CI_AS
+        ", [$id]);
 
             // 2) Borrar docentes/materias asignados a esta resolución
             $detallesBorrados = DB::table('RESOLUCION_DETALLE')
@@ -300,6 +296,8 @@ class ResolucionPdfController extends Controller
                 ->delete();
 
             // 3) Borrar el registro de la resolución
+            //    (acá es donde puede saltar el conflicto de FK con
+            //    CLASIFICACION_REFERENCIA, capturado más abajo)
             DB::table('RESOLUCIONES_PDF')
                 ->where('ID_RESOLUCION', $id)
                 ->delete();
@@ -307,9 +305,8 @@ class ResolucionPdfController extends Controller
             DB::commit();
             DashboardAdminController::limpiarCacheDashboard();
 
-            // 3) Borrar el archivo físico. Si esto falla no revertimos
-            //    el borrado en BD, solo lo dejamos registrado en el log
-            //    para limpieza manual posterior.
+            // 4) Borrar el archivo físico. Si esto falla no revertimos el
+            //    borrado en BD, solo lo dejamos registrado para limpieza manual.
             try {
                 if ($resolucion->RUTA_ARCHIVO && \Storage::disk('public')->exists($resolucion->RUTA_ARCHIVO)) {
                     \Storage::disk('public')->delete($resolucion->RUTA_ARCHIVO);
@@ -328,6 +325,106 @@ class ResolucionPdfController extends Controller
                 'detalles_eliminados' => $detallesBorrados,
                 'grupos_limpiados' => $gruposLimpiados,
             ]);
+
+        } catch (\Illuminate\Database\QueryException $e) {
+            DB::rollBack();
+
+            // errorInfo[0] = SQLSTATE (ej: "23000")
+            // errorInfo[1] = código nativo del driver (ej: 547 = FK violation en SQL Server)
+            // errorInfo[2] = mensaje nativo completo
+            $sqlState = $e->errorInfo[0] ?? null;
+            $codigoNativo = $e->errorInfo[1] ?? null;
+            $mensajeNativo = $e->errorInfo[2] ?? $e->getMessage();
+
+            \Log::error('QueryException al borrar ResolucionPdf', [
+                'id' => $id,
+                'getCode' => $e->getCode(),
+                'sqlState' => $sqlState,
+                'codigoNativo' => $codigoNativo,
+                'mensajeNativo' => $mensajeNativo,
+            ]);
+
+            $esViolacionFk =
+                $sqlState === '23000'
+                || $e->getCode() === '23000'
+                || (string) $codigoNativo === '547'
+                || str_contains($mensajeNativo, 'REFERENCE')
+                || str_contains($mensajeNativo, 'FOREIGN KEY')
+                || str_contains($mensajeNativo, 'conflicto con la restricci');
+
+            if (!$esViolacionFk) {
+                return response()->json([
+                    'ok' => false,
+                    'error' => 'Ocurrió un error de base de datos al eliminar la resolución.',
+                ], 500);
+            }
+
+            // Identificar qué tabla es la que bloquea, a partir del nombre
+            // de la constraint que trae el mensaje nativo
+            $tablaConflicto = null;
+            if (preg_match('/"([a-zA-Z0-9_]+)_id_resolucion_foreign"/', $mensajeNativo, $m)) {
+                $tablaConflicto = $m[1];
+            } elseif (preg_match('/table "dbo\.([A-Z_]+)"/i', $mensajeNativo, $m)) {
+                $tablaConflicto = $m[1];
+            }
+
+            $registros = collect();
+
+            if ($tablaConflicto && strtoupper($tablaConflicto) === 'CLASIFICACION_REFERENCIA') {
+                // CLASIFICACION_REFERENCIA -> CLASIFICACION_DOCUMENTO (info del doc)
+                //                          -> CLASIFICACION_DOCENTE -> DOCENTES
+                $registros = DB::table('CLASIFICACION_REFERENCIA as cr')
+                    ->join('CLASIFICACION_DOCUMENTO as cd', 'cd.ID_DOCUMENTO', '=', 'cr.ID_DOCUMENTO')
+                    ->leftJoin('CLASIFICACION_DOCENTE as cdoc', 'cdoc.ID_DOCUMENTO', '=', 'cd.ID_DOCUMENTO')
+                    ->leftJoin('DOCENTES as d', 'd.CODIGO', '=', 'cdoc.COD_DOCENTE')
+                    ->where('cr.ID_RESOLUCION', $id)
+                    ->select(
+                        'cr.ID_REF',
+                        'cr.NRO_REFERENCIA',
+                        'cd.ID_DOCUMENTO',
+                        'cd.TIPO_DOCUMENTO',
+                        'cd.NOMBRE_ARCHIVO',
+                        'cd.CATEGORIA',
+                        'cd.GESTION',
+                        DB::raw("LTRIM(RTRIM(d.NOMBRES + ' ' + ISNULL(d.APELLIDOS, ''))) AS NOMBRE_DOCENTE")
+                    )
+                    ->distinct()
+                    ->get();
+            }
+
+            $cantidad = $registros->count();
+
+            if ($cantidad > 0) {
+                $nombresDocentes = $registros->pluck('NOMBRE_DOCENTE')->filter()->unique()->values();
+                $tiposDocumento = $registros->pluck('TIPO_DOCUMENTO')->filter()->unique()->values();
+
+                $detalle = "Tiene {$cantidad} documento(s) de clasificación docente enlazado(s) a esta resolución";
+
+                if ($tiposDocumento->isNotEmpty()) {
+                    $detalle .= " (" . $tiposDocumento->take(3)->implode(', ') . ")";
+                }
+
+                if ($nombresDocentes->isNotEmpty()) {
+                    $detalle .= ". Docente(s): " . $nombresDocentes->take(5)->implode(', ');
+                    if ($nombresDocentes->count() > 5) {
+                        $detalle .= " y otro(s) " . ($nombresDocentes->count() - 5);
+                    }
+                }
+
+                $detalle .= ". Desvincula o elimina esos documentos primero.";
+            } else {
+                $detalle = $tablaConflicto
+                    ? "Existen registros relacionados en \"{$tablaConflicto}\" que deben eliminarse primero."
+                    : 'Existen registros relacionados en otra tabla que deben eliminarse primero.';
+            }
+
+            return response()->json([
+                'ok' => false,
+                'tipo' => 'fk_violation',
+                'tabla' => $tablaConflicto,
+                'registros_bloqueando' => $registros,
+                'error' => "No se puede eliminar la resolución: {$detalle}",
+            ], 409);
 
         } catch (\Throwable $e) {
             DB::rollBack();

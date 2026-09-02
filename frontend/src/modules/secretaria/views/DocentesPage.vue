@@ -1,16 +1,16 @@
 <template>
-  <div class="min-h-screen bg-slate-50">
+  <div class="min-h-screen bg-slate-50 dark:bg-[#0b1120]">
     <!-- Header -->
-    <div class="bg-white border-b border-slate-200 px-6 py-4">
+    <div class="bg-white dark:bg-[#0f1729] border-b border-slate-200 dark:border-white/[0.08] px-6 py-4">
       <div class="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 class="text-2xl font-bold text-slate-800">Gestión de Docentes</h1>
-          <p class="text-sm text-slate-500 mt-0.5 flex items-center gap-2">
+          <h1 class="text-2xl font-bold text-slate-800 dark:text-white">Gestión de Docentes</h1>
+          <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-2">
             <template v-if="filtros.anio && filtros.periodo">
               Facultad de Ciencias Económicas · {{ PERIODOS[filtros.periodo] || filtros.periodo }}/{{ filtros.anio }}
               <span
                 v-if="!gestionEsAutomatica"
-                class="text-[10px] font-semibold text-amber-600 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5"
+                class="text-[10px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-400/20 rounded-full px-2 py-0.5"
               >
                 manual
               </span>
@@ -24,7 +24,7 @@
 
           
 
-          <span class="bg-teal-50 text-teal-700 text-sm font-semibold px-3 py-1.5 rounded-full border border-teal-200">
+          <span class="bg-teal-50 dark:bg-teal-500/10 text-teal-700 dark:text-teal-400 text-sm font-semibold px-3 py-1.5 rounded-full border border-teal-200 dark:border-teal-400/20">
             {{ docentesFiltrados.length }} docentes
           </span>
 
@@ -85,15 +85,15 @@
             >
               <div
                 v-if="mostrarMenuExportar"
-                class="absolute right-0 top-full mt-1.5 z-50 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden w-60 p-3"
+                class="absolute right-0 top-full mt-1.5 z-50 bg-white dark:bg-[#111a2e] border border-slate-200 dark:border-white/[0.08] rounded-xl shadow-xl overflow-hidden w-60 p-3"
               >
-                <p class="text-xs font-semibold text-slate-800 mb-2 px-0.5">Lista completa</p>
+                <p class="text-xs font-semibold text-slate-800 dark:text-slate-200 mb-2 px-0.5">Lista completa</p>
                 <div class="flex items-center gap-2">
                   <!-- Ver -->
                   <button
                     @click="exportarExcel('ver'); mostrarMenuExportar = false"
                     title="Ver lista"
-                    class="flex-1 flex items-center justify-center py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg transition-colors"
+                    class="flex-1 flex items-center justify-center py-2.5 bg-slate-100 dark:bg-white/[0.06] hover:bg-slate-200 dark:hover:bg-white/[0.12] text-slate-600 dark:text-slate-300 rounded-lg transition-colors"
                   >
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
@@ -105,7 +105,7 @@
                   <button
                     @click="exportarImprimir(); mostrarMenuExportar = false"
                     title="Imprimir"
-                    class="flex-1 flex items-center justify-center py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg transition-colors"
+                    class="flex-1 flex items-center justify-center py-2.5 bg-slate-100 dark:bg-white/[0.06] hover:bg-slate-200 dark:hover:bg-white/[0.12] text-slate-600 dark:text-slate-300 rounded-lg transition-colors"
                   >
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6v-8z"/>
@@ -116,7 +116,7 @@
                   <button
                     @click="exportarExcel('descargar'); mostrarMenuExportar = false"
                     title="Descargar Excel"
-                    class="flex-1 flex items-center justify-center py-2.5 bg-amber-100 hover:bg-amber-200 text-amber-700 rounded-lg transition-colors"
+                    class="flex-1 flex items-center justify-center py-2.5 bg-amber-100 dark:bg-amber-500/10 hover:bg-amber-200 dark:hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 rounded-lg transition-colors"
                   >
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
@@ -135,14 +135,14 @@
     </div>
 
     <!-- Filtros y búsqueda -->
-    <div class="px-6 py-4 bg-white border-b border-slate-100">
+    <div class="px-6 py-4 bg-white dark:bg-[#0b1120] border-b border-slate-100 dark:border-white/[0.08]">
       <div class="flex flex-wrap items-center gap-3">
 
         <!-- Selector de gestión (año/periodo) -->
           <div class="flex items-center gap-1.5">
             <select
               v-model="filtros.periodo"
-              class="h-10 px-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-500"
+              class="h-10 px-2.5 bg-slate-50 dark:bg-[#111a2e] border border-slate-200 dark:border-white/[0.08] rounded-lg text-sm text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500"
               title="Periodo académico"
             >
               <option v-for="(nombre, cod) in PERIODOS" :key="cod" :value="cod">{{ nombre }}</option>
@@ -150,7 +150,7 @@
 
             <select
               v-model="filtros.anio"
-              class="h-10 px-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-500"
+              class="h-10 px-2.5 bg-slate-50 dark:bg-[#111a2e] border border-slate-200 dark:border-white/[0.08] rounded-lg text-sm text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500"
               title="Año"
             >
               <option v-for="a in aniosDisponibles" :key="a" :value="a">{{ a }}</option>
@@ -160,28 +160,28 @@
               v-if="!gestionEsAutomatica"
               @click="volverAGestionActual"
               title="Volver a la gestión actual detectada por el sistema"
-              class="h-10 px-3 rounded-lg border border-amber-200 bg-amber-50 text-amber-700 text-xs font-semibold hover:bg-amber-100 transition"
+              class="h-10 px-3 rounded-lg border border-amber-200 dark:border-amber-400/20 bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 text-xs font-semibold hover:bg-amber-100 dark:hover:bg-amber-500/20 transition"
             >
               Hoy
             </button>
           </div>
         <!-- Búsqueda -->
         <div class="relative flex-1 min-w-64">
-          <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0"/>
           </svg>
           <input
             v-model="busqueda"
             type="text"
             placeholder="Buscar por nombre, código o CI..."
-            class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+            class="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-[#111a2e] border border-slate-200 dark:border-white/[0.08] rounded-lg text-sm text-slate-700 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
           />
         </div>
 
         <!-- Filtro Grado -->
         <select
           v-model="filtroGrado"
-          class="px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-500"
+          class="px-3 py-2.5 bg-slate-50 dark:bg-[#111a2e] border border-slate-200 dark:border-white/[0.08] rounded-lg text-sm text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500"
         >
           <option value="">Todos los grados</option>
           <option value="PhD">Doctorado (PhD)</option>
@@ -191,10 +191,10 @@
         </select>
 
         <!-- Toggle vista -->
-        <div class="flex items-center bg-slate-100 rounded-lg p-1 ml-auto">
+        <div class="flex items-center bg-slate-100 dark:bg-white/[0.06] rounded-lg p-1 ml-auto">
           <button
             @click="vista = 'tabla'"
-            :class="['px-3 py-1.5 rounded-md text-sm font-medium transition-all', vista === 'tabla' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700']"
+            :class="['px-3 py-1.5 rounded-md text-sm font-medium transition-all', vista === 'tabla' ? 'bg-white dark:bg-[#111a2e] text-slate-800 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200']"
           >
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 6h18M3 14h18M3 18h18"/>
@@ -202,7 +202,7 @@
           </button>
           <button
             @click="vista = 'cards'"
-            :class="['px-3 py-1.5 rounded-md text-sm font-medium transition-all', vista === 'cards' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700']"
+            :class="['px-3 py-1.5 rounded-md text-sm font-medium transition-all', vista === 'cards' ? 'bg-white dark:bg-[#111a2e] text-slate-800 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200']"
           >
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/>
@@ -218,27 +218,27 @@
       <!-- Estado de carga -->
       <div v-if="cargando" class="flex flex-col items-center justify-center py-24">
         <div class="w-10 h-10 border-4 border-teal-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-        <p class="text-slate-500 text-sm">Cargando docentes...</p>
+        <p class="text-slate-500 dark:text-slate-400 text-sm">Cargando docentes...</p>
       </div>
 
       <!-- Sin resultados -->
       <div v-else-if="docentesFiltrados.length === 0" class="flex flex-col items-center justify-center py-24">
-        <div class="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4">
-          <svg class="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div class="w-16 h-16 bg-slate-100 dark:bg-white/[0.06] rounded-full flex items-center justify-center mb-4">
+          <svg class="w-8 h-8 text-slate-400 dark:text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
           </svg>
         </div>
-        <p class="text-slate-600 font-medium">No se encontraron docentes</p>
-        <p class="text-slate-400 text-sm mt-1">Intenta con otros filtros de búsqueda</p>
-        <button @click="limpiarFiltros" class="mt-4 text-teal-600 text-sm font-medium hover:underline">Limpiar filtros</button>
+        <p class="text-slate-600 dark:text-slate-300 font-medium">No se encontraron docentes</p>
+        <p class="text-slate-400 dark:text-slate-500 text-sm mt-1">Intenta con otros filtros de búsqueda</p>
+        <button @click="limpiarFiltros" class="mt-4 text-teal-600 dark:text-teal-400 text-sm font-medium hover:underline">Limpiar filtros</button>
       </div>
 
       <!-- Vista Tabla -->
-      <div v-else-if="vista === 'tabla'" class="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+      <div v-else-if="vista === 'tabla'" class="bg-white dark:bg-[#0f1729] rounded-xl border border-slate-200 dark:border-white/[0.08] overflow-hidden shadow-sm">
         <div class="overflow-x-auto">
           <table class="w-full text-sm">
             <thead>
-              <tr class="bg-slate-800 border-b border-slate-200">
+              <tr class="bg-slate-800 dark:bg-[#081F33] border-b border-slate-200 dark:border-white/[0.08]">
                 <th class="text-left px-4 py-3 text-xs font-semibold text-slate-100 uppercase tracking-wider">Nro</th>
                 <th class="text-left px-4 py-3 text-xs font-semibold text-slate-100 uppercase tracking-wider">Código</th>
                 <th class="text-left px-4 py-3 text-xs font-semibold text-slate-100 uppercase tracking-wider">Docente</th>
@@ -249,26 +249,26 @@
                 <th class="text-center px-4 py-3 text-xs font-semibold text-slate-100 uppercase tracking-wider">Acciones</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-slate-100">
+            <tbody class="divide-y divide-slate-100 dark:divide-white/[0.06]">
               <tr
                 v-for="(docente, idx) in docentesPaginados"
                 :key="docente.docente"
-                class="hover:bg-slate-50 transition-colors cursor-pointer"
+                class="hover:bg-slate-50 dark:hover:bg-white/[0.04] transition-colors cursor-pointer"
                 @click="abrirDetalle(docente)"
               >
                 <!-- Nro -->
-                <td class="px-4 py-3 text-slate-800 text-xs">{{ (paginaActual - 1) * porPagina + idx + 1 }}</td>
+                <td class="px-4 py-3 text-slate-800 dark:text-slate-300 text-xs">{{ (paginaActual - 1) * porPagina + idx + 1 }}</td>
 
                 <!-- Codigo -->
-                <td class="px-4 py-3 text-slate-800 font-mono text-2x1">{{ docente.docente }}</td>
+                <td class="px-4 py-3 text-slate-800 dark:text-slate-300 font-mono text-2x1">{{ docente.docente }}</td>
 
                 <!-- Nombre -->
                 <td class="px-4 py-3">
-                 <p class="font-semibold text-slate-800 leading-tight uppercase">{{ formatNombre(docente.nombre_docente) }}</p>
+                 <p class="font-semibold text-slate-800 dark:text-white leading-tight uppercase">{{ formatNombre(docente.nombre_docente) }}</p>
                 </td>
 
                 <!-- CI -->
-                <td class="px-4 py-3 text-slate-800 font-mono text-2x1">{{ docente.ci || '—' }}</td>
+                <td class="px-4 py-3 text-slate-800 dark:text-slate-300 font-mono text-2x1">{{ docente.ci || '—' }}</td>
 
                 <!-- Grado -->
                 <td class="px-4 py-3">
@@ -280,25 +280,25 @@
                 <!-- Contacto -->
                 <td class="px-4 py-3">
                   <div class="flex flex-col gap-1">
-                    <span v-if="docente.email || docente.email_institucional" class="text-slate-700 text-xs flex items-center gap-1">
+                    <span v-if="docente.email || docente.email_institucional" class="text-slate-700 dark:text-slate-300 text-xs flex items-center gap-1">
                       <svg class="w-3 h-3 text-violet-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
                       </svg>
                       <span class="truncate max-w-[140px]">{{ docente.email || docente.email_institucional }}</span>
                     </span>
-                    <span v-if="docente.celular_1" class="text-slate-700 text-xs flex items-center gap-1">
+                    <span v-if="docente.celular_1" class="text-slate-700 dark:text-slate-300 text-xs flex items-center gap-1">
                       <svg class="w-3 h-3 text-blue-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/>
                       </svg>
                       {{ docente.celular_1 }}
                     </span>
-                    <span v-if="docente.fijo_1" class="text-slate-700 text-xs flex items-center gap-1">
+                    <span v-if="docente.fijo_1" class="text-slate-700 dark:text-slate-300 text-xs flex items-center gap-1">
                       <svg class="w-3 h-3 text-teal-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/>
                       </svg>
                       {{ docente.fijo_1 }}
                     </span>
-                    <span v-if="!docente.email && !docente.email_institucional && !docente.celular_1 && !docente.fijo_1" class="text-slate-800 text-xs">
+                    <span v-if="!docente.email && !docente.email_institucional && !docente.celular_1 && !docente.fijo_1" class="text-slate-400 dark:text-slate-600 text-xs">
                       Sin contacto
                     </span>
                   </div>
@@ -309,14 +309,14 @@
                   <button
                     v-if="docente.horario_cargado"
                     @click.stop="verHorarioRapido(docente)"
-                    class="text-xs font-semibold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded-lg transition-colors inline-flex items-center gap-1"
+                    class="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 bg-blue-50 dark:bg-blue-500/10 hover:bg-blue-100 dark:hover:bg-blue-500/20 px-2 py-1 rounded-lg transition-colors inline-flex items-center gap-1"
                   >
                     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
                     </svg>
                     {{ }} materias
                   </button>
-                  <span v-else class="text-xs text-slate-400">Sin horario</span>
+                  <span v-else class="text-xs text-slate-400 dark:text-slate-500">Sin horario</span>
                 </td>
 
                 <!-- Acciones -->
@@ -324,7 +324,7 @@
                   <div class="flex items-center justify-center">
                     <button
                       @click="abrirDetalle(docente)"
-                      class="p-1.5 text-slate-800 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-colors"
+                      class="p-1.5 text-slate-800 dark:text-slate-300 hover:text-teal-600 dark:hover:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-500/10 rounded-lg transition-colors"
                       title="Ver detalle"
                     >
                       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -340,28 +340,28 @@
         </div>
 
         <!-- Paginación -->
-        <div class="px-4 py-3 border-t border-slate-100 flex items-center justify-between">
-          <p class="text-sm text-slate-500">
+        <div class="px-4 py-3 border-t border-slate-100 dark:border-white/[0.08] flex items-center justify-between">
+          <p class="text-sm text-slate-500 dark:text-slate-400">
             Mostrando {{ (paginaActual - 1) * porPagina + 1 }}–{{ Math.min(paginaActual * porPagina, docentesFiltrados.length) }} de {{ docentesFiltrados.length }}
           </p>
           <div class="flex items-center gap-1">
             <button
               @click="paginaActual--"
               :disabled="paginaActual === 1"
-              class="px-3 py-1.5 text-sm rounded-lg border border-slate-200 text-slate-600 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 transition-colors"
+              class="px-3 py-1.5 text-sm rounded-lg border border-slate-200 dark:border-white/[0.08] text-slate-600 dark:text-slate-300 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-white/[0.06] transition-colors"
             >Anterior</button>
             <template v-for="p in totalPaginas" :key="p">
               <button
                 v-if="Math.abs(p - paginaActual) <= 2 || p === 1 || p === totalPaginas"
                 @click="paginaActual = p"
-                :class="['w-8 h-8 text-sm rounded-lg transition-colors', p === paginaActual ? 'bg-teal-600 text-white' : 'border border-slate-200 text-slate-600 hover:bg-slate-50']"
+                :class="['w-8 h-8 text-sm rounded-lg transition-colors', p === paginaActual ? 'bg-teal-600 text-white' : 'border border-slate-200 dark:border-white/[0.08] text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/[0.06]']"
               >{{ p }}</button>
-              <span v-else-if="p === paginaActual - 3 || p === paginaActual + 3" class="px-1 text-slate-400">…</span>
+              <span v-else-if="p === paginaActual - 3 || p === paginaActual + 3" class="px-1 text-slate-400 dark:text-slate-500">…</span>
             </template>
             <button
               @click="paginaActual++"
               :disabled="paginaActual === totalPaginas"
-              class="px-3 py-1.5 text-sm rounded-lg border border-slate-200 text-slate-600 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 transition-colors"
+              class="px-3 py-1.5 text-sm rounded-lg border border-slate-200 dark:border-white/[0.08] text-slate-600 dark:text-slate-300 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-white/[0.06] transition-colors"
             >Siguiente</button>
           </div>
         </div>
@@ -373,32 +373,32 @@
           v-for="docente in docentesPaginados"
           :key="docente.docente"
           @click="abrirDetalle(docente)"
-          class="bg-white rounded-xl border border-slate-200 p-4 hover:shadow-md hover:border-teal-300 transition-all cursor-pointer group"
+          class="bg-white dark:bg-[#0f1729] rounded-xl border border-slate-200 dark:border-white/[0.08] p-4 hover:shadow-md hover:border-teal-300 dark:hover:border-teal-400/30 transition-all cursor-pointer group"
         >
           <div class="flex items-start gap-3 mb-3">
-            <div class="w-14 h-14 rounded-2xl bg-teal-50 border border-teal-100 flex items-center justify-center flex-shrink-0">
-              <i class="ti ti-user text-teal-600" style="font-size: 24px;" aria-hidden="true"></i>
+            <div class="w-14 h-14 rounded-2xl bg-teal-50 dark:bg-teal-500/10 border border-teal-100 dark:border-teal-400/20 flex items-center justify-center flex-shrink-0">
+              <i class="ti ti-user text-teal-600 dark:text-teal-400" style="font-size: 24px;" aria-hidden="true"></i>
             </div>
             <div class="min-w-0 flex-1">
-              <p class="font-semibold text-slate-800 text-sm leading-tight truncate uppercase group-hover:text-teal-700 transition-colors">{{ formatNombre(docente.nombre_docente) }}</p>
-              <p class="text-xs text-slate-400 font-mono">{{ docente.docente }}</p>
+              <p class="font-semibold text-slate-800 dark:text-white text-sm leading-tight truncate uppercase group-hover:text-teal-700 dark:group-hover:text-teal-400 transition-colors">{{ formatNombre(docente.nombre_docente) }}</p>
+              <p class="text-xs text-slate-400 dark:text-slate-500 font-mono">{{ docente.docente }}</p>
             </div>
           </div>
 
           <div class="space-y-1.5">
-            <div class="flex items-center gap-2 text-xs text-slate-600">
-              <svg class="w-3.5 h-3.5 text-slate-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div class="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
+              <svg class="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2"/>
               </svg>
               <span class="font-mono">{{ docente.ci || '—' }}</span>
             </div>
-            <div v-if="docente.email || docente.email_institucional" class="flex items-center gap-2 text-xs text-slate-600">
+            <div v-if="docente.email || docente.email_institucional" class="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
               <svg class="w-3.5 h-3.5 text-violet-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
               </svg>
               <span class="truncate">{{ docente.email || docente.email_institucional }}</span>
             </div>
-            <div v-if="docente.horario_cargado" class="flex items-center gap-2 text-xs text-blue-600">
+            <div v-if="docente.horario_cargado" class="flex items-center gap-2 text-xs text-blue-600 dark:text-blue-400">
               <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
               </svg>
@@ -406,19 +406,19 @@
             </div>
           </div>
 
-          <div class="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between">
+          <div class="mt-3 pt-3 border-t border-slate-100 dark:border-white/[0.08] flex items-center justify-between">
             <span :class="['text-xs px-2 py-0.5 rounded-full font-medium', badgeGrado(docente.grado_academico)]">
               {{ docente.grado_academico || 'Sin grado' }}
             </span>
-            <span v-if="docente.horas_total" class="text-xs text-slate-500">{{ docente.horas_total }}h/sem</span>
-            <span v-else class="text-xs text-amber-500">Sin horario</span>
+            <span v-if="docente.horas_total" class="text-xs text-slate-500 dark:text-slate-400">{{ docente.horas_total }}h/sem</span>
+            <span v-else class="text-xs text-amber-500 dark:text-amber-400">Sin horario</span>
           </div>
         </div>
 
         <div class="col-span-full flex items-center justify-center gap-2 mt-2" v-if="totalPaginas > 1">
-          <button @click="paginaActual--" :disabled="paginaActual === 1" class="px-4 py-2 text-sm rounded-lg border border-slate-200 text-slate-600 disabled:opacity-40 hover:bg-slate-50">Anterior</button>
-          <span class="text-sm text-slate-500">Página {{ paginaActual }} de {{ totalPaginas }}</span>
-          <button @click="paginaActual++" :disabled="paginaActual === totalPaginas" class="px-4 py-2 text-sm rounded-lg border border-slate-200 text-slate-600 disabled:opacity-40 hover:bg-slate-50">Siguiente</button>
+          <button @click="paginaActual--" :disabled="paginaActual === 1" class="px-4 py-2 text-sm rounded-lg border border-slate-200 dark:border-white/[0.08] text-slate-600 dark:text-slate-300 disabled:opacity-40 hover:bg-slate-50 dark:hover:bg-white/[0.06]">Anterior</button>
+          <span class="text-sm text-slate-500 dark:text-slate-400">Página {{ paginaActual }} de {{ totalPaginas }}</span>
+          <button @click="paginaActual++" :disabled="paginaActual === totalPaginas" class="px-4 py-2 text-sm rounded-lg border border-slate-200 dark:border-white/[0.08] text-slate-600 dark:text-slate-300 disabled:opacity-40 hover:bg-slate-50 dark:hover:bg-white/[0.06]">Siguiente</button>
         </div>
       </div>
     </div>

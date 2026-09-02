@@ -227,10 +227,13 @@ const { form } = props
 // ─── "No regenta materia en la FCE" ───
 const NO_REGENTA_LABEL = 'NO REGENTA MATERIA EN LA FCE'
 
+// ⚠️ FIX Caso 1: antes comparaba el TEXTO del nombre, lo que provocaba que
+// escribir manualmente "NO REGENTA MATERIA EN LA FCE" activara el check
+// solo. Ahora depende de una bandera exclusiva (`esNoRegenta`) que SOLO
+// pone el propio checkbox.
 const noRegentaFCE = computed(() =>
   form.materias.length === 1 &&
-  form.materias[0].nombre_materia === NO_REGENTA_LABEL &&
-  !form.materias[0].cod_materia
+  form.materias[0].esNoRegenta === true
 )
 
 function toggleNoRegenta(event) {
@@ -244,6 +247,7 @@ function toggleNoRegenta(event) {
       nota: null,
       detalle: null,
       docente: null,
+      esNoRegenta: true, // bandera exclusiva del checkbox
     }]
   } else {
     form.materias = []
@@ -251,9 +255,18 @@ function toggleNoRegenta(event) {
 }
 
 // ─── Manejo de materias ───
+// ⚠️ FIX Caso 2: la comparación de duplicado usaba SOLO cod_materia, así que
+// bloqueaba agregar la misma materia con otro grupo/docente. Ahora compara
+// cod_materia + grupo (dos grupos distintos de la misma materia son
+// entradas distintas, igual que ya se identifican en el listado con
+// `${codigo}-${grupo}`).
 function onAgregarMateria(materiaData) {
   const existe = materiaData.cod_materia
-    ? form.materias.some(m => m.cod_materia === materiaData.cod_materia)
+    ? form.materias.some(
+        m =>
+          m.cod_materia === materiaData.cod_materia &&
+          (m.grupo ?? null) === (materiaData.grupo ?? null)
+      )
     : false // las manuales ya se confirmaron en BuscadorMaterias
   if (existe) return
 

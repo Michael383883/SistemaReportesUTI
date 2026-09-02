@@ -381,6 +381,27 @@ class ClasificacionDocenteController extends Controller
 
             $docActual = DB::table('CLASIFICACION_DOCUMENTO')->where('ID_DOCUMENTO', $idDocumentoOriginal)->first();
 
+            // ── FIX: detecta si GESTION o PERIODO van a cambiar. Si cambian,
+            // hay que limpiar en GRUPOS lo que estaba aplicado con la
+            // combinación VIEJA antes de que se pierda la referencia (si no,
+            // GRUPOS queda con resolución/designación "fantasma" de una
+            // gestión/periodo que el documento ya no tiene, y el buscador
+            // de materias, que sí compara CLASIFICACION_DOCUMENTO al pie de
+            // la letra, deja de reconocerlas como "ya registradas"). ──
+            $gestionCambio = $docActual && (
+                (string) ($docActual->GESTION ?? '') !== (string) ($request->gestion ?? '')
+                || (string) ($docActual->PERIODO ?? '') !== (string) ($request->periodo ?? '')
+            );
+
+            $materiasAntiguasParaLimpiar = [];
+            if ($gestionCambio) {
+                $materiasAntiguasParaLimpiar = DB::table('CLASIFICACION_MATERIA')
+                    ->where('ID_DOCUMENTO', $idDocumentoOriginal)
+                    ->where('ID_CLASIFICACION_DOCENTE', $id)
+                    ->whereNotNull('COD_MATERIA')
+                    ->get();
+            }
+
             if ($request->hasFile('archivo_pdf')) {
                 $archivo = $request->file('archivo_pdf');
                 if (!$archivo->isValid()) {
@@ -430,6 +451,21 @@ class ClasificacionDocenteController extends Controller
                 ->where('ID_DOCUMENTO', $idDocumentoOriginal)
                 ->where('ID_CLASIFICACION_DOCENTE', $id)
                 ->delete();
+
+            // ── FIX: si cambió gestión/periodo, limpia en GRUPOS lo que había
+            // quedado aplicado bajo la combinación VIEJA (docente + gestión
+            // + periodo antiguos), usando las materias que capturamos arriba
+            // antes de borrarlas. No revierte la transacción si falla: solo
+            // se loguea, porque no es un dato crítico (se puede limpiar a
+            // mano después con "Quitar de GRUPOS" desde el listado). ──
+            if ($gestionCambio && !empty($materiasAntiguasParaLimpiar) && $docActual) {
+                $this->limpiarGruposPorMateriasAntiguas(
+                    $materiasAntiguasParaLimpiar,
+                    $ccd->COD_DOCENTE,
+                    $docActual->GESTION,
+                    $docActual->PERIODO
+                );
+            }
 
             $materiasInsertadas = 0;
             foreach ($materias as $i => $m) {
@@ -499,6 +535,11 @@ class ClasificacionDocenteController extends Controller
                 'titulo_actualizado' => $tituloActualizado,
                 'referencias_actualizadas' => $referenciasActualizadas,
                 'desvinculado' => $desvincular,
+                // ── FIX: informativo para el frontend. Si esto viene true,
+                // conviene avisar al usuario que vuelva a presionar
+                // "Aplicar en GRUPOS" para la gestión/periodo nueva, ya que
+                // la vieja se limpió pero la nueva no se aplica sola. ──
+                'gestion_o_periodo_cambio' => $gestionCambio,
             ]);
 
         } catch (\Illuminate\Validation\ValidationException $e) {
@@ -513,6 +554,79 @@ class ClasificacionDocenteController extends Controller
                 'archivo' => $e->getFile(),
             ]);
             return response()->json(['ok' => false, 'error' => $mensajeSeguro], 500);
+        }
+    }
+
+    /**
+     * ── FIX ──
+     * Limpia (pone en NULL) los campos RESOLUCION/DESIGNACION/TIPO_INGRESO en
+     * GRUPOS para un conjunto de materias "antiguas" de un documento. Se usa
+     * desde update() cuando la GESTION o el PERIODO de un documento cambian:
+     * sin esto, GRUPOS se queda con datos aplicados bajo la gestión/periodo
+     * viejos, mientras CLASIFICACION_DOCUMENTO ya tiene los nuevos — quedando
+     * las dos fuentes desincronizadas (el bug que motivó este fix: el Kardex
+     * en GRUPOS mostraba 2021/2 con resolución aplicada, pero el buscador de
+     * materias, que lee CLASIFICACION_DOCUMENTO literal, decía PERIODO=1 y
+     * no reconocía la materia como "ya registrada").
+     *
+     * No lanza excepción hacia arriba: si un UPDATE puntual falla, se loguea
+     * como warning y se continúa. El residuo que pudiera quedar en GRUPOS es
+     * recuperable a mano con "Quitar de GRUPOS" desde el listado.
+     *
+     * @param \Illuminate\Support\Collection|array $materiasAntiguas filas de CLASIFICACION_MATERIA (antes de borrarlas), deben incluir COD_MATERIA, COD_PLAN, GRUPO
+     * @param int|null $codDocente
+     * @param string|null $gestionAntigua
+     * @param string|null $periodoAntigua
+     */
+    private function limpiarGruposPorMateriasAntiguas($materiasAntiguas, $codDocente, $gestionAntigua, $periodoAntigua)
+    {
+        if (!$gestionAntigua || !$codDocente) {
+            // Sin gestión antigua o sin docente no hay forma segura de acotar
+            // el UPDATE a las filas correctas de GRUPOS; mejor no tocar nada.
+            return;
+        }
+
+        foreach ($materiasAntiguas as $m) {
+            if (empty($m->COD_MATERIA) || empty($m->COD_PLAN)) {
+                // Materias manuales (sin código) nunca se aplicaron a GRUPOS.
+                continue;
+            }
+
+            try {
+                DB::update("
+                    UPDATE g
+                    SET
+                        g.RESOLUCION   = NULL,
+                        g.DESIGNACION  = NULL,
+                        g.TIPO_INGRESO = NULL
+                    FROM GRUPOS g
+                    WHERE
+                        g.[PLAN]    COLLATE Modern_Spanish_CI_AS = ? COLLATE Modern_Spanish_CI_AS
+                        AND g.MATERIA COLLATE Modern_Spanish_CI_AS = ? COLLATE Modern_Spanish_CI_AS
+                        AND g.[GRUPO] COLLATE Modern_Spanish_CI_AS = ? COLLATE Modern_Spanish_CI_AS
+                        AND g.DOCENTE = ?
+                        AND g.ANIO    = CAST(? AS NUMERIC(5,0))
+                        AND g.PERIODO COLLATE Modern_Spanish_CI_AS = ? COLLATE Modern_Spanish_CI_AS
+                        AND g.[TIPO]  COLLATE Modern_Spanish_CI_AS = 'N'
+                ", [
+                    $m->COD_PLAN,
+                    $m->COD_MATERIA,
+                    (string) $m->GRUPO,
+                    $codDocente,
+                    $gestionAntigua,
+                    $periodoAntigua,
+                ]);
+            } catch (\Throwable $e) {
+                Log::warning('No se pudo limpiar GRUPOS por cambio de gestión/periodo', [
+                    'cod_materia' => $m->COD_MATERIA,
+                    'cod_plan' => $m->COD_PLAN,
+                    'grupo' => $m->GRUPO,
+                    'cod_docente' => $codDocente,
+                    'gestion_antigua' => $gestionAntigua,
+                    'periodo_antigua' => $periodoAntigua,
+                    'error' => $e->getMessage(),
+                ]);
+            }
         }
     }
 
@@ -566,7 +680,6 @@ class ClasificacionDocenteController extends Controller
         return response()->json(['ok' => true, 'mensaje' => 'Documento eliminado correctamente']);
     }
 
-    // DELETE /clasificaciones/docente/{idClasificacionDocente}
     // DELETE /clasificaciones/docente/{idClasificacionDocente}
     public function destroyDocente($idClasificacionDocente)
     {

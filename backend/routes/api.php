@@ -65,15 +65,16 @@ Route::prefix('auth')->group(function () {
 });
 
 
-Route::prefix('periodos-academicos')->group(function () {
-    Route::get('/', [PeriodoAcademicoController::class, 'index']);
-    Route::put('/', [PeriodoAcademicoController::class, 'actualizarMasivo']);
-    Route::post('/restaurar', [PeriodoAcademicoController::class, 'restaurarValoresPredeterminados']);
+Route::middleware('auth:sanctum')->group(function () {
+    Route::prefix('periodos-academicos')->group(function () {
+        Route::get('/', [PeriodoAcademicoController::class, 'index']);
+        Route::put('/', [PeriodoAcademicoController::class, 'actualizarMasivo']);
+        Route::post('/restaurar', [PeriodoAcademicoController::class, 'restaurarValoresPredeterminados']);
+    });
+
+    Route::post('/periodos-academicos/{id}/bloquear', [PeriodoAcademicoController::class, 'bloquear']);
+    Route::post('/periodos-academicos/{id}/desbloquear', [PeriodoAcademicoController::class, 'desbloquear']);
 });
-
-Route::post('/periodos-academicos/{id}/bloquear', [PeriodoAcademicoController::class, 'bloquear']);
-Route::post('/periodos-academicos/{id}/desbloquear', [PeriodoAcademicoController::class, 'desbloquear']);
-
 
 /*
 |--------------------------------------------------------------------------
@@ -102,18 +103,24 @@ Route::middleware('auth:sanctum')->group(function () {
 | BASE DE DATOS / MIGRACIONES
 |--------------------------------------------------------------------------
 */
-Route::prefix('database')->group(function () {
-    Route::get('/status', [\App\Http\Controllers\Api\DatabaseController::class, 'status']);
-    Route::get('/tables', [\App\Http\Controllers\Api\DatabaseController::class, 'tables']);
+Route::middleware('auth:sanctum')->group(function () {
+    Route::prefix('database')->group(function () {
+        Route::get('/status', [\App\Http\Controllers\Api\DatabaseController::class, 'status']);
+        Route::get('/tables', [\App\Http\Controllers\Api\DatabaseController::class, 'tables']);
+    });
 });
+
+
 /*
 |--------------------------------------------------------------------------
 | DASHBOARD ADMIN
 |--------------------------------------------------------------------------
 */
-Route::prefix('admin/dashboard')->group(function () {
-    Route::get('/kpis', [DashboardAdminController::class, 'kpis']);
-    Route::post('/refresh', [DashboardAdminController::class, 'refreshKpis']);
+Route::middleware('auth:sanctum')->group(function () {
+    Route::prefix('admin/dashboard')->group(function () {
+        Route::get('/kpis', [DashboardAdminController::class, 'kpis']);
+        Route::post('/refresh', [DashboardAdminController::class, 'refreshKpis']);
+    });
 });
 
 
@@ -122,79 +129,89 @@ Route::prefix('admin/dashboard')->group(function () {
 | DOCENTES
 |--------------------------------------------------------------------------
 */
-Route::apiResource('docentes', DocenteController::class);
+Route::middleware('auth:sanctum')->group(function () {
+    Route::apiResource('docentes', DocenteController::class);
 
-Route::post('/reporte-docente', [ReporteDocenteController::class, 'materiasDictadasCompartidas']);
-Route::get('/reporte-horario', [ReporteDocenteController::class, 'horario']);
-Route::post('/reporte-docente2', [ReporteDocenteController::class, 'materiasDictadasCompartidas']);
+    Route::post('/reporte-docente', [ReporteDocenteController::class, 'materiasDictadasCompartidas']);
+    Route::get('/reporte-horario', [ReporteDocenteController::class, 'horario']);
+    Route::post('/reporte-docente2', [ReporteDocenteController::class, 'materiasDictadasCompartidas']);
 
-Route::get('reporte-docentes/tipos-titulo', [ReporteDocenteController::class, 'tiposTitulo']);
-Route::put('/reporte-docentes/tipos-titulo', [ClasificacionDocenteController::class, 'actualizarTipoTitulo']);
-Route::get('reporte-docentes/con-titulo', [ReporteDocenteController::class, 'docentesConTitulo']);
-Route::get('reporte-docentes/con-titulo/excel', [ReporteDocenteController::class, 'excel']);
+    Route::get('reporte-docentes/tipos-titulo', [ReporteDocenteController::class, 'tiposTitulo']);
+    Route::put('/reporte-docentes/tipos-titulo', [ClasificacionDocenteController::class, 'actualizarTipoTitulo']);
+    Route::get('reporte-docentes/con-titulo', [ReporteDocenteController::class, 'docentesConTitulo']);
+    Route::get('reporte-docentes/con-titulo/excel', [ReporteDocenteController::class, 'excel']);
+});
+
+
 /*
 |--------------------------------------------------------------------------
 | HORARIOS DE DOCENTES
 |--------------------------------------------------------------------------
 */
-Route::prefix('horarios')->group(function () {
-    Route::get('/docentes', [HorarioDocenteController::class, 'index']);
-    Route::post('/docentes', [HorarioDocenteController::class, 'index']); // acepta JSON body
-    Route::get('/docentes/{codigo_docente}', [HorarioDocenteController::class, 'show']);
+Route::middleware('auth:sanctum')->group(function () {
+    Route::prefix('horarios')->group(function () {
+        Route::get('/docentes', [HorarioDocenteController::class, 'index']);
+        Route::post('/docentes', [HorarioDocenteController::class, 'index']); // acepta JSON body
+        Route::get('/docentes/{codigo_docente}', [HorarioDocenteController::class, 'show']);
+    });
+
+    // Carga horaria docentes (Admin)
+    Route::prefix('admin/horarios')->group(function () {
+
+        // Rutas específicas primero (deben ir antes de las dinámicas)
+        Route::get('/resumen/listado', [HorarioAdminController::class, 'resumen']);
+        Route::get('/resumen/docente/{docente}', [HorarioAdminController::class, 'resumenDocente']);
+
+        // Inscritos
+        Route::get('/inscritos/listado', [HorarioAdminController::class, 'listaInscritos']);
+        Route::get('/inscritos/docente/{docente}', [HorarioAdminController::class, 'listaInscritosDocente']);
+
+        // Dinámicas al final
+        Route::get('/', [HorarioAdminController::class, 'index']);
+        Route::get('/{docente}', [HorarioAdminController::class, 'show']);
+    });
 });
-
-// Carga horaria docentes (Admin)
-Route::prefix('admin/horarios')->group(function () {
-
-    // Rutas específicas primero (deben ir antes de las dinámicas)
-    Route::get('/resumen/listado', [HorarioAdminController::class, 'resumen']);
-    Route::get('/resumen/docente/{docente}', [HorarioAdminController::class, 'resumenDocente']);
-
-    // Inscritos
-    Route::get('/inscritos/listado', [HorarioAdminController::class, 'listaInscritos']);
-    Route::get('/inscritos/docente/{docente}', [HorarioAdminController::class, 'listaInscritosDocente']);
-
-    // Dinámicas al final
-    Route::get('/', [HorarioAdminController::class, 'index']);
-    Route::get('/{docente}', [HorarioAdminController::class, 'show']);
-});
-
 
 /*
 |--------------------------------------------------------------------------
 | RESOLUCIONES
 |--------------------------------------------------------------------------
 */
-Route::get('/resoluciones', [ResolucionPdfController::class, 'index']);
-Route::get('/resoluciones/listado', [ResolucionDetalleController::class, 'listado']);
-Route::get('/resoluciones/por-numero', [ResolucionPdfController::class, 'porNumero']);
-Route::post('/resoluciones', [ResolucionPdfController::class, 'store']);
-Route::get('/resoluciones/{id}', [ResolucionPdfController::class, 'show']);
-Route::get('/resoluciones/{id}/pdf', [ResolucionPdfController::class, 'descargar']);
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/resoluciones', [ResolucionPdfController::class, 'index']);
+    Route::get('/resoluciones/listado', [ResolucionDetalleController::class, 'listado']);
+    Route::get('/resoluciones/por-numero', [ResolucionPdfController::class, 'porNumero']);
+    Route::post('/resoluciones', [ResolucionPdfController::class, 'store']);
+    Route::get('/resoluciones/{id}', [ResolucionPdfController::class, 'show']);
+    Route::get('/resoluciones/{id}/pdf', [ResolucionPdfController::class, 'descargar']);
 
-Route::post('/resoluciones/{id}', [ResolucionPdfController::class, 'update']);
+    Route::post('/resoluciones/{id}', [ResolucionPdfController::class, 'update']);
 
-// Detalles por resolución
-Route::get('/resoluciones/{id}/detalles', [ResolucionDetalleController::class, 'index']);
-Route::post('/resoluciones/{id}/detalles', [ResolucionDetalleController::class, 'store']);
-Route::post('/resoluciones/{id}/detalles/bulk', [ResolucionDetalleController::class, 'storeBulk']);
-Route::post('/resoluciones/{id}/aplicar-grupos', [ResolucionDetalleController::class, 'aplicarEnGrupos']);
+    // Detalles por resolución
+    Route::get('/resoluciones/{id}/detalles', [ResolucionDetalleController::class, 'index']);
+    Route::post('/resoluciones/{id}/detalles', [ResolucionDetalleController::class, 'store']);
+    Route::post('/resoluciones/{id}/detalles/bulk', [ResolucionDetalleController::class, 'storeBulk']);
+    Route::post('/resoluciones/{id}/aplicar-grupos', [ResolucionDetalleController::class, 'aplicarEnGrupos']);
 
-// Detalle individual
-Route::get('/detalles/{id}', [ResolucionDetalleController::class, 'show']);
+    // Detalle individual
+    Route::get('/detalles/{id}', [ResolucionDetalleController::class, 'show']);
 
-Route::delete('resoluciones/{id}', [ResolucionPdfController::class, 'destroy']);
-Route::put('resoluciones/{id}/quitar', [ResolucionDetalleController::class, 'quitarDeGrupos']);
+    Route::delete('resoluciones/{id}', [ResolucionPdfController::class, 'destroy']);
+    Route::put('resoluciones/{id}/quitar', [ResolucionDetalleController::class, 'quitarDeGrupos']);
+});
+
 /*
 |--------------------------------------------------------------------------
 | SECRETARÍA
 |--------------------------------------------------------------------------
 */
-Route::prefix('secretaria')->group(function () {
-    Route::get('/docentes', [SecretariaController::class, 'getDocentes']);
-    Route::get('/docentes/{codigo}', [SecretariaController::class, 'getDocente']);
-    Route::get('/docentes/{codigo}/horario', [SecretariaController::class, 'getHorarioDocente']);
-    Route::get('/dashboard/kpis', [SecretariaController::class, 'getDashboardKPIs']);
+Route::middleware('auth:sanctum')->group(function () {
+    Route::prefix('secretaria')->group(function () {
+        Route::get('/docentes', [SecretariaController::class, 'getDocentes']);
+        Route::get('/docentes/{codigo}', [SecretariaController::class, 'getDocente']);
+        Route::get('/docentes/{codigo}/horario', [SecretariaController::class, 'getHorarioDocente']);
+        Route::get('/dashboard/kpis', [SecretariaController::class, 'getDashboardKPIs']);
+    });
 });
 
 
@@ -203,65 +220,69 @@ Route::prefix('secretaria')->group(function () {
 | TALLERES Y ESTUDIANTES
 |--------------------------------------------------------------------------
 */
-Route::get('/talleres', [TallerEstudiantesController::class, 'index']);
-Route::get('/talleres/{materia}', [TallerEstudiantesController::class, 'materia']);
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/talleres', [TallerEstudiantesController::class, 'index']);
+    Route::get('/talleres/{materia}', [TallerEstudiantesController::class, 'materia']);
 
-Route::get('/estudiantes/{codigo}/contacto', [TallerEstudiantesController::class, 'contacto'])
-    ->name('estudiantes.contacto');
+    Route::get('/estudiantes/{codigo}/contacto', [TallerEstudiantesController::class, 'contacto'])
+        ->name('estudiantes.contacto');
 
-Route::get('/estudiantes-inscritos', [EstudianteInscritoController::class, 'index']);
-
-
-Route::post('/grupos/tipo-ingreso/bulk', [GrupoTipoIngresoController::class, 'bulkUpdate']);
+    Route::get('/estudiantes-inscritos', [EstudianteInscritoController::class, 'index']);
 
 
-//INSCRITOS ACOMODAR 
-//Route::get('/estudiantes-inscritos/resumen-grupo', [EstudianteInscritoController::class, 'resumenPorGrupo']);
-Route::get('/admin/horarios/inscritos/agrupados/aprobados-reprobados', [EstudianteInscritoController::class, 'resumenPorGrupo']);
+    Route::post('/grupos/tipo-ingreso/bulk', [GrupoTipoIngresoController::class, 'bulkUpdate']);
 
-Route::get('/admin/horarios/inscritos/aprobados-reprobados', [EstudianteInscritoController::class, 'resumenAprobadosReprobados']);
+
+    //INSCRITOS ACOMODAR 
+    //Route::get('/estudiantes-inscritos/resumen-grupo', [EstudianteInscritoController::class, 'resumenPorGrupo']);
+    Route::get('/admin/horarios/inscritos/agrupados/aprobados-reprobados', [EstudianteInscritoController::class, 'resumenPorGrupo']);
+
+    Route::get('/admin/horarios/inscritos/aprobados-reprobados', [EstudianteInscritoController::class, 'resumenAprobadosReprobados']);
+});
 
 /*
 |--------------------------------------------------------------------------
 | DIGITALSIACION 2 ARCHIVOS 
 |--------------------------------------------------------------------------
 */
-Route::get('/clasificaciones', [ClasificacionDocenteController::class, 'index']);
-Route::get('/clasificaciones/{id}', [ClasificacionDocenteController::class, 'show'])
-    ->where('id', '[0-9]+');
-Route::post('/clasificaciones', [ClasificacionDocenteController::class, 'store']);
-Route::get('/clasificaciones/{id}/pdf', [ClasificacionDocenteController::class, 'descargar'])
-    ->where('id', '[0-9]+');
-Route::delete('/clasificaciones/{id}', [ClasificacionDocenteController::class, 'destroy'])
-    ->where('id', '[0-9]+');
-Route::get('/categorias', [ClasificacionDocenteController::class, 'categorias']);
-Route::put('/categorias', [ClasificacionDocenteController::class, 'actualizarCategoria']);
-// Reportes
-Route::get('/reportes/clasificacion', [ReporteClasificacionController::class, 'listado']);
-Route::get('/reportes/clasificacion/docente/{cod_docente}', [ReporteClasificacionController::class, 'porDocente'])
-    ->where('cod_docente', '[0-9]+');
-Route::get('/reportes/clasificacion/por-referencia', [ReporteClasificacionController::class, 'porReferencia']);
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/clasificaciones', [ClasificacionDocenteController::class, 'index']);
+    Route::get('/clasificaciones/{id}', [ClasificacionDocenteController::class, 'show'])
+        ->where('id', '[0-9]+');
+    Route::post('/clasificaciones', [ClasificacionDocenteController::class, 'store']);
+    Route::get('/clasificaciones/{id}/pdf', [ClasificacionDocenteController::class, 'descargar'])
+        ->where('id', '[0-9]+');
+    Route::delete('/clasificaciones/{id}', [ClasificacionDocenteController::class, 'destroy'])
+        ->where('id', '[0-9]+');
+    Route::get('/categorias', [ClasificacionDocenteController::class, 'categorias']);
+    Route::put('/categorias', [ClasificacionDocenteController::class, 'actualizarCategoria']);
+    // Reportes
+    Route::get('/reportes/clasificacion', [ReporteClasificacionController::class, 'listado']);
+    Route::get('/reportes/clasificacion/docente/{cod_docente}', [ReporteClasificacionController::class, 'porDocente'])
+        ->where('cod_docente', '[0-9]+');
+    Route::get('/reportes/clasificacion/por-referencia', [ReporteClasificacionController::class, 'porReferencia']);
 
-Route::delete('/clasificaciones/docente/{idClasificacionDocente}', [ClasificacionDocenteController::class, 'destroyDocente'])
-    ->where('idClasificacionDocente', '[0-9]+');
+    Route::delete('/clasificaciones/docente/{idClasificacionDocente}', [ClasificacionDocenteController::class, 'destroyDocente'])
+        ->where('idClasificacionDocente', '[0-9]+');
 
-Route::put('/clasificaciones/{id}', [ClasificacionDocenteController::class, 'update']);
+    Route::put('/clasificaciones/{id}', [ClasificacionDocenteController::class, 'update']);
 
-Route::get(
-    '/reportes/clasificacion/id-por-referencia',
-    [ReporteClasificacionController::class, 'idPorReferencia']
-);
+    Route::get(
+        '/reportes/clasificacion/id-por-referencia',
+        [ReporteClasificacionController::class, 'idPorReferencia']
+    );
 
-Route::get('clasificaciones/docente/{codDocente}/categorias', [ClasificacionDocenteController::class, 'categoriasDocente']);
-Route::get('clasificaciones/docente/{codDocente}/documentos', [ClasificacionDocenteController::class, 'documentosDocente']);
+    Route::get('clasificaciones/docente/{codDocente}/categorias', [ClasificacionDocenteController::class, 'categoriasDocente']);
+    Route::get('clasificaciones/docente/{codDocente}/documentos', [ClasificacionDocenteController::class, 'documentosDocente']);
 
-// Aplicar / quitar clasificación en GRUPOS
-// (id = ID_DOCUMENTO; solo tiene efecto si el documento tiene CLASIFICACION_MATERIA)
-Route::put('/clasificaciones/{id}/aplicar', [ClasificacionDocenteController::class, 'aplicarEnGrupos'])
-    ->where('id', '[0-9]+');
-Route::put('/clasificaciones/{id}/quitar', [ClasificacionDocenteController::class, 'quitarDeGrupos'])
-    ->where('id', '[0-9]+');
-Route::get('/clasificaciones/materias-registradas', [ClasificacionDocenteController::class, 'materiasRegistradas']);
+    // Aplicar / quitar clasificación en GRUPOS
+    // (id = ID_DOCUMENTO; solo tiene efecto si el documento tiene CLASIFICACION_MATERIA)
+    Route::put('/clasificaciones/{id}/aplicar', [ClasificacionDocenteController::class, 'aplicarEnGrupos'])
+        ->where('id', '[0-9]+');
+    Route::put('/clasificaciones/{id}/quitar', [ClasificacionDocenteController::class, 'quitarDeGrupos'])
+        ->where('id', '[0-9]+');
+    Route::get('/clasificaciones/materias-registradas', [ClasificacionDocenteController::class, 'materiasRegistradas']);
+});
 
 
 /*
@@ -269,39 +290,44 @@ Route::get('/clasificaciones/materias-registradas', [ClasificacionDocenteControl
 | MATERIASS 
 |--------------------------------------------------------------------------
 */
-
-Route::get('/materias', [MateriaController::class, 'index']);
-Route::get('/materias/periodos', [MateriaController::class, 'periodos']);
-Route::get('/materias/docente', [MateriaController::class, 'porDocente']);
-
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/materias', [MateriaController::class, 'index']);
+    Route::get('/materias/periodos', [MateriaController::class, 'periodos']);
+    Route::get('/materias/docente', [MateriaController::class, 'porDocente']);
+});
 
 /*
 |--------------------------------------------------------------------------
 | referencias 
 |--------------------------------------------------------------------------
 */
-Route::get('/referencias', [ReferenciaController::class, 'index']);
-Route::get('/referencias/anios', [ReferenciaController::class, 'anios']);
-
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/referencias', [ReferenciaController::class, 'index']);
+    Route::get('/referencias/anios', [ReferenciaController::class, 'anios']);
+});
 
 // Reporte Excel
-Route::get('/reportes/docentes-clasificados/excel', [ReporteExcelController::class, 'generarListadoDocentes']);
-Route::get('/reportes/docentes-clasificados/preview', [ReporteExcelController::class, 'previsualizar']);
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/reportes/docentes-clasificados/excel', [ReporteExcelController::class, 'generarListadoDocentes']);
+    Route::get('/reportes/docentes-clasificados/preview', [ReporteExcelController::class, 'previsualizar']);
 
-Route::get('/reportes/docentes-activos', [ReporteExcelController::class, 'obtenerDocentesActivos']);
-Route::get('/reportes/carga-horaria-docentes', [ReporteExcelController::class, 'obtenerCargaHorariaDocentes']);
-Route::post('/reportes/docentes-clasificados/excel-personalizado', [ReporteExcelController::class, 'generarListadoDocentesDesdeDatos']);
-
+    Route::get('/reportes/docentes-activos', [ReporteExcelController::class, 'obtenerDocentesActivos']);
+    Route::get('/reportes/carga-horaria-docentes', [ReporteExcelController::class, 'obtenerCargaHorariaDocentes']);
+    Route::post('/reportes/docentes-clasificados/excel-personalizado', [ReporteExcelController::class, 'generarListadoDocentesDesdeDatos']);
+});
 // routes/api.php
 Route::pattern('tipoCategoria', 'documento|titulo|kardex');
 
-Route::get('/categorias-clasificacion/{tipoCategoria}', [CategoriaClasificacionController::class, 'index']);
-Route::post('/categorias-clasificacion/{tipoCategoria}', [CategoriaClasificacionController::class, 'store']);
-Route::put('/categorias-clasificacion/{tipoCategoria}', [CategoriaClasificacionController::class, 'update']);
-Route::delete('/categorias-clasificacion/{tipo}', [CategoriaClasificacionController::class, 'destroy']);
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/categorias-clasificacion/{tipoCategoria}', [CategoriaClasificacionController::class, 'index']);
+    Route::post('/categorias-clasificacion/{tipoCategoria}', [CategoriaClasificacionController::class, 'store']);
+    Route::put('/categorias-clasificacion/{tipoCategoria}', [CategoriaClasificacionController::class, 'update']);
+    Route::delete('/categorias-clasificacion/{tipo}', [CategoriaClasificacionController::class, 'destroy']);
+});
 
-
-Route::prefix('indices')->group(function () {
-    Route::post('/crear', [DatabaseIndexController::class, 'crearIndices']);
-    Route::get('/verificar', [DatabaseIndexController::class, 'verificarIndices']);
+Route::middleware('auth:sanctum')->group(function () {
+    Route::prefix('indices')->group(function () {
+        Route::post('/crear', [DatabaseIndexController::class, 'crearIndices']);
+        Route::get('/verificar', [DatabaseIndexController::class, 'verificarIndices']);
+    });
 });

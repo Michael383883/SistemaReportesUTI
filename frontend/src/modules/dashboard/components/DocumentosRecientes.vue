@@ -27,14 +27,20 @@
 
     <!-- Lista -->
     <div v-else class="grid grid-cols-1 sm:grid-cols-2 gap-1">
-      <a   
+      <!--
+        Antes: <a :href="urlPdf(doc.id)" target="_blank">.
+        /api/clasificaciones/{id}/pdf ahora está protegida con auth:sanctum.
+        Un <a href> normal del navegador NO manda el header Authorization,
+        así que siempre iba a dar 401. Ahora es un botón que pide el PDF
+        con axios (con token) y lo abre como blob.
+      -->
+      <button
         v-for="(doc, index) in items"
         :key="doc.id"
-        :href="urlPdf(doc.id)"
-        target="_blank"
-        rel="noopener"
+        @click="verPdf(doc.id)"
+        :disabled="abriendoId === doc.id"
         :class="[
-          'flex items-center gap-3 px-2 py-2.5 rounded-xl transition-colors text-left w-full cursor-pointer',
+          'flex items-center gap-3 px-2 py-2.5 rounded-xl transition-colors text-left w-full cursor-pointer disabled:opacity-60 disabled:cursor-wait',
           index % 2 === 0 ? 'bg-white hover:bg-amber-50' : 'bg-slate-50 hover:bg-amber-50'
         ]"
         :title="doc.archivo ?? 'Documento'"
@@ -52,14 +58,16 @@
           </p>
         </div>
         <span class="text-[11px] text-slate-800 whitespace-nowrap flex-shrink-0">
-          {{ formatDate(doc.fecha) }}
+          {{ abriendoId === doc.id ? 'Abriendo...' : formatDate(doc.fecha) }}
         </span>
-      </a>
+      </button>
     </div>
   </div>
 </template>
 
 <script setup>
+import { ref } from 'vue'
+import axios from 'axios'
 import { ArrowRight, FileText } from 'lucide-vue-next'
 
 const API_BASE = import.meta.env.VITE_API_URL ?? ''
@@ -69,8 +77,33 @@ defineProps({
   loading: { type: Boolean, default: false },
 })
 
-function urlPdf(id, modo = 'inline') {
-  return `${API_BASE}/api/clasificaciones/${id}/pdf?modo=${modo}`
+// id del documento que se está abriendo ahora mismo, para deshabilitar
+// su botón mientras carga y evitar doble click.
+const abriendoId = ref(null)
+
+async function verPdf(id) {
+  if (abriendoId.value) return
+  abriendoId.value = id
+  try {
+    const token = localStorage.getItem('token')
+    const response = await axios.get(`${API_BASE}/api/clasificaciones/${id}/pdf`, {
+      params: { modo: 'inline' },
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      responseType: 'blob',
+    })
+
+    const blobUrl = URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }))
+    window.open(blobUrl, '_blank')
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000)
+  } catch (e) {
+    console.error('No se pudo abrir el PDF:', e.response?.data ?? e.message)
+    alert(e?.response?.status === 401
+      ? 'Tu sesión expiró. Vuelve a iniciar sesión.'
+      : 'No se pudo abrir el documento'
+    )
+  } finally {
+    abriendoId.value = null
+  }
 }
 
 function truncate(str, len) {

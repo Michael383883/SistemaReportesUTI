@@ -1,4 +1,4 @@
-import { ref, computed } from 'vue'
+﻿import { ref, computed } from 'vue'
 import axios from 'axios'
 
 const API_BASE = import.meta.env.VITE_API_URL
@@ -40,12 +40,63 @@ export function useResolucionListado() {
 
     let debounceId = null
 
-    function urlVer(id) {
-        return `${API_BASE}/api/resoluciones/${id}/pdf`
+    // ─────────────────────────────────────────────────────────────
+    // Ver / Descargar PDF vía axios (blob), en vez de <a href> directo,
+    // para que el token Bearer viaje en el header de la petición.
+    // ─────────────────────────────────────────────────────────────
+    const abriendoPdf = ref(false)
+    const descargandoPdf = ref(false)
+
+    async function verPdf(id) {
+        abriendoPdf.value = true
+        error.value = ''
+        try {
+            const { data } = await axios.get(
+                `${API_BASE}/api/resoluciones/${id}/pdf`,
+                {
+                    headers: authHeaders(),
+                    responseType: 'blob',
+                }
+            )
+            const blobUrl = URL.createObjectURL(new Blob([data], { type: 'application/pdf' }))
+            window.open(blobUrl, '_blank')
+            setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000)
+        } catch (e) {
+            error.value = e.response?.status === 401
+                ? 'Tu sesión expiró. Inicia sesión nuevamente.'
+                : 'No se pudo abrir el PDF.'
+        } finally {
+            abriendoPdf.value = false
+        }
     }
 
-    function urlDescargar(id) {
-        return `${API_BASE}/api/resoluciones/${id}/pdf?modo=descargar`
+    async function descargarPdf(id, nombreArchivo = `resolucion-${id}.pdf`) {
+        descargandoPdf.value = true
+        error.value = ''
+        try {
+            const { data } = await axios.get(
+                `${API_BASE}/api/resoluciones/${id}/pdf`,
+                {
+                    headers: authHeaders(),
+                    params: { modo: 'descargar' },
+                    responseType: 'blob',
+                }
+            )
+            const blobUrl = URL.createObjectURL(new Blob([data], { type: 'application/pdf' }))
+            const link = document.createElement('a')
+            link.href = blobUrl
+            link.download = nombreArchivo
+            document.body.appendChild(link)
+            link.click()
+            link.remove()
+            URL.revokeObjectURL(blobUrl)
+        } catch (e) {
+            error.value = e.response?.status === 401
+                ? 'Tu sesión expiró. Inicia sesión nuevamente.'
+                : 'No se pudo descargar el PDF.'
+        } finally {
+            descargandoPdf.value = false
+        }
     }
 
     function formatearFecha(fecha) {
@@ -214,8 +265,10 @@ export function useResolucionListado() {
         busqueda,
         anioSeleccionado,
         aniosDisponibles,
-        urlVer,
-        urlDescargar,
+        verPdf,
+        descargarPdf,
+        abriendoPdf,
+        descargandoPdf,
         formatearFecha,
         cargarListado,
         buscar,

@@ -5,6 +5,16 @@ import axios from 'axios'
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api'
 
+// /api/admin/horarios/resumen/* ahora está protegido con auth:sanctum.
+// Antes estas llamadas no mandaban ningún header y devolvían 401 siempre.
+function authHeaders(extra = {}) {
+    const token = localStorage.getItem('token')
+    return {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...extra,
+    }
+}
+
 export function useHorarioResumen() {
     const docentes = ref([])
     const docenteSeleccionado = ref(null)
@@ -22,7 +32,8 @@ export function useHorarioResumen() {
                     params: {
                         anio,
                         periodo,
-                    }
+                    },
+                    headers: authHeaders(),
                 }
             )
 
@@ -59,7 +70,8 @@ export function useHorarioResumen() {
                     params: {
                         anio,
                         periodo,
-                    }
+                    },
+                    headers: authHeaders(),
                 }
             )
 
@@ -71,7 +83,7 @@ export function useHorarioResumen() {
             } else {
                 docenteSeleccionado.value = null
                 docentes.value = []
-                error.value = `No se encontraron horarios para el docente en la gestión ${anio} período ${periodo}`
+                error.value = `No se encontraron horariospara el docente en la gestión ${anio} período ${periodo}`
             }
 
         } catch (e) {

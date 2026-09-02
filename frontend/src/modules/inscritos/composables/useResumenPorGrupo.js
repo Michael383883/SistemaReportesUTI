@@ -7,7 +7,18 @@
 import { ref } from 'vue'
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? ''
-const MAX_PAGINAS_SEGURIDAD = 50 // evita loops infinitos si algo falla en el backend
+const MAX_PAGINAS_SEGURIDAD = 50 // evita loops infinitossi algo falla en el backend
+
+// /api/admin/horarios/inscritos/agrupados/aprobados-reprobados ahora está
+// protegida con auth:sanctum. Antes este fetch no mandaba ningún header,
+// así que devolvía 401 siempre.
+function authHeaders(extra = {}) {
+    const token = localStorage.getItem('token')
+    return {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...extra,
+    }
+}
 
 export function useResumenPorGrupo() {
     const data = ref([])
@@ -42,7 +53,8 @@ export function useResumenPorGrupo() {
                 })
 
                 const res = await fetch(
-                    `${BASE_URL}/api/admin/horarios/inscritos/agrupados/aprobados-reprobados?${params.toString()}`
+                    `${BASE_URL}/api/admin/horarios/inscritos/agrupados/aprobados-reprobados?${params.toString()}`,
+                    { headers: authHeaders() }
                 )
                 if (!res.ok) throw new Error(`Error ${res.status}: ${res.statusText}`)
 
