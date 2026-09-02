@@ -938,8 +938,12 @@ function badgeCategoria(categoria) {
   if (categoria === 'DOCENTES TITULARES')  return 'bg-emerald-50 text-emerald-700'
   if (categoria === 'DOCENTES TEMPORALES') return 'bg-amber-50 text-amber-700'
   if (categoria === 'EXAMEN SUFICIENCIA') return 'bg-blue-50 text-blue-700'
-  if (categoria === 'ACEFALA') return 'bg-gray-50 text-gray-700'
+  if (categoria === 'ACÉFALA') return 'bg-gray-50 text-gray-700'
   if (categoria === 'SIN CATEGORIA') return 'bg-orange-50 text-red-700'
+  if (categoria === 'CERTIFICADO') return 'bg-violet-50 text-violet-700'
+  if (categoria === 'CONCURSO DE MÉRITO') return 'bg-fuchsia-50 text-fuchsia-700'
+  if (categoria === 'PLANILLA DE CALIFICACIÓN') return 'bg-cyan-50 text-cyan-700' 
+
 
   return 'bg-gray-50 text-gray-600'
 }
