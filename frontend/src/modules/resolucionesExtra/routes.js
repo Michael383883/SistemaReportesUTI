@@ -1,4 +1,3 @@
-
 export const resolucionesExtraRoutes = [
     {
         path: '/clasificaciones',
@@ -14,5 +13,10 @@ export const resolucionesExtraRoutes = [
         path: '/clasificaciones/docente/:cod_docente',
         name: 'clasificaciones-docente',
         component: () => import('./views/ClasificacionDocenteView.vue'),
+    },
+    {
+        path: '/clasificaciones/asignar-documento',
+        name: 'clasificacion-asignar-documento',
+        component: () => import('./views/AsignacionPorDocumentoView.vue'),
     },
 ]

@@ -196,13 +196,14 @@
 
   </div>
 </template>
-
 <script setup>
 import { ref } from 'vue'
+import { useRouter } from 'vue-router'
 import ClasificacionForm from '../components/ClasificacionForm.vue'
 import { useClasificacion } from '../composables/useClasificacion'
 import { useDocentesReportes } from '../composables/useDocentesReportes' // ajusta la ruta
 
+const router = useRouter()
 const clasificacion = useClasificacion()
 
 const {
@@ -225,7 +226,7 @@ const docentesRegistrados = ref(0)
 const aplicadoAGrupos = ref(null)
 const errorGrupos = ref(null)
 
-const nombreDocenteBusqueda = ref('')  
+const nombreDocenteBusqueda = ref('')
 
 function limpiarArchivo() {
   archivo.value     = null
@@ -267,16 +268,12 @@ function irAlPaso2() {
   currentStep.value = 1
 }
 
-  async function onGuardar(formData, debeAplicarAGrupos) {
+async function onGuardar(formData, debeAplicarAGrupos, irAAsignarExtra = false) {
   try {
     const resultado = await clasificacion.guardarClasificacion({ ...formData, archivo: archivo.value })
     ultimoId.value = resultado.idDocumento
     docentesRegistrados.value = resultado.idsClasificacionDocente.length
 
-    // ─── Docente para pre-llenar el buscador del listado ───
-    // Si varias materias tienen docentes distintos, se toma el primero;
-    // si no hay materias (ej. solo título) o todas comparten docente,
-    // se usa el docente general del formulario.
     const docentesUnicos = [
       ...new Set(
         (formData.materias || [])
@@ -287,10 +284,8 @@ function irAlPaso2() {
     nombreDocenteBusqueda.value = docentesUnicos[0] || formData.nombre_docente_general || ''
 
     if (debeAplicarAGrupos && resultado.materiasInsertadas > 0) {
-    try {
+      try {
         const resGrupos = await clasificacion.aplicarEnGrupos(resultado.idDocumento)
-        // sin ids_materia → el backend ya filtra por whereNotNull('COD_MATERIA')
-        // así que aplica automáticamente solo las que tienen código, ignorando las manuales
         aplicadoAGrupos.value = resGrupos.filas_afectadas > 0
         errorGrupos.value = null
       } catch (e) {
@@ -302,11 +297,26 @@ function irAlPaso2() {
       errorGrupos.value = null
     }
 
+    if (irAAsignarExtra) {
+      router.push({
+        name: 'clasificacion-asignar-documento',
+        query: {
+          documento: resultado.idDocumento,
+          gestion: formData.gestion,
+          periodo: formData.periodo,
+          tipo_documento: formData.tipo_documento,
+          detalle_general: formData.detalle_general,
+        },
+      })
+      return
+    }
+
     successMessage.value = 'Clasificación guardada exitosamente'
-  } catch {
+  } catch (e) {
+    console.error('Error en onGuardar:', e)
     // error visible vía :error en ClasificacionForm
   }
- }
+}
 
 function resetAll() {
   clasificacion.reset()
@@ -318,7 +328,6 @@ function resetAll() {
   docentesRegistrados.value = 0
   aplicadoAGrupos.value = null
   errorGrupos.value = null
-
-nombreDocenteBusqueda.value = ''   // ← nuevo
+  nombreDocenteBusqueda.value = ''
 }
 </script>

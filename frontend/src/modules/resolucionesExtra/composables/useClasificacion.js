@@ -1,7 +1,7 @@
 ﻿import { ref } from 'vue'
 import axios from 'axios'
 
-const API_BASE = import.meta.env.VITE_API_URL 
+const API_BASE = import.meta.env.VITE_API_URL
 
 export function useClasificacion() {
     const loading = ref(false)
@@ -344,6 +344,32 @@ export function useClasificacion() {
         }
     }
 
+
+    async function guardarMateriasAdicionales(idDocumento, detalles) {
+        loading.value = true
+        error.value = null
+        errorDetalle.value = null
+        try {
+            const { data } = await axios.post(
+                `${API_BASE}/api/clasificaciones/${idDocumento}/materias/bulk`,
+                { detalles },
+                { headers: authHeaders() }
+            )
+            if (!data.ok) {
+                error.value = data.error || 'No se pudieron agregar las materias'
+                throw new Error(error.value)
+            }
+            return data // { ok, total, ids_materia }
+        } catch (e) {
+            error.value = e?.response?.data?.error || e.message || 'No se pudieron agregar las materias'
+            errorDetalle.value = parseErrorDetalle(e?.response?.data)
+            throw e
+        } finally {
+            loading.value = false
+        }
+    }
+
+
     return {
         loading,
         error,
@@ -361,5 +387,6 @@ export function useClasificacion() {
         urlPdf,
         verPdf,
         reset,
+        guardarMateriasAdicionales,
     }
 }

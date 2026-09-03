@@ -121,6 +121,7 @@
     :saving="saving"
     @cerrar="mostrarPreview = false"
     @confirmar="onConfirmarGuardar"
+    @confirmar-y-asignar="onConfirmarGuardarYAsignar"
   />
 
   </div>
@@ -268,5 +269,15 @@ function onConfirmarGuardar() {
     : ''
   emit('guardar', payload, asignaAGrupos.value)
 }
+
+
+
+function onConfirmarGuardarYAsignar() {
+  const payload = formCopiado()
+  payload.nombre_docente_general = selectedDocente.value
+    ? `${selectedDocente.value.apellidos} ${selectedDocente.value.nombres}` : ''
+  emit('guardar', payload, asignaAGrupos.value, true) // ← tercer parámetro = ir a asignar extra
+}
+
 
 </script>
