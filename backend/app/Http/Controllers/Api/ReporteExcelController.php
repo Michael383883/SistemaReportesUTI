@@ -332,12 +332,17 @@ class ReporteExcelController extends Controller
                     // formato "Recuperatorio, Nota: 85". Si tiene nota pero no
                     // observación, queda solo "Nota: 85".
                     $notaTexto = '';
+                    $partesNota = [];
+
+                    if (!empty($materia->DETALLE)) {
+                        $partesNota[] = trim($materia->DETALLE);
+                    }
+
                     if (isset($materia->NOTA) && $materia->NOTA !== null && $materia->NOTA !== '') {
-                        $partesNota = [];
-                        if (!empty($materia->DETALLE)) {
-                            $partesNota[] = trim($materia->DETALLE);
-                        }
                         $partesNota[] = 'Nota: ' . $materia->NOTA;
+                    }
+
+                    if (!empty($partesNota)) {
                         $notaTexto = implode(', ', $partesNota);
                     }
 

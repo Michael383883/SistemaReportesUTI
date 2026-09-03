@@ -226,7 +226,11 @@ class ClasificacionDocenteController extends Controller
                     'NOMBRE_MATERIA' => $m['nombre_materia'],
                     'COD_PLAN' => $m['cod_plan'] ?? null,
                     'GRUPO' => isset($m['grupo']) && $m['grupo'] !== null ? (string) $m['grupo'] : null,
-                    'NOTA' => $m['nota'] ?? null,
+                    // FIX NOTA: antes era `$m['nota'] ?? null`, lo que dejaba pasar
+                    // strings vacíos ('') tal cual hacia el INSERT. SQL Server
+                    // truena al convertir '' a numeric. Ahora se sanitiza: vacío,
+                    // null o no-numérico => null.
+                    'NOTA' => $this->notaSanitizada($m['nota'] ?? null),
                     'DETALLE' => $m['detalle'] ?? null,
                     'ORDEN' => $i,
                 ]);
@@ -476,7 +480,10 @@ class ClasificacionDocenteController extends Controller
                     'NOMBRE_MATERIA' => $m['nombre_materia'],
                     'COD_PLAN' => $m['cod_plan'] ?? null,
                     'GRUPO' => isset($m['grupo']) && $m['grupo'] !== null ? (string) $m['grupo'] : null,
-                    'NOTA' => $m['nota'] ?? null,
+                    // FIX NOTA: mismo motivo que en store(). Antes era
+                    // `$m['nota'] ?? null`; ahora se sanitiza para nunca
+                    // mandar '' (string vacío) a una columna numeric.
+                    'NOTA' => $this->notaSanitizada($m['nota'] ?? null),
                     'DETALLE' => $m['detalle'] ?? null,
                     'ORDEN' => $i,
                 ]);
@@ -555,6 +562,32 @@ class ClasificacionDocenteController extends Controller
             ]);
             return response()->json(['ok' => false, 'error' => $mensajeSeguro], 500);
         }
+    }
+
+    /**
+     * ── FIX NOTA ──
+     * Sanitiza el valor de NOTA antes de insertarlo en una columna numeric.
+     * El input del frontend es un <input type="text">, así que puede llegar
+     * como: null, undefined (ausente => no llega la key), '' (string vacío
+     * al borrar todo el contenido), o un string numérico como "85".
+     *
+     * SQL Server (columna NOTA numeric) no puede convertir '' a numeric y
+     * tira: "Error al convertir el tipo de datos nvarchar a numeric."
+     *
+     * Reglas:
+     *  - null, '' o no numérico  => null (sin calificación)
+     *  - cualquier otro valor numérico (int, float, o string numérico) => se
+     *    devuelve tal cual, para que el driver lo castee normalmente.
+     *
+     * @param mixed $valor
+     * @return int|float|string|null
+     */
+    private function notaSanitizada($valor)
+    {
+        if ($valor === null || $valor === '' || !is_numeric($valor)) {
+            return null;
+        }
+        return $valor;
     }
 
     /**
