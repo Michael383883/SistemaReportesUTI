@@ -5,10 +5,10 @@
     <div class="flex items-start justify-between mb-6">
       <div>
         <h1 class="text-xl font-bold text-slate-800 tracking-tight m-0 mb-1">
-          Asignación de Resoluciones a Docentes
+          {{ tipo === 'resolucion' ? 'Asignación de Resoluciones a Docentes' : 'Asignar Documento a Otros Docentes' }}
         </h1>
         <p class="text-sm text-slate-500 m-0">
-          Buscá un docente, elegí la resolución y marcá las materias correspondientes con un click.
+          Buscá un docente, elegí {{ tipo === 'resolucion' ? 'la resolución' : 'el documento de clasificación' }} y marcá las materias correspondientes con un click.
         </p>
       </div>
     </div>
@@ -18,18 +18,18 @@
       v-if="fase === 'resultado'"
       :grupos-actualizados="gruposActualizados"
       :ultimas-asignadas="ultimasAsignadas"
-      :resolucion-nro="resolucionAsignadaNro"
-      :resolucion-anio-periodo-label="resolucionAnioPeriodoLabel"
+      :resolucion-nro="origenAsignadoNro"
+      :resolucion-anio-periodo-label="origenAnioPeriodoLabel"
       :docente-asignado-codigo="docenteAsignadoCodigo"
       :docente-asignado-nombre="docenteAsignadoNombre"
       @ver-reporte="verReporte"
       @asignar-otra="asignarOtraMas"
-      @ir-a-listado="$router.push({ name: 'resoluciones-listado' })"
+      @ir-a-listado="$router.push({ name: rutaListado })"
     />
 
     <!-- Flujo principal -->
     <template v-else>
-      <!-- Paso 1 y 2: Docente + Resolución lado a lado -->
+      <!-- Paso 1 y 2: Docente + Origen (Resolución/Documento) lado a lado -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5 items-stretch">
         <!-- Paso 1: Docente -->
         <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden flex flex-col">
@@ -52,38 +52,40 @@
           </div>
         </div>
 
-        <!-- Paso 2: Resolución -->
+        <!-- Paso 2: Origen (Resolución o Documento) -->
         <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden flex flex-col">
           <div class="px-5 py-4 bg-slate-900 flex items-center justify-between gap-3">
             <div class="flex items-center gap-3">
               <span class="w-6 h-6 rounded-full bg-amber-500 text-slate-900 text-[11px] font-bold flex items-center justify-center flex-shrink-0">2</span>
               <div>
-                <h3 class="text-sm font-semibold text-white m-0">Asignar resolución</h3>
-
+                <h3 class="text-sm font-semibold text-white m-0">Asignar {{ tipo === 'resolucion' ? 'resolución' : 'documento' }}</h3>
               </div>
             </div>
             <span
-              v-if="resolucionActiva"
+              v-if="origenActivo"
               class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-500/15 text-emerald-400"
             >
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                 <polyline points="20 6 9 17 4 12"/>
               </svg>
-              Seleccionada
+              Seleccionado
             </span>
           </div>
           <div class="px-5 py-4 flex-1">
-            <ResolucionSearchPicker
-              :filas="filasResolucion"
-              :loading="loadingResoluciones"
-              :error="errorResoluciones"
-              :busqueda="busquedaResolucion"
-              :resolucion-activa="resolucionActiva"
-              :bloqueado="resolucionBloqueada"
-              @buscar="buscar"
-              @limpiar-busqueda="limpiarBusqueda"
-              @select="onSeleccionarResolucion"
-              @limpiar="onLimpiarResolucion"
+            <OrigenPicker
+              :tipo="tipo"
+              :bloqueado-cambio-tipo="bloqueadoCambioTipo"
+              :filas="tipo === 'resolucion' ? filasResolucion : filasDocumento"
+              :loading="tipo === 'resolucion' ? loadingResoluciones : loadingDocumentos"
+              :error="tipo === 'resolucion' ? errorResoluciones : errorDocumentos"
+              :busqueda="tipo === 'resolucion' ? busquedaResolucion : busquedaDocumento"
+              :origen-activo="origenActivo"
+              :bloqueado="origenBloqueado"
+              @cambiar-tipo="onCambiarTipo"
+              @buscar="onBuscarOrigen"
+              @limpiar-busqueda="onLimpiarBusquedaOrigen"
+              @select="onSeleccionarOrigen"
+              @limpiar="onLimpiarOrigen"
             />
           </div>
         </div>
@@ -93,21 +95,21 @@
       <div v-if="selectedDocente" class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden mb-5">
         <div class="px-5 py-1 border-b border-slate-100 flex items-center justify-between flex-wrap gap-2">
           <p class="text-xs font-semibold text-slate-800 uppercase tracking-wider m-0">
-            Materias dictadas :  {{ selectedDocente.apellidos ?? selectedDocente.APELLIDOS }} {{ selectedDocente.nombres ?? selectedDocente.NOMBRES }}
+            Materias dictadas: {{ selectedDocente.apellidos ?? selectedDocente.APELLIDOS }} {{ selectedDocente.nombres ?? selectedDocente.NOMBRES }}
           </p>
 
           <!-- Filtros por año y gestión -->
           <div class="flex items-center gap-2">
             <span
-              v-if="resolucionActiva && (filtroAnio || filtroGestion)"
+              v-if="origenActivo && (filtroAnio || filtroGestion)"
               class="text-[0.85rem] text-amber-600 flex items-center gap-1"
-              title="Filtro aplicado automáticamente según el periodo de la resolución seleccionada"
+              title="Filtro aplicado automáticamente según el periodo del origen seleccionado"
             >
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
                 <polyline points="14 2 14 8 20 8"/>
               </svg>
-              según resolución
+              según selección
             </span>
 
             <select
@@ -142,11 +144,11 @@
               Limpiar
             </button>
 
-            <span v-if="!resolucionActiva" class="text-xs text-slate-400 flex items-center gap-1.5">
+            <span v-if="!origenActivo" class="text-xs text-slate-400 flex items-center gap-1.5">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
               </svg>
-              Elegí una resolución para poder asignar
+              Elegí {{ tipo === 'resolucion' ? 'una resolución' : 'un documento' }} para poder asignar
             </span>
           </div>
         </div>
@@ -159,7 +161,7 @@
           <MateriasAsignarTabla
             v-else-if="reporte"
             :materias="materiasFiltradas"
-            :resolucion-activa="resolucionActiva"
+            :resolucion-activa="origenActivo"
             :marcadas-keys="materiasMarcadas.map(m => m.key)"
             :docente-cod="docenteCodActual"
             @toggle="(m) => toggleMateria(selectedDocente, m)"
@@ -175,7 +177,6 @@
             <span class="w-6 h-6 rounded-full bg-amber-500 text-slate-900 text-[11px] font-bold flex items-center justify-center flex-shrink-0">3</span>
             <div>
               <h3 class="text-sm font-semibold text-white m-0">Confirmá la asignación</h3>
-
             </div>
           </div>
           <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-amber-500/15 text-amber-400">
@@ -197,20 +198,29 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted  } from 'vue'
-import { useRouter, useRoute  } from 'vue-router'
+import { ref, computed, watch, onMounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import DocenteSearch from '../../docentes/components/DocenteSearch.vue'
 import { useDocentes } from '../../docentes/composables/useDocentes'
 import { useReporte } from '../../reportes/composables/useReporte'
-import { useResolucionListado } from '../composables/useResolucionListado'
-import { useAsignacionResolucion } from '../composables/useAsignacionResolucion'
-import ResolucionSearchPicker from '../components/ResolucionSearchPicker.vue'
-import MateriasAsignarTabla from '../components/MateriasAsignarTabla.vue'
-import MateriasMarcadasResumen from '../components/MateriasMarcadasResumen.vue'
-import ResultadoAsignacionResolucion from '../components/ResultadoAsignacionResolucion.vue'
+import { useResolucionListado } from '../../resoluciones/composables/useResolucionListado' // ajustá la ruta real
+import { useDocumentoListado } from '../composables/useDocumentoListado' // ajustá la ruta real
+import { useAsignacionOrigen } from '../composables/useAsignacionOrigen' // ajustá la ruta real
+import OrigenPicker from '../components/OrigenPicker.vue'
+import MateriasAsignarTabla from '../../resoluciones/components/MateriasAsignarTabla.vue' // ajustá la ruta real
+import MateriasMarcadasResumen from '../../resoluciones/components/MateriasMarcadasResumen.vue' // ajustá la ruta real
+import ResultadoAsignacionResolucion from '../../resoluciones/components/ResultadoAsignacionResolucion.vue' // ajustá la ruta real
+
+const props = defineProps({
+  // Permite abrir la vista ya fijada en un tipo, ej. desde dos entradas de
+  // menú distintas ("Asignar resolución" / "Asignar documento") que apuntan
+  // a la misma vista con distinto valor inicial.
+  tipoInicial: { type: String, default: 'resolucion' }, // 'resolucion' | 'documento'
+})
 
 const router = useRouter()
-const route  = useRoute()
+const route = useRoute()
+
 // ─── Docentes ───────────────────────────────────────────────────
 const {
   loading: loadingDocentes,
@@ -247,42 +257,69 @@ function onLimpiarDocente() {
   filtroGestion.value = ''
 }
 
-// ─── Resoluciones (buscador) ──────────────────────────────────────
+// ─── Listados de origen (resolución / documento) ─────────────────
 const {
   filas: filasResolucion,
   loading: loadingResoluciones,
   error: errorResoluciones,
   busqueda: busquedaResolucion,
-  buscar,
-  limpiarBusqueda,
+  buscar: buscarResolucion,
+  limpiarBusqueda: limpiarBusquedaResolucion,
 } = useResolucionListado()
 
-// ─── Orquestador de asignación ────────────────────────────────────
 const {
-  resolucionActiva,
+  filas: filasDocumento,
+  loading: loadingDocumentos,
+  error: errorDocumentos,
+  busqueda: busquedaDocumento,
+  buscar: buscarDocumento,
+  limpiarBusqueda: limpiarBusquedaDocumento,
+} = useDocumentoListado()
+
+function onBuscarOrigen(termino) {
+  tipo.value === 'resolucion' ? buscarResolucion(termino) : buscarDocumento(termino)
+}
+function onLimpiarBusquedaOrigen() {
+  tipo.value === 'resolucion' ? limpiarBusquedaResolucion() : limpiarBusquedaDocumento()
+}
+
+// ─── Orquestador unificado de asignación ─────────────────────────
+const {
+  tipo,
+  setTipo,
+  bloqueadoCambioTipo,
+  origenActivo,
+  origenBloqueado,
   materiasMarcadas,
-  resolucionBloqueada,
   guardando,
   errorGuardado,
-  seleccionarResolucion,
-  limpiarResolucion,
+  seleccionarOrigen,
+  limpiarOrigen,
   toggleMateria,
-  actualizarTipoIngreso,  
+  actualizarTipoIngreso,
   quitarMateria,
   limpiarTodo,
   confirmarAsignacion,
   aplicarEnGrupos,
-} = useAsignacionResolucion()
+} = useAsignacionOrigen(props.tipoInicial)
 
 const errorLocal = ref('')
 
-function onSeleccionarResolucion(r) {
-  seleccionarResolucion(r)
+function onCambiarTipo(nuevo) {
+  setTipo(nuevo)
 }
 
-function onLimpiarResolucion() {
-  limpiarResolucion()
+function onSeleccionarOrigen(o) {
+  seleccionarOrigen(o)
 }
+
+function onLimpiarOrigen() {
+  limpiarOrigen()
+}
+
+const rutaListado = computed(() =>
+  tipo.value === 'resolucion' ? 'resoluciones-listado' : 'clasificaciones-listado'
+)
 
 // ─── Filtros de materias ──────────────────────────────────────────
 const filtroAnio = ref('')
@@ -320,43 +357,43 @@ const materiasFiltradas = computed(() => {
   })
 })
 
-// ─── Auto-filtro por año/periodo de la resolución activa ─────────
-// Cuando se elige una resolución, si tiene anio/periodo definidos y
-// alguno de esos valores existe entre las opciones disponibles del
-// docente actual, se preseleccionan los filtros automáticamente.
-// Es solo un valor por defecto: el usuario puede cambiarlo después.
-watch(resolucionActiva, (nueva) => {
-  if (!nueva) return
-  const anioResolucion = String(nueva.anio ?? '').trim()
-  const periodoResolucion = String(nueva.periodo ?? '').trim()
-  if (anioResolucion && aniosDisponibles.value.includes(anioResolucion)) {
-    filtroAnio.value = anioResolucion
+// ─── Auto-filtro por año/periodo del origen activo ────────────────
+// Cuando se elige resolución o documento, si tiene anio/periodo definidos y
+// alguno de esos valores existe entre las opciones disponibles del docente
+// actual, se preseleccionan los filtros automáticamente. Es solo un valor
+// por defecto: el usuario puede cambiarlo después.
+watch(origenActivo, (nuevo) => {
+  if (!nuevo) return
+  const anio = String(nuevo.anio ?? '').trim()
+  const periodo = String(nuevo.periodo ?? '').trim()
+  if (anio && aniosDisponibles.value.includes(anio)) {
+    filtroAnio.value = anio
   }
-  if (periodoResolucion && gestionesDisponibles.value.includes(periodoResolucion)) {
-    filtroGestion.value = periodoResolucion
+  if (periodo && gestionesDisponibles.value.includes(periodo)) {
+    filtroGestion.value = periodo
   }
 })
 
 // También se aplica si el docente se selecciona/cambia después de
-// ya haber elegido la resolución (el orden de los pasos es libre).
+// ya haber elegido el origen (el orden de los pasos es libre).
 watch(materiasDelReporte, () => {
-  if (!resolucionActiva.value) return
-  const anioResolucion = String(resolucionActiva.value.anio ?? '').trim()
-  const periodoResolucion = String(resolucionActiva.value.periodo ?? '').trim()
-  if (anioResolucion && aniosDisponibles.value.includes(anioResolucion) && !filtroAnio.value) {
-    filtroAnio.value = anioResolucion
+  if (!origenActivo.value) return
+  const anio = String(origenActivo.value.anio ?? '').trim()
+  const periodo = String(origenActivo.value.periodo ?? '').trim()
+  if (anio && aniosDisponibles.value.includes(anio) && !filtroAnio.value) {
+    filtroAnio.value = anio
   }
-  if (periodoResolucion && gestionesDisponibles.value.includes(periodoResolucion) && !filtroGestion.value) {
-    filtroGestion.value = periodoResolucion
+  if (periodo && gestionesDisponibles.value.includes(periodo) && !filtroGestion.value) {
+    filtroGestion.value = periodo
   }
 })
 
 // ─── Fase final ────────────────────────────────────────────────────
 const fase = ref('formulario') // 'formulario' | 'resultado'
 const ultimasAsignadas = ref([])
-const resolucionAsignadaNro = ref('')
-const resolucionAsignadaAnio = ref('')
-const resolucionAsignadaPeriodo = ref('')
+const origenAsignadoNro = ref('')
+const origenAsignadoAnio = ref('')
+const origenAsignadoPeriodo = ref('')
 const gruposActualizados = ref([])
 
 // Guardamos el código y nombre completo del docente que estaba
@@ -367,9 +404,9 @@ const gruposActualizados = ref([])
 const docenteAsignadoCodigo = ref('')
 const docenteAsignadoNombre = ref('')
 
-const resolucionAnioPeriodoLabel = computed(() => {
-  if (!resolucionAsignadaAnio.value && !resolucionAsignadaPeriodo.value) return '—'
-  return `${resolucionAsignadaAnio.value || '—'} / ${resolucionAsignadaPeriodo.value || '—'}`
+const origenAnioPeriodoLabel = computed(() => {
+  if (!origenAsignadoAnio.value && !origenAsignadoPeriodo.value) return '—'
+  return `${origenAsignadoAnio.value || '—'} / ${origenAsignadoPeriodo.value || '—'}`
 })
 
 // El controller aplicarEnGrupos usa DB::select() crudo (sin pasar por
@@ -395,9 +432,6 @@ function normalizarGrupo(g) {
 
 // Abre, en una pestaña nueva, el reporte de materias dictadas del
 // docente correspondiente a esa fila de la tabla de grupos actualizados.
-// Se usa el código de docente tal cual viene en la fila (g.docente),
-// y se abre en pestaña nueva para no perder la vista de resultado
-// que el usuario tiene en pantalla.
 function verReporte(g) {
   const anioQuery = g.periodo ? `${g.anio}/${g.periodo}` : (g.anio || undefined)
 
@@ -414,9 +448,9 @@ function verReporte(g) {
 async function handleTerminar() {
   errorLocal.value = ''
   try {
-    resolucionAsignadaNro.value = resolucionActiva.value?.nroResolucion ?? ''
-    resolucionAsignadaAnio.value = resolucionActiva.value?.anio ?? ''
-    resolucionAsignadaPeriodo.value = resolucionActiva.value?.periodo ?? ''
+    origenAsignadoNro.value = origenActivo.value?.nroResolucion ?? ''
+    origenAsignadoAnio.value = origenActivo.value?.anio ?? ''
+    origenAsignadoPeriodo.value = origenActivo.value?.periodo ?? ''
     ultimasAsignadas.value = [...materiasMarcadas.value]
 
     // Capturamos código y nombre del docente ANTES de que se pueda
@@ -441,16 +475,17 @@ async function handleTerminar() {
 function asignarOtraMas() {
   limpiarTodo()
   onLimpiarDocente()
-  limpiarBusqueda()
+  onLimpiarBusquedaOrigen()
   gruposActualizados.value = []
   fase.value = 'formulario'
 }
 
-
+// Preselección por query string (solo tiene sentido para resoluciones,
+// que es el flujo que ya venía desde un link externo con ?resolucion=).
 onMounted(() => {
   const { resolucion: idResolucion, nro, anio, periodo } = route.query
-  if (idResolucion) {
-    seleccionarResolucion({
+  if (idResolucion && tipo.value === 'resolucion') {
+    seleccionarOrigen({
       idResolucion,       // ResolucionSearchPicker usa r.idResolucion ?? r.id_resolucion
       nroResolucion: nro,
       anio,
@@ -458,6 +493,4 @@ onMounted(() => {
     })
   }
 })
-
-
 </script>

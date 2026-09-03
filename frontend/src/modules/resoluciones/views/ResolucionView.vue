@@ -300,7 +300,7 @@ async function onGuardarYAsignar({ numero, descripcion, anio, periodo }) {
   try {
     const idResolucion = await resolucion.guardarResolucion({ numero, descripcion, anio, periodo, archivo: archivo.value })
     router.push({
-      name: 'resoluciones-asignar',
+      name: 'resolucion-asignar',
       query: {
         resolucion: idResolucion,
         nro: numero,

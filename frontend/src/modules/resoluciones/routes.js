@@ -1,4 +1,4 @@
-// modules/resoluciones/routes.js  ← renombra a routes.js
+// modules/resoluciones/routes.js
 export const resolucionesRoutes = [
     {
         path: '/resoluciones/subir',
@@ -13,8 +13,14 @@ export const resolucionesRoutes = [
     },
     {
         path: '/resoluciones/asignar',
-        name: 'resoluciones-asignar',
-        component: () => import('./views/AsignarResolucionView.vue'),
-        meta: { requiresAuth: true }
+        name: 'resolucion-asignar',
+        component: () => import('./views/AsignarOrigenAMaterias.vue'),
+        props: { tipoInicial: 'resolucion' },
+    },
+    {
+        path: '/clasificaciones/asignar',
+        name: 'documento-asignar',
+        component: () => import('./views/AsignarOrigenAMaterias.vue'),
+        props: { tipoInicial: 'documento' },
     },
 ]
