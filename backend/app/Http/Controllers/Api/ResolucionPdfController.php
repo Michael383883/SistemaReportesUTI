@@ -634,4 +634,60 @@ class ResolucionPdfController extends Controller
             ], 500);
         }
     }
+
+    // POST /clasificaciones/{idDocumento}/generar-resolucion
+//
+// Puente para el flujo de "Asignar a otros docentes": crea (o reutiliza)
+// una fila en RESOLUCIONES_PDF tomando SOLO 4 datos de
+// CLASIFICACION_DOCUMENTO (TIPO_DOCUMENTO, DETALLE_GENERAL, GESTION,
+// PERIODO) y copiando RUTA_ARCHIVO/NOMBRE_ARCHIVO — no se vuelve a subir
+// el PDF. A partir de acá, todo lo que se asigne (docente+materia+
+// tipo_ingreso) se guarda en RESOLUCION_DETALLE, igual que el flujo
+// original de "Resolución", para que el TIPO_INGRESO sea el que elige
+// el usuario por cada materia y no el de CLASIFICACION_DOCUMENTO.CATEGORIA.
+public function storeDesdeClasificacion(Request $request, $idDocumento)
+{
+    $documento = DB::table('CLASIFICACION_DOCUMENTO')
+        ->where('ID_DOCUMENTO', $idDocumento)
+        ->first();
+
+    if (!$documento) {
+        return response()->json(['ok' => false, 'error' => 'Documento no encontrado'], 404);
+    }
+
+    // Reutiliza si ya se generó antes para este mismo documento (evita
+    // duplicar filas en RESOLUCIONES_PDF cada vez que se asigna a un
+    // docente más sobre el mismo documento).
+    $existente = DB::table('RESOLUCIONES_PDF')
+        ->where('NRO_RESOLUCION', $documento->TIPO_DOCUMENTO)
+        ->where('ANIO', (int) $documento->GESTION)
+        ->where('PERIODO', $documento->PERIODO)
+        ->first();
+
+    if ($existente) {
+        return response()->json([
+            'ok' => true,
+            'id_resolucion' => $existente->ID_RESOLUCION,
+            'reutilizada' => true,
+        ]);
+    }
+
+    $idResolucion = DB::table('RESOLUCIONES_PDF')->insertGetId([
+        'NRO_RESOLUCION' => $documento->TIPO_DOCUMENTO,
+        'DESCRIPCION'    => $documento->DETALLE_GENERAL,
+        'ANIO'           => (int) $documento->GESTION,
+        'PERIODO'        => $documento->PERIODO,
+        'RUTA_ARCHIVO'   => $documento->RUTA_ARCHIVO,
+        'NOMBRE_ARCHIVO' => $documento->NOMBRE_ARCHIVO,
+        'TAMANIO_KB'     => null,
+        'SUBIDO_POR'     => $request->input('subido_por'),
+        'FECHA_SUBIDA'   => now(),
+    ], 'ID_RESOLUCION');
+
+    return response()->json([
+        'ok' => true,
+        'id_resolucion' => $idResolucion,
+        'reutilizada' => false,
+    ], 201);
+}
 }

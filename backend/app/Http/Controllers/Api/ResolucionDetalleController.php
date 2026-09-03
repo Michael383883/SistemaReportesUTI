@@ -28,7 +28,7 @@ class ResolucionDetalleController extends Controller
                 'rp.FECHA_SUBIDA'
             )
             ->orderBy('rp.FECHA_SUBIDA', 'desc')
-            ->limit(10)
+            
             ->get();
 
         return response()->json($listado);

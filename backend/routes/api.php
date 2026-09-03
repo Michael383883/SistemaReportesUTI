@@ -198,6 +198,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::delete('resoluciones/{id}', [ResolucionPdfController::class, 'destroy']);
     Route::put('resoluciones/{id}/quitar', [ResolucionDetalleController::class, 'quitarDeGrupos']);
+
+    Route::post('/clasificaciones/{idDocumento}/generar-resolucion', [ResolucionPdfController::class, 'storeDesdeClasificacion']);
 });
 
 /*
@@ -282,7 +284,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/clasificaciones/{id}/quitar', [ClasificacionDocenteController::class, 'quitarDeGrupos'])
         ->where('id', '[0-9]+');
     Route::get('/clasificaciones/materias-registradas', [ClasificacionDocenteController::class, 'materiasRegistradas']);
-});
+
+    Route::post('clasificaciones/{idDocumento}/materias/bulk', [ClasificacionDocenteController::class, 'agregarMateriasBulk']);
+
+    });
 
 
 /*

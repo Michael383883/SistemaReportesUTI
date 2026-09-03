@@ -1252,4 +1252,69 @@ class ClasificacionDocenteController extends Controller
             'filas_actualizadas' => $filas,
         ]);
     }
+
+
+    // POST /clasificaciones/{idDocumento}/materias/bulk
+// Agrega materias de otros docentes a un documento YA guardado.
+// Si el docente no tiene fila en CLASIFICACION_DOCENTE para este
+// documento, se crea. Si ya la tiene (porque se guardó junto con el
+// formulario original o en una asignación previa), se reutiliza.
+    public function agregarMateriasBulk(Request $request, $idDocumento)
+    {
+        $request->validate([
+            'detalles' => 'required|array|min:1',
+            'detalles.*.cod_docente' => 'required|numeric',
+            'detalles.*.cod_plan' => 'required|string|max:10',
+            'detalles.*.cod_materia' => 'required|string|max:10',
+            'detalles.*.grupo' => 'nullable|string|max:5',
+            'detalles.*.tipo_ingreso' => 'nullable|string|max:30',
+            'detalles.*.observacion' => 'nullable|string|max:200',
+        ]);
+
+        $doc = DB::table('CLASIFICACION_DOCUMENTO')->where('ID_DOCUMENTO', $idDocumento)->first();
+        if (!$doc) {
+            return response()->json(['ok' => false, 'error' => 'Documento no encontrado'], 404);
+        }
+
+        $idsInsertados = [];
+
+        DB::transaction(function () use ($request, $idDocumento, &$idsInsertados) {
+            $cacheDocente = []; // cod_docente => ID_CLASIFICACION_DOCENTE (evita duplicar por fila)
+
+            foreach ($request->detalles as $item) {
+                $codDocente = $item['cod_docente'];
+
+                if (!isset($cacheDocente[$codDocente])) {
+                    $existente = DB::table('CLASIFICACION_DOCENTE')
+                        ->where('ID_DOCUMENTO', $idDocumento)
+                        ->where('COD_DOCENTE', $codDocente)
+                        ->value('ID_CLASIFICACION_DOCENTE');
+
+                    $cacheDocente[$codDocente] = $existente ?: DB::table('CLASIFICACION_DOCENTE')->insertGetId([
+                        'ID_DOCUMENTO' => $idDocumento,
+                        'COD_DOCENTE' => $codDocente,
+                    ], 'ID_CLASIFICACION_DOCENTE');
+                }
+
+                $idDetalle = DB::table('CLASIFICACION_MATERIA')->insertGetId([
+                    'ID_DOCUMENTO' => $idDocumento,
+                    'ID_CLASIFICACION_DOCENTE' => $cacheDocente[$codDocente],
+                    'COD_MATERIA' => $item['cod_materia'],
+                    'NOMBRE_MATERIA' => $item['nombre_materia'] ?? $item['cod_materia'],
+                    'COD_PLAN' => $item['cod_plan'],
+                    'GRUPO' => $item['grupo'] ?? null,
+                    'DETALLE' => $item['observacion'] ?? null,
+                    'ORDEN' => 0,
+                ], 'ID_DETALLE');
+
+                $idsInsertados[] = $idDetalle;
+            }
+        });
+
+        return response()->json([
+            'ok' => true,
+            'total' => count($idsInsertados),
+            'ids_materia' => $idsInsertados, // ← se lo pasas directo a aplicarEnGrupos()
+        ], 201);
+    }
 }
