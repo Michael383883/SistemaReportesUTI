@@ -131,6 +131,9 @@ class ClasificacionDocenteController extends Controller
                 'observacion' => 'nullable|string|max:300',
                 'observacion2' => 'nullable|string|max:300',
                 'archivo_pdf' => 'nullable|file|mimes:pdf|max:20480',
+                // 👇 NUEVO: id de un CLASIFICACION_DOCUMENTO existente cuyo
+                // archivo se reutilizará (sin volver a subirlo/almacenarlo)
+                'id_documento_origen' => 'nullable|integer|exists:CLASIFICACION_DOCUMENTO,ID_DOCUMENTO',
                 'materias' => 'nullable|string',
                 'referencias' => 'nullable|string',
                 'titulo' => 'nullable|string',
@@ -172,6 +175,7 @@ class ClasificacionDocenteController extends Controller
             $fotocopia = false;
 
             if ($request->hasFile('archivo_pdf')) {
+                // Caso normal: se sube un PDF nuevo y se almacena en disco.
                 $archivo = $request->file('archivo_pdf');
 
                 if (!$archivo->isValid()) {
@@ -183,6 +187,23 @@ class ClasificacionDocenteController extends Controller
                 $rutaArchivo = $archivo->storeAs($carpeta, $nombreLimpio, 'public');
                 $nombreArchivo = $archivo->getClientOriginalName();
                 $fotocopia = true;
+
+            } elseif ($request->filled('id_documento_origen')) {
+                // 👇 NUEVO: no se sube archivo nuevo; se reutiliza la ruta del
+                // PDF ya almacenado en otro documento (para no duplicarlo en
+                // disco cuando solo cambia la clasificación/categoría).
+                $docOrigen = DB::table('CLASIFICACION_DOCUMENTO')
+                    ->select('RUTA_ARCHIVO', 'NOMBRE_ARCHIVO', 'FOTOCOPIA_TITULAR')
+                    ->where('ID_DOCUMENTO', $request->id_documento_origen)
+                    ->first();
+
+                if (!$docOrigen || !$docOrigen->RUTA_ARCHIVO) {
+                    throw new \Exception('El documento origen no tiene un archivo PDF asociado para reutilizar.');
+                }
+
+                $rutaArchivo = $docOrigen->RUTA_ARCHIVO;
+                $nombreArchivo = $docOrigen->NOMBRE_ARCHIVO;
+                $fotocopia = (bool) $docOrigen->FOTOCOPIA_TITULAR;
             }
 
             $idDocumento = DB::table('CLASIFICACION_DOCUMENTO')->insertGetId([

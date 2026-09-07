@@ -33,7 +33,12 @@ export function useClasificacion() {
         }
     }
 
-    function buildFormData({ cod_docente, categoria, nivel, tipo_documento, gestion, periodo, detalle_general, observacion, observacion2, materias, referencias, titulo, archivo, solo_este_docente }) {
+    function buildFormData({
+        cod_docente, categoria, nivel, tipo_documento, gestion, periodo,
+        detalle_general, observacion, observacion2, materias, referencias,
+        titulo, archivo, solo_este_docente,
+        id_documento_origen, // 👈 NUEVO: reutilizar el PDF de otro documento
+    }) {
         const fd = new FormData()
         if (cod_docente) fd.append('cod_docente', cod_docente)
         fd.append('categoria', categoria)
@@ -49,6 +54,12 @@ export function useClasificacion() {
         if (titulo) fd.append('titulo', JSON.stringify(titulo))   // 👈 esto faltaba
         if (archivo) fd.append('archivo_pdf', archivo)
 
+        // 👈 NUEVO: si no se manda archivo pero sí un documento origen,
+        // el backend reutiliza esa RUTA_ARCHIVO/NOMBRE_ARCHIVO en vez de
+        // pedir un PDF nuevo.
+        if (!archivo && id_documento_origen) {
+            fd.append('id_documento_origen', id_documento_origen)
+        }
 
         if (solo_este_docente) fd.append('solo_este_docente', '1')
         return fd

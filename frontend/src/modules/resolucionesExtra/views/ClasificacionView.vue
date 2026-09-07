@@ -40,12 +40,16 @@
       </div>
 
       <!-- Archivo subido, visible junto al stepper en el paso 2 -->
-      <div v-if="currentStep === 1 && archivo" class="flex items-center gap-2 px-4 py-2 bg-blue-50 border border-blue-200 rounded-lg">
-        <svg class="w-4 h-4 text-blue-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <div v-if="currentStep === 1 && (archivo || reutilizarArchivo)" class="flex items-center gap-2 px-4 py-2 rounded-lg border"
+           :class="reutilizarArchivo ? 'bg-emerald-50 border-emerald-200' : 'bg-blue-50 border-blue-200'">
+        <svg class="w-4 h-4 flex-shrink-0" :class="reutilizarArchivo ? 'text-emerald-500' : 'text-blue-500'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round"
             d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
         </svg>
-        <span class="text-[13px] font-medium text-blue-700 truncate max-w-[220px]">{{ archivo.name }}</span>
+        <span class="text-[13px] font-medium truncate max-w-[220px]" :class="reutilizarArchivo ? 'text-emerald-700' : 'text-blue-700'">
+          {{ reutilizarArchivo ? archivoOrigenNombre : archivo.name }}
+        </span>
+        <span v-if="reutilizarArchivo" class="text-[10px] font-semibold text-emerald-500 uppercase">reutilizado</span>
       </div>
     </div>
 
@@ -164,13 +168,27 @@
           </details>
         </div>
 
-        <div class="flex items-center justify-center gap-3 mt-6">
+        <div class="flex items-center justify-center gap-3 mt-6 flex-wrap">
           <button
             @click="resetAll"
             class="inline-flex items-center gap-2 px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-[14px] font-medium rounded-lg transition-colors"
           >
             Registrar otra clasificación
           </button>
+
+          <!-- NUEVO: reutilizar el mismo PDF para otra categoría, sin volver a subirlo/almacenarlo -->
+          <button
+            v-if="ultimoId"
+            @click="guardarConOtraCategoria"
+            class="inline-flex items-center gap-2 px-5 py-2 bg-amber-500 hover:bg-amber-400 text-white text-[14px] font-medium rounded-lg transition-colors"
+          >
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round"
+                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+            </svg>
+            Guardar con otra categoría (mismo PDF)
+          </button>
+
           <router-link
   :to="{
     name: 'clasificaciones-listado',
@@ -188,9 +206,10 @@
         :docentes="docentes"
         :saving="clasificacion.loading.value"
         :error="clasificacion.error.value"
-        :archivo-nombre="archivo?.name || ''"
+        :archivo-nombre="reutilizarArchivo ? archivoOrigenNombre : (archivo?.name || '')"
+        :reutilizando-archivo="reutilizarArchivo"
         @guardar="onGuardar"
-        @back="currentStep = 0"
+        @back="onBackDesdeFormulario"
       />
     </div>
 
@@ -227,6 +246,11 @@ const aplicadoAGrupos = ref(null)
 const errorGrupos = ref(null)
 
 const nombreDocenteBusqueda = ref('')
+
+// ─── NUEVO: reutilizar el PDF de un documento ya guardado ───
+const idDocumentoOrigen   = ref(null)  // ID_DOCUMENTO cuyo archivo se va a reutilizar
+const reutilizarArchivo   = ref(false) // true => no se envía archivo, se reutiliza el del origen
+const archivoOrigenNombre = ref('')    // nombre a mostrar mientras se reutiliza
 
 function limpiarArchivo() {
   archivo.value     = null
@@ -268,9 +292,45 @@ function irAlPaso2() {
   currentStep.value = 1
 }
 
+// NUEVO: desde el formulario, "Volver" debe respetar si veníamos reutilizando archivo
+function onBackDesdeFormulario() {
+  if (reutilizarArchivo.value) {
+    // No tiene sentido volver al paso "Subir PDF" cuando no hay archivo nuevo que subir;
+    // simplemente cancelamos la reutilización y regresamos al listado de éxito anterior
+    // o al paso 0 si prefieres forzar una subida nueva. Aquí optamos por volver al paso 0.
+    reutilizarArchivo.value   = false
+    idDocumentoOrigen.value   = null
+    archivoOrigenNombre.value = ''
+  }
+  currentStep.value = 0
+}
+
+// NUEVO: dispara el flujo de "misma PDF, otra categoría"
+function guardarConOtraCategoria() {
+  idDocumentoOrigen.value   = ultimoId.value
+  archivoOrigenNombre.value = archivo.value?.name || archivoOrigenNombre.value || `Documento #${ultimoId.value}`
+  reutilizarArchivo.value   = true
+
+  // Limpiamos el estado de "éxito" para volver a mostrar el formulario (vacío)
+  successMessage.value      = ''
+  aplicadoAGrupos.value      = null
+  errorGrupos.value          = null
+
+  currentStep.value = 1
+}
+
 async function onGuardar(formData, debeAplicarAGrupos, irAAsignarExtra = false) {
   try {
-    const resultado = await clasificacion.guardarClasificacion({ ...formData, archivo: archivo.value })
+    const payload = {
+      ...formData,
+      // Si estamos reutilizando, NO mandamos el File (evita subir/almacenar de nuevo)
+      archivo: reutilizarArchivo.value ? null : archivo.value,
+      ...(reutilizarArchivo.value && idDocumentoOrigen.value
+        ? { id_documento_origen: idDocumentoOrigen.value }
+        : {}),
+    }
+
+    const resultado = await clasificacion.guardarClasificacion(payload)
     ultimoId.value = resultado.idDocumento
     docentesRegistrados.value = resultado.idsClasificacionDocente.length
 
@@ -312,6 +372,11 @@ async function onGuardar(formData, debeAplicarAGrupos, irAAsignarExtra = false) 
     }
 
     successMessage.value = 'Clasificación guardada exitosamente'
+
+    // Ya se guardó: apagamos el modo "reutilizar" para que "Registrar otra
+    // clasificación" vuelva al flujo normal de subir PDF desde cero.
+    reutilizarArchivo.value   = false
+    idDocumentoOrigen.value   = null
   } catch (e) {
     console.error('Error en onGuardar:', e)
     // error visible vía :error en ClasificacionForm
@@ -329,5 +394,10 @@ function resetAll() {
   aplicadoAGrupos.value = null
   errorGrupos.value = null
   nombreDocenteBusqueda.value = ''
+
+  // NUEVO: limpiar también el estado de reutilización de archivo
+  reutilizarArchivo.value   = false
+  idDocumentoOrigen.value   = null
+  archivoOrigenNombre.value = ''
 }
 </script>
