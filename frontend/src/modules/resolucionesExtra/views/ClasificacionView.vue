@@ -176,7 +176,7 @@
             Registrar otra clasificación
           </button>
 
-          <!-- NUEVO: reutilizar el mismo PDF para otra categoría, sin volver a subirlo/almacenarlo -->
+          <!-- Reutilizar el mismo PDF para otra categoría, sin volver a subirlo/almacenarlo -->
           <button
             v-if="ultimoId"
             @click="guardarConOtraCategoria"
@@ -189,15 +189,22 @@
             Guardar con otra categoría (mismo PDF)
           </button>
 
+          <!--
+            IMPORTANTE: aquí se arma el query "q" que llega al listado.
+            Antes usaba nombreDocenteBusqueda (nombre del docente), lo cual
+            era incorrecto porque una resolución puede tener varios docentes
+            asociados. Ahora se busca por resolucionBusqueda (TIPO_DOCUMENTO +
+            DETALLE_GENERAL), que es único por documento.
+          -->
           <router-link
-  :to="{
-    name: 'clasificaciones-listado',
-    query: nombreDocenteBusqueda ? { q: nombreDocenteBusqueda } : {}
-  }"
-  class="inline-flex items-center gap-2 px-5 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-[14px] font-medium rounded-lg transition-colors"
->
-  Ver listado
-</router-link>
+            :to="{
+              name: 'clasificaciones-listado',
+              query: resolucionBusqueda ? { q: resolucionBusqueda } : {}
+            }"
+            class="inline-flex items-center gap-2 px-5 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-[14px] font-medium rounded-lg transition-colors"
+          >
+            Ver listado
+          </router-link>
         </div>
       </div>
 
@@ -245,9 +252,15 @@ const docentesRegistrados = ref(0)
 const aplicadoAGrupos = ref(null)
 const errorGrupos = ref(null)
 
-const nombreDocenteBusqueda = ref('')
+// ─── Búsqueda para el botón "Ver listado" ───
+// Antes se llamaba nombreDocenteBusqueda y guardaba el nombre del docente.
+// Se renombra a resolucionBusqueda porque ahora guarda el identificador de
+// la resolución/documento (tipo_documento + detalle_general), que es lo
+// correcto para buscar en el listado ya que un mismo documento puede tener
+// varios docentes vinculados.
+const resolucionBusqueda = ref('')
 
-// ─── NUEVO: reutilizar el PDF de un documento ya guardado ───
+// ─── Reutilizar el PDF de un documento ya guardado ───
 const idDocumentoOrigen   = ref(null)  // ID_DOCUMENTO cuyo archivo se va a reutilizar
 const reutilizarArchivo   = ref(false) // true => no se envía archivo, se reutiliza el del origen
 const archivoOrigenNombre = ref('')    // nombre a mostrar mientras se reutiliza
@@ -292,12 +305,9 @@ function irAlPaso2() {
   currentStep.value = 1
 }
 
-// NUEVO: desde el formulario, "Volver" debe respetar si veníamos reutilizando archivo
+// Desde el formulario, "Volver" debe respetar si veníamos reutilizando archivo
 function onBackDesdeFormulario() {
   if (reutilizarArchivo.value) {
-    // No tiene sentido volver al paso "Subir PDF" cuando no hay archivo nuevo que subir;
-    // simplemente cancelamos la reutilización y regresamos al listado de éxito anterior
-    // o al paso 0 si prefieres forzar una subida nueva. Aquí optamos por volver al paso 0.
     reutilizarArchivo.value   = false
     idDocumentoOrigen.value   = null
     archivoOrigenNombre.value = ''
@@ -305,7 +315,7 @@ function onBackDesdeFormulario() {
   currentStep.value = 0
 }
 
-// NUEVO: dispara el flujo de "misma PDF, otra categoría"
+// Dispara el flujo de "misma PDF, otra categoría"
 function guardarConOtraCategoria() {
   idDocumentoOrigen.value   = ultimoId.value
   archivoOrigenNombre.value = archivo.value?.name || archivoOrigenNombre.value || `Documento #${ultimoId.value}`
@@ -317,6 +327,14 @@ function guardarConOtraCategoria() {
   errorGrupos.value          = null
 
   currentStep.value = 1
+}
+
+// Texto que identifica la resolución para el filtro del listado.
+// tipo_documento es el NOMBRE de la resolución (ej. "RESOLUCIÓN 245/2024"),
+// tal como se muestra como título en la columna "Documento" del listado.
+// detalle_general es solo la descripción/detalle, por eso NO se usa aquí.
+function construirResolucionBusqueda(formData) {
+  return (formData.tipo_documento || '').trim()
 }
 
 async function onGuardar(formData, debeAplicarAGrupos, irAAsignarExtra = false) {
@@ -334,14 +352,9 @@ async function onGuardar(formData, debeAplicarAGrupos, irAAsignarExtra = false) 
     ultimoId.value = resultado.idDocumento
     docentesRegistrados.value = resultado.idsClasificacionDocente.length
 
-    const docentesUnicos = [
-      ...new Set(
-        (formData.materias || [])
-          .map(m => m.docente ? `${m.docente.apellidos} ${m.docente.nombres}`.trim() : null)
-          .filter(Boolean)
-      )
-    ]
-    nombreDocenteBusqueda.value = docentesUnicos[0] || formData.nombre_docente_general || ''
+    // Búsqueda para "Ver listado": por resolución, no por docente,
+    // porque un documento puede tener varios docentes vinculados.
+    resolucionBusqueda.value = construirResolucionBusqueda(formData)
 
     if (debeAplicarAGrupos && resultado.materiasInsertadas > 0) {
       try {
@@ -393,9 +406,9 @@ function resetAll() {
   docentesRegistrados.value = 0
   aplicadoAGrupos.value = null
   errorGrupos.value = null
-  nombreDocenteBusqueda.value = ''
+  resolucionBusqueda.value = ''
 
-  // NUEVO: limpiar también el estado de reutilización de archivo
+  // limpiar también el estado de reutilización de archivo
   reutilizarArchivo.value   = false
   idDocumentoOrigen.value   = null
   archivoOrigenNombre.value = ''
