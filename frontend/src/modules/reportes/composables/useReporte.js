@@ -1,7 +1,7 @@
 import { ref } from 'vue'
 import axios from 'axios'
 
-const API_BASE = import.meta.env.VITE_API_URL 
+const API_BASE = import.meta.env.VITE_API_URL
 
 const normalizeDocente = (doc) => {
     if (!doc || typeof doc !== 'object') return doc
@@ -90,6 +90,8 @@ export function useReporte() {
             habilitarRestriccion = false,
             anioHabilitado = null,
             periodoHabilitado = null,
+            incluirSinGrupo = false,
+            mostrarNotaSinGrupo = true,
         } = filtros
 
 
@@ -104,13 +106,15 @@ export function useReporte() {
             if (materia) payload.materia = materia
             if (grupo) payload.grupo = grupo
 
-            // Solo se manda si el usuario clickeó "habilitar" en el frontend.
-            // Si no, el backend sigue ocultando lo no concluido como siempre.
             if (habilitarRestriccion && anioHabilitado && periodoHabilitado) {
                 payload.habilitar_restriccion = true
                 payload.anio_habilitado = Number(anioHabilitado)
                 payload.periodo_habilitado = periodoHabilitado
             }
+
+            // ── Opciones: materias sin grupo/plan + nota ──
+            payload.incluir_sin_grupo = incluirSinGrupo
+            payload.mostrar_nota_sin_grupo = mostrarNotaSinGrupo
 
             const response = await axios.post(
                 `${API_BASE}/api/reporte-docente`,
@@ -118,9 +122,7 @@ export function useReporte() {
                 { headers: { Authorization: `Bearer ${token}` } }
             )
 
-
             reporte.value = normalizeReporteResponse(response.data)
-
 
         } catch (err) {
             console.error('[useReporte] ERROR en la petición →', err.response?.data || err.message)

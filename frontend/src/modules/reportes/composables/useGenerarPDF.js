@@ -26,8 +26,10 @@ function norm(v) {
 // escopa por gestión para no mezclar años distintos).
 //
 // PASO 2 — Verano/Invierno (3 y 4): no hay orden_comparte, se agrupa
-// por gestión. El flag compartido="COMPARTIDO" marca al PADRE; la
-// otra materia de la misma gestión, sin ese flag, es la HIJA. ──────
+// por gestión. El flag compartido="COMPARTIDO" marca a la HIJA; la
+// otra materia de la misma gestión, sin ese flag, es el PADRE.
+// (Mismo criterio que en el PASO 1: el registro que lleva el flag es
+// el derivado/compartido, no el origen.) ──────
 function calcularHijasIndices(materias) {
     const hijas = new Set()
 
@@ -80,8 +82,8 @@ function calcularHijasIndices(materias) {
 
     for (const [, indices] of porGestionVI) {
         if (indices.length < 2) continue
-        const padres = indices.filter((i) => esCompartido(materias[i])) // CON flag → padre
-        const hijasVI = indices.filter((i) => !esCompartido(materias[i])) // SIN flag → hijo
+        const padres = indices.filter((i) => !esCompartido(materias[i])) // SIN flag → padre
+        const hijasVI = indices.filter((i) => esCompartido(materias[i])) // CON flag → hijo
 
         if (padres.length === 1 && hijasVI.length >= 1) {
             hijasVI.forEach((i) => hijas.add(i))
@@ -123,6 +125,18 @@ export function generarPDF(reporte, opts = {}) {
         '059801': 'ECO',
     }
 
+    // Regla especial: si el código de MATERIA (no el de plan) COMIENZA con
+    // "240", se muestra "DESC" en vez del plan real, sin importar el plan
+    // asociado a esa fila. Mismo criterio usado en useTablaFormato.js y en
+    // useGenerarPDFCompartido.js.
+    function getPlanAbbrev(plan, materiaCodigo) {
+        const codigoMateria = norm(materiaCodigo)
+        if (codigoMateria.startsWith('240')) return 'DESC'
+
+        const codigo = norm(plan)
+        return PLAN_MAP[codigo] || codigo
+    }
+
     // ════════════════════════════════════════════════════════════════════════════
     // Encabezado institucional — se repite en cada página
     // ════════════════════════════════════════════════════════════════════════════
@@ -155,8 +169,8 @@ export function generarPDF(reporte, opts = {}) {
         const descripcion = soloDocumentos
             ? 'Documentos registrados en el SISS para el docente, clasificados por categoría.'
             : 'Datos Históricos pertenecientes a la Facultad de Ciencias Económicas registrados en el SISS ' +
-              'a partir de la gestión 2001. El reporte también detalla los grupos compartidos solo para los ' +
-              'cursos Intersemestrales de Verano e Invierno.'
+            'a partir de la gestión 2001. El reporte también detalla los grupos compartidos solo para los ' +
+            'cursos Intersemestrales de Verano e Invierno.'
         const descLines = doc.splitTextToSize(descripcion, CONTENT_W)
         doc.text(descLines, MARGIN_L, 21)
 
@@ -202,7 +216,7 @@ export function generarPDF(reporte, opts = {}) {
         const filas = materiasFuente.map((m, idx) => ({
             nro: m.nro,
             gestion: formatGestion(m.gestion),
-            plan: PLAN_MAP[m.plan] || m.plan || '',
+            plan: getPlanAbbrev(m.plan, m.materia_codigo),
             materia: m.materia || '',
             compartido: hijasIndices.has(idx) ? 'COMPARTIDO' : '',
             grp: m.grp || '',

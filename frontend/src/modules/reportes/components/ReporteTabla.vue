@@ -1,4 +1,3 @@
-
 <template>
   <div class="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 overflow-hidden">
     <div class="overflow-x-auto">
@@ -38,9 +37,19 @@
 
             <!-- Plan -->
             <td class="px-4 py-3">
-              <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[0.68rem] font-bold tracking-wide" :class="tipoGrp(fila.principal.plan).class">
-                <span class="w-1.5 h-1.5 rounded-full shrink-0" :class="tipoGrp(fila.principal.plan).dot"/>
-                {{ tipoGrp(fila.principal.plan).label }}
+              <span
+                v-if="fila.principal.plan"
+                class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[0.68rem] font-bold tracking-wide"
+                :class="tipoGrp(fila.principal.plan, fila.principal.materia_codigo).class"
+              >
+                <span class="w-1.5 h-1.5 rounded-full shrink-0" :class="tipoGrp(fila.principal.plan, fila.principal.materia_codigo).dot"/>
+                {{ tipoGrp(fila.principal.plan, fila.principal.materia_codigo).label }}
+              </span>
+              <span
+                v-else
+                class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[0.68rem] font-bold tracking-wide bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-500"
+              >
+                Sin grupo
               </span>
             </td>
 
@@ -56,15 +65,17 @@
             </td>
 
             <!-- GRP -->
-            <td class="px-4 py-3 tabular-nums text-slate-700 dark:text-slate-300 font-semibold text-xs">{{ fila.principal.grp }}</td>
+            <td class="px-4 py-3 tabular-nums text-slate-700 dark:text-slate-300 font-semibold text-xs">
+              {{ fila.principal.grp ?? '—' }}
+            </td>
 
             <!-- Comparte (modo agrupado) -->
             <td v-if="agruparCompartidos" class="px-4 py-3">
               <div v-if="fila.hermanas?.length" class="flex flex-col gap-1">
                 <div v-for="(h, hi) in fila.hermanas" :key="hi" class="flex items-center gap-1.5 flex-wrap text-[11px] leading-snug">
-                  <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[0.65rem] font-bold tracking-wide" :class="tipoGrp(h.plan).class">
-                    <span class="w-1.5 h-1.5 rounded-full shrink-0" :class="tipoGrp(h.plan).dot"/>
-                    {{ tipoGrp(h.plan).label }}
+                  <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[0.65rem] font-bold tracking-wide" :class="tipoGrp(h.plan, h.materia_codigo).class">
+                    <span class="w-1.5 h-1.5 rounded-full shrink-0" :class="tipoGrp(h.plan, h.materia_codigo).dot"/>
+  {{ tipoGrp(h.plan, h.materia_codigo).label }}
                   </span>
                   <span class="text-slate-800 dark:text-slate-300 font-medium truncate">{{ h.materia }}</span>
                   <span class="text-slate-500 whitespace-nowrap">· Grp {{ h.grp }}</span>

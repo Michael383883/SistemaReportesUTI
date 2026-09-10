@@ -67,6 +67,8 @@
           v-model:anio-hasta="anioHastaFiltro"
           v-model:materia="materiaFiltro"
           v-model:grupo="grupoFiltro"
+          v-model:incluir-sin-grupo="incluirSinGrupo"
+          v-model:mostrar-nota-sin-grupo="mostrarNotaSinGrupo"
           :loading="loadingActivo"
           :reporte="reporteActivo"
           :documentos-categoria="documentosCategoria"
@@ -172,6 +174,10 @@ const habilitarRestriccion = ref(false)
 const anioHabilitado       = ref(null)
 const periodoHabilitado    = ref(null)
 
+// ── Opciones: materias sin grupo/plan + nota ──
+const incluirSinGrupo     = ref(false)
+const mostrarNotaSinGrupo = ref(true)
+
 // Parsea "2016", "2016/1", "2016-2" → { anio, periodo }
 function parseAnioPeriodo(valorCrudo) {
   const valor = (valorCrudo ?? '').toString().trim()
@@ -199,6 +205,8 @@ function paramsActuales() {
     habilitarRestriccion: habilitarRestriccion.value,
     anioHabilitado:       anioHabilitado.value,
     periodoHabilitado:    periodoHabilitado.value,
+    incluirSinGrupo:      incluirSinGrupo.value,
+    mostrarNotaSinGrupo:  mostrarNotaSinGrupo.value,
   }
 }
 
@@ -229,14 +237,22 @@ onMounted(async () => {
   })
 })
 
-const reGenerar = async ({ anio, periodo, anioHasta, periodoHasta, materia, grupo }) => {
+const reGenerar = async ({
+  anio, periodo, anioHasta, periodoHasta, materia, grupo,
+  incluirSinGrupo: nuevoIncluirSinGrupo,
+  mostrarNotaSinGrupo: nuevoMostrarNota,
+}) => {
 
   const codigo = route.query.codigo
   if (!codigo) return
 
+  // Persiste el estado de los toggles para que sobreviva a otros cambios
+  // de filtro y a los toggles de "Versión (Compartidos)"
+  if (nuevoIncluirSinGrupo !== undefined) incluirSinGrupo.value = nuevoIncluirSinGrupo
+  if (nuevoMostrarNota !== undefined)     mostrarNotaSinGrupo.value = nuevoMostrarNota
+
   const anioQuery      = periodo      ? `${anio}/${periodo}`           : (anio ?? null)
   const anioHastaQuery = periodoHasta ? `${anioHasta}/${periodoHasta}` : (anioHasta ?? null)
-
 
   router.replace({
     query: {
@@ -245,27 +261,25 @@ const reGenerar = async ({ anio, periodo, anioHasta, periodoHasta, materia, grup
       ...(anioHastaQuery ? { anioHasta: anioHastaQuery } : {}),
       ...(materia         ? { materia }                  : {}),
       ...(grupo           ? { grupo }                    : {}),
-      // Preserva el modo (documentos) al re-generar, si estaba presente
       ...(route.query.modo ? { modo: route.query.modo } : {}),
     }
   })
 
   const payload = {
     anio, periodo, anioHasta, periodoHasta, materia, grupo,
-    // Se reenvía el estado de habilitación vigente, para que no se pierda
-    // al cambiar otros filtros (año, materia, grupo, etc.)
     habilitarRestriccion: habilitarRestriccion.value,
     anioHabilitado:       anioHabilitado.value,
     periodoHabilitado:    periodoHabilitado.value,
+    incluirSinGrupo:      incluirSinGrupo.value,
+    mostrarNotaSinGrupo:  mostrarNotaSinGrupo.value,
   }
 
-  // Regenera la versión que está visible actualmente
   if (verCompartidos.value) {
     await generarReporteCom(codigo, payload)
   } else {
     await generarReporte(codigo, payload)
   }
-}
+}  
 
 // ── Click en el botón de ReporteHeader ──────────────────────────────────────
 // { anio, periodo, habilitar } viene del componente ReporteHeader.vue

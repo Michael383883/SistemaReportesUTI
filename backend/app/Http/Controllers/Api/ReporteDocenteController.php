@@ -15,12 +15,124 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 class ReporteDocenteController extends Controller
 {
 
+    private function materiasSinGrupo(
+        int $docente,
+        string $nombreDocente,
+        bool $mostrarNota,
+        ?int $anioExacto,
+        ?int $ordenDesde,
+        ?int $ordenHasta,
+        array $noConcluidos
+    ): array {
+        $bindings = ['docente' => $docente];
+
+        $filtroAnioExacto = '';
+        if ($anioExacto !== null) {
+            $filtroAnioExacto = "AND CAST(cdoc.GESTION AS INT) = :anio_exacto";
+            $bindings['anio_exacto'] = $anioExacto;
+        }
+
+        $filtroRango = '';
+        if ($ordenDesde !== null) {
+            $filtroRango = "AND (
+            (CAST(cdoc.GESTION AS INT) * 10 + CASE
+                WHEN cdoc.PERIODO = '1' THEN 1
+                WHEN cdoc.PERIODO = '4' THEN 2
+                WHEN cdoc.PERIODO = '2' THEN 3
+                WHEN cdoc.PERIODO = '3' THEN 4
+                ELSE 1
+            END) BETWEEN :orden_desde AND :orden_hasta
+        )";
+            $bindings['orden_desde'] = $ordenDesde;
+            $bindings['orden_hasta'] = $ordenHasta;
+        }
+
+        $filtroNoConcluidos = '';
+        if (!empty($noConcluidos)) {
+            $placeholders = [];
+            foreach ($noConcluidos as $i => $valor) {
+                $key = "excl_{$i}";
+                $placeholders[] = ":{$key}";
+                $bindings[$key] = $valor;
+            }
+            $filtroNoConcluidos = "AND (LTRIM(RTRIM(cdoc.GESTION)) + '-' + cdoc.PERIODO) NOT IN (" . implode(',', $placeholders) . ")";
+        }
+
+        $sql = <<<SQL
+        SELECT
+            cm.ID_DETALLE,
+            cm.COD_MATERIA AS materia_codigo,
+            cm.NOMBRE_MATERIA,
+            cm.DETALLE,
+            cm.NOTA,
+            cdoc.GESTION,
+            cdoc.PERIODO,
+            cdoc.TIPO_DOCUMENTO,
+            cdoc.DETALLE_GENERAL,
+            cdoc.CATEGORIA
+        FROM CLASIFICACION_MATERIA AS cm
+        INNER JOIN CLASIFICACION_DOCENTE AS ccd
+            ON ccd.ID_CLASIFICACION_DOCENTE = cm.ID_CLASIFICACION_DOCENTE
+        INNER JOIN CLASIFICACION_DOCUMENTO AS cdoc
+            ON cdoc.ID_DOCUMENTO = cm.ID_DOCUMENTO
+        WHERE ccd.COD_DOCENTE = :docente
+          AND (cm.COD_PLAN IS NULL OR LTRIM(RTRIM(cm.COD_PLAN)) = '')
+          AND (cm.GRUPO IS NULL OR LTRIM(RTRIM(cm.GRUPO)) = '')
+          {$filtroAnioExacto}
+          {$filtroRango}
+          {$filtroNoConcluidos}
+        ORDER BY cdoc.GESTION, cdoc.PERIODO, cm.ORDEN, cm.ID_DETALLE
+        SQL;
+
+        $filas = DB::connection('sqlsrv')->select($sql, $bindings);
+
+        $resultado = [];
+        foreach ($filas as $f) {
+            $anio = (int) $f->GESTION;
+
+            $materiaTexto = trim(($f->materia_codigo ?? '') . ' ' . ($f->NOMBRE_MATERIA ?: 'SIN NOMBRE'));
+
+            $descripcion = $f->DETALLE ?: ($f->DETALLE_GENERAL ?? '');
+            if ($mostrarNota && $f->NOTA !== null) {
+                $descripcion .= ($descripcion !== '' ? ' , ' : '') . 'Nota: ' . $f->NOTA;
+            }
+
+            $obj = new \stdClass();
+            $obj->nro = null;
+            $obj->CODIGO = $docente;
+            $obj->docente = $nombreDocente;
+            $obj->gestion = $anio . '/' . match ($f->PERIODO) {
+                '3' => '3 - Verano',
+                '4' => '4 - Invierno',
+                default => $f->PERIODO,
+            };
+            $obj->plan_abrev = null;
+            $obj->materia = $materiaTexto;
+            $obj->materia_codigo = $f->materia_codigo;
+            $obj->compartido = '';
+            $obj->comp = '';
+            $obj->comparte = '';
+            $obj->orden_comparte = null;
+            $obj->grp = null;
+            $obj->RESOLUCION = $f->TIPO_DOCUMENTO;
+            $obj->DESIGNACION = $descripcion;
+            $obj->TIEMPO = null;
+            $obj->TIPO_INGRESO = $f->CATEGORIA;
+            $obj->ANIO = $anio;
+            $obj->PERIODO = $f->PERIODO;
+            $obj->PLAN = null;
+
+            $resultado[] = $obj;
+        }
+
+        return $resultado;
+    }
+
     private function bloqueosManuales(): array
     {
         return PeriodoAcademico::bloqueosActivos();
     }
 
-    // Whitelist de columnas opcionales de DOCENTES que el reporte puede agregar
     private const CAMPOS_DOCENTE_PERMITIDOS = [
         'CI' => 'd.CI',
         'FECHA_NAC' => 'd.FECHA_NAC',
@@ -29,7 +141,6 @@ class ReporteDocenteController extends Controller
         'FECHA_NOMBRAMIENTO' => 'd.FECHA_NOMBRAMIENTO',
     ];
 
-    // Whitelist de columnas opcionales de CLASIFICACION_TITULO
     private const CAMPOS_TITULO_PERMITIDOS = [
         'NOMBRE_TITULO' => 'ct.NOMBRE_TITULO',
         'UNIVERSIDAD' => 'ct.UNIVERSIDAD',
@@ -37,6 +148,7 @@ class ReporteDocenteController extends Controller
         'FECHA_TITULO' => 'ct.FECHA_TITULO',
         'NUMERO' => 'ct.NUMERO',
     ];
+
     private const ETIQUETAS = [
         'CI' => 'CI',
         'FECHA_NAC' => 'Fecha Nac.',
@@ -96,11 +208,7 @@ class ReporteDocenteController extends Controller
 
         return $query->distinct()->orderBy('d.APELLIDOS')->orderBy('d.NOMBRES')->get();
     }
-    /**
-     * Convierte (anio, periodo) a un valor numérico ordenable.
-     * Orden académico real: 1 (anual/1) → 4 (invierno) → 2 → 3 (verano)
-     * Ej: 2016/1 → 20161 | 2016/4 → 20162 | 2016/2 → 20163 | 2016/3 → 20164
-     */
+
     private function ordenTemporal(?int $anio, ?string $periodo): ?int
     {
         if (!$anio)
@@ -111,41 +219,17 @@ class ReporteDocenteController extends Controller
             '4' => 2,
             '2' => 3,
             '3' => 4,
-            default => 1, // si no se especifica periodo, se toma desde el inicio del año
+            default => 1,
         };
 
         return ($anio * 10) + $ordenPeriodo;
     }
-
-    /**
-     * Rangos aproximados de cada periodo académico (mes-día).
-     * Ajustables sin tocar el resto de la lógica.
-     *
-     * 3 -> Curso de Verano       (05 ene - 20 feb)
-     * 1 -> Semestre I            (10 feb - 30 jun)
-     * 4 -> Curso de Invierno     (01 jul - 15 ago, margen hasta mediados de agosto)
-     * 2 -> Semestre II + cierre  (05 ago - 20 dic)
-     */
-
-
 
     private function rangosPeriodos(): array
     {
         return PeriodoAcademico::obtenerRangos();
     }
 
-
-    /**
-     * Determina qué combinaciones (anio-periodo) AÚN NO HAN CONCLUIDO
-     * según la fecha actual del servidor, para excluirlas automáticamente
-     * del reporte de materias dictadas.
-     * Revisa el año actual y el siguiente (cubre el caso de que ya haya
-     * datos cargados de verano del próximo año en diciembre).
-     *
-     * Reemplaza el antiguo filtro estático NOT IN ('2026-1').
-     *
-     * @return array Lista de strings "anio-periodo", ej: ['2026-1', '2026-2']
-     */
     private function periodosNoConcluidos(): array
     {
         $hoy = now();
@@ -159,7 +243,6 @@ class ReporteDocenteController extends Controller
                 $fin = Carbon::createFromFormat('Y-m-d', "{$anio}-{$r['fin']}")->endOfDay();
 
                 if ($hoy->lte($fin)) {
-                    // El periodo termina hoy o después -> todavía no concluye
                     $noConcluidos[] = "{$anio}-{$periodo}";
                 }
             }
@@ -216,13 +299,10 @@ class ReporteDocenteController extends Controller
         if ($anio && !$periodo && !$anioHasta) {
             $filtroSoloAnioExacto = true;
         } elseif ($anio || $anioHasta) {
-            // Si no viene "anio" (Desde vacío), no hay tope mínimo
             $ordenDesde = $anio
                 ? $this->ordenTemporal((int) $anio, $periodo)
                 : 0;
 
-            // Prioridad a anioHasta; si no viene, usa fin del año "desde";
-            // si tampoco hay "anio", en teoría no llegamos aquí (ya cubierto arriba)
             $ordenHasta = $anioHasta
                 ? $this->ordenTemporal((int) $anioHasta, $periodoHasta ?? '3')
                 : $this->ordenTemporal((int) $anio, '3');
@@ -305,122 +385,118 @@ class ReporteDocenteController extends Controller
         ) NOT IN (" . implode(',', $placeholders) . ")";
         }
 
-        $materias = DB::connection('sqlsrv')->select("
+        $sql = <<<SQL
+        SELECT
+            ROW_NUMBER() OVER (
+                ORDER BY
+                    GRUPOS.ANIO,
+                    CASE
+                        WHEN GRUPOS.PERIODO = '1' THEN 1
+                        WHEN GRUPOS.PERIODO = '4' THEN 2
+                        WHEN GRUPOS.PERIODO = '2' THEN 3
+                        WHEN GRUPOS.PERIODO = '3' THEN 4
+                        ELSE 5
+                    END,
+                    GRUPOS.GRUPO ASC,
+                    GRUPOS.MATERIA,
+                    GRUPOS.[PLAN]
+            ) AS nro,
 
-    SELECT
-        ROW_NUMBER() OVER (
-            ORDER BY
-                GRUPOS.ANIO,
-                CASE
-                    WHEN GRUPOS.PERIODO = '1' THEN 1
-                    WHEN GRUPOS.PERIODO = '4' THEN 2
-                    WHEN GRUPOS.PERIODO = '2' THEN 3
-                    WHEN GRUPOS.PERIODO = '3' THEN 4
-                    ELSE 5
-                END,
-                GRUPOS.GRUPO ASC,
-                GRUPOS.MATERIA,
-                GRUPOS.[PLAN]
-        ) AS nro,
+            DOCENTES.CODIGO,
+            (DOCENTES.APELLIDOS + ' ' + DOCENTES.NOMBRES) AS docente,
 
-        DOCENTES.CODIGO,
-        (DOCENTES.APELLIDOS + ' ' + DOCENTES.NOMBRES) AS docente,
+            CONVERT(VARCHAR(4), GRUPOS.ANIO) + '/' +
+            CASE
+                WHEN GRUPOS.PERIODO = '3' THEN '3 - Verano'
+                WHEN GRUPOS.PERIODO = '4' THEN '4 - Invierno'
+                ELSE GRUPOS.PERIODO
+            END AS gestion,
 
-        CONVERT(VARCHAR(4), GRUPOS.ANIO) + '/' +
-        CASE
-            WHEN GRUPOS.PERIODO = '3' THEN '3 - Verano'
-            WHEN GRUPOS.PERIODO = '4' THEN '4 - Invierno'
-            ELSE GRUPOS.PERIODO
-        END AS gestion,
+            CASE
+                WHEN [PLANES].NOMBRE LIKE '%ADMINISTRACION%' THEN 'ADM'
+                WHEN [PLANES].NOMBRE LIKE '%COMERCIAL%' THEN 'COM'
+                WHEN [PLANES].NOMBRE LIKE '%FINANCIERA%' THEN 'FIN'
+                WHEN [PLANES].NOMBRE LIKE '%ECONOMIA%' THEN 'ECO'
+                WHEN [PLANES].NOMBRE LIKE '%CONTADURIA%' THEN 'CON'
+                ELSE LEFT([PLANES].NOMBRE, 3)
+            END AS plan_abrev,
 
-        CASE
-            WHEN [PLANES].NOMBRE LIKE '%ADMINISTRACION%' THEN 'ADM'
-            WHEN [PLANES].NOMBRE LIKE '%COMERCIAL%' THEN 'COM'
-            WHEN [PLANES].NOMBRE LIKE '%FINANCIERA%' THEN 'FIN'
-            WHEN [PLANES].NOMBRE LIKE '%ECONOMIA%' THEN 'ECO'
-            WHEN [PLANES].NOMBRE LIKE '%CONTADURIA%' THEN 'CON'
-            ELSE LEFT([PLANES].NOMBRE, 3)
-        END AS plan_abrev,
+            GRUPOS.MATERIA + ' ' + ISNULL(MATERIAS.NOMBRE, 'SIN NOMBRE') AS materia,
 
-        GRUPOS.MATERIA + ' ' + ISNULL(MATERIAS.NOMBRE, 'SIN NOMBRE') AS materia,
+            GRUPOS.MATERIA AS materia_codigo,
 
-        -- ── NUEVA REGLA: primer dígito del GRUPO decide padre/hijo ──────
-        -- '0' por delante  → grupo padre (no compartido)
-        -- cualquier otro dígito por delante → grupo hijo (compartido)
-        -- Solo aplica en periodo Verano(3)/Invierno(4)
-        CASE
-            WHEN GRUPOS.PERIODO IN ('3','4')
-                 AND LEFT(LTRIM(RTRIM(GRUPOS.GRUPO)), 1) <> '0'
-            THEN 'COMPARTIDO'
-            ELSE ''
-        END AS compartido,
+            CASE
+                WHEN GRUPOS.PERIODO IN ('3','4')
+                     AND LEFT(LTRIM(RTRIM(GRUPOS.GRUPO)), 1) <> '0'
+                THEN 'COMPARTIDO'
+                ELSE ''
+            END AS compartido,
 
-        -- Código del grupo padre correspondiente (solo informativo)
-        CASE
-            WHEN GRUPOS.PERIODO IN ('3','4')
-                 AND LEFT(LTRIM(RTRIM(GRUPOS.GRUPO)), 1) <> '0'
-            THEN '0' + RIGHT(LTRIM(RTRIM(GRUPOS.GRUPO)), 1)
-            ELSE NULL
-        END AS grupo_padre,
+            CASE
+                WHEN GRUPOS.PERIODO IN ('3','4')
+                     AND LEFT(LTRIM(RTRIM(GRUPOS.GRUPO)), 1) <> '0'
+                THEN '0' + RIGHT(LTRIM(RTRIM(GRUPOS.GRUPO)), 1)
+                ELSE NULL
+            END AS grupo_padre,
 
-        -- Carrera dueña del prefijo con el que se comparte (solo informativo)
-        CASE LEFT(LTRIM(RTRIM(GRUPOS.GRUPO)), 1)
-            WHEN '4' THEN 'ADMINISTRACIÓN DE EMPRESAS'
-            WHEN '5' THEN 'ING. COMERCIAL'
-            WHEN '6' THEN 'CONTADURÍA PÚBLICA'
-            WHEN '7' THEN 'ING. FINANCIERA'
-            WHEN '8' THEN 'ECONOMÍA'
-            ELSE NULL
-        END AS comparte_con_carrera,
+            CASE LEFT(LTRIM(RTRIM(GRUPOS.GRUPO)), 1)
+                WHEN '4' THEN 'ADMINISTRACIÓN DE EMPRESAS'
+                WHEN '5' THEN 'ING. COMERCIAL'
+                WHEN '6' THEN 'CONTADURÍA PÚBLICA'
+                WHEN '7' THEN 'ING. FINANCIERA'
+                WHEN '8' THEN 'ECONOMÍA'
+                ELSE NULL
+            END AS comparte_con_carrera,
 
-        GRUPOS.GRUPO AS grp,
-        GRUPOS.RESOLUCION,
-        GRUPOS.DESIGNACION,
-        GRUPOS.TIEMPO,
-        GRUPOS.TIPO_INGRESO,
-        GRUPOS.ANIO,
-        GRUPOS.PERIODO,
-        GRUPOS.[PLAN]
+            GRUPOS.GRUPO AS grp,
+            GRUPOS.RESOLUCION,
+            GRUPOS.DESIGNACION,
+            GRUPOS.TIEMPO,
+            GRUPOS.TIPO_INGRESO,
+            GRUPOS.ANIO,
+            GRUPOS.PERIODO,
+            GRUPOS.[PLAN]
 
-    FROM GRUPOS
+        FROM GRUPOS
 
-    INNER JOIN DOCENTES
-        ON DOCENTES.CODIGO = GRUPOS.DOCENTE
+        INNER JOIN DOCENTES
+            ON DOCENTES.CODIGO = GRUPOS.DOCENTE
 
-    INNER JOIN MATERIAS
-        ON MATERIAS.CODIGO = GRUPOS.MATERIA
-        AND MATERIAS.ANIO = GRUPOS.ANIO
-        AND MATERIAS.PERIODO = GRUPOS.PERIODO
-        AND MATERIAS.[PLAN] = GRUPOS.[PLAN]
+        INNER JOIN MATERIAS
+            ON MATERIAS.CODIGO = GRUPOS.MATERIA
+            AND MATERIAS.ANIO = GRUPOS.ANIO
+            AND MATERIAS.PERIODO = GRUPOS.PERIODO
+            AND MATERIAS.[PLAN] = GRUPOS.[PLAN]
 
-    LEFT JOIN [PLANES]
-        ON [PLANES].CODIGO = GRUPOS.[PLAN]
-        AND [PLANES].ANIO = GRUPOS.ANIO
+        LEFT JOIN [PLANES]
+            ON [PLANES].CODIGO = GRUPOS.[PLAN]
+            AND [PLANES].ANIO = GRUPOS.ANIO
 
-    WHERE DOCENTES.CODIGO = :docente
-      AND GRUPOS.PRIMARIO = 'Y'
-      AND GRUPOS.TIPO = 'N'
+        WHERE DOCENTES.CODIGO = :docente
+          AND GRUPOS.PRIMARIO = 'Y'
+          AND GRUPOS.TIPO = 'N'
 
-      {$filtroNoConcluidos}
-      {$filtroAnioExacto}
-      {$filtroRango}
-      {$filtroMateria}
-      {$filtroGrupo}
+          {$filtroNoConcluidos}
+          {$filtroAnioExacto}
+          {$filtroRango}
+          {$filtroMateria}
+          {$filtroGrupo}
 
-    ORDER BY
-        GRUPOS.ANIO,
-        CASE
-            WHEN GRUPOS.PERIODO = '1' THEN 1
-            WHEN GRUPOS.PERIODO = '4' THEN 2
-            WHEN GRUPOS.PERIODO = '2' THEN 3
-            WHEN GRUPOS.PERIODO = '3' THEN 4
-            ELSE 5
-        END ASC,
-        GRUPOS.GRUPO ASC,
-        GRUPOS.MATERIA,
-        GRUPOS.[PLAN]
+        ORDER BY
+            GRUPOS.ANIO,
+            CASE
+                WHEN GRUPOS.PERIODO = '1' THEN 1
+                WHEN GRUPOS.PERIODO = '4' THEN 2
+                WHEN GRUPOS.PERIODO = '2' THEN 3
+                WHEN GRUPOS.PERIODO = '3' THEN 4
+                ELSE 5
+            END ASC,
+            GRUPOS.GRUPO ASC,
+            GRUPOS.MATERIA,
+            GRUPOS.[PLAN]
+        SQL;
 
-    ", $bindings);
+        $materias = DB::connection('sqlsrv')->select($sql, $bindings);
 
         return response()->json([
             'success' => true,
@@ -450,15 +526,12 @@ class ReporteDocenteController extends Controller
 
     public function horario(Request $request): JsonResponse
     {
-        // ─── 1. Gestión activa ────────────────────────────────────────────
         $anio = 2026;
         $periodo = 1;
 
-        // ─── 2. Filtro opcional por docente ──────────────────────────────
-        $docenteFiltro = $request->input('docente'); // null = todos
+        $docenteFiltro = $request->input('docente');
 
-        // ─── 3. Consulta SQL Server 2022 ─────────────────────────────────
-        $sql = "
+        $sql = <<<SQL
         SELECT
             HORARIOS2.ANIO,
             HORARIOS2.PERIODO,
@@ -534,7 +607,13 @@ class ReporteDocenteController extends Controller
             AND GRUPOS.TIPO        = 'N'
             AND GRUPOS.PRIMARIO    IN ('Y')
             AND HORARIOS2.HORA     NOT IN (730, 900, 1030, 1200, 1330, 1500, 1630, 1800, 1930, 2100)
-            " . ($docenteFiltro ? "AND HORARIOS2.DOCENTE = :docente" : "") . "
+        SQL;
+
+        if ($docenteFiltro) {
+            $sql .= " AND HORARIOS2.DOCENTE = :docente";
+        }
+
+        $sql .= <<<SQL
 
         GROUP BY
             HORARIOS2.ANIO,
@@ -560,7 +639,7 @@ class ReporteDocenteController extends Controller
             GRUPOS.GRUPO,
             GRUPOS.[PLAN],
             GRUPOS_COMPARTIDOS.COMPARTIDO
-    ";
+        SQL;
 
         $bindings = [
             'anio' => $anio,
@@ -571,10 +650,8 @@ class ReporteDocenteController extends Controller
             $bindings['docente'] = (string) $docenteFiltro;
         }
 
-        // Usar la conexión SQL Server (sqlsrv)
         $filas = DB::connection('sqlsrv')->select($sql, $bindings);
 
-        // ─── 4. Agrupar por docente ───────────────────────────────────────
         $docentesMap = [];
 
         foreach ($filas as $fila) {
@@ -605,7 +682,6 @@ class ReporteDocenteController extends Controller
             ];
         }
 
-        // ─── 5. Respuesta final ───────────────────────────────────────────
         return response()->json([
             'gestion' => [
                 'anio' => $anio,
@@ -615,26 +691,6 @@ class ReporteDocenteController extends Controller
         ]);
     }
 
-
-
-    /**
-     * Segunda versión de materiasDictadas().
-     *
-     * Diferencia clave respecto al original:
-     * - Se agrega LEFT JOIN a GRUPOS_COMPARTIDOS (igual que en el endpoint
-     *   de horarios) para saber, de forma real, si un grupo/materia es
-     *   compartido y con qué se comparte.
-     * - Se agrega la columna `comparte`, que trae el dato de GRUPOS_COMPARTIDOS
-     *   (GC.COMPARTIDO) en vez de la heurística vieja (GRUPO > '30' AND PERIODO IN ('3','4')).
-     * - Se deja la columna vieja `compartido` tal cual, para no romper nada
-     *   que ya dependa de ella en el frontend. Puedes eliminarla después de
-     *   validar que `comparte` la reemplaza correctamente.
-     *
-     * OJO: asumí que GC.COMPARTIDO trae el valor útil a mostrar (código o
-     * nombre de la materia/grupo con el que se comparte) y que GC.COMP es
-     * el flag "sí/no comparte". Si la semántica real de esos campos es otra,
-     * ajusta el SELECT de abajo (marcado con //*** AJUSTAR ***).
-     */
     public function materiasDictadasCompartidas(Request $request)
     {
         $request->validate([
@@ -649,6 +705,8 @@ class ReporteDocenteController extends Controller
             'habilitar_restriccion' => 'nullable|boolean',
             'anio_habilitado' => 'required_if:habilitar_restriccion,true|nullable|numeric',
             'periodo_habilitado' => 'required_if:habilitar_restriccion,true|nullable|string|in:1,2,3,4',
+            'incluir_sin_grupo' => 'nullable|boolean',
+            'mostrar_nota_sin_grupo' => 'nullable|boolean',
         ]);
 
         $docente = $request->docente;
@@ -659,11 +717,13 @@ class ReporteDocenteController extends Controller
         $materia = $request->materia;
         $grupo = $request->grupo;
 
+        $incluirSinGrupo = $request->boolean('incluir_sin_grupo');
+        $mostrarNotaSinGrupo = $request->boolean('mostrar_nota_sin_grupo', true);
+
         $habilitarRestriccion = $request->boolean('habilitar_restriccion');
         $anioHabilitado = $request->anio_habilitado;
         $periodoHabilitado = $request->periodo_habilitado;
 
-        // CONSULTAR DOCENTE
         $docenteInfo = DB::connection('sqlsrv')->selectOne("
         SELECT CODIGO, NOMBRES, APELLIDOS
         FROM DOCENTES
@@ -677,7 +737,6 @@ class ReporteDocenteController extends Controller
             ], 404);
         }
 
-        // ── Rango temporal ──────────────────────────────────────────────
         $ordenDesde = null;
         $ordenHasta = null;
         $filtroSoloAnioExacto = false;
@@ -685,17 +744,14 @@ class ReporteDocenteController extends Controller
         if ($anio && !$periodo && !$anioHasta) {
             $filtroSoloAnioExacto = true;
         } elseif ($anio || $anioHasta) {
-            // Si no viene "anio" (Desde vacío), no hay tope mínimo
             $ordenDesde = $anio
                 ? $this->ordenTemporal((int) $anio, $periodo)
                 : 0;
 
-            // Prioridad a anioHasta; si no viene, usa fin del año "desde"
             $ordenHasta = $anioHasta
                 ? $this->ordenTemporal((int) $anioHasta, $periodoHasta ?? '3')
                 : $this->ordenTemporal((int) $anio, '3');
         }
-
 
         $materiaEsCodigo = $materia && preg_match('/^\d+$/', $materia);
 
@@ -743,7 +799,6 @@ class ReporteDocenteController extends Controller
             $bindings['grupo'] = $grupo;
         }
 
-        // ── Exclusión dinámica de periodos aún no concluidos ────────────
         $noConcluidos = array_unique(array_merge(
             $this->periodosNoConcluidos(),
             PeriodoAcademico::bloqueosActivos()
@@ -775,8 +830,12 @@ class ReporteDocenteController extends Controller
         ) NOT IN (" . implode(',', $placeholders) . ")";
         }
 
-        $materias = DB::connection('sqlsrv')->select("
- 
+        // ── Flag seguro: se interpola directamente (no como placeholder)
+        //    porque ODBC de SQL Server no permite reutilizar el mismo
+        //    placeholder nombrado más de una vez en la misma query. ──
+        $mostrarNotaSql = $mostrarNotaSinGrupo ? 1 : 0;
+
+        $sql = <<<SQL
         SELECT
             ROW_NUMBER() OVER (
                 ORDER BY
@@ -792,17 +851,17 @@ class ReporteDocenteController extends Controller
                     GRUPOS.MATERIA,
                     GRUPOS.[PLAN]
             ) AS nro,
- 
+
             DOCENTES.CODIGO,
             (DOCENTES.APELLIDOS + ' ' + DOCENTES.NOMBRES) AS docente,
- 
+
             CONVERT(VARCHAR(4), GRUPOS.ANIO) + '/' +
             CASE
                 WHEN GRUPOS.PERIODO = '3' THEN '3 - Verano'
                 WHEN GRUPOS.PERIODO = '4' THEN '4 - Invierno'
                 ELSE GRUPOS.PERIODO
             END AS gestion,
- 
+
             CASE
                 WHEN [PLANES].NOMBRE LIKE '%ADMINISTRACION%' THEN 'ADM'
                 WHEN [PLANES].NOMBRE LIKE '%COMERCIAL%' THEN 'COM'
@@ -811,63 +870,99 @@ class ReporteDocenteController extends Controller
                 WHEN [PLANES].NOMBRE LIKE '%CONTADURIA%' THEN 'CON'
                 ELSE LEFT([PLANES].NOMBRE, 3)
             END AS plan_abrev,
- 
+
             GRUPOS.MATERIA + ' ' + ISNULL(MATERIAS.NOMBRE, 'SIN NOMBRE') AS materia,
- 
-            -- Heurística vieja, se deja por compatibilidad
+
+            GRUPOS.MATERIA AS materia_codigo,
+
             CASE
                 WHEN GRUPOS.GRUPO > '30'
                      AND GRUPOS.PERIODO IN ('3','4')
                 THEN 'COMPARTIDO'
                 ELSE ''
             END AS compartido,
- 
-            -- *** NUEVO: dato real de GRUPOS_COMPARTIDOS (AJUSTAR si la semántica difiere) ***
+
             ISNULL(GC.COMP, '')        AS comp,
             ISNULL(GC.COMPARTIDO, '')  AS comparte,
             GC.ORDEN                    AS orden_comparte,
- 
+
             GRUPOS.GRUPO AS grp,
             GRUPOS.RESOLUCION,
-            GRUPOS.DESIGNACION,
+
+            CASE
+                WHEN GRUPOS.TIPO_INGRESO COLLATE Modern_Spanish_CI_AI LIKE '%EXAMEN%SUFICIENCIA%'
+                     AND CM_NOTA.NOTA IS NOT NULL
+                     AND {$mostrarNotaSql} = 1
+                THEN ISNULL(GRUPOS.DESIGNACION, '') + ' , Nota: ' + CAST(CM_NOTA.NOTA AS VARCHAR(10))
+                WHEN GRUPOS.TIPO_INGRESO COLLATE Modern_Spanish_CI_AI LIKE '%EXAMEN%SUFICIENCIA%'
+                     AND CM_NOTA.NOTA IS NULL
+                     AND {$mostrarNotaSql} = 1
+                THEN ISNULL(GRUPOS.DESIGNACION, '') + ' , Nota: N/D'
+                ELSE GRUPOS.DESIGNACION
+            END AS DESIGNACION,
+
             GRUPOS.TIEMPO,
             GRUPOS.TIPO_INGRESO,
             GRUPOS.ANIO,
             GRUPOS.PERIODO,
             GRUPOS.[PLAN]
- 
+
         FROM GRUPOS
- 
+
         INNER JOIN DOCENTES
             ON DOCENTES.CODIGO = GRUPOS.DOCENTE
- 
+
         INNER JOIN MATERIAS
             ON MATERIAS.CODIGO = GRUPOS.MATERIA
             AND MATERIAS.ANIO = GRUPOS.ANIO
             AND MATERIAS.PERIODO = GRUPOS.PERIODO
             AND MATERIAS.[PLAN] = GRUPOS.[PLAN]
- 
+
         LEFT JOIN [PLANES]
             ON [PLANES].CODIGO = GRUPOS.[PLAN]
             AND [PLANES].ANIO = GRUPOS.ANIO
- 
-        -- *** NUEVO: join real de compartidos ***
+
         LEFT JOIN GRUPOS_COMPARTIDOS AS GC
             ON GC.[PLAN] = GRUPOS.[PLAN]
             AND GC.MATERIA = GRUPOS.MATERIA
             AND GC.GRUPO = GRUPOS.GRUPO
             AND GC.PRIMARIO = GRUPOS.PRIMARIO
- 
+
+        OUTER APPLY (
+            SELECT TOP 1 CM.NOTA
+            FROM CLASIFICACION_MATERIA AS CM
+            INNER JOIN CLASIFICACION_DOCENTE AS CCD2
+                ON CCD2.ID_CLASIFICACION_DOCENTE = CM.ID_CLASIFICACION_DOCENTE
+            INNER JOIN CLASIFICACION_DOCUMENTO AS CDOC2
+                ON CDOC2.ID_DOCUMENTO = CCD2.ID_DOCUMENTO
+            WHERE CM.COD_PLAN    COLLATE Modern_Spanish_CI_AS = GRUPOS.[PLAN]  COLLATE Modern_Spanish_CI_AS
+              AND CM.COD_MATERIA COLLATE Modern_Spanish_CI_AS = GRUPOS.MATERIA COLLATE Modern_Spanish_CI_AS
+              AND CM.[GRUPO]      COLLATE Modern_Spanish_CI_AS = CAST(GRUPOS.[GRUPO] AS VARCHAR(10)) COLLATE Modern_Spanish_CI_AS
+              AND CCD2.COD_DOCENTE = GRUPOS.DOCENTE
+              AND CDOC2.GESTION COLLATE Modern_Spanish_CI_AS = CAST(GRUPOS.ANIO AS VARCHAR(4)) COLLATE Modern_Spanish_CI_AS
+              AND CDOC2.PERIODO COLLATE Modern_Spanish_CI_AS = GRUPOS.PERIODO COLLATE Modern_Spanish_CI_AS
+              AND CM.NOTA IS NOT NULL
+            ORDER BY
+                CASE
+                    WHEN CDOC2.TIPO_DOCUMENTO  COLLATE Modern_Spanish_CI_AS = GRUPOS.RESOLUCION   COLLATE Modern_Spanish_CI_AS
+                     AND CDOC2.DETALLE_GENERAL COLLATE Modern_Spanish_CI_AS = GRUPOS.DESIGNACION  COLLATE Modern_Spanish_CI_AS
+                     AND CDOC2.CATEGORIA       COLLATE Modern_Spanish_CI_AS = GRUPOS.TIPO_INGRESO COLLATE Modern_Spanish_CI_AS
+                    THEN 0
+                    ELSE 1
+                END,
+                CM.ID_DETALLE DESC
+        ) AS CM_NOTA
+
         WHERE DOCENTES.CODIGO = :docente
           AND GRUPOS.PRIMARIO = 'Y'
           AND GRUPOS.TIPO = 'N'
- 
+
           {$filtroNoConcluidos}
           {$filtroAnioExacto}
           {$filtroRango}
           {$filtroMateria}
           {$filtroGrupo}
- 
+
         ORDER BY
             GRUPOS.ANIO,
             CASE
@@ -880,8 +975,34 @@ class ReporteDocenteController extends Controller
             GRUPOS.GRUPO ASC,
             GRUPOS.MATERIA,
             GRUPOS.[PLAN]
- 
-    ", $bindings);
+        SQL;
+
+        $materias = DB::connection('sqlsrv')->select($sql, $bindings);
+
+        if ($incluirSinGrupo) {
+            $sinGrupo = $this->materiasSinGrupo(
+                $docente,
+                trim($docenteInfo->APELLIDOS . ' ' . $docenteInfo->NOMBRES),
+                $mostrarNotaSinGrupo,
+                $filtroSoloAnioExacto ? (int) $anio : null,
+                $ordenDesde,
+                $ordenHasta,
+                $noConcluidos
+            );
+
+            $materias = array_merge($materias, $sinGrupo);
+
+            usort(
+                $materias,
+                fn($a, $b) =>
+                    $this->ordenTemporal((int) $a->ANIO, (string) $a->PERIODO)
+                    <=> $this->ordenTemporal((int) $b->ANIO, (string) $b->PERIODO)
+            );
+
+            foreach ($materias as $i => $m) {
+                $m->nro = $i + 1;
+            }
+        }
 
         return response()->json([
             'success' => true,
@@ -909,10 +1030,6 @@ class ReporteDocenteController extends Controller
         ]);
     }
 
-    // GET /api/reporte-docentes/tipos-titulo
-    // Devuelve los TIPO_TITULO distintos que existen registrados,
-    // para armar el <select> de filtro en el frontend (Diplomado, Maestría, etc.)
-    // GET /api/reporte-docentes/tipos-titulo
     public function tiposTitulo()
     {
         $tipos = DB::table('CLASIFICACION_TITULO')
@@ -925,7 +1042,6 @@ class ReporteDocenteController extends Controller
         return response()->json($tipos);
     }
 
-    // GET /api/reporte-docentes/con-titulo
     public function docentesConTitulo(Request $request)
     {
         $request->validate($this->reglasFiltros());
@@ -940,8 +1056,6 @@ class ReporteDocenteController extends Controller
         ]);
     }
 
-    // GET /api/reporte-docentes/con-titulo/excel
-
     public function excel(Request $request)
     {
         $request->validate($this->reglasFiltros());
@@ -952,10 +1066,9 @@ class ReporteDocenteController extends Controller
         $anio = $request->query('anio');
         $periodo = $request->query('periodo');
 
-        // ── Paleta académica (igual al PDF: blanco/negro/gris) ────────────
         $NEGRO = 'FF000000';
-        $GRIS_HEAD_BG = 'FFF0F0F0'; // equivalente a rgb(240,240,240) del PDF
-        $GRIS_LINEA = 'FF8C8C8C'; // equivalente a rgb(140,140,140) del PDF
+        $GRIS_HEAD_BG = 'FFF0F0F0';
+        $GRIS_LINEA = 'FF8C8C8C';
         $GRIS_TEXTO = 'FF505050';
 
         $spreadsheet = new Spreadsheet();
@@ -963,7 +1076,6 @@ class ReporteDocenteController extends Controller
         $sheet->setTitle('Docentes con Titulo');
         $spreadsheet->getDefaultStyle()->getFont()->setName('Calibri')->setSize(10);
 
-        // ── Encabezados dinámicos: "Nº" fijo + lo que venga en los filtros ──
         $encabezados = ['Nº', 'Código', 'Apellidos', 'Nombres', 'Tipo de Título'];
         foreach ($camposDocente as $c)
             $encabezados[] = self::ETIQUETAS[$c] ?? $c;
@@ -971,14 +1083,8 @@ class ReporteDocenteController extends Controller
             $encabezados[] = self::ETIQUETAS[$c] ?? $c;
         $totalColumnas = count($encabezados);
         $ultimaColumna = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($totalColumnas);
-        // No importa cuántas columnas se agreguen: la TABLA (datos, encabezado de
-        // columnas, autofiltro) siempre usa $ultimaColumna, así que se ajusta sola.
 
-        // El bloque de encabezado (título, subtítulo, gestión, nota/fecha) necesita
-        // un ancho mínimo para no cortar el texto cuando la tabla tiene pocas
-        // columnas (ej. solo 5). Si la tabla es angosta, el encabezado igual
-        // se extiende hasta esta columna mínima (decorativo, no afecta los datos).
-        $colsMinimoEncabezado = 9; // suficiente para que el título completo entre
+        $colsMinimoEncabezado = 9;
         $colEncabezadoFin = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(
             max($totalColumnas, $colsMinimoEncabezado)
         );
@@ -989,7 +1095,6 @@ class ReporteDocenteController extends Controller
         };
         $fechaGeneracion = now()->format('d/m/Y h:i:s A');
 
-        // ── Bloque A1:C2: recuadro de logo/universidad, fondo blanco y sin contorno ──
         $sheet->mergeCells('A1:C2');
         $sheet->setCellValue('A1', "UNIVERSIDAD MAYOR DE\nSAN SIMÓN");
         $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(8)->getColor()->setARGB($NEGRO);
@@ -998,11 +1103,10 @@ class ReporteDocenteController extends Controller
             ->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER)
             ->setWrapText(true);
         $sheet->getStyle('A1:C2')->getFill()
-            ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_NONE); // sin relleno, blanco
+            ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_NONE);
         $sheet->getStyle('A1:C2')->getBorders()->getAllBorders()
-            ->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_NONE); // sin contorno
+            ->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_NONE);
 
-        // ── Bloque D1:colEncabezadoFin: título del reporte, al lado del recuadro anterior ──
         $sheet->mergeCells("D1:{$colEncabezadoFin}1");
         $sheet->setCellValue('D1', 'REPORTE DE DOCENTES CON TÍTULO');
         $sheet->getStyle('D1')->getFont()->setBold(true)->setSize(13);
@@ -1020,14 +1124,12 @@ class ReporteDocenteController extends Controller
         $sheet->getRowDimension(1)->setRowHeight(24);
         $sheet->getRowDimension(2)->setRowHeight(18);
 
-        // ── Fila 3: Gestión académica centrada (bold) ──
         $sheet->mergeCells("A3:{$colEncabezadoFin}3");
         $sheet->setCellValue('A3', "Gestión Académica {$periodoLabel}/{$anio}");
         $sheet->getStyle('A3')->getFont()->setBold(true)->setSize(10);
         $sheet->getStyle('A3')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
         $sheet->getRowDimension(3)->setRowHeight(16);
 
-        // ── Fila 4: Nota a la izquierda + fecha a la derecha (misma fila, como el PDF) ──
         $sheet->setCellValue('A4', 'Nota: Este es un documento generado automáticamente a partir de los registros del sistema.');
         $sheet->getStyle('A4')->getFont()->setSize(8)->getColor()->setARGB($GRIS_TEXTO);
 
@@ -1036,12 +1138,10 @@ class ReporteDocenteController extends Controller
         $sheet->getStyle('D4')->getFont()->setSize(8)->getColor()->setARGB($GRIS_TEXTO);
         $sheet->getStyle('D4')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_RIGHT);
 
-        // Línea separadora bajo el bloque de encabezado (fila 4), a todo el ancho del bloque
         $sheet->getStyle("A4:{$colEncabezadoFin}4")->getBorders()->getBottom()
             ->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN)
             ->getColor()->setARGB($GRIS_LINEA);
 
-        // ── Encabezado de tabla (fila 6) ── usa $ultimaColumna (ancho real de datos)
         $filaEncabezados = 6;
         $sheet->fromArray($encabezados, null, "A{$filaEncabezados}");
         $rangoEncabezado = "A{$filaEncabezados}:{$ultimaColumna}{$filaEncabezados}";
@@ -1049,12 +1149,11 @@ class ReporteDocenteController extends Controller
         $sheet->getStyle($rangoEncabezado)->getFont()->setBold(true)->setSize(9)->getColor()->setARGB($NEGRO);
         $sheet->getStyle($rangoEncabezado)->getFill()
             ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
-            ->getStartColor()->setARGB($GRIS_HEAD_BG); // cada celda pintada, no solo negrita
+            ->getStartColor()->setARGB($GRIS_HEAD_BG);
         $sheet->getStyle($rangoEncabezado)->getAlignment()
             ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER)
             ->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER)
             ->setWrapText(true);
-        // Borde completo alrededor de cada celda del encabezado, para que se note el "recuadro pintado"
         $sheet->getStyle($rangoEncabezado)->getBorders()->getAllBorders()
             ->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN)
             ->getColor()->setARGB($NEGRO);
@@ -1063,7 +1162,6 @@ class ReporteDocenteController extends Controller
             ->getColor()->setARGB($NEGRO);
         $sheet->getRowDimension($filaEncabezados)->setRowHeight(20);
 
-        // ── Filas de datos, con número de fila ──
         $fila = $filaEncabezados + 1;
         $primeraFilaDatos = $fila;
         $n = 1;
@@ -1086,23 +1184,18 @@ class ReporteDocenteController extends Controller
             $sheet->getStyle($rangoDatos)->getAlignment()
                 ->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
 
-            // Solo línea horizontal fina bajo cada fila (sin cuadrícula vertical),
-            // igual que la tabla del PDF: lineWidth bottom únicamente.
             $sheet->getStyle($rangoDatos)->getBorders()->getHorizontal()
                 ->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN)
                 ->getColor()->setARGB($GRIS_LINEA);
 
-            // Columna Nº centrada
             $sheet->getStyle("A{$primeraFilaDatos}:A{$ultimaFilaDatos}")->getAlignment()
                 ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
 
-            // Borde inferior más marcado al cierre de la tabla
             $sheet->getStyle("A{$ultimaFilaDatos}:{$ultimaColumna}{$ultimaFilaDatos}")->getBorders()->getBottom()
                 ->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_MEDIUM)
                 ->getColor()->setARGB($NEGRO);
         }
 
-        // ── Fila de total, alineada a la derecha (como el "TOTAL" del PDF) ──
         $filaTotal = $ultimaFilaDatos + 2;
         $sheet->mergeCells("A{$filaTotal}:{$ultimaColumna}{$filaTotal}");
         $sheet->setCellValue('A' . $filaTotal, 'Total de registros: ' . ($n - 1));
@@ -1110,18 +1203,16 @@ class ReporteDocenteController extends Controller
         $sheet->getStyle('A' . $filaTotal)->getAlignment()
             ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_RIGHT);
 
-        // ── Ajustes generales ──
         $sheet->freezePane('A' . $primeraFilaDatos);
         $sheet->setAutoFilter($rangoEncabezado);
 
-        $sheet->getColumnDimension('A')->setWidth(6); // Nº angosta
+        $sheet->getColumnDimension('A')->setWidth(6);
         foreach (range('B', $ultimaColumna) as $col) {
             $sheet->getColumnDimension($col)->setAutoSize(true);
         }
 
-        $sheet->setShowGridlines(false); // se ven solo nuestras líneas, no la cuadrícula de Excel
+        $sheet->setShowGridlines(false);
 
-        // ── Pie de página (equivalente al footer del PDF) ──
         $sheet->getHeaderFooter()->setOddFooter(
             '&L&7Procesado UTI - Facultad de Ciencias Económicas' .
             '&C&7Página &P de &N' .

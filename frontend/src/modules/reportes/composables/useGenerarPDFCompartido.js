@@ -27,15 +27,29 @@ const PLAN_MAP = {
     '059801': 'ECO',
 }
 
+// ── Resuelve la abreviación de un código de plan ─────────────────────────────
+// Regla especial: si el código de MATERIA (no el de plan) COMIENZA con
+// "240", se muestra "DESC" en vez del plan real, sin importar el plan
+// asociado a esa fila.
+function getPlanAbbrev(plan, materiaCodigo) {
+    const codigoMateria = norm(materiaCodigo)
+    if (codigoMateria.startsWith('240')) return 'DESC'
+
+    const codigo = norm(plan)
+    return PLAN_MAP[codigo] || codigo
+}
+
 // ── Agrupa materias compartidas ──────────────────────────────────────────────
 //
 // PASO 1 — Semestre regular (1 y 2): usa la tabla GRUPOS_COMPARTIDOS
 // (comp='0' padre, comp='1' hija), agrupado por orden_comparte+gestión.
 //
 // PASO 2 — Verano/Invierno (3 y 4): no hay orden_comparte ahí, así que
-// se agrupa por gestión. El flag compartido="COMPARTIDO" marca al PADRE
-// (fila propia); la otra materia de la misma gestión, sin ese flag, es
-// su HIJA (se cuelga en "Comparte", sin fila propia).
+// se agrupa por gestión. El flag compartido="COMPARTIDO" marca a la
+// HIJA (se cuelga en "Comparte", sin fila propia); la otra materia de
+// la misma gestión, sin ese flag, es el PADRE (fila propia). Mismo
+// criterio que en el PASO 1: el registro que lleva el flag es el
+// derivado/compartido, no el origen.
 function agruparCompartidas(materias) {
     const lista = materias || []
 
@@ -85,8 +99,8 @@ function agruparCompartidas(materias) {
 
     for (const [, indices] of porGestionVI) {
         if (indices.length < 2) continue
-        const padres = indices.filter((i) => esCompartido(lista[i]))   // CON flag → padre
-        const hijas = indices.filter((i) => !esCompartido(lista[i]))   // SIN flag → hijo
+        const padres = indices.filter((i) => !esCompartido(lista[i]))  // SIN flag → padre
+        const hijas = indices.filter((i) => esCompartido(lista[i]))    // CON flag → hijo
 
         if (padres.length === 1 && hijas.length >= 1) {
             hermanasDe.set(padres[0], hijas)
@@ -114,7 +128,7 @@ function formatComparte(hermanas) {
         .map((h) => {
             const codigo = h.codigo || h.materia_codigo || ''
             const materia = h.materia || ''
-            const plan = PLAN_MAP[h.plan] || h.plan || ''
+            const plan = getPlanAbbrev(h.plan, codigo)
             const nivel = h.nivel || ''
             const grp = h.grp ? ` - ${h.grp}` : ''
 
@@ -207,7 +221,7 @@ export function generarPDFCompartido(reporte, opts = {}) {
     const filas = filasAgrupadas.map(({ principal: m, hermanas }, index) => ({
         nro: index + 1,
         gestion: formatGestion(m.gestion),
-        plan: PLAN_MAP[m.plan] || m.plan || '',
+        plan: getPlanAbbrev(m.plan, m.codigo || m.materia_codigo),
         materia: m.materia || '',
         grp: m.grp || '',
         comparte: formatComparte(hermanas),
@@ -335,7 +349,7 @@ export function generarPDFCompartido(reporte, opts = {}) {
         doc.setFont('helvetica', 'bold')
         doc.setFontSize(8)
         doc.setTextColor(...COLOR_BLACK)
-        
+
         y += 1
 
         const columnasCat = [
