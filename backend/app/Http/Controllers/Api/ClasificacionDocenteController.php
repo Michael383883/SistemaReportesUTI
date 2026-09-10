@@ -339,6 +339,7 @@ class ClasificacionDocenteController extends Controller
     }
 
     // PUT /clasificaciones/{id}
+    // PUT /clasificaciones/{id}
     public function update(Request $request, $id)
     {
         DB::beginTransaction();
@@ -470,8 +471,38 @@ class ClasificacionDocenteController extends Controller
                     ->update($datosDocumento);
             }
 
-            // Materias: siempre se borran/insertan filtradas por ID_CLASIFICACION_DOCENTE,
-            // usando el documento (original o nuevo, según $desvincular)
+            // ── FIX HERMANOS ──
+            // Mapa docente -> ID_CLASIFICACION_DOCENTE para este guardado.
+            // El docente que se está editando ya tiene su fila ($id, y si se
+            // desvinculó, ya vive en $idDocumento). Si en las materias aparece
+            // un docente DISTINTO (agregado ahora en el formulario), se busca
+            // si ya existe una fila CLASIFICACION_DOCENTE para ese docente en
+            // este documento (hermano creado en una edición anterior) y se
+            // reutiliza; si no existe, se crea una nueva. Así el docente nuevo
+            // queda como hermano real del documento, en vez de que sus
+            // materias se cuelguen (duplicadas) del docente que se edita.
+            $mapaDocenteId = [(string) $ccd->COD_DOCENTE => $id];
+
+            foreach ($materias as $m) {
+                $codDocenteMateria = $m['docente']['cod_docente'] ?? null;
+                if (!$codDocenteMateria || isset($mapaDocenteId[(string) $codDocenteMateria])) {
+                    continue;
+                }
+
+                $idExistente = DB::table('CLASIFICACION_DOCENTE')
+                    ->where('ID_DOCUMENTO', $idDocumento)
+                    ->where('COD_DOCENTE', $codDocenteMateria)
+                    ->value('ID_CLASIFICACION_DOCENTE');
+
+                $mapaDocenteId[(string) $codDocenteMateria] = $idExistente ?: DB::table('CLASIFICACION_DOCENTE')->insertGetId([
+                    'ID_DOCUMENTO' => $idDocumento,
+                    'COD_DOCENTE' => $codDocenteMateria,
+                ], 'ID_CLASIFICACION_DOCENTE');
+            }
+
+            // Materias del docente que se está editando: se borran e
+            // insertan de nuevo (comportamiento sin cambios respecto a antes).
+            // Las materias de los hermanos NO se tocan aquí.
             DB::table('CLASIFICACION_MATERIA')
                 ->where('ID_DOCUMENTO', $idDocumentoOriginal)
                 ->where('ID_CLASIFICACION_DOCENTE', $id)
@@ -493,10 +524,40 @@ class ClasificacionDocenteController extends Controller
             }
 
             $materiasInsertadas = 0;
+
             foreach ($materias as $i => $m) {
+                $codDocenteMateria = $m['docente']['cod_docente'] ?? null;
+                $esDocentePrincipal = !$codDocenteMateria || (string) $codDocenteMateria === (string) $ccd->COD_DOCENTE;
+
+                if ($esDocentePrincipal) {
+                    // Materia del docente que se está editando: se reinserta siempre,
+                    // ya que sus materias viejas se borraron arriba.
+                    $idClasifDestino = $id;
+                } else {
+                    // Materia de un docente hermano (nuevo o ya existente).
+                    $idClasifDestino = $mapaDocenteId[(string) $codDocenteMateria];
+
+                    // No volver a guardar (duplicar) una materia que ese hermano
+                    // ya tiene registrada en este documento con el mismo
+                    // plan/materia/grupo. Esto es lo que evita que, al reconstruir
+                    // el formulario de edición, se re-inserte lo que el hermano
+                    // ya tenía guardado.
+                    $yaExiste = DB::table('CLASIFICACION_MATERIA')
+                        ->where('ID_DOCUMENTO', $idDocumento)
+                        ->where('ID_CLASIFICACION_DOCENTE', $idClasifDestino)
+                        ->where('COD_MATERIA', $m['cod_materia'] ?? null)
+                        ->where('COD_PLAN', $m['cod_plan'] ?? null)
+                        ->where('GRUPO', isset($m['grupo']) && $m['grupo'] !== null ? (string) $m['grupo'] : null)
+                        ->exists();
+
+                    if ($yaExiste) {
+                        continue;
+                    }
+                }
+
                 DB::table('CLASIFICACION_MATERIA')->insert([
                     'ID_DOCUMENTO' => $idDocumento,
-                    'ID_CLASIFICACION_DOCENTE' => $id,
+                    'ID_CLASIFICACION_DOCENTE' => $idClasifDestino,
                     'COD_MATERIA' => $m['cod_materia'] ?? null,
                     'NOMBRE_MATERIA' => $m['nombre_materia'],
                     'COD_PLAN' => $m['cod_plan'] ?? null,
@@ -717,7 +778,44 @@ class ClasificacionDocenteController extends Controller
             return response()->json(['ok' => false, 'error' => 'Documento no encontrado'], 404);
         }
 
+        // ── FIX GRUPOS: antes de borrar el documento, hay que limpiar en
+        // GRUPOS todo lo que se había aplicado con este documento, para cada
+        // docente vinculado (puede haber varios "hermanos"). Si no se hace
+        // esto, GRUPOS se queda con RESOLUCION/DESIGNACION/TIPO_INGRESO
+        // "fantasma" apuntando a un documento que ya no existe. ──
+        $vinculos = DB::table('CLASIFICACION_DOCENTE')
+            ->where('ID_DOCUMENTO', $id)
+            ->get();
+
+        foreach ($vinculos as $v) {
+            $materiasDelDocente = DB::table('CLASIFICACION_MATERIA')
+                ->where('ID_DOCUMENTO', $id)
+                ->where('ID_CLASIFICACION_DOCENTE', $v->ID_CLASIFICACION_DOCENTE)
+                ->whereNotNull('COD_MATERIA')
+                ->get();
+
+            if ($materiasDelDocente->isNotEmpty()) {
+                $this->limpiarGruposPorMateriasAntiguas(
+                    $materiasDelDocente,
+                    $v->COD_DOCENTE,
+                    $doc->GESTION,
+                    $doc->PERIODO
+                );
+            }
+        }
+
         DB::table('CLASIFICACION_DOCUMENTO')->where('ID_DOCUMENTO', $id)->delete();
+
+        // ── NOTA: esto también borra en cascada (si la FK lo permite) o deja
+        // huérfanas las filas de CLASIFICACION_DOCENTE / CLASIFICACION_MATERIA
+        // / CLASIFICACION_TITULO / CLASIFICACION_REFERENCIA vinculadas a este
+        // documento. Si tu base NO tiene ON DELETE CASCADE configurado en
+        // esas FKs, conviene borrarlas explícitamente aquí también. Lo dejo
+        // señalado porque es un problema aparte del de GRUPOS. ──
+        DB::table('CLASIFICACION_MATERIA')->where('ID_DOCUMENTO', $id)->delete();
+        DB::table('CLASIFICACION_TITULO')->where('ID_DOCUMENTO', $id)->delete();
+        DB::table('CLASIFICACION_REFERENCIA')->where('ID_DOCUMENTO', $id)->delete();
+        DB::table('CLASIFICACION_DOCENTE')->where('ID_DOCUMENTO', $id)->delete();
 
         try {
             if ($doc->RUTA_ARCHIVO && Storage::disk('public')->exists($doc->RUTA_ARCHIVO)) {
@@ -743,6 +841,29 @@ class ClasificacionDocenteController extends Controller
 
         if (!$ccd) {
             return response()->json(['ok' => false, 'error' => 'Registro de docente no encontrado'], 404);
+        }
+
+        // ── FIX GRUPOS: antes de borrar a este docente de la clasificación,
+        // hay que limpiar en GRUPOS lo que se aplicó con SUS materias (no las
+        // de los otros hermanos del documento, que siguen intactas). Si no
+        // se hace esto, GRUPOS se queda con el RESOLUCION/DESIGNACION/
+        // TIPO_INGRESO de un docente que ya no está vinculado al documento. ──
+        $doc = DB::table('CLASIFICACION_DOCUMENTO')
+            ->where('ID_DOCUMENTO', $ccd->ID_DOCUMENTO)
+            ->first();
+
+        $materiasDelDocente = DB::table('CLASIFICACION_MATERIA')
+            ->where('ID_CLASIFICACION_DOCENTE', $idClasificacionDocente)
+            ->whereNotNull('COD_MATERIA')
+            ->get();
+
+        if ($doc && $materiasDelDocente->isNotEmpty()) {
+            $this->limpiarGruposPorMateriasAntiguas(
+                $materiasDelDocente,
+                $ccd->COD_DOCENTE,
+                $doc->GESTION,
+                $doc->PERIODO
+            );
         }
 
         try {
