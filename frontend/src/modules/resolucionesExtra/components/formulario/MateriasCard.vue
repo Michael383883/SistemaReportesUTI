@@ -156,47 +156,18 @@
             </div>
           </div>
 
+          <!--
+            FIX: se quitó el botón "cambiar" y el buscador de docente por
+            materia. Ahora solo se muestra el docente asignado (heredado del
+            docente general del formulario), en modo solo-lectura. Para
+            quitar la materia completa se usa la "X" de arriba.
+          -->
           <div class="pt-1.5 border-t border-orange-200/70">
-            <div v-if="docenteEditIndex !== i" class="flex items-center justify-between gap-2">
-              <span class="text-[11px] leading-tight">
-                Docente:
-                <strong v-if="m.docente">{{ m.docente.apellidos }} {{ m.docente.nombres }}</strong>
-                <span v-else class="text-red-500 font-medium">Sin asignar</span>
-              </span>
-              <button
-                type="button"
-                class="text-[10px] text-orange-500 hover:text-orange-700 underline flex-shrink-0"
-                @mousedown.prevent="abrirEdicionDocente(i)"
-              >
-                cambiar
-              </button>
-            </div>
-
-            <div v-else class="relative">
-              <input
-                ref="inputMateriaDocenteRef"
-                v-model="searchQueryMateria"
-                type="text"
-                placeholder="Buscar docente..."
-                class="w-full px-2 py-1 text-[11px] border border-orange-300 rounded focus:outline-none focus:ring-1 focus:ring-orange-400"
-                @blur="onBlurMateriaDocente"
-                @keydown.esc="cerrarEdicionDocente"
-              />
-              <div class="absolute z-30 mt-1 w-56 max-h-40 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg">
-                <div v-if="loadingDocentesMateria" class="px-2 py-1 text-[11px] text-gray-400">Cargando...</div>
-                <div v-else-if="!filteredDocentesMateria.length" class="px-2 py-1 text-[11px] text-gray-400">Sin resultados</div>
-                <button
-                  v-for="d in filteredDocentesMateria"
-                  :key="d.id ?? d.codigo"
-                  type="button"
-                  class="w-full text-left px-2 py-1 text-[11px] hover:bg-orange-50"
-                  @mousedown.prevent="asignarDocenteMateria(i, d)"
-                >
-                  {{ d.apellidos }} {{ d.nombres }}
-                  <span class="text-gray-400">({{ d.codigo }})</span>
-                </button>
-              </div>
-            </div>
+            <span class="text-[11px] leading-tight">
+              Docente:
+              <strong v-if="m.docente">{{ m.docente.apellidos }} {{ m.docente.nombres }}</strong>
+              <span v-else class="text-red-500 font-medium">Sin asignar</span>
+            </span>
           </div>
 
           <div v-if="notaInvalida(m)" class="text-[12px] text-red-600 font-medium pt-0.5">
@@ -210,7 +181,6 @@
 
 <script setup>
 import { computed, ref, nextTick } from 'vue'
-import { useDocentesReportes } from '../../composables/useDocentesReportes'
 import BuscadorMaterias from '../BuscadorMaterias.vue'
 
 const props = defineProps({
@@ -363,47 +333,6 @@ function cerrarObs(i) {
 function quitarObs(i) {
   form.materias[i].detalle = null
   cerrarObs(i)
-}
-
-// ─── Buscador de docente POR MATERIA ───
-const {
-  loading: loadingDocentesMateria,
-  searchQuery: searchQueryMateria,
-  filteredDocentes: filteredDocentesMateria,
-  fetchDocentes: fetchDocentesMateria,
-} = useDocentesReportes()
-
-fetchDocentesMateria()
-
-const docenteEditIndex = ref(null)
-const inputMateriaDocenteRef = ref(null)
-
-function abrirEdicionDocente(i) {
-  docenteEditIndex.value = i
-  searchQueryMateria.value = ''
-  nextTick(() => {
-    const el = Array.isArray(inputMateriaDocenteRef.value)
-      ? inputMateriaDocenteRef.value[0]
-      : inputMateriaDocenteRef.value
-    el?.focus()
-  })
-}
-
-function cerrarEdicionDocente() {
-  docenteEditIndex.value = null
-}
-
-function onBlurMateriaDocente() {
-  setTimeout(() => { docenteEditIndex.value = null }, 150)
-}
-
-function asignarDocenteMateria(i, docente) {
-  form.materias[i].docente = {
-    cod_docente: docente.codigo,
-    nombres: docente.nombres,
-    apellidos: docente.apellidos,
-  }
-  docenteEditIndex.value = null
 }
 
 // El botón "x" de la cabecera solo se muestra si aún no hay materias

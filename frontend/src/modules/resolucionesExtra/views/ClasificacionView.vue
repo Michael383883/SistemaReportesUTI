@@ -215,6 +215,7 @@
         :error="clasificacion.error.value"
         :archivo-nombre="reutilizarArchivo ? archivoOrigenNombre : (archivo?.name || '')"
         :reutilizando-archivo="reutilizarArchivo"
+        :initial="datosPrevios || {}"
         @guardar="onGuardar"
         @back="onBackDesdeFormulario"
       />
@@ -265,6 +266,21 @@ const idDocumentoOrigen   = ref(null)  // ID_DOCUMENTO cuyo archivo se va a reut
 const reutilizarArchivo   = ref(false) // true => no se envía archivo, se reutiliza el del origen
 const archivoOrigenNombre = ref('')    // nombre a mostrar mientras se reutiliza
 
+// ── FIX "mismo PDF, otra categoría" ──
+// Guarda el último formData que se envió a guardar (categoria, nivel,
+// gestion, periodo, tipo_documento, detalle_general, observaciones,
+// materias, referencias, titulo, etc.), para poder pre-cargarlo en el
+// formulario cuando el usuario reutiliza el mismo PDF con otra categoría.
+// Antes esto no se guardaba, así que "Guardar con otra categoría" abría el
+// formulario completamente vacío y había que retipear todo de nuevo.
+const ultimoFormData = ref(null)
+
+// Lo que efectivamente se pasa como :initial a ClasificacionForm. Solo se
+// llena al hacer clic en "Guardar con otra categoría (mismo PDF)"; en el
+// flujo normal (o tras "Registrar otra clasificación") queda en null para
+// que el formulario arranque vacío como siempre.
+const datosPrevios = ref(null)
+
 function limpiarArchivo() {
   archivo.value     = null
   uploadError.value = ''
@@ -311,6 +327,10 @@ function onBackDesdeFormulario() {
     reutilizarArchivo.value   = false
     idDocumentoOrigen.value   = null
     archivoOrigenNombre.value = ''
+    // Si estábamos en el flujo "mismo PDF, otra categoría" y el usuario da
+    // Volver antes de guardar, se descarta el prellenado para no arrastrarlo
+    // a un intento distinto (subir un PDF nuevo desde cero).
+    datosPrevios.value        = null
   }
   currentStep.value = 0
 }
@@ -321,7 +341,14 @@ function guardarConOtraCategoria() {
   archivoOrigenNombre.value = archivo.value?.name || archivoOrigenNombre.value || `Documento #${ultimoId.value}`
   reutilizarArchivo.value   = true
 
-  // Limpiamos el estado de "éxito" para volver a mostrar el formulario (vacío)
+  // ── FIX: precarga el formulario con los datos de la clasificación que
+  // se acaba de guardar (resolución/tipo_documento, detalle_general,
+  // categoria/tipo de ingreso, gestion, periodo, observaciones, materias,
+  // referencias, titulo). El usuario decide qué cambiar o borrar de ahí
+  // (normalmente solo la categoría), en vez de volver a escribir todo. ──
+  datosPrevios.value = ultimoFormData.value
+
+  // Limpiamos el estado de "éxito" para volver a mostrar el formulario (ahora precargado)
   successMessage.value      = ''
   aplicadoAGrupos.value      = null
   errorGrupos.value          = null
@@ -351,6 +378,11 @@ async function onGuardar(formData, debeAplicarAGrupos, irAAsignarExtra = false) 
     const resultado = await clasificacion.guardarClasificacion(payload)
     ultimoId.value = resultado.idDocumento
     docentesRegistrados.value = resultado.idsClasificacionDocente.length
+
+    // ── FIX: guardamos el formData recién enviado (sin el archivo, que no
+    // aplica como "dato" reutilizable) para poder precargarlo si el usuario
+    // pide "Guardar con otra categoría (mismo PDF)".
+    ultimoFormData.value = formData
 
     // Búsqueda para "Ver listado": por resolución, no por docente,
     // porque un documento puede tener varios docentes vinculados.
@@ -390,6 +422,12 @@ async function onGuardar(formData, debeAplicarAGrupos, irAAsignarExtra = false) 
     // clasificación" vuelva al flujo normal de subir PDF desde cero.
     reutilizarArchivo.value   = false
     idDocumentoOrigen.value   = null
+
+    // El prellenado (si venía de "mismo PDF, otra categoría") ya cumplió su
+    // función; se limpia para no dejarlo pegado en el próximo guardado
+    // normal. Si el usuario vuelve a pedir "otra categoría", se vuelve a
+    // armar con ultimoFormData actualizado.
+    datosPrevios.value = null
   } catch (e) {
     console.error('Error en onGuardar:', e)
     // error visible vía :error en ClasificacionForm
@@ -412,5 +450,11 @@ function resetAll() {
   reutilizarArchivo.value   = false
   idDocumentoOrigen.value   = null
   archivoOrigenNombre.value = ''
+
+  // ── FIX: "Registrar otra clasificación" es un flujo completamente
+  // nuevo (nuevo PDF, nuevo documento), así que no debe arrastrar datos
+  // de la clasificación anterior.
+  ultimoFormData.value = null
+  datosPrevios.value    = null
 }
 </script>
