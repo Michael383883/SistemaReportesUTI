@@ -48,7 +48,8 @@ export const menuSections = [
                 icon: FileText,
                 children: [
                     { to: '/clasificaciones/nueva', label: 'Subir Documento' },
-                    { to: '/clasificaciones', label: 'Listado de documentos' },
+                    { to: '/clasificaciones', label: 'Listado de Documentos' },
+                    { to: '/clasificaciones/listar-por-documento', label:'Listado de Archivo' },
 
                 ],
             },

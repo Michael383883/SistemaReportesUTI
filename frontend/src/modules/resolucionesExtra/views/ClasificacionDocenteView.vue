@@ -235,31 +235,49 @@
               </div>
 
               <!-- Materias -->
-              <div v-if="c.materias?.length" class="flex items-start gap-2.5">
-                <span class="text-[11px] font-bold text-gray-500 uppercase tracking-wide pt-1.5 flex-shrink-0 w-[78px]">
-                  Materias
-                </span>
-                <div class="flex flex-wrap gap-1.5 flex-1 min-w-0">
-                  <span
-                    v-for="m in c.materias"
-                    :key="m.ID_DETALLE"
-                    class="inline-flex items-center gap-1.5 pl-2.5 pr-1 py-1 bg-blue-50 border border-blue-100 rounded-lg text-sm text-blue-900 leading-none"
-                  >
-                    <span class="font-semibold">{{ m.NOMBRE_MATERIA }}</span>
-                    <!-- Detalle propio de la materia (ej. "Recuperatorio"), solo si existe -->
-                    <span v-if="m.DETALLE" class="text-blue-700">
-                      <span class="font-semibold">Detalle:</span> {{ m.DETALLE }}
+                <!-- Materias -->
+                  <div v-if="c.materias?.length" class="flex items-start gap-2.5">
+                    <span class="text-[11px] font-bold text-gray-500 uppercase tracking-wide pt-1.5 flex-shrink-0 w-[78px]">
+                      Materias
                     </span>
-                    <span
-                      class="text-[11px] font-bold px-1.5 py-1 rounded"
-                      :class="tieneNota(m) ? 'bg-blue-600 text-white' : 'bg-white text-gray-500 border border-blue-100'"
-                    >
-                      {{ tieneNota(m) ? `Nota: ${m.NOTA}` : 'Sin calificación' }}
-                    </span>
-                  </span>
-                </div>
-              </div>
+                    <div class="flex flex-wrap gap-1.5 flex-1 min-w-0">
+                      <span
+                        v-for="m in c.materias"
+                        :key="m.ID_DETALLE"
+                        class="inline-flex items-center gap-1.5 pl-2.5 pr-1 py-1 bg-blue-50 border border-blue-100 rounded-lg text-sm text-blue-900 leading-none flex-wrap"
+                      >
+                        <span class="font-semibold">{{ m.NOMBRE_MATERIA }}</span>
 
+                        <!-- Grupo: solo si viene registrado -->
+                        <span v-if="m.GRUPO" class="text-blue-700">
+                          <span class="font-semibold">Grupo:</span> {{ m.GRUPO }}
+                        </span>
+
+                        <!-- Plan abreviado (mismo estilo/lógica que las tablas de materias) -->
+                        <span
+                          v-if="m.COD_PLAN"
+                          class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-bold"
+                          :class="tipoGrp(m.COD_PLAN, m.COD_MATERIA).class"
+                          :title="`Plan: ${m.COD_PLAN}`"
+                        >
+                          <span class="w-1.5 h-1.5 rounded-full" :class="tipoGrp(m.COD_PLAN, m.COD_MATERIA).dot"></span>
+                          {{ tipoGrp(m.COD_PLAN, m.COD_MATERIA).label }}
+                        </span>
+
+                        <!-- Detalle propio de la materia (ej. "Recuperatorio"), solo si existe -->
+                        <span v-if="m.DETALLE" class="text-blue-700">
+                          <span class="font-semibold">Detalle:</span> {{ m.DETALLE }}
+                        </span>
+
+                        <span
+                          class="text-[11px] font-bold px-1.5 py-1 rounded"
+                          :class="tieneNota(m) ? 'bg-blue-600 text-white' : 'bg-white text-gray-500 border border-blue-100'"
+                        >
+                          {{ tieneNota(m) ? `Nota: ${m.NOTA}` : 'Sin calificación' }}
+                        </span>
+                      </span>
+                    </div>
+                  </div>
               <!-- Referencias -->
               <div v-if="c.referencias?.length" class="flex items-start gap-2.5">
                 <span class="text-[11px] font-bold text-gray-500 uppercase tracking-wide pt-1.5 flex-shrink-0 w-[78px]">
@@ -514,6 +532,10 @@ import axios from 'axios'
 import { useReporteClasificacion } from '../composables/useReporteClasificacion'
 import { useClasificacion } from '../composables/useClasificacion'
 import EditarClasificacionModal from '../components/EditarClasificacionModal.vue'
+
+import { useTablaFormato } from '../../reportes/composables/reporte/useTablaFormato' // ajusta la ruta
+
+const { tipoGrp } = useTablaFormato()
 
 const API_BASE = import.meta.env.VITE_API_URL ?? ''
 const route = useRoute()

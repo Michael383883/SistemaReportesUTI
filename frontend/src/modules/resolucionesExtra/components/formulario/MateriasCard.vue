@@ -84,7 +84,7 @@
             </div>
 
             <button
-              @click="form.materias.splice(i, 1)"
+              @click="quitarMateria(i)"
               class="text-orange-400 hover:text-red-500 flex-shrink-0"
             >
               <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -252,6 +252,9 @@ function onAgregarMateria(materiaData) {
           apellidos: props.selectedDocente.apellidos,
         }
       : null,
+    // 👈 FIX Bug 2: las materias agregadas en esta sesión de edición NO
+    // vienen del backend, así que no llevan `yaRegistrada`. Solo las que
+    // useDocumentos.js carga al abrir el modal de edición la traen en true.
   })
 }
 
@@ -269,6 +272,20 @@ function notaInvalida(m) {
   const valor = Number(m.nota)
   if (Number.isNaN(valor)) return false
   return valor > 100
+}
+
+// ─── Quitar una materia de la lista ───
+// 👈 FIX Bug 2: si la materia ya estaba registrada en el documento (flag
+// `yaRegistrada`, puesto por useDocumentos.js al cargar el form de edición),
+// pedimos confirmación antes de quitarla. Las materias nuevas agregadas en
+// esta misma sesión (desde el buscador) se quitan directo, sin preguntar.
+function quitarMateria(i) {
+  const m = form.materias[i]
+  if (m?.yaRegistrada) {
+    const ok = confirm('Esta materia ya está registrada en el documento. ¿Seguro que deseas eliminarla?')
+    if (!ok) return
+  }
+  form.materias.splice(i, 1)
 }
 
 // ─── Editar nombre de materia MANUAL (sin cod_materia) ───

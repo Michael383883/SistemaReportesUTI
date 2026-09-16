@@ -336,6 +336,7 @@ function onBackDesdeFormulario() {
 }
 
 // Dispara el flujo de "misma PDF, otra categoría"
+// Dispara el flujo de "misma PDF, otra categoría"
 function guardarConOtraCategoria() {
   idDocumentoOrigen.value   = ultimoId.value
   archivoOrigenNombre.value = archivo.value?.name || archivoOrigenNombre.value || `Documento #${ultimoId.value}`
@@ -343,10 +344,16 @@ function guardarConOtraCategoria() {
 
   // ── FIX: precarga el formulario con los datos de la clasificación que
   // se acaba de guardar (resolución/tipo_documento, detalle_general,
-  // categoria/tipo de ingreso, gestion, periodo, observaciones, materias,
-  // referencias, titulo). El usuario decide qué cambiar o borrar de ahí
-  // (normalmente solo la categoría), en vez de volver a escribir todo. ──
-  datosPrevios.value = ultimoFormData.value
+  // categoria/tipo de ingreso, gestion, periodo, observaciones, referencias,
+  // titulo). Las MATERIAS quedan afuera a propósito: al cambiar de
+  // categoría, las materias registradas antes no deben arrastrarse, el
+  // usuario debe volver a seleccionarlas.
+  if (ultimoFormData.value) {
+    const { materias, ...restoDatos } = ultimoFormData.value
+    datosPrevios.value = { ...restoDatos, materias: [] }
+  } else {
+    datosPrevios.value = null
+  }
 
   // Limpiamos el estado de "éxito" para volver a mostrar el formulario (ahora precargado)
   successMessage.value      = ''
@@ -355,7 +362,6 @@ function guardarConOtraCategoria() {
 
   currentStep.value = 1
 }
-
 // Texto que identifica la resolución para el filtro del listado.
 // tipo_documento es el NOMBRE de la resolución (ej. "RESOLUCIÓN 245/2024"),
 // tal como se muestra como título en la columna "Documento" del listado.

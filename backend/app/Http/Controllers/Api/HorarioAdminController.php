@@ -200,6 +200,16 @@ class HorarioAdminController extends Controller
     /**
      * Resumen de carga horaria docente.
      * No devuelve horarios por día, solo materias y CH.
+     *
+     * FIX: el TOTAL_NORMAL ya no viene de NroInsMatGrpNE (tabla externa,
+     * posible desactualizada). Ahora se calcula en una query separada
+     * directo desde KARDEX_EXT, con el mismo filtro que usa
+     * listaInscritos() (CANCELADO IS NULL, TIPO_EXAMEN = 'N'), y se
+     * mergea en PHP. Se hace aparte y no con JOIN directo en el SQL
+     * principal porque KARDEX_EXT tiene una fila por estudiante: si se
+     * uniera directo contra el query de horarios, cada fila se
+     * multiplicaría por estudiante ANTES del GROUP BY y el
+     * SUM(CARGA_HORARIA) quedaría inflado.
      */
     public function resumen(Request $request)
     {
@@ -260,9 +270,7 @@ class HorarioAdminController extends Controller
 
             GRUPOS_COMPARTIDOS.COMP,
             GRUPOS_COMPARTIDOS.COMPARTIDO,
-            GRUPOS_COMPARTIDOS.ORDEN,
-
-            ISNULL(NroInsMatGrpNE.[TOTAL NORMAL], 0) AS TOTAL_NORMAL
+            GRUPOS_COMPARTIDOS.ORDEN
 
         FROM HORARIOS2
 
@@ -287,12 +295,6 @@ class HorarioAdminController extends Controller
             AND GRUPOS.MATERIA = GRUPOS_COMPARTIDOS.MATERIA
             AND GRUPOS.GRUPO = GRUPOS_COMPARTIDOS.GRUPO
             AND GRUPOS.PRIMARIO = GRUPOS_COMPARTIDOS.PRIMARIO
-
-        LEFT JOIN NroInsMatGrpNE
-            ON GRUPOS.[PLAN] = NroInsMatGrpNE.[PLAN]
-            AND GRUPOS.DOCENTE = NroInsMatGrpNE.CODIGO
-            AND GRUPOS.MATERIA = NroInsMatGrpNE.MATERIA
-            AND GRUPOS.GRUPO = NroInsMatGrpNE.GRUPO
 
         WHERE HORARIOS2.ANIO = :anio
         AND HORARIOS2.PERIODO = :periodo
@@ -320,8 +322,7 @@ class HorarioAdminController extends Controller
             GRUPOS.GRUPO,
             GRUPOS_COMPARTIDOS.COMP,
             GRUPOS_COMPARTIDOS.COMPARTIDO,
-            GRUPOS_COMPARTIDOS.ORDEN,
-            NroInsMatGrpNE.[TOTAL NORMAL]
+            GRUPOS_COMPARTIDOS.ORDEN
 
         ORDER BY
             DOCENTES.APELLIDOS,
@@ -334,6 +335,52 @@ class HorarioAdminController extends Controller
         ";
 
         $data = collect(DB::select($sql, $bindings));
+
+        // ── Inscritos NORMALES por docente+plan+materia+grupo ───────────────
+        // Fuente directa KARDEX_EXT, excluyendo cancelados y solo
+        // TIPO_EXAMEN = 'N' (igual que el "subtotal" regular de
+        // listaInscritos(); los especiales de examen de mesa no entran
+        // en este total, a propósito).
+        $docenteFilterGrupos = $docente ? "AND GRUPOS.DOCENTE = :docente" : "";
+
+        $sqlInscritosResumen = "
+        SELECT
+            GRUPOS.DOCENTE,
+            GRUPOS.[PLAN],
+            GRUPOS.MATERIA,
+            GRUPOS.GRUPO,
+            COUNT(KARDEX_EXT.ESTUDIANTE) AS TOTAL_NORMAL
+        FROM GRUPOS
+        INNER JOIN KARDEX_EXT
+            ON KARDEX_EXT.ANIO     = GRUPOS.ANIO
+            AND KARDEX_EXT.PERIODO = GRUPOS.PERIODO
+            AND KARDEX_EXT.[PLAN]  = GRUPOS.[PLAN]
+            AND KARDEX_EXT.MATERIA = GRUPOS.MATERIA
+            AND KARDEX_EXT.GRUPO   = GRUPOS.GRUPO
+        WHERE GRUPOS.ANIO    = :anio
+          AND GRUPOS.PERIODO = :periodo
+          AND GRUPOS.[PLAN]  IN ('109401','125091','089801','126091','059801')
+          AND GRUPOS.PRIMARIO = 'Y'
+          AND GRUPOS.TIPO      = 'N'
+          AND KARDEX_EXT.CANCELADO   IS NULL
+          AND KARDEX_EXT.TIPO_EXAMEN = 'N'
+          $docenteFilterGrupos
+        GROUP BY GRUPOS.DOCENTE, GRUPOS.[PLAN], GRUPOS.MATERIA, GRUPOS.GRUPO
+        ";
+
+        $inscritosResumen = collect(DB::select($sqlInscritosResumen, $bindings));
+
+        $inscritosResumenMap = $inscritosResumen->keyBy(function ($row) {
+            return $row->DOCENTE . '|' . $row->PLAN . '|' . $row->MATERIA . '|' . $row->GRUPO;
+        });
+
+        $data = $data->map(function ($row) use ($inscritosResumenMap) {
+            $key = $row->DOCENTE . '|' . $row->PLAN . '|' . $row->MATERIA . '|' . $row->GRUPO;
+            $row->TOTAL_NORMAL = $inscritosResumenMap->get($key)->TOTAL_NORMAL ?? 0;
+            return $row;
+        });
+
+        unset($inscritosResumen, $inscritosResumenMap);
 
         $grouped = $data->groupBy('DOCENTE')->map(function ($rows) {
 

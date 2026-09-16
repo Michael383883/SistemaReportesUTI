@@ -319,28 +319,46 @@ export function useClasificacion() {
         }
     }
 
-    async function actualizarClasificacion(id, payload) {
+    async function actualizarClasificacion(id, payload, confirmarDesvinculacion = false) {
         loading.value = true
         error.value = null
         errorDetalle.value = null
         try {
             const fd = buildFormData(payload)
-            fd.append('_method', 'PUT') // Laravel: FormData con archivo necesita este truco
+            fd.append('_method', 'PUT')
+            if (confirmarDesvinculacion) fd.append('confirmar_desvinculacion', '1')
 
             const { data } = await axios.post(`${API_BASE}/api/clasificaciones/${id}`, fd, {
                 headers: authHeaders({ 'Content-Type': 'multipart/form-data' }),
             })
 
-            console.log("✅ Respuesta de actualizarClasificacion:", data)
+            // 👈 NUEVO: detectar el caso especial ANTES de tratarlo como error genérico,
+            // por si axios resuelve el 409 sin lanzar excepción.
+            if (!data.ok && data.tipo === 'confirmar_desvinculacion') {
+                const err = new Error('confirmar_desvinculacion')
+                err.docentesADesvincular = data.docentes_a_desvincular
+                err.mensaje = data.mensaje
+                throw err
+            }
 
             if (!data.ok) {
                 error.value = data.error || 'No se pudo actualizar la clasificación'
                 errorDetalle.value = parseErrorDetalle(data)
                 throw new Error(error.value)
             }
-
             return data
         } catch (e) {
+            // Ya viene armado desde arriba (caso "resuelto sin excepción")
+            if (e.message === 'confirmar_desvinculacion' && e.docentesADesvincular) {
+                throw e
+            }
+            // Caso normal: axios sí rechazó con status 409
+            if (e?.response?.status === 409 && e?.response?.data?.tipo === 'confirmar_desvinculacion') {
+                const err = new Error('confirmar_desvinculacion')
+                err.docentesADesvincular = e.response.data.docentes_a_desvincular
+                err.mensaje = e.response.data.mensaje
+                throw err
+            }
             if (e?.response?.data?.tipo === 'validacion') {
                 const primerError = Object.values(e.response.data.errores)[0]?.[0]
                 error.value = primerError || 'Error de validación'
@@ -354,7 +372,6 @@ export function useClasificacion() {
             loading.value = false
         }
     }
-
 
     async function guardarMateriasAdicionales(idDocumento, detalles) {
         loading.value = true

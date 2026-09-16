@@ -19,4 +19,9 @@ export const resolucionesExtraRoutes = [
         name: 'clasificacion-asignar-documento',
         component: () => import('./views/AsignacionPorDocumentoView.vue'),
     },
+    {
+        path: '/clasificaciones/listar-por-documento',
+        name: 'clasificaciones-listar-por-documento',
+        component: () => import('./views/ListarPorDocumento.vue'), 
+    },
 ]

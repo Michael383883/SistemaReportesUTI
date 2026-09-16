@@ -20,6 +20,8 @@ class ClasificacionDocenteController extends Controller
                 'ccd.ID_CLASIFICACION_DOCENTE',
                 'ccd.ID_DOCUMENTO',
                 'ccd.COD_DOCENTE',
+                'd.APELLIDOS',   
+                'd.NOMBRES',
                 DB::raw("LTRIM(RTRIM(d.APELLIDOS + ' ' + d.NOMBRES)) AS NOMBRE_DOCENTE"),
                 'cdoc.CATEGORIA',
                 'cdoc.NIVEL',
@@ -339,7 +341,32 @@ class ClasificacionDocenteController extends Controller
     }
 
     // PUT /clasificaciones/{id}
-    // PUT /clasificaciones/{id}
+    //
+    // ── MODELO "EDICIÓN SUPREMA DEL DOCUMENTO" ──
+    // Este endpoint edita el DOCUMENTO completo, no solo al docente que se
+    // abrió para editar. El formulario (useDocumentos.obtenerCompleto) ya
+    // junta las materias de TODOS los docentes vinculados (principal +
+    // hermanos) en un solo array `materias`, así que ese array es la lista
+    // completa y definitiva de a quién pertenece cada materia.
+    //
+    // Reglas:
+    //  - AGREGAR: si en `materias` aparece un docente que no estaba vinculado
+    //    al documento, se crea su vínculo (CLASIFICACION_DOCENTE) como
+    //    hermano nuevo. Los demás hermanos existentes NO se tocan.
+    //  - ACTUALIZAR: si un docente ya vinculado sigue apareciendo en
+    //    `materias` (con al menos una), solo se reemplazan SUS materias
+    //    (se borran las viejas de ese docente y se insertan las nuevas).
+    //  - QUITAR/DESVINCULAR: si un docente YA vinculado al documento deja de
+    //    aparecer en `materias` (se quedó sin ninguna), eso significa que el
+    //    usuario lo quitó del documento en el formulario. Como es una acción
+    //    destructiva (se borran sus materias, su título y su vínculo), se
+    //    exige una confirmación explícita del frontend (`confirmar_desvinculacion=1`)
+    //    antes de ejecutarla. Sin esa confirmación, el endpoint responde 409
+    //    con la lista de quién se desvincularía, y no hace ningún cambio.
+    //
+    // El docente "principal" (el $id de la URL) nunca se desvincula por esta
+    // vía; si el usuario quiere separarlo, existe el flujo aparte
+    // "solo_este_docente" (ver más abajo, $desvincular).
     public function update(Request $request, $id)
     {
         DB::beginTransaction();
@@ -370,6 +397,9 @@ class ClasificacionDocenteController extends Controller
                 'referencias' => 'nullable|string',
                 'titulo' => 'nullable|string',
                 'solo_este_docente' => 'nullable|boolean',
+                // 👇 NUEVO: confirmación explícita para desvincular hermanos
+                // que se quedaron sin materias en el payload.
+                'confirmar_desvinculacion' => 'nullable|boolean',
             ]);
 
             $materias = [];
@@ -394,6 +424,54 @@ class ClasificacionDocenteController extends Controller
 
             $desvincular = $request->boolean('solo_este_docente') && $tieneHermanos;
 
+            // ── NUEVO: detectar hermanos que se quedan sin materias ──
+            // (solo aplica si NO estamos en el flujo "solo este docente",
+            // que es un caso distinto y ya maneja su propia separación).
+            $hermanosADesvincular = collect();
+
+            if (!$desvincular) {
+                $docentesActuales = DB::table('CLASIFICACION_DOCENTE')
+                    ->where('ID_DOCUMENTO', $idDocumentoOriginal)
+                    ->get();
+
+                $codigosEnPayload = collect($materias)
+                    ->pluck('docente.cod_docente')
+                    ->filter()
+                    ->push($ccd->COD_DOCENTE) // el docente principal nunca se desvincula por esta vía
+                    ->when($titulo && !empty($titulo['cod_docente']), fn($c) => $c->push($titulo['cod_docente']))
+                    ->unique()
+                    ->map(fn($c) => (string) $c);
+
+                $hermanosADesvincular = $docentesActuales->filter(function ($d) use ($codigosEnPayload, $id) {
+                    return (string) $d->ID_CLASIFICACION_DOCENTE !== (string) $id
+                        && !$codigosEnPayload->contains((string) $d->COD_DOCENTE);
+                })->values();
+
+                if ($hermanosADesvincular->isNotEmpty() && !$request->boolean('confirmar_desvinculacion')) {
+                    DB::rollBack();
+
+                    $nombresADesvincular = DB::table('DOCENTES')
+                        ->whereIn('CODIGO', $hermanosADesvincular->pluck('COD_DOCENTE'))
+                        ->get()
+                        ->keyBy('CODIGO');
+
+                    return response()->json([
+                        'ok' => false,
+                        'tipo' => 'confirmar_desvinculacion',
+                        'mensaje' => 'Al guardar, se va(n) a desvincular ' . $hermanosADesvincular->count()
+                            . ' docente(s) de este documento porque ya no tienen materias asignadas. Confirma para continuar.',
+                        'docentes_a_desvincular' => $hermanosADesvincular->map(function ($d) use ($nombresADesvincular) {
+                            $doc = $nombresADesvincular->get($d->COD_DOCENTE);
+                            return [
+                                'id_clasificacion_docente' => $d->ID_CLASIFICACION_DOCENTE,
+                                'cod_docente' => $d->COD_DOCENTE,
+                                'nombre' => $doc ? trim("{$doc->APELLIDOS} {$doc->NOMBRES}") : null,
+                            ];
+                        })->values(),
+                    ], 409);
+                }
+            }
+
             $datosDocumento = [
                 'CATEGORIA' => $request->categoria,
                 'NIVEL' => $request->nivel ?: null,
@@ -414,17 +492,22 @@ class ClasificacionDocenteController extends Controller
             // gestión/periodo que el documento ya no tiene, y el buscador
             // de materias, que sí compara CLASIFICACION_DOCUMENTO al pie de
             // la letra, deja de reconocerlas como "ya registradas"). ──
+            //
+            // 👇 AJUSTADO: ahora cubre TODOS los docentes del documento
+            // (principal + hermanos), no solo al principal, porque el
+            // guardado ahora también puede tocar materias de hermanos.
             $gestionCambio = $docActual && (
                 (string) ($docActual->GESTION ?? '') !== (string) ($request->gestion ?? '')
                 || (string) ($docActual->PERIODO ?? '') !== (string) ($request->periodo ?? '')
             );
 
-            $materiasAntiguasParaLimpiar = [];
+            $materiasAntiguasParaLimpiar = collect();
             if ($gestionCambio) {
-                $materiasAntiguasParaLimpiar = DB::table('CLASIFICACION_MATERIA')
-                    ->where('ID_DOCUMENTO', $idDocumentoOriginal)
-                    ->where('ID_CLASIFICACION_DOCENTE', $id)
-                    ->whereNotNull('COD_MATERIA')
+                $materiasAntiguasParaLimpiar = DB::table('CLASIFICACION_MATERIA as cm')
+                    ->join('CLASIFICACION_DOCENTE as ccd2', 'ccd2.ID_CLASIFICACION_DOCENTE', '=', 'cm.ID_CLASIFICACION_DOCENTE')
+                    ->where('cm.ID_DOCUMENTO', $idDocumentoOriginal)
+                    ->whereNotNull('cm.COD_MATERIA')
+                    ->select('cm.*', 'ccd2.COD_DOCENTE as COD_DOCENTE_MATERIA')
                     ->get();
             }
 
@@ -471,16 +554,51 @@ class ClasificacionDocenteController extends Controller
                     ->update($datosDocumento);
             }
 
-            // ── FIX HERMANOS ──
+            // ── NUEVO: ejecutar la desvinculación de hermanos confirmada ──
+            // Se hace ANTES de tocar materias/título del resto, para que
+            // limpiarGruposPorMateriasAntiguas() todavía encuentre sus
+            // materias (se leen aquí mismo, justo antes de borrarlas).
+            if (!$desvincular && $hermanosADesvincular->isNotEmpty()) {
+                foreach ($hermanosADesvincular as $h) {
+                    $materiasDelHermano = DB::table('CLASIFICACION_MATERIA')
+                        ->where('ID_DOCUMENTO', $idDocumentoOriginal)
+                        ->where('ID_CLASIFICACION_DOCENTE', $h->ID_CLASIFICACION_DOCENTE)
+                        ->whereNotNull('COD_MATERIA')
+                        ->get();
+
+                    if ($materiasDelHermano->isNotEmpty() && $docActual) {
+                        $this->limpiarGruposPorMateriasAntiguas(
+                            $materiasDelHermano,
+                            $h->COD_DOCENTE,
+                            $docActual->GESTION,
+                            $docActual->PERIODO
+                        );
+                    }
+
+                    DB::table('CLASIFICACION_MATERIA')
+                        ->where('ID_CLASIFICACION_DOCENTE', $h->ID_CLASIFICACION_DOCENTE)
+                        ->delete();
+
+                    DB::table('CLASIFICACION_TITULO')
+                        ->where('ID_CLASIFICACION_DOCENTE', $h->ID_CLASIFICACION_DOCENTE)
+                        ->delete();
+
+                    DB::table('CLASIFICACION_DOCENTE')
+                        ->where('ID_CLASIFICACION_DOCENTE', $h->ID_CLASIFICACION_DOCENTE)
+                        ->delete();
+                }
+            }
+
+            // ── FIX HERMANOS (agregar) ──
             // Mapa docente -> ID_CLASIFICACION_DOCENTE para este guardado.
             // El docente que se está editando ya tiene su fila ($id, y si se
-            // desvinculó, ya vive en $idDocumento). Si en las materias aparece
-            // un docente DISTINTO (agregado ahora en el formulario), se busca
-            // si ya existe una fila CLASIFICACION_DOCENTE para ese docente en
-            // este documento (hermano creado en una edición anterior) y se
-            // reutiliza; si no existe, se crea una nueva. Así el docente nuevo
-            // queda como hermano real del documento, en vez de que sus
-            // materias se cuelguen (duplicadas) del docente que se edita.
+            // desvinculó "solo este docente", ya vive en $idDocumento). Si en
+            // las materias aparece un docente DISTINTO (agregado ahora en el
+            // formulario), se busca si ya existe una fila CLASIFICACION_DOCENTE
+            // para ese docente en este documento (hermano creado en una edición
+            // anterior) y se reutiliza; si no existe, se crea una nueva. Así el
+            // docente nuevo queda como hermano real del documento, en vez de
+            // que sus materias se cuelguen (duplicadas) del docente que se edita.
             $mapaDocenteId = [(string) $ccd->COD_DOCENTE => $id];
 
             foreach ($materias as $m) {
@@ -500,76 +618,76 @@ class ClasificacionDocenteController extends Controller
                 ], 'ID_CLASIFICACION_DOCENTE');
             }
 
-            // Materias del docente que se está editando: se borran e
-            // insertan de nuevo (comportamiento sin cambios respecto a antes).
-            // Las materias de los hermanos NO se tocan aquí.
-            DB::table('CLASIFICACION_MATERIA')
-                ->where('ID_DOCUMENTO', $idDocumentoOriginal)
-                ->where('ID_CLASIFICACION_DOCENTE', $id)
-                ->delete();
-
-            // ── FIX: si cambió gestión/periodo, limpia en GRUPOS lo que había
-            // quedado aplicado bajo la combinación VIEJA (docente + gestión
-            // + periodo antiguos), usando las materias que capturamos arriba
-            // antes de borrarlas. No revierte la transacción si falla: solo
-            // se loguea, porque no es un dato crítico (se puede limpiar a
-            // mano después con "Quitar de GRUPOS" desde el listado). ──
-            if ($gestionCambio && !empty($materiasAntiguasParaLimpiar) && $docActual) {
-                $this->limpiarGruposPorMateriasAntiguas(
-                    $materiasAntiguasParaLimpiar,
-                    $ccd->COD_DOCENTE,
-                    $docActual->GESTION,
-                    $docActual->PERIODO
-                );
-            }
-
-            $materiasInsertadas = 0;
-
-            foreach ($materias as $i => $m) {
+            // ── FIX MATERIAS (edición "suprema" pero quirúrgica) ──
+            // Se agrupan las materias entrantes por el docente destino
+            // (principal o hermano). Solo se borran y reinsertan las
+            // materias de los docentes que efectivamente aparecen en el
+            // payload (más el principal, aunque venga sin materias, para
+            // soportar "vaciar mis propias materias"). Los hermanos que NO
+            // aparecen en el payload y NO están en $hermanosADesvincular no
+            // deberían existir (ya se cubrieron arriba), pero por seguridad
+            // nunca se tocan materias de un ID_CLASIFICACION_DOCENTE que no
+            // esté en $idsAEliminar.
+            $materiasPorDestino = [];
+            foreach ($materias as $m) {
                 $codDocenteMateria = $m['docente']['cod_docente'] ?? null;
                 $esDocentePrincipal = !$codDocenteMateria || (string) $codDocenteMateria === (string) $ccd->COD_DOCENTE;
+                $idClasifDestino = $esDocentePrincipal ? $id : ($mapaDocenteId[(string) $codDocenteMateria] ?? null);
 
-                if ($esDocentePrincipal) {
-                    // Materia del docente que se está editando: se reinserta siempre,
-                    // ya que sus materias viejas se borraron arriba.
-                    $idClasifDestino = $id;
-                } else {
-                    // Materia de un docente hermano (nuevo o ya existente).
-                    $idClasifDestino = $mapaDocenteId[(string) $codDocenteMateria];
-
-                    // No volver a guardar (duplicar) una materia que ese hermano
-                    // ya tiene registrada en este documento con el mismo
-                    // plan/materia/grupo. Esto es lo que evita que, al reconstruir
-                    // el formulario de edición, se re-inserte lo que el hermano
-                    // ya tenía guardado.
-                    $yaExiste = DB::table('CLASIFICACION_MATERIA')
-                        ->where('ID_DOCUMENTO', $idDocumento)
-                        ->where('ID_CLASIFICACION_DOCENTE', $idClasifDestino)
-                        ->where('COD_MATERIA', $m['cod_materia'] ?? null)
-                        ->where('COD_PLAN', $m['cod_plan'] ?? null)
-                        ->where('GRUPO', isset($m['grupo']) && $m['grupo'] !== null ? (string) $m['grupo'] : null)
-                        ->exists();
-
-                    if ($yaExiste) {
-                        continue;
-                    }
+                if (!$idClasifDestino) {
+                    continue; // seguridad: docente sin resolver, se descarta la materia
                 }
 
-                DB::table('CLASIFICACION_MATERIA')->insert([
-                    'ID_DOCUMENTO' => $idDocumento,
-                    'ID_CLASIFICACION_DOCENTE' => $idClasifDestino,
-                    'COD_MATERIA' => $m['cod_materia'] ?? null,
-                    'NOMBRE_MATERIA' => $m['nombre_materia'],
-                    'COD_PLAN' => $m['cod_plan'] ?? null,
-                    'GRUPO' => isset($m['grupo']) && $m['grupo'] !== null ? (string) $m['grupo'] : null,
-                    // FIX NOTA: mismo motivo que en store(). Antes era
-                    // `$m['nota'] ?? null`; ahora se sanitiza para nunca
-                    // mandar '' (string vacío) a una columna numeric.
-                    'NOTA' => $this->notaSanitizada($m['nota'] ?? null),
-                    'DETALLE' => $m['detalle'] ?? null,
-                    'ORDEN' => $i,
-                ]);
-                $materiasInsertadas++;
+                $materiasPorDestino[$idClasifDestino][] = $m;
+            }
+
+            // El docente principal siempre se incluye en el borrado, aunque
+            // no traiga materias en el payload (soporta "vaciar mis materias").
+            $idsAEliminar = array_unique(array_merge([$id], array_keys($materiasPorDestino)));
+
+            DB::table('CLASIFICACION_MATERIA')
+                ->where('ID_DOCUMENTO', $idDocumentoOriginal)
+                ->whereIn('ID_CLASIFICACION_DOCENTE', $idsAEliminar)
+                ->delete();
+
+            $materiasInsertadas = 0;
+            $orden = 0;
+
+            foreach ($materiasPorDestino as $idClasifDestino => $listaMaterias) {
+                foreach ($listaMaterias as $m) {
+                    DB::table('CLASIFICACION_MATERIA')->insert([
+                        'ID_DOCUMENTO' => $idDocumento,
+                        'ID_CLASIFICACION_DOCENTE' => $idClasifDestino,
+                        'COD_MATERIA' => $m['cod_materia'] ?? null,
+                        'NOMBRE_MATERIA' => $m['nombre_materia'],
+                        'COD_PLAN' => $m['cod_plan'] ?? null,
+                        'GRUPO' => isset($m['grupo']) && $m['grupo'] !== null ? (string) $m['grupo'] : null,
+                        // FIX NOTA: mismo motivo que en store(). Antes era
+                        // `$m['nota'] ?? null`; ahora se sanitiza para nunca
+                        // mandar '' (string vacío) a una columna numeric.
+                        'NOTA' => $this->notaSanitizada($m['nota'] ?? null),
+                        'DETALLE' => $m['detalle'] ?? null,
+                        'ORDEN' => $orden,
+                    ]);
+                    $materiasInsertadas++;
+                    $orden++;
+                }
+            }
+
+            // ── FIX: limpieza en GRUPOS por cambio de gestión/periodo ──
+            // Ahora agrupa las materias antiguas por el docente al que
+            // pertenecían (cubre principal + hermanos), y limpia GRUPOS una
+            // vez por cada docente afectado con su propio COD_DOCENTE.
+            if ($gestionCambio && $materiasAntiguasParaLimpiar->isNotEmpty() && $docActual) {
+                $porDocente = $materiasAntiguasParaLimpiar->groupBy('COD_DOCENTE_MATERIA');
+                foreach ($porDocente as $codDocenteMateria => $materiasDeEseDocente) {
+                    $this->limpiarGruposPorMateriasAntiguas(
+                        $materiasDeEseDocente,
+                        $codDocenteMateria,
+                        $docActual->GESTION,
+                        $docActual->PERIODO
+                    );
+                }
             }
 
             DB::table('CLASIFICACION_TITULO')
@@ -624,6 +742,9 @@ class ClasificacionDocenteController extends Controller
                 'titulo_actualizado' => $tituloActualizado,
                 'referencias_actualizadas' => $referenciasActualizadas,
                 'desvinculado' => $desvincular,
+                // 👇 NUEVO: informativo, para que el frontend pueda avisar
+                // cuántos hermanos se desvincularon en este guardado.
+                'hermanos_desvinculados' => $hermanosADesvincular->count(),
                 // ── FIX: informativo para el frontend. Si esto viene true,
                 // conviene avisar al usuario que vuelva a presionar
                 // "Aplicar en GRUPOS" para la gestión/periodo nueva, ya que
@@ -675,14 +796,10 @@ class ClasificacionDocenteController extends Controller
     /**
      * ── FIX ──
      * Limpia (pone en NULL) los campos RESOLUCION/DESIGNACION/TIPO_INGRESO en
-     * GRUPOS para un conjunto de materias "antiguas" de un documento. Se usa
-     * desde update() cuando la GESTION o el PERIODO de un documento cambian:
-     * sin esto, GRUPOS se queda con datos aplicados bajo la gestión/periodo
-     * viejos, mientras CLASIFICACION_DOCUMENTO ya tiene los nuevos — quedando
-     * las dos fuentes desincronizadas (el bug que motivó este fix: el Kardex
-     * en GRUPOS mostraba 2021/2 con resolución aplicada, pero el buscador de
-     * materias, que lee CLASIFICACION_DOCUMENTO literal, decía PERIODO=1 y
-     * no reconocía la materia como "ya registrada").
+     * GRUPOS para un conjunto de materias "antiguas" de un documento. Se usa:
+     *  - desde update() cuando la GESTION o el PERIODO de un documento cambian
+     *  - desde update() cuando un hermano se desvincula del documento
+     *  - desde destroy() y destroyDocente()
      *
      * No lanza excepción hacia arriba: si un UPDATE puntual falla, se loguea
      * como warning y se continúa. El residuo que pudiera quedar en GRUPOS es

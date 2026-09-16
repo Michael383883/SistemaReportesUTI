@@ -108,7 +108,7 @@
                   <span class="text-slate-800 dark:text-slate-100 font-medium truncate">
                     {{ h.MATERIA }} - {{ h.NOMBRE }}
                   </span>
-                  <span class="text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                  <span class="text-slate-900 dark:text-slate-400 whitespace-nowrap">
                     · Grp {{ h.GRUPO }} · Ins: {{ h.TOTAL_NORMAL ?? '—' }}
                   </span>
                 </div>
