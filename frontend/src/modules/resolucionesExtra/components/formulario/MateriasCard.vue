@@ -235,9 +235,10 @@ function onAgregarMateria(materiaData) {
     ? form.materias.some(
         m =>
           m.cod_materia === materiaData.cod_materia &&
-          (m.grupo ?? null) === (materiaData.grupo ?? null)
+          (m.grupo ?? null) === (materiaData.grupo ?? null) &&
+          (m.cod_plan ?? null) === (materiaData.cod_plan ?? null) // 👈 agregado
       )
-    : false // las manuales ya se confirmaron en BuscadorMaterias
+    : false
   if (existe) return
 
   form.materias.push({
@@ -252,9 +253,6 @@ function onAgregarMateria(materiaData) {
           apellidos: props.selectedDocente.apellidos,
         }
       : null,
-    // 👈 FIX Bug 2: las materias agregadas en esta sesión de edición NO
-    // vienen del backend, así que no llevan `yaRegistrada`. Solo las que
-    // useDocumentos.js carga al abrir el modal de edición la traen en true.
   })
 }
 

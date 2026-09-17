@@ -181,7 +181,7 @@
         </div>
         <button
           v-for="(m, idx) in materiasFiltradas"
-          :key="`${m.codigo}-${m.grupo}`"
+          :key="`${m.codigo}-${m.grupo}-${m.cod_plan}`"
           type="button"
           class="w-full text-left px-3 py-2 text-[12px] border-b border-gray-100 last:border-b-0 flex items-center justify-between transition-colors"
           :class="[
@@ -189,11 +189,11 @@
               ? 'bg-blue-100 border-l-4 border-l-blue-500 ring-1 ring-inset ring-blue-200'
               : 'hover:bg-gray-50',
             materiaRegistrada(m) ? 'bg-amber-50/60' : '',
-            materiaYaSeleccionada(m.codigo, m.grupo) ? 'opacity-60 cursor-not-allowed' : ''
+            materiaYaSeleccionada(m.codigo, m.grupo, m.cod_plan) ? 'opacity-60 cursor-not-allowed' : ''
           ]"
           @mousedown.prevent="onSelectMateria(m)"
           @mouseenter="highlightIndex = idx"
-          :disabled="materiaYaSeleccionada(m.codigo, m.grupo) && !materiaRegistrada(m)"
+          :disabled="materiaYaSeleccionada(m.codigo, m.grupo, m.cod_plan) && !materiaRegistrada(m)"
         >
           <div class="flex-1 min-w-0">
             <span
@@ -221,7 +221,7 @@
             >
               <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
             </svg>
-            <svg v-else-if="materiaYaSeleccionada(m.codigo, m.grupo)" class="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <svg v-else-if="materiaYaSeleccionada(m.codigo, m.grupo, m.cod_plan)" class="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
             </svg>
             <svg
@@ -298,13 +298,18 @@ const usaFiltroDocente = computed(() => {
 
 const materiasFiltradas = computed(() => materias.value)
 
-// ⚠️ FIX Caso 2: antes solo comparaba `cod_materia`, lo que bloqueaba
-// agregar la misma materia con otro grupo (p. ej. para otro docente).
-// Ahora dos grupos distintos de una misma materia se consideran entradas
-// distintas, igual que ya se identifican en la lista con `${codigo}-${grupo}`.
-function materiaYaSeleccionada(codigo, grupo = null) {
+// ⚠️ FIX Caso 3: antes comparaba solo `cod_materia` + `grupo`, así que dos
+// materias con el MISMO código y MISMO grupo pero de PLANES distintos
+// (ej. "ESTADISTICA II" MAT442 grupo 02 en Admin. de Empresas vs. la
+// misma materia/grupo en Ing. Comercial) se consideraban duplicadas y la
+// segunda quedaba bloqueada en el listado aunque fueran ofertas distintas.
+// Ahora se agrega `cod_plan` a la comparación para diferenciarlas.
+function materiaYaSeleccionada(codigo, grupo = null, codPlan = null) {
   return props.materiasSeleccionadas.some(
-    m => m.cod_materia === codigo && (m.grupo ?? null) === (grupo ?? null)
+    m =>
+      m.cod_materia === codigo &&
+      (m.grupo ?? null) === (grupo ?? null) &&
+      (m.cod_plan ?? null) === (codPlan ?? null)
   )
 }
 
@@ -425,7 +430,7 @@ function onSelectMateria(materia) {
     return
   }
 
-  if (materiaYaSeleccionada(materia.codigo, materia.grupo)) {
+  if (materiaYaSeleccionada(materia.codigo, materia.grupo, materia.cod_plan)) {
     mensajeDuplicado.value = `⚠️ La materia "${materia.nombre}" ya está seleccionada`
     setTimeout(() => { mensajeDuplicado.value = '' }, 3000)
     return
