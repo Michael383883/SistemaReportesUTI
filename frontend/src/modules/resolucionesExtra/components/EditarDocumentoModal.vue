@@ -87,7 +87,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import ClasificacionForm from './ClasificacionForm.vue'
-import { useDocumentos } from '../composables/useDocumentos'
+import { useDocumentos } from '../composables/useDocumentos.js'
 
 const props = defineProps({
   doc: { type: Object, required: true }, // fila de `documentos` (ver useDocumentos)
