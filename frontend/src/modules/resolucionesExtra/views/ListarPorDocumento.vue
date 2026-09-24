@@ -132,17 +132,18 @@
                 así que los docentes pasan a segundo plano visual.
                 - 1 solo docente (o ninguno): se muestra directo, sin desplegable.
                 - Más de uno: se muestra el primero + un botón desplegable
-                  (clic, no hover) con el resto, cada uno como link real a su
-                  vista de docente.
+                  (clic, no hover) con TODOS los docentes (incluido el primero),
+                  cada uno como link real a su vista de docente.
 
-                👈 FIX: el panel del desplegable YA NO vive acá adentro. Antes
-                era `position: absolute` dentro de una tabla envuelta en
-                `overflow-x-auto` (y esta misma tarjeta tiene `overflow-hidden`),
-                así que apenas la fila no tenía espacio libre debajo, el panel
-                quedaba recortado por esos overflows y parecía "no abrir".
-                Ahora el botón solo guarda qué documento está abierto y la
-                posición del botón en pantalla; el panel en sí se renderiza
-                una sola vez, teleportado a <body>, más abajo en este archivo.
+                👈 El badge muestra el TOTAL real de docentes (ej: "3 docentes"),
+                no la cantidad "extra". El desplegable, en consecuencia, lista
+                a los 3 (incluyendo al que ya se ve en el pill), para que el
+                número de arriba siempre coincida con la cantidad de filas
+                que aparecen al abrir.
+
+                El panel del desplegable vive teleportado a <body> (ver más
+                abajo en este archivo) para no quedar recortado por los
+                overflow de la tabla/tarjeta que lo contienen.
               -->
               <td class="px-4 py-3 max-w-[200px]">
                 <div v-if="doc.docentes.length <= 1" class="flex">
@@ -162,7 +163,7 @@
                     class="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-full text-xs font-semibold truncate max-w-[180px]"
                   >
                     <span class="truncate">{{ doc.docentes[0].NOMBRE_DOCENTE }}</span>
-                    <span class="text-gray-400 flex-shrink-0">+{{ doc.docentes.length - 1 }}</span>
+                    <span class="text-gray-400 flex-shrink-0">· {{ doc.docentes.length }}</span>
                     <svg
                       class="w-3 h-3 flex-shrink-0 transition-transform"
                       :class="{ 'rotate-180': dropdownAbierto === doc.ID_DOCUMENTO }"
@@ -277,19 +278,12 @@
     <!--
       Dropdown de docentes (teleportado a <body>).
 
-      👈 FIX: antes este panel vivía dentro de la celda de la tabla como
-      `position: absolute`. Su ancestro más cercano con overflow ≠ visible
-      era `<div class="overflow-x-auto">` (necesario para el scroll
-      horizontal de la tabla en mobile), y la tarjeta que envuelve todo
-      tiene además `overflow-hidden`. Cualquiera de los dos recorta un
-      `absolute` que se salga del área visible, así que con pocas filas
-      (poco espacio debajo) el panel se veía cortado o directamente no se
-      notaba que había abierto.
-
-      Al usar Teleport + `position: fixed` calculado con
-      `getBoundingClientRect()` del botón, el panel ya no depende de NINGÚN
-      overflow de sus ancestros en el árbol original: se dibuja directo
-      sobre <body>, posicionado en coordenadas de viewport.
+      El panel ya no vive dentro de la celda de la tabla como `position:
+      absolute` (quedaba recortado por los `overflow-x-auto` /
+      `overflow-hidden` de sus ancestros). Con Teleport + `position: fixed`
+      calculado desde `getBoundingClientRect()` del botón, se dibuja directo
+      sobre <body>, en coordenadas de viewport, sin depender de overflow
+      alguno.
     -->
     <Teleport to="body">
       <div
@@ -387,10 +381,12 @@ function badgeCategoria(categoria) {
 // desplegable por clic (no hover) que se cierra solo al hacer click afuera
 // o al elegir un docente.
 //
-// 👈 FIX: el panel ahora se renderiza UNA sola vez (teleportado a <body>,
-// ver template), no uno por fila. Estos refs guardan:
+// El panel se renderiza UNA sola vez (teleportado a <body>, ver template),
+// no uno por fila. Estos refs guardan:
 //   - dropdownAbierto: qué ID_DOCUMENTO está mostrando su panel (o null)
 //   - dropdownDocentes: el array de docentes a listar en el panel abierto
+//     (el TOTAL, incluido el primero, para que coincida con el número
+//     mostrado en el pill: "N docentes")
 //   - dropdownPos: coordenadas fixed (viewport) donde dibujar el panel,
 //     calculadas a partir del botón que se clickeó
 const dropdownAbierto = ref(null)
@@ -404,7 +400,7 @@ function toggleDocentesDropdown(doc, event) {
   }
   const rect = event.currentTarget.getBoundingClientRect()
   dropdownPos.value = { top: rect.bottom + 4, left: rect.left }
-  dropdownDocentes.value = doc.docentes
+  dropdownDocentes.value = doc.docentes // TODOS, incluido el primero (así el conteo del pill es el total real)
   dropdownAbierto.value = doc.ID_DOCUMENTO
 }
 
@@ -414,11 +410,11 @@ function cerrarDropdownGlobal() {
 
 onMounted(() => {
   document.addEventListener('click', cerrarDropdownGlobal)
-  // 👈 FIX: con el panel en position:fixed, si el usuario scrollea (la
-  // página, o el propio div.overflow-x-auto de la tabla) el panel se queda
-  // "flotando" en la posición vieja si no lo cerramos. `capture: true` es
-  // necesario para enterarnos también del scroll interno de la tabla, que
-  // no burbujea hasta window como evento normal.
+  // Con el panel en position:fixed, si el usuario scrollea (la página, o el
+  // propio div.overflow-x-auto de la tabla) el panel se queda "flotando" en
+  // la posición vieja si no lo cerramos. `capture: true` es necesario para
+  // enterarnos también del scroll interno de la tabla, que no burbujea
+  // hasta window como evento normal.
   window.addEventListener('scroll', cerrarDropdownGlobal, true)
   window.addEventListener('resize', cerrarDropdownGlobal)
 })
