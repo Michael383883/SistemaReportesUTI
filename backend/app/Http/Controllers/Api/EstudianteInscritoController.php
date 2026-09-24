@@ -12,6 +12,10 @@ class EstudianteInscritoController extends Controller
     /**
      * Lista de estudiantes inscritos por anio/periodo, segun los planes
      * de estudio definidos (CON, ADM, COM, FIN, ECO).
+     *
+     * NOTA: este endpoint SI incluye alumnos de examen de mesa ('E'),
+     * porque el reporte de "Lista completa" los muestra en su propia
+     * sección por materia. No confundir con los resumenes de abajo.
      */
     public function index(Request $request)
     {
@@ -117,7 +121,7 @@ class EstudianteInscritoController extends Controller
             K.ANIO = :anio
             AND K.PERIODO = :periodo
             AND K.CANCELADO IS NULL
-            AND K.TIPO_EXAMEN IN ('N','E')
+            AND (K.TIPO_EXAMEN IN ('N','E') OR K.TIPO_EXAMEN IS NULL)
             AND G.PRIMARIO = 'Y'
             AND G.TIPO = 'N'
             AND K.[PLAN] IN ('089801','109401','125091','126091','059801')
@@ -237,7 +241,10 @@ class EstudianteInscritoController extends Controller
     }
 
     /**
-     * Resumen de inscritos/aprobados/reprobados por grupo, materia y docente.
+     * Resumen de inscritos/aprobados/reprobados/abandonos por grupo, materia y docente.
+     *
+     * NOTA: NO incluye alumnos de examen de mesa ('E'). Solo modalidad
+     * normal ('N') y abandono (TIPO_EXAMEN NULL / sin nota).
      */
     public function resumenPorGrupo(Request $request)
     {
@@ -351,7 +358,7 @@ class EstudianteInscritoController extends Controller
             K.ANIO = :anio
             AND K.PERIODO = :periodo
             AND K.CANCELADO IS NULL
-            AND K.TIPO_EXAMEN IN ('N','E')
+            AND (K.TIPO_EXAMEN = 'N' OR K.TIPO_EXAMEN IS NULL)
             AND G.PRIMARIO = 'Y'
             AND G.TIPO = 'N'
             AND K.[PLAN] IN ('089801','109401','125091','126091','059801')
@@ -402,14 +409,15 @@ class EstudianteInscritoController extends Controller
 
         $baseCte .= " ) ";
 
-        // ── resto de la función IGUAL (GROUP BY, paginación con ROW_NUMBER, etc.) ──
+        // ── GROUP BY con bucket de ABANDONOS separado de REPROBADOS ──
         $groupBySelect = "
     SELECT
         ANIO, PERIODO, [PLAN], CARRERA, NIVEL, NOMBRE_DOCENTE,
         MATERIA, NOMBRE, GRUPO, TIPO_EXAMEN,
         COUNT(*) AS INSCRITOS,
         SUM(CASE WHEN NOTA_FINAL >= 51 THEN 1 ELSE 0 END) AS APROBADOS,
-        SUM(CASE WHEN NOTA_FINAL < 51  THEN 1 ELSE 0 END) AS REPROBADOS
+        SUM(CASE WHEN NOTA_FINAL < 51 AND NOTA_FINAL > 0 THEN 1 ELSE 0 END) AS REPROBADOS,
+        SUM(CASE WHEN NOTA_FINAL = 0 OR NOTA_FINAL IS NULL THEN 1 ELSE 0 END) AS ABANDONOS
     FROM BASE
     GROUP BY
         ANIO, PERIODO, [PLAN], CARRERA, NIVEL, NOMBRE_DOCENTE,
@@ -418,12 +426,12 @@ class EstudianteInscritoController extends Controller
 
         $sqlCount = " {$baseCte} SELECT COUNT(*) AS TOTAL FROM ({$groupBySelect}) AS RESUMEN ";
 
-        $sqlData = "
+                $sqlData = "
     {$baseCte},
     RESUMEN AS ( {$groupBySelect} ),
     PAGINADO AS (
         SELECT *,
-            ROW_NUMBER() OVER (ORDER BY [PLAN], NIVEL ASC, MATERIA, GRUPO) AS RN
+            ROW_NUMBER() OVER (ORDER BY NOMBRE_DOCENTE, [PLAN], MATERIA, GRUPO) AS RN
         FROM RESUMEN
     )
     SELECT * FROM PAGINADO
@@ -459,10 +467,10 @@ class EstudianteInscritoController extends Controller
     }
 
     /**
-     * Resumen de aprobados/reprobados por docente (sin paginación, no usa OFFSET/FETCH).
-     */
-    /**
-     * Resumen de aprobados/reprobados por docente y carrera.
+     * Resumen de aprobados/reprobados/abandonos por docente y carrera.
+     *
+     * NOTA: NO incluye alumnos de examen de mesa ('E'). Solo modalidad
+     * normal ('N') y abandono (TIPO_EXAMEN NULL / sin nota).
      */
     public function resumenAprobadosReprobados(Request $request)
     {
@@ -559,7 +567,7 @@ class EstudianteInscritoController extends Controller
                 K.ANIO = :anio
                 AND K.PERIODO = :periodo
                 AND K.CANCELADO IS NULL
-                AND K.TIPO_EXAMEN IN ('N','E')
+                AND (K.TIPO_EXAMEN = 'N' OR K.TIPO_EXAMEN IS NULL)
                 AND G.PRIMARIO = 'Y'
                 AND G.TIPO = 'N'
                 AND K.[PLAN] IN ('089801','109401','125091','126091','059801')
@@ -573,7 +581,8 @@ class EstudianteInscritoController extends Controller
             CARRERA,
             COUNT(*) AS INSCRITOS,
             SUM(CASE WHEN NOTA_FINAL >= 51 THEN 1 ELSE 0 END) AS APROBADOS,
-            SUM(CASE WHEN NOTA_FINAL < 51  THEN 1 ELSE 0 END) AS REPROBADOS
+            SUM(CASE WHEN NOTA_FINAL < 51 AND NOTA_FINAL > 0 THEN 1 ELSE 0 END) AS REPROBADOS,
+            SUM(CASE WHEN NOTA_FINAL = 0 OR NOTA_FINAL IS NULL THEN 1 ELSE 0 END) AS ABANDONOS
         FROM BASE
         GROUP BY COD_DOCENTE, APELLIDOS, NOMBRES, CARRERA
         ORDER BY APELLIDOS, NOMBRES, CARRERA
@@ -603,6 +612,7 @@ class EstudianteInscritoController extends Controller
                         'total_inscritos' => 0,
                         'total_aprobados' => 0,
                         'total_reprobados' => 0,
+                        'total_abandonos' => 0,
                     ];
                 }
 
@@ -611,11 +621,13 @@ class EstudianteInscritoController extends Controller
                     'subtotal_inscritos' => (int) $f->INSCRITOS,
                     'subtotal_aprobados' => (int) $f->APROBADOS,
                     'subtotal_reprobados' => (int) $f->REPROBADOS,
+                    'subtotal_abandonos' => (int) $f->ABANDONOS,
                 ];
 
                 $porDocente[$cod]['total_inscritos'] += (int) $f->INSCRITOS;
                 $porDocente[$cod]['total_aprobados'] += (int) $f->APROBADOS;
                 $porDocente[$cod]['total_reprobados'] += (int) $f->REPROBADOS;
+                $porDocente[$cod]['total_abandonos'] += (int) $f->ABANDONOS;
             }
 
             $data = array_values($porDocente);

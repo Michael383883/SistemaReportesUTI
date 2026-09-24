@@ -541,6 +541,7 @@ class HorarioAdminController extends Controller
         MATERIAS.CODIGO  AS COD_MATERIA,
         MATERIAS.NOMBRE  AS NOM_MATERIA,
         GRUPOS.GRUPO,
+        MAX(GRUPOS_COMPARTIDOS.COMP) AS COMP,
         SUM(CASE WHEN KARDEX_EXT.TIPO_EXAMEN = 'N' THEN 1 ELSE 0 END) AS SUBTOTAL_REGULAR,
         SUM(CASE WHEN KARDEX_EXT.TIPO_EXAMEN = 'E' THEN 1 ELSE 0 END) AS SUBTOTAL_ESPECIAL
     FROM DOCENTES
@@ -559,6 +560,11 @@ class HorarioAdminController extends Controller
         AND GRUPOS.PERIODO = MATERIAS.PERIODO
         AND GRUPOS.[PLAN]  = MATERIAS.[PLAN]
         AND GRUPOS.MATERIA = MATERIAS.CODIGO
+    LEFT JOIN GRUPOS_COMPARTIDOS
+        ON GRUPOS.[PLAN]     = GRUPOS_COMPARTIDOS.[PLAN]
+        AND GRUPOS.MATERIA   = GRUPOS_COMPARTIDOS.MATERIA
+        AND GRUPOS.GRUPO     = GRUPOS_COMPARTIDOS.GRUPO
+        AND GRUPOS.PRIMARIO  = GRUPOS_COMPARTIDOS.PRIMARIO
     WHERE GRUPOS.ANIO            = :anio
       AND GRUPOS.PERIODO         = :periodo
       AND GRUPOS.[PLAN]          IN ('109401','125091','089801','126091','059801')
@@ -671,6 +677,7 @@ class HorarioAdminController extends Controller
                         'cod_materia' => $mat->COD_MATERIA,
                         'nom_materia' => $mat->NOM_MATERIA,
                         'grupo' => $mat->GRUPO,
+                        'comp' => (int) ($mat->COMP ?? 0) === 1,
                         'inscritos' => $listaRegulares,
                         'subtotal' => count($listaRegulares),
                         'inscritos_examen_mesa' => $listaEspeciales,
