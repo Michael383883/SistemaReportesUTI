@@ -33,24 +33,20 @@ export const menuSections = [
                 ],
             },
 
+            // ── Documentos y Referencia unificados: "Digitalización" y
+            // "Documentos Adjuntos" eran, en la práctica, el mismo flujo
+            // (subir / listar / asignar) al 95%. Se dejan como un solo
+            // ítem de menú; "Resolución" pasa a llamarse "Referencia".
             {
-                label: 'Digitalización',
-                icon: Upload,
-                children: [
-                    { to: '/resoluciones/subir', label: 'Subir Resolución' },
-                    { to: '/resoluciones/listado', label: 'Lista de Resoluciones' },
-                    { to: '/resoluciones/asignar', label: 'Asignar Resolución' },
-                ],
-            },
-
-            {
-                label: 'Documetos Adjuntos',
+                label: 'Documentos',
                 icon: FileText,
                 children: [
                     { to: '/clasificaciones/nueva', label: 'Subir Documento' },
                     { to: '/clasificaciones', label: 'Listado de Documentos' },
-                    { to: '/clasificaciones/listar-por-documento', label:'Listado de Archivo' },
-
+                    { to: '/clasificaciones/listar-por-documento', label: 'Listado de Archivo' },
+                    { to: '/resoluciones/subir', label: 'Subir Referencia' },
+                    { to: '/resoluciones/listado', label: 'Lista de Referencias' },
+                    { to: '/resoluciones/asignar', label: 'Asignar Referencia' },
                 ],
             },
 
