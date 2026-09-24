@@ -1,6 +1,7 @@
 // composables/useReporteInscritosLista.js
 // Genera el PDF académico de LISTA COMPLETA de inscritos por docente
 // (formato institucional UMSS), con jsPDF + jspdf-autotable.
+// No incluye alumnos de examen de mesa.
 
 import { ref } from 'vue'
 import { jsPDF } from 'jspdf'
@@ -160,7 +161,7 @@ function generarListaCompleta(data, anio, periodo, modo = 'descargar', ventanaPr
     const CW = PAGE_W - ML - MR
     const fechaActual = fechaFormateada()
     const TITULO = 'LISTA DE INSCRITOS POR DOCENTE'
-    const NOTA = 'La lista incluye todos los grupos y carreras asignadas al docente.'
+    const NOTA = 'No incluye alumnos de examen de mesa.'
     const HEADER_H = drawPageHeader(doc, { titulo: TITULO, anio, periodo, fechaActual, notaSuperior: NOTA })
 
     const body = []
@@ -210,10 +211,10 @@ function generarListaCompleta(data, anio, periodo, modo = 'descargar', ventanaPr
                     ])
                 })
 
-                // ── Examen de mesa (si existen) ──────────────────────────────────
-                if (materia.subtotal_examen_mesa) {
+                // ── Abandono (si existen) ─────────────────────────────────────────
+                if (materia.subtotal_abandonos) {
                     body.push([{
-                        content: `Examen de mesa — ${materia.subtotal_examen_mesa} estudiantes`,
+                        content: `Abandono — ${materia.subtotal_abandonos} estudiantes`,
                         colSpan: 3,
                         styles: {
                             fontStyle: 'bolditalic', fontSize: 6.8, halign: 'left',
@@ -222,7 +223,7 @@ function generarListaCompleta(data, anio, periodo, modo = 'descargar', ventanaPr
                         },
                     }])
 
-                    materia.inscritos_examen_mesa.forEach((est, idx) => {
+                    materia.inscritos_abandonos.forEach((est, idx) => {
                         body.push([
                             { content: String(idx + 1) },
                             { content: est.codigo },
@@ -234,8 +235,8 @@ function generarListaCompleta(data, anio, periodo, modo = 'descargar', ventanaPr
         })
 
         // ── Total del docente ──────────────────────────────────────────────
-        const totalTexto = docente.total_examen_mesa
-            ? `TOTAL INSCRITOS DEL DOCENTE: ${docente.total_inscritos}  (+ ${docente.total_examen_mesa} examen de mesa)`
+        const totalTexto = docente.total_abandonos
+            ? `TOTAL INSCRITOS DEL DOCENTE: ${docente.total_inscritos}  (+ ${docente.total_abandonos} abandono)`
             : `TOTAL INSCRITOS DEL DOCENTE: ${docente.total_inscritos}`
 
         body.push([{

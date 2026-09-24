@@ -2,7 +2,13 @@
 // Genera el PDF académico de RESUMEN DE TOTALES de inscritos
 // (formato institucional UMSS), con jsPDF + jspdf-autotable.
 // Incluye la matriz Docente × Carrera con totales de inscritos,
-// más columnas de Aprobados / Reprobados / Total a nivel docente.
+// más columnas de Aprobados / Reprobados / Abandonos / Total a nivel docente.
+//
+// IMPORTANTE: el TOTAL (por carrera y general) se calcula SIEMPRE como
+// APROBADOS + REPROBADOS + ABANDONOS, nunca desde subtotal_inscritos /
+// total_inscritos directamente. Esto evita descuadres cuando ese campo
+// viene de una fuente que no incluye abandono (p. ej. el endpoint de
+// "listado" de inscritos, que cuenta solo regulares).
 
 import { ref } from 'vue'
 import { jsPDF } from 'jspdf'
@@ -155,7 +161,7 @@ function finalizarSalida(doc, filename, modo, ventanaPreabierta) {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// RESUMEN DE TOTALES — matriz Docente × Carrera + Aprob./Reprob./Total
+// RESUMEN DE TOTALES — matriz Docente × Carrera + Aprob./Reprob./Aband./Total
 // ────────────────────────────────────────────────────────────────────────────
 function generarResumenTotales(data, anio, periodo, modo = 'descargar', ventanaPreabierta = null) {
     const doc = crearDocumento()
@@ -165,7 +171,7 @@ function generarResumenTotales(data, anio, periodo, modo = 'descargar', ventanaP
     const CW = PAGE_W - ML - MR
     const fechaActual = fechaFormateada()
     const TITULO = 'INSCRITOS — SOLO TOTALES'
-    const NOTA = 'No incluye alumnnos de mesa'
+    const NOTA = 'No incluye alumnos de mesa'
     const HEADER_H = drawPageHeader(doc, { titulo: TITULO, anio, periodo, fechaActual, notaSuperior: NOTA })
 
     // ── Carreras dinámicas (según aparición en los datos) ────────────────────
@@ -179,39 +185,46 @@ function generarResumenTotales(data, anio, periodo, modo = 'descargar', ventanaP
     const COL_FIJAS = 3 // N°, CÓDIGO, DOCENTE
     const ultimaColCarrera = COL_FIJAS + carreras.length - 1
 
-    const totalGlobalIns = data.reduce((s, d) =>
-        s + (d.total_inscritos ?? d.carreras.reduce((s2, c) => s2 + (c.subtotal_inscritos ?? c.subtotal ?? 0), 0)), 0)
+    // ── Helper: total de una carrera = Aprob + Reprob + Aband (NUNCA subtotal_inscritos) ──
+    // Se calcula siempre desde estos tres buckets para garantizar que el
+    // Total de la fila y el TOTAL GENERAL cuadren exactamente con la suma
+    // de Aprobados + Reprobados + Abandonos, sin depender de un campo
+    // "subtotal_inscritos" que puede venir de otra fuente/endpoint y no
+    // incluir abandono (causa del descuadre reportado).
+    const totalCarrera = (c) => (c?.subtotal_aprobados ?? 0) + (c?.subtotal_reprobados ?? 0) + (c?.subtotal_abandonos ?? 0)
+
     const totalGlobalApr = data.reduce((s, d) =>
-        s + (d.total_aprobados ?? d.carreras.reduce((s2, c) => s2 + (c.subtotal_aprobados ?? 0), 0)), 0)
+        s + d.carreras.reduce((s2, c) => s2 + (c.subtotal_aprobados ?? 0), 0), 0)
     const totalGlobalRep = data.reduce((s, d) =>
-        s + (d.total_reprobados ?? d.carreras.reduce((s2, c) => s2 + (c.subtotal_reprobados ?? 0), 0)), 0)
-    
-    // ── Tabla: matriz Docente × Carrera + APROB./REPROB./TOTAL ───────────────
-    const headMatriz = [['N°', 'CÓDIGO', 'DOCENTE', ...carreras, 'APROB.', 'REPROB.', 'TOTAL']]
+        s + d.carreras.reduce((s2, c) => s2 + (c.subtotal_reprobados ?? 0), 0), 0)
+    const totalGlobalAband = data.reduce((s, d) =>
+        s + d.carreras.reduce((s2, c) => s2 + (c.subtotal_abandonos ?? 0), 0), 0)
+    const totalGlobalIns = totalGlobalApr + totalGlobalRep + totalGlobalAband
+
+    // ── Tabla: matriz Docente × Carrera + APROB./REPROB./ABAND./TOTAL ────────
+    const headMatriz = [['N°', 'CÓDIGO', 'DOCENTE', ...carreras, 'APROB.', 'REPROB.', 'ABAND.', 'TOTAL']]
 
     const bodyMatriz = data.map((docente, idx) => {
-        const totPorCarrera = {}
-        docente.carreras.forEach(c => {
-            totPorCarrera[c.carrera] = c.subtotal_inscritos ?? c.subtotal ?? 0
-        })
+        const porCarrera = {}
+        docente.carreras.forEach(c => { porCarrera[c.carrera] = c })
 
-        // Totales por docente: igual lógica que useReporteAprobadosReprobados.js,
-        // sumando desde carreras (solo el total, sin desglose por carrera)
         const totAprobDocente = docente.carreras.reduce((s, c) => s + (c.subtotal_aprobados ?? 0), 0)
         const totReprobDocente = docente.carreras.reduce((s, c) => s + (c.subtotal_reprobados ?? 0), 0)
-        const totInscritosDocente = docente.carreras.reduce((s, c) => s + (c.subtotal_inscritos ?? c.subtotal ?? 0), 0)
+        const totAbandDocente = docente.carreras.reduce((s, c) => s + (c.subtotal_abandonos ?? 0), 0)
+        const totInscritosDocente = totAprobDocente + totReprobDocente + totAbandDocente
 
         return [
             String(idx + 1),
             docente.cod_docente,
             `${docente.apellidos}, ${docente.nombres}`,
             ...carreras.map(c => {
-                const val = totPorCarrera[c] ?? 0
+                const val = totalCarrera(porCarrera[c])
                 return val > 0 ? String(val) : '—'
             }),
-            String(docente.total_aprobados ?? totAprobDocente),
-            String(docente.total_reprobados ?? totReprobDocente),
-            String(docente.total_inscritos ?? totInscritosDocente),
+            String(totAprobDocente),
+            String(totReprobDocente),
+            String(totAbandDocente),
+            String(totInscritosDocente),
         ]
     })
 
@@ -222,12 +235,13 @@ function generarResumenTotales(data, anio, periodo, modo = 'descargar', ventanaP
         ...carreras.map(c => {
             const sum = data.reduce((s, d) => {
                 const car = d.carreras.find(x => x.carrera === c)
-                return s + (car?.subtotal_inscritos ?? car?.subtotal ?? 0)
+                return s + totalCarrera(car)
             }, 0)
             return { content: sum > 0 ? String(sum) : '—', styles: { fontStyle: 'bold', halign: 'center', fillColor: C_HEAD_BG, lineWidth: 0 } }
         }),
         { content: String(totalGlobalApr), styles: { fontStyle: 'bold', halign: 'center', fillColor: C_HEAD_BG, lineWidth: 0 } },
         { content: String(totalGlobalRep), styles: { fontStyle: 'bold', halign: 'center', fillColor: C_HEAD_BG, lineWidth: 0 } },
+        { content: String(totalGlobalAband), styles: { fontStyle: 'bold', halign: 'center', fillColor: C_HEAD_BG, lineWidth: 0 } },
         { content: String(totalGlobalIns), styles: { fontStyle: 'bold', halign: 'center', fillColor: C_HEAD_BG, lineWidth: 0 } },
     ])
 
@@ -239,20 +253,20 @@ function generarResumenTotales(data, anio, periodo, modo = 'descargar', ventanaP
         body: bodyMatriz,
         alternateRowStyles: { fillColor: C_WHITE },
         styles: {
-            font: 'helvetica', fontSize: 7,
-            cellPadding: { top: 0.7, bottom: 0.7, left: 1.5, right: 1.5 },
+            font: 'helvetica', fontSize: 6.8,
+            cellPadding: { top: 0.7, bottom: 0.7, left: 1.3, right: 1.3 },
             textColor: C_BLACK, lineColor: C_GRAY_LINE, lineWidth: { top: 0, right: 0, bottom: 0.15, left: 0 },
             fillColor: C_WHITE, halign: 'center', valign: 'middle',
         },
         headStyles: {
             fillColor: C_HEAD_BG, textColor: C_BLACK, fontStyle: 'bold',
-            fontSize: 7.2, halign: 'center', valign: 'middle',
+            fontSize: 7, halign: 'center', valign: 'middle',
             lineColor: C_GRAY_LINE, lineWidth: { top: 0, right: 0, bottom: 0.3, left: 0 },
         },
         columnStyles: {
-            0: { cellWidth: 9 },
-            1: { cellWidth: 18, font: 'courier' },
-            2: { cellWidth: 55, halign: 'left' },
+            0: { cellWidth: 8 },
+            1: { cellWidth: 17, font: 'courier' },
+            2: { cellWidth: 50, halign: 'left' },
         },
         didParseCell(data) {
             if (data.section !== 'body') return
@@ -264,7 +278,7 @@ function generarResumenTotales(data, anio, periodo, modo = 'descargar', ventanaP
             }
         },
         // Líneas divisorias verticales gris oscuro: después de DOCENTE y entre cada carrera
-        // (la última, en ultimaColCarrera, separa además el bloque de carreras del de Aprob./Reprob./Total)
+        // (la última, en ultimaColCarrera, separa además el bloque de carreras del de Aprob./Reprob./Aband./Total)
         didDrawCell(cellData) {
             const col = cellData.column.index
             const esColDocente = col === 2

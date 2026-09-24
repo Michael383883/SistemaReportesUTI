@@ -2,7 +2,7 @@
 // Genera el PDF de APROBADOS Y REPROBADOS RESUMIDOS, en formato
 // PLANO por grupo/materia (una fila por grupo), tal como lo entrega
 // el endpoint resumenPorGrupo. NO agrupa por docente/carrera —
-// es el detalle crudo grupo por grupo.
+// es el detalle crudo grupo por grupo. Incluye columna de Abandonos.
 
 import { ref } from 'vue'
 import { jsPDF } from 'jspdf'
@@ -154,16 +154,17 @@ function generarResumenAprobadosReprobadosResumido(data, anio, periodo, modo = '
     const CW = PAGE_W - ML - MR
     const fechaActual = fechaFormateada()
     const TITULO = 'APROBADOS Y REPROBADOS COMPLETO'
-    const NOTA = 'La columna T. Exam.: E = Examen de Mesa · N = Modalidad Normal'
+    const NOTA = 'La columna N = Modalidad Normal , No se incluye inscritos de mesa'
     const HEADER_H = drawPageHeader(doc, { titulo: TITULO, anio, periodo, fechaActual, notaSuperior: NOTA })
 
     const totalIns = data.reduce((s, d) => s + (Number(d.INSCRITOS) || 0), 0)
     const totalApr = data.reduce((s, d) => s + (Number(d.APROBADOS) || 0), 0)
     const totalRep = data.reduce((s, d) => s + (Number(d.REPROBADOS) || 0), 0)
+    const totalAband = data.reduce((s, d) => s + (Number(d.ABANDONOS) || 0), 0)
 
     const head = [[
         'N°', 'Plan', 'Carrera', 'Nivel', 'Docente', 'Cód. Materia', 'Materia', 'Grupo', 'T.Exam',
-        'Insc.', 'Aprob.', 'Reprob.',
+        'Insc.', 'Aprob.', 'Reprob.', 'Aband.',
     ]]
 
     const body = data.map((fila, idx) => [
@@ -179,6 +180,7 @@ function generarResumenAprobadosReprobadosResumido(data, anio, periodo, modo = '
         String(fila.INSCRITOS ?? 0),
         String(fila.APROBADOS ?? 0),
         String(fila.REPROBADOS ?? 0),
+        String(fila.ABANDONOS ?? 0),
     ])
 
     body.push([
@@ -194,6 +196,7 @@ function generarResumenAprobadosReprobadosResumido(data, anio, periodo, modo = '
         { content: String(totalIns), styles: { fontStyle: 'bold', halign: 'center', fillColor: C_HEAD_BG, lineWidth: 0 } },
         { content: String(totalApr), styles: { fontStyle: 'bold', halign: 'center', fillColor: C_HEAD_BG, lineWidth: 0 } },
         { content: String(totalRep), styles: { fontStyle: 'bold', halign: 'center', fillColor: C_HEAD_BG, lineWidth: 0 } },
+        { content: String(totalAband), styles: { fontStyle: 'bold', halign: 'center', fillColor: C_HEAD_BG, lineWidth: 0 } },
     ])
 
     autoTable(doc, {
@@ -204,26 +207,26 @@ function generarResumenAprobadosReprobadosResumido(data, anio, periodo, modo = '
         body,
         alternateRowStyles: { fillColor: C_WHITE },
         styles: {
-            font: 'helvetica', fontSize: 7,
-            cellPadding: { top: 0.7, bottom: 0.7, left: 1.5, right: 1.5 },
+            font: 'helvetica', fontSize: 6.8,
+            cellPadding: { top: 0.7, bottom: 0.7, left: 1.3, right: 1.3 },
             textColor: C_BLACK, lineColor: C_GRAY_LINE, lineWidth: { top: 0, right: 0, bottom: 0.15, left: 0 },
             fillColor: C_WHITE, halign: 'center', valign: 'middle',
         },
         headStyles: {
             fillColor: C_HEAD_BG, textColor: C_BLACK, fontStyle: 'bold',
-            fontSize: 7.2, halign: 'center', valign: 'middle',
+            fontSize: 7, halign: 'center', valign: 'middle',
             lineColor: C_GRAY_LINE, lineWidth: { top: 0, right: 0, bottom: 0.3, left: 0 },
         },
         columnStyles: {
-            0: { cellWidth: 10 },
-            1: { cellWidth: 16 },
-            2: { cellWidth: 16 },
-            3: { cellWidth: 12 },
-            4: { cellWidth: 62, halign: 'left' },
-            5: { cellWidth: 18, font: 'courier' },
-            6: { cellWidth: 56, halign: 'left' },
-            7: { cellWidth: 14 },
-            8: { cellWidth: 14 },
+            0: { cellWidth: 9 },
+            1: { cellWidth: 15 },
+            2: { cellWidth: 15 },
+            3: { cellWidth: 11 },
+            4: { cellWidth: 58, halign: 'left' },
+            5: { cellWidth: 17, font: 'courier' },
+            6: { cellWidth: 52, halign: 'left' },
+            7: { cellWidth: 13 },
+            8: { cellWidth: 13 },
         },
         didDrawPage() {
             if (doc.internal.getCurrentPageInfo().pageNumber > 1) {

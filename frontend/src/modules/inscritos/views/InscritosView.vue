@@ -454,10 +454,12 @@
       </div>
 
       <!-- CARDS -->
-      <DocenteInscritosCard
+            <DocenteInscritosCard
         v-for="docente in dataFiltrada"
         :key="docente.cod_docente"
         :docente="docente"
+        :anio="filtros.anio"
+        :periodo="filtros.periodo"
       />
 
       <!-- FOOTER -->
@@ -705,21 +707,35 @@ async function generarPDFTotales(modo = 'descargar') {
     ventana = abrirVentanaConLoader('Generando resumen de totales...')
   }
 
-  // Traer también aprobados/reprobados, porque fetchInscritos no los incluye
+  // Aprobados/Reprobados/Abandonos SIEMPRE desde EstudianteInscritoController
+  // (resumenAprobadosReprobados), porque fetchInscritos (HorarioAdminController)
+  // no calcula notas y no trae subtotal_aprobados/subtotal_reprobados.
   await fetchAprobadosReprobados(filtros.value.anio, filtros.value.periodo)
 
-  // Mapa cod_docente -> totales de aprobados/reprobados
-  const mapaAprobados = new Map(
-    dataAprobados.value.map(d => [d.cod_docente, d])
-  )
+  // Mapa cod_docente|carrera -> { subtotal_aprobados, subtotal_reprobados, subtotal_abandonos }
+  const mapaAprobadosPorCarrera = new Map()
+  dataAprobados.value.forEach(docente => {
+    docente.carreras.forEach(c => {
+      mapaAprobadosPorCarrera.set(`${docente.cod_docente}|${c.carrera}`, c)
+    })
+  })
 
   const dataConAprobados = dataFiltrada.value.map(docente => {
-    const info = mapaAprobados.get(docente.cod_docente)
-    return {
-      ...docente,
-      total_aprobados: info?.total_aprobados ?? 0,
-      total_reprobados: info?.total_reprobados ?? 0,
-    }
+    const carrerasConAprobados = docente.carreras.map(c => {
+      const info = mapaAprobadosPorCarrera.get(`${docente.cod_docente}|${c.carrera}`)
+      return {
+        ...c,
+        subtotal_aprobados: info?.subtotal_aprobados ?? 0,
+        subtotal_reprobados: info?.subtotal_reprobados ?? 0,
+        // Prioriza el abandono calculado por EstudianteInscritoController
+        // (misma fuente y mismo criterio que aprobados/reprobados);
+        // si esa carrera no aparece ahí, cae al subtotal_abandonos
+        // que ya trae listaInscritos.
+        subtotal_abandonos: info?.subtotal_abandonos ?? c.subtotal_abandonos ?? 0,
+      }
+    })
+
+    return { ...docente, carreras: carrerasConAprobados }
   })
 
   await exportarResumenTotales(dataConAprobados, filtros.value.anio, filtros.value.periodo, modo, ventana)

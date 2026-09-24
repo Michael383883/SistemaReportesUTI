@@ -24,16 +24,18 @@
     <!-- ── Tabla de materias ──────────────────────────────── -->
     <table class="w-full text-sm table-fixed">
       <colgroup>
-        <col class="w-[58%]" />
-        <col class="w-[12%]" />
-        <col class="w-[16%]" />
-        <col class="w-[16%]" />
-        <col class="w-[18%]" />
+        <col class="w-[46%]" />
+        <col class="w-[9%]" />
+        <col class="w-[9%]" />
+        <col class="w-[13%]" />
+        <col class="w-[13%]" />
+        <col class="w-[10%]" />
       </colgroup>
       <thead>
         <tr class="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
           <th class="text-left font-medium text-slate-800 dark:text-slate-400 text-xs px-4 py-2">Materia</th>
           <th class="text-left font-medium text-slate-800 dark:text-slate-400 text-xs px-2 py-2">Plan</th>
+          <th class="text-center font-medium text-slate-800 dark:text-slate-400 text-xs px-2 py-2">Comp.</th>
           <th class="text-right font-medium text-slate-800 dark:text-slate-400 text-xs px-2 py-2">Regular</th>
           <th class="text-right font-medium text-slate-800 dark:text-slate-400 text-xs px-2 py-2">Mesa</th>
           <th class="text-right font-medium text-slate-800 dark:text-slate-400 text-xs px-4 py-2">Total</th>
@@ -79,6 +81,16 @@
                 {{ item.carrera.carrera }}
               </span>
             </td>
+            <td class="text-center px-2 py-2.5">
+              <span
+                v-if="item.materia.comp"
+                class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300"
+                title="Materia compartida entre carreras"
+              >
+                COMP
+              </span>
+              <span v-else class="text-slate-300 dark:text-slate-600">—</span>
+            </td>
             <td class="text-right px-2 py-2.5 tabular-nums text-slate-700 dark:text-slate-200">
               {{ item.materia.subtotal }}
             </td>
@@ -92,12 +104,13 @@
 
           <!-- Fila expandida: lista de estudiantes -->
           <tr v-if="abiertos.has(item.key)" class="border-b border-slate-200 dark:border-slate-700">
-            <td colspan="5" class="p-0 bg-slate-100 dark:bg-slate-800">
+            <td colspan="6" class="p-0 bg-slate-100 dark:bg-slate-800">
               <div class="px-4 pl-10 py-2 max-h-72 overflow-y-auto">
 
                 <table class="w-full text-xs">
                   <thead>
                     <tr class="text-slate-400 dark:text-slate-500">
+                      <th class="text-left font-medium py-1 pr-2 w-8">N°</th>
                       <th class="text-left font-medium py-1 pr-2 w-16">Código</th>
                       <th class="text-left font-medium py-1 pr-2">Nombre</th>
                       <th class="text-right font-medium py-1 w-20">Modalidad</th>
@@ -110,6 +123,7 @@
                       class="border-t border-slate-200 dark:border-slate-700"
                       :class="i % 2 === 0 ? 'bg-white dark:bg-slate-900' : 'bg-slate-50 dark:bg-slate-800/60'"
                     >
+                      <td class="py-1.5 pr-2 text-slate-400 dark:text-slate-500 tabular-nums">{{ i + 1 }}</td>
                       <td class="py-1.5 pr-2 font-mono text-slate-500 dark:text-slate-400">{{ est.codigo }}</td>
                       <td class="py-1.5 pr-2 text-slate-700 dark:text-slate-200 truncate">{{ est.nombre }}</td>
                       <td class="py-1.5 text-right">
@@ -125,6 +139,9 @@
                       class="border-t border-slate-200 dark:border-slate-700"
                       :class="i % 2 === 0 ? 'bg-amber-50/60 dark:bg-amber-900/20' : 'bg-amber-50/30 dark:bg-amber-900/10'"
                     >
+                      <td class="py-1.5 pr-2 text-slate-400 dark:text-slate-500 tabular-nums">
+                        {{ (item.materia.inscritos?.length || 0) + i + 1 }}
+                      </td>
                       <td class="py-1.5 pr-2 font-mono text-slate-500 dark:text-slate-400">{{ est.codigo }}</td>
                       <td class="py-1.5 pr-2 text-slate-700 dark:text-slate-200 truncate">{{ est.nombre }}</td>
                       <td class="py-1.5 text-right">
@@ -134,7 +151,7 @@
                       </td>
                     </tr>
                     <tr v-if="!item.materia.inscritos?.length && !item.materia.inscritos_examen_mesa?.length">
-                      <td colspan="3" class="py-2 text-center text-slate-400 dark:text-slate-500 italic">
+                      <td colspan="4" class="py-2 text-center text-slate-400 dark:text-slate-500 italic">
                         Sin inscritos
                       </td>
                     </tr>
@@ -150,7 +167,7 @@
       <!-- ── Fila de totales ────────────────────────────────── -->
       <tfoot>
         <tr class="bg-slate-100 dark:bg-slate-950 border-t-2 border-slate-200 dark:border-slate-700">
-          <td class="px-4 py-2.5 font-semibold text-slate-700 dark:text-slate-200 text-xs" colspan="2">Total</td>
+          <td class="px-4 py-2.5 font-semibold text-slate-700 dark:text-slate-200 text-xs" colspan="3">Total</td>
           <td class="text-right px-2 py-2.5 font-semibold tabular-nums text-slate-700 dark:text-slate-200">
             {{ docente.total_inscritos }}
           </td>
@@ -174,15 +191,12 @@ const props = defineProps({
   docente: { type: Object, required: true },
 })
 
-// key único por materia dentro de la carrera (para controlar expandido/colapsado)
 const abiertos = ref(new Set())
 
 function materiaKey(carrera, materia) {
   return `${carrera.plan}-${materia.cod_materia}-${materia.grupo}`
 }
 
-// Aplana carreras -> materias en un solo array para poder alternar colores de fila
-// de forma consistente (idx % 2) sin que las filas expandidas rompan el patrón.
 const materiasFlat = computed(() =>
   props.docente.carreras.flatMap((carrera) =>
     carrera.materias.map((materia) => ({

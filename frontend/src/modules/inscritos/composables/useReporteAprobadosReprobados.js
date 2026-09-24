@@ -1,8 +1,8 @@
 // composables/useReporteAprobadosReprobados.js
 // Genera el PDF académico de RESUMEN DE APROBADOS Y REPROBADOS
 // (formato institucional UMSS), con jsPDF + jspdf-autotable.
-// Matriz Docente x Carrera, con Inscritos/Aprobados/Reprobados por
-// carrera y totales generales al final.
+// Matriz Docente x Carrera, con Inscritos/Aprobados/Reprobados/Abandonos
+// por carrera y totales generales al final.
 
 import { ref } from 'vue'
 import { jsPDF } from 'jspdf'
@@ -19,7 +19,7 @@ const C_DIVIDER = [140, 140, 140] // gris oscuro para separar grupos de carrera
 // ── Helpers de documento ─────────────────────────────────────────────────
 function crearDocumento() {
     return new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'letter' })
-    // landscape: con 3 columnas (I/A/R) por carrera, portrait queda muy angosto
+    // landscape: con 4 columnas (I/A/R/Ab) por carrera, portrait queda muy angosto
 }
 
 function fechaFormateada() {
@@ -152,7 +152,7 @@ function finalizarSalida(doc, filename, modo, ventanaPreabierta) {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// RESUMEN DE APROBADOS/REPROBADOS — matriz Docente x Carrera (I/A/R)
+// RESUMEN DE APROBADOS/REPROBADOS — matriz Docente x Carrera (I/A/R/Ab)
 // ────────────────────────────────────────────────────────────────────────────
 function generarResumenAprobadosReprobados(data, anio, periodo, modo = 'descargar', ventanaPreabierta = null) {
     const doc = crearDocumento()
@@ -172,22 +172,26 @@ function generarResumenAprobadosReprobados(data, anio, periodo, modo = 'descarga
     }))
     const carreras = carrerasSet.length ? carrerasSet : ['ADM', 'ECO', 'CCP', 'COM', 'FIN']
 
+    // Cantidad de subcolumnas por bloque de carrera (Ins./Apr./Rep./Aband.)
+    const COLS_POR_CARRERA = 4
+
     const totalGlobalIns = data.reduce((s, d) => s + (d.total_inscritos ?? 0), 0)
     const totalGlobalApr = data.reduce((s, d) => s + (d.total_aprobados ?? 0), 0)
     const totalGlobalRep = data.reduce((s, d) => s + (d.total_reprobados ?? 0), 0)
+    const totalGlobalAband = data.reduce((s, d) => s + (d.total_abandonos ?? 0), 0)
 
-    // ── Encabezado de 2 filas: carrera con colSpan 3, subcolumnas I/A/R ──────
+    // ── Encabezado de 2 filas: carrera con colSpan 4, subcolumnas I/A/R/Ab ───
     const headMatriz = [
         [
             { content: 'N°', rowSpan: 2 },
             { content: 'CÓDIGO', rowSpan: 2 },
             { content: 'DOCENTE', rowSpan: 2 },
-            ...carreras.map(c => ({ content: c, colSpan: 3, styles: { halign: 'center' } })),
-            { content: 'TOTAL', colSpan: 3, styles: { halign: 'center' } },
+            ...carreras.map(c => ({ content: c, colSpan: COLS_POR_CARRERA, styles: { halign: 'center' } })),
+            { content: 'TOTAL', colSpan: COLS_POR_CARRERA, styles: { halign: 'center' } },
         ],
         [
-            ...carreras.flatMap(() => ['Ins.', 'Apr.', 'Rep.']),
-            'Ins.', 'Apr.', 'Rep.',
+            ...carreras.flatMap(() => ['Ins.', 'Apr.', 'Rep.', 'Abd.']),
+            'Ins.', 'Apr.', 'Rep.', 'Abd.',
         ],
     ]
 
@@ -200,10 +204,12 @@ function generarResumenAprobadosReprobados(data, anio, periodo, modo = 'descarga
             const ins = info?.subtotal_inscritos ?? 0
             const apr = info?.subtotal_aprobados ?? 0
             const rep = info?.subtotal_reprobados ?? 0
+            const aband = info?.subtotal_abandonos ?? 0
             return [
                 ins > 0 ? String(ins) : '—',
                 ins > 0 ? String(apr) : '—',
                 ins > 0 ? String(rep) : '—',
+                ins > 0 ? String(aband) : '—',
             ]
         })
 
@@ -215,6 +221,7 @@ function generarResumenAprobadosReprobados(data, anio, periodo, modo = 'descarga
             String(docente.total_inscritos ?? 0),
             String(docente.total_aprobados ?? 0),
             String(docente.total_reprobados ?? 0),
+            String(docente.total_abandonos ?? 0),
         ]
     })
 
@@ -226,16 +233,19 @@ function generarResumenAprobadosReprobados(data, anio, periodo, modo = 'descarga
             const sumIns = data.reduce((s, d) => s + (d.carreras.find(x => x.carrera === c)?.subtotal_inscritos ?? 0), 0)
             const sumApr = data.reduce((s, d) => s + (d.carreras.find(x => x.carrera === c)?.subtotal_aprobados ?? 0), 0)
             const sumRep = data.reduce((s, d) => s + (d.carreras.find(x => x.carrera === c)?.subtotal_reprobados ?? 0), 0)
+            const sumAband = data.reduce((s, d) => s + (d.carreras.find(x => x.carrera === c)?.subtotal_abandonos ?? 0), 0)
             const estilo = { fontStyle: 'bold', halign: 'center', fillColor: C_HEAD_BG, lineWidth: 0 }
             return [
                 { content: sumIns > 0 ? String(sumIns) : '—', styles: estilo },
                 { content: sumIns > 0 ? String(sumApr) : '—', styles: estilo },
                 { content: sumIns > 0 ? String(sumRep) : '—', styles: estilo },
+                { content: sumIns > 0 ? String(sumAband) : '—', styles: estilo },
             ]
         }),
         { content: String(totalGlobalIns), styles: { fontStyle: 'bold', halign: 'center', fillColor: C_HEAD_BG, lineWidth: 0 } },
         { content: String(totalGlobalApr), styles: { fontStyle: 'bold', halign: 'center', fillColor: C_HEAD_BG, lineWidth: 0 } },
         { content: String(totalGlobalRep), styles: { fontStyle: 'bold', halign: 'center', fillColor: C_HEAD_BG, lineWidth: 0 } },
+        { content: String(totalGlobalAband), styles: { fontStyle: 'bold', halign: 'center', fillColor: C_HEAD_BG, lineWidth: 0 } },
     ])
 
     autoTable(doc, {
@@ -246,20 +256,20 @@ function generarResumenAprobadosReprobados(data, anio, periodo, modo = 'descarga
         body: bodyMatriz,
         alternateRowStyles: { fillColor: C_WHITE },
         styles: {
-            font: 'helvetica', fontSize: 7,
-            cellPadding: { top: 0.7, bottom: 0.7, left: 1.5, right: 1.5 },
+            font: 'helvetica', fontSize: 6.6,
+            cellPadding: { top: 0.7, bottom: 0.7, left: 1.2, right: 1.2 },
             textColor: C_BLACK, lineColor: C_GRAY_LINE, lineWidth: { top: 0, right: 0, bottom: 0.15, left: 0 },
             fillColor: C_WHITE, halign: 'center', valign: 'middle',
         },
         headStyles: {
             fillColor: C_HEAD_BG, textColor: C_BLACK, fontStyle: 'bold',
-            fontSize: 7.2, halign: 'center', valign: 'middle',
+            fontSize: 6.8, halign: 'center', valign: 'middle',
             lineColor: C_GRAY_LINE, lineWidth: { top: 0, right: 0, bottom: 0.3, left: 0 },
         },
         columnStyles: {
-            0: { cellWidth: 12 },
-            1: { cellWidth: 18, font: 'courier' },
-            2: { cellWidth: 48, halign: 'left' },
+            0: { cellWidth: 11 },
+            1: { cellWidth: 16, font: 'courier' },
+            2: { cellWidth: 44, halign: 'left' },
         },
         didParseCell(cellData) {
             if (cellData.section !== 'body') return
@@ -279,20 +289,20 @@ function generarResumenAprobadosReprobados(data, anio, periodo, modo = 'descarga
             const col = cellData.column.index
             const raw = cellData.cell.raw
 
-            // Cabecera fila 1: celdas de carrera con colSpan 3 (no dibujar tras "TOTAL", es el borde de la tabla)
+            // Cabecera fila 1: celdas de carrera con colSpan 4 (no dibujar tras "TOTAL", es el borde de la tabla)
             const esGrupoCarreraHeader =
                 cellData.section === 'head' &&
                 raw && typeof raw === 'object' &&
-                raw.colSpan === 3 &&
+                raw.colSpan === COLS_POR_CARRERA &&
                 raw.content !== 'TOTAL'
 
-            // Última columna de cada tripleta (Insc/Aprob/Reprob) -> divisor tras cada carrera y antes de TOTAL
-            const esUltimaDeTripleta = col >= 3 && (col - 3) % 3 === 2
+            // Última columna de cada bloque (Insc/Aprob/Reprob/Aband) -> divisor tras cada carrera y antes de TOTAL
+            const esUltimaDelBloque = col >= 3 && (col - 3) % COLS_POR_CARRERA === COLS_POR_CARRERA - 1
 
             // Después de la columna DOCENTE, separando nombres de la grilla de datos
             const esColDocente = col === 2
 
-            if (esGrupoCarreraHeader || esUltimaDeTripleta || esColDocente) {
+            if (esGrupoCarreraHeader || esUltimaDelBloque || esColDocente) {
                 const { x, y, width, height } = cellData.cell
                 doc.setDrawColor(...C_DIVIDER)
                 doc.setLineWidth(0.35)
