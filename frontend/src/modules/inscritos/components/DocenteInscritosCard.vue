@@ -102,9 +102,10 @@
             </td>
           </tr>
 
-          <!-- Fila expandida: lista de estudiantes -->
+          <!-- Fila expandida: acciones PDF + lista de estudiantes -->
           <tr v-if="abiertos.has(item.key)" class="border-b border-slate-200 dark:border-slate-700">
             <td colspan="6" class="p-0 bg-slate-100 dark:bg-slate-800">
+
               <div class="px-4 pl-10 py-2 max-h-72 overflow-y-auto">
 
                 <table class="w-full text-xs">
@@ -112,7 +113,46 @@
                     <tr class="text-slate-400 dark:text-slate-500">
                       <th class="text-left font-medium py-1 pr-2 w-8">N°</th>
                       <th class="text-left font-medium py-1 pr-2 w-16">Código</th>
-                      <th class="text-left font-medium py-1 pr-2">Nombre</th>
+                      <th class="text-left font-medium py-1 pr-2">
+                        <div class="flex items-center justify-between gap-2">
+                          <span>Nombre</span>
+                          <div class="flex items-center gap-1">
+                            <button
+                              type="button"
+                              :disabled="generandoLista"
+                              title="Ver PDF de esta materia"
+                              class="inline-flex items-center justify-center w-6 h-6 rounded-md text-slate-600 bg-white border border-slate-200 hover:bg-slate-200 hover:text-slate-800 transition-colors cursor-pointer outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                              @click.stop="generarPDFMateria(item, 'ver')"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/>
+                              </svg>
+                            </button>
+                            <button
+                              type="button"
+                              :disabled="generandoLista"
+                              title="Imprimir lista de esta materia"
+                              class="inline-flex items-center justify-center w-6 h-6 rounded-md text-slate-600 bg-white border border-slate-200 hover:bg-slate-200 hover:text-slate-800 transition-colors cursor-pointer outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                              @click.stop="generarPDFMateria(item, 'imprimir')"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>
+                              </svg>
+                            </button>
+                            <button
+                              type="button"
+                              :disabled="generandoLista"
+                              title="Descargar PDF de esta materia"
+                              class="inline-flex items-center justify-center w-6 h-6 rounded-md text-amber-700 bg-amber-100 border border-amber-300 hover:bg-amber-200 hover:text-amber-800 transition-colors cursor-pointer outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                              @click.stop="generarPDFMateria(item, 'descargar')"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                              </svg>
+                            </button>
+                          </div>
+                        </div>
+                      </th>
                       <th class="text-right font-medium py-1 w-20">Modalidad</th>
                     </tr>
                   </thead>
@@ -186,10 +226,16 @@
 
 <script setup>
 import { ref, computed } from 'vue'
+import { useReporteInscritosLista } from '../composables/useReporteInscritosLista'
+import { mostrarLoaderPdf } from '../utils/pdfLoader'
 
 const props = defineProps({
   docente: { type: Object, required: true },
+  anio: { type: Number, default: null },
+  periodo: { type: Number, default: null },
 })
+
+const { generandoLista, exportarListaCompleta } = useReporteInscritosLista()
 
 const abiertos = ref(new Set())
 
@@ -212,6 +258,41 @@ function toggleMateria(key) {
   if (next.has(key)) next.delete(key)
   else next.add(key)
   abiertos.value = next
+}
+
+// ─── PDF de UNA sola materia ─────────────────────────────────────────────
+// Reutiliza el mismo generador de la lista completa, pasándole un docente
+// con una única carrera y una única materia.
+async function generarPDFMateria(item, modo = 'descargar') {
+  const { carrera, materia } = item
+
+  // Ventana pre-abierta solo para 'ver' (evita el bloqueo de popups)
+  let ventana = null
+  if (modo === 'ver') {
+    ventana = window.open('', '_blank')
+    if (ventana) mostrarLoaderPdf(ventana, 'Generando lista de la materia...')
+  }
+
+  const abandonos = materia.subtotal_abandonos ?? 0
+
+  const dataMateria = [{
+    ...props.docente,
+    carreras: [{
+      ...carrera,
+      subtotal: materia.subtotal,
+      materias: [materia],
+    }],
+    total_inscritos: materia.subtotal,
+    total_abandonos: abandonos,
+  }]
+
+  const nombreArchivo = `Lista_${materia.cod_materia}_Gr${materia.grupo}_${props.anio}_${props.periodo}.pdf`
+
+  await exportarListaCompleta(dataMateria, props.anio, props.periodo, modo, ventana, {
+    titulo: 'LISTA DE INSCRITOS POR MATERIA',
+    etiquetaTotal: 'TOTAL INSCRITOS DE LA MATERIA',
+    filename: nombreArchivo,
+  })
 }
 
 const colorClasses = {
