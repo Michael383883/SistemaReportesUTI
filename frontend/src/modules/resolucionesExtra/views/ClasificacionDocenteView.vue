@@ -612,7 +612,7 @@ const clasificacionesFiltradas = computed(() => {
 
 // ─── Badge de Categoria ───
 function badgeCategoria(categoria) {
-  if (categoria === 'DOCENTES TITULARES')  return 'bg-emerald-50 text-emerald-700'
+  if (categoria === 'TITULARES')  return 'bg-emerald-50 text-emerald-700'
   if (categoria === 'DOCENTES TEMPORALES') return 'bg-amber-50 text-amber-700'
   if (categoria === 'EXAMEN SUFICIENCIA') return 'bg-blue-50 text-blue-700'
   if (categoria === 'ACÉFALA') return 'bg-gray-50 text-gray-700'
@@ -626,7 +626,7 @@ function badgeCategoria(categoria) {
 
 // ─── Dot de Categoria ───
 function dotCategoria(categoria) {
-  if (categoria === 'DOCENTES TITULARES')  return 'bg-emerald-500'
+  if (categoria === 'TITULARES')  return 'bg-emerald-500'
   if (categoria === 'DOCENTES TEMPORALES') return 'bg-amber-500'
   if (categoria === 'EXAMEN SUFICIENCIA') return 'bg-blue-500'
   if (categoria === 'ACEFALA') return 'bg-gray-500'

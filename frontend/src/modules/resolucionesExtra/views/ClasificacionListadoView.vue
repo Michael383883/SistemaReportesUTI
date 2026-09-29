@@ -20,6 +20,18 @@
           Reporte Excel
         </button>
 
+        <!-- Botón Prelación: abre el mismo preview ya preconfigurado -->
+        <button
+          @click="abrirPrelacion"
+          class="inline-flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors whitespace-nowrap"
+          title="Reporte de prelación (configuración automática)"
+        >
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+          </svg>
+          Prelación
+        </button>
+
         <!-- Botón "Nuevo" -->
         <router-link
           :to="{ name: 'clasificaciones-nueva' }"
@@ -351,7 +363,9 @@
           <!-- Header -->
           <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100">
             <div>
-              <h3 class="text-base font-semibold text-gray-900">Vista previa del reporte Excel</h3>
+              <h3 class="text-base font-semibold text-gray-900">
+                {{ modoPrelacion ? 'Vista previa del reporte de Prelación' : 'Vista previa del reporte Excel' }}
+              </h3>
               <p class="text-xs text-gray-500 mt-0.5">Datos tal como se generarán en el archivo</p>
             </div>
             <button @click="cerrarPreviewExcel" class="text-gray-400 hover:text-gray-600">
@@ -935,14 +949,14 @@ const listadoFiltrado = computed(() => {
 
 // ─── Badge de categoria ───
 function badgeCategoria(categoria) {
-  if (categoria === 'DOCENTES TITULARES')  return 'bg-emerald-50 text-emerald-700'
+  if (categoria === 'TITULARES')  return 'bg-emerald-50 text-emerald-700'
   if (categoria === 'DOCENTES TEMPORALES') return 'bg-amber-50 text-amber-700'
   if (categoria === 'EXAMEN SUFICIENCIA') return 'bg-blue-50 text-blue-700'
   if (categoria === 'ACÉFALA') return 'bg-gray-50 text-gray-700'
   if (categoria === 'SIN CATEGORIA') return 'bg-orange-50 text-red-700'
   if (categoria === 'CERTIFICADO') return 'bg-violet-50 text-violet-700'
   if (categoria === 'CONCURSO DE MÉRITO') return 'bg-fuchsia-50 text-fuchsia-700'
-  if (categoria === 'PLANILLA DE CALIFICACIÓN') return 'bg-cyan-50 text-cyan-700' 
+  if (categoria === 'PLANILLA DE CALIFICACIÓN') return 'bg-cyan-50 text-cyan-700'
 
 
   return 'bg-gray-50 text-gray-600'
@@ -989,6 +1003,7 @@ async function eliminarClasificacion() {
 
 // ─── Vista previa de Reporte Excel (usa el mismo construirDatos() del backend) ───
 const mostrarPreviewExcel = ref(false)
+const modoPrelacion = ref(false) // true cuando el modal se abrió desde el botón "Prelación"
 const excelParams = ref({
   gestion_desde: '2001',
   gestion_hasta: '',
@@ -1001,7 +1016,23 @@ const excelParams = ref({
 // Estado de los dos dropdowns de checkboxes (categoría doc / categoría título)
 const catDocDropdownOpen = ref(false)
 const catTituloDropdownOpen = ref(false)
+
 async function abrirPreviewExcel() {
+  // Volver a la configuración normal (por si antes se abrió Prelación)
+  modoPrelacion.value = false
+  reporteExcel.soloActivos.value = false
+  reporteExcel.mostrarReferencias.value = false
+  catDocDropdownOpen.value = false
+  catTituloDropdownOpen.value = false
+  excelParams.value = {
+    gestion_desde: '2001',
+    gestion_hasta: '',
+    periodo: '',
+    version: excelParams.value.version || '5ta Versión',
+    categorias: [],
+    tiposTitulo: [],
+  }
+
   if (filtros.value.gestion) {
     excelParams.value.gestion_desde = filtros.value.gestion
   }
@@ -1015,6 +1046,73 @@ async function abrirPreviewExcel() {
   await cargarPreviewExcel()
 }
 
+// ─── Prelación: preview preconfigurado ───
+// Categorías incluidas: cualquier categoría que contenga "TITULARES"
+// (DOCENTES TITULARES, TITULARES REV...) + EXAMEN SUFICIENCIA.
+// Si tus nombres en BD son distintos, ajusta este filtro.
+function resolverCategoriasPrelacion() {
+  const norm = (s) => String(s || '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase().trim()
+
+  return categorias.value.filter((cat) => {
+    const n = norm(cat)
+    return n.includes('TITULARES') || n.includes('EXAMEN SUFICIENCIA')
+  })
+}
+
+async function abrirPrelacion() {
+  modoPrelacion.value = true
+  catDocDropdownOpen.value = false
+  catTituloDropdownOpen.value = false
+
+  // 1. Parámetros del reporte
+  excelParams.value = {
+    gestion_desde: '1970',
+    gestion_hasta: '',
+    periodo: '',
+    version: excelParams.value.version || '5ta Versión',
+    categorias: resolverCategoriasPrelacion(),
+    tiposTitulo: [],
+  }
+
+  // 2. "Mostrar Referencias" activo (previsualizar() lee este valor)
+  reporteExcel.mostrarReferencias.value = true
+
+  mostrarPreviewExcel.value = true
+
+  try {
+    // 3. Cargar el preview base
+    await cargarPreviewExcel()
+    if (reporteExcel.error.value) return
+
+    // 4. "Solo Activos" (necesario para Asignar Carga Horaria)
+    if (!reporteExcel.soloActivos.value) {
+      await reporteExcel.alternarSoloActivos({
+        anio: reporteExcel.anioActivos.value,
+        periodo: reporteExcel.periodoActivos.value,
+      })
+    }
+
+    // 5. Asignar Carga Horaria (ANTES de combinar, para que el CH
+    //    quede en la primera fila de cada materia combinada)
+    resultadoCargaHoraria.value = await reporteExcel.asignarCargaHoraria({
+      anio: reporteExcel.anioActivos.value,
+      periodo: reporteExcel.periodoActivos.value,
+    })
+
+    // 6. Combinar Materias
+    if (!reporteExcel.materiasCombinadas.value) {
+      reporteExcel.alternarCombinarMaterias()
+    }
+  } catch (e) {
+    console.error('Error preparando el reporte de prelación:', e)
+    resultadoCargaHoraria.value = {
+      error: reporteExcel.errorCargaHoraria.value || 'Error preparando el reporte de prelación',
+    }
+  }
+}
+
 async function cargarPreviewExcel() {
   resultadoCargaHoraria.value = null
   try {
@@ -1023,8 +1121,8 @@ async function cargarPreviewExcel() {
       gestion_hasta: excelParams.value.gestion_hasta,
       periodo: excelParams.value.periodo,
       version: excelParams.value.version,
-      categoria: excelParams.value.categorias,     // ✅ corregido (plural)
-      tipo_titulo: excelParams.value.tiposTitulo,  // ✅ corregido (puede incluir __SIN_TITULO__)
+      categoria: excelParams.value.categorias,
+      tipo_titulo: excelParams.value.tiposTitulo, // puede incluir __SIN_TITULO__
       // No se manda mostrar_referencias aquí: previsualizar() reutiliza el
       // valor actual de reporteExcel.mostrarReferencias cuando no se pasa
       // explícito, así el toggle sobrevive a "Actualizar vista previa".
@@ -1106,7 +1204,7 @@ async function descargarExcelConfirmado() {
     return
   }
 
-    await reporteExcel.descargarExcel({
+  await reporteExcel.descargarExcel({
     gestion_desde: excelParams.value.gestion_desde,
     gestion_hasta: excelParams.value.gestion_hasta,
     periodo: excelParams.value.periodo,
