@@ -5,11 +5,11 @@
     <div class="flex items-start justify-between mb-5">
       <div>
         <h1 class="text-[20px] font-bold text-gray-900">
-          Lista de resoluciones registradas
+          Lista de referencias registradas
         </h1>
 
         <p class="text-[13px] text-slate-500">
-          Consulta y descarga de resoluciones registradas
+          Consulta y descarga de referencias registradas
         </p>
       </div>
 
@@ -54,7 +54,7 @@
         <label
           class="block text-xs font-semibold tracking-widest uppercase text-slate-700 mb-1.5"
         >
-          Buscar resolución
+          Buscar referencia
         </label>
 
         <div
@@ -86,7 +86,7 @@
             :value="busqueda"
             @input="buscar($event.target.value)"
             @keyup.enter="cargarListado()"
-            placeholder="Buscar por número de resolución..."
+            placeholder="Buscar por número de referencia..."
             class="
               flex-1
               bg-transparent
@@ -221,13 +221,13 @@
           </div>
 
           <h3 class="text-sm font-semibold text-white">
-            ¿Estás seguro de borrar esta resolución?
+            ¿Estás seguro de borrar esta referencia?
           </h3>
         </div>
 
         <div class="p-5">
           <p class="text-xs text-slate-600">
-            Se eliminará la resolución
+            Se eliminará la referencia
             <span class="font-semibold text-slate-800">{{ filaParaBorrar.nroResolucion }}</span>,
             su archivo PDF y <span class="font-semibold text-slate-800">todos los docentes/materias asignados</span>
             a ella. Esta acción no se puede deshacer.

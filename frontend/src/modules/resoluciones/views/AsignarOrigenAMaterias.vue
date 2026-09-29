@@ -5,10 +5,10 @@
     <div class="flex items-start justify-between mb-6">
       <div>
         <h1 class="text-xl font-bold text-slate-800 tracking-tight m-0 mb-1">
-          {{ tipo === 'resolucion' ? 'Asignación de Resoluciones a Docentes' : 'Asignar Documento a Otros Docentes' }}
+          {{ tipo === 'resolucion' ? 'Asignación de Referencias a Docentes' : 'Asignar Documento a Otros Docentes' }}
         </h1>
         <p class="text-sm text-slate-500 m-0">
-          Buscá un docente, elegí {{ tipo === 'resolucion' ? 'la resolución' : 'el documento de clasificación' }} y marcá las materias correspondientes con un click.
+          Buscá un docente, elegí {{ tipo === 'resolucion' ? 'la referencia' : 'el documento de clasificación' }} y marcá las materias correspondientes con un click.
         </p>
       </div>
     </div>
@@ -29,7 +29,7 @@
 
     <!-- Flujo principal -->
     <template v-else>
-      <!-- Paso 1 y 2: Docente + Origen (Resolución/Documento) lado a lado -->
+      <!-- Paso 1 y 2: Docente + Origen (Referencia/Documento) lado a lado -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5 items-stretch">
         <!-- Paso 1: Docente -->
         <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden flex flex-col">
@@ -52,13 +52,13 @@
           </div>
         </div>
 
-        <!-- Paso 2: Origen (Resolución o Documento) -->
+        <!-- Paso 2: Origen (Referencia o Documento) -->
         <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden flex flex-col">
           <div class="px-5 py-4 bg-slate-900 flex items-center justify-between gap-3">
             <div class="flex items-center gap-3">
               <span class="w-6 h-6 rounded-full bg-amber-500 text-slate-900 text-[11px] font-bold flex items-center justify-center flex-shrink-0">2</span>
               <div>
-                <h3 class="text-sm font-semibold text-white m-0">Asignar {{ tipo === 'resolucion' ? 'resolución' : 'documento' }}</h3>
+                <h3 class="text-sm font-semibold text-white m-0">Asignar {{ tipo === 'resolucion' ? 'referencia' : 'documento' }}</h3>
               </div>
             </div>
             <span
@@ -148,7 +148,7 @@
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
               </svg>
-              Elegí {{ tipo === 'resolucion' ? 'una resolución' : 'un documento' }} para poder asignar
+              Elegí {{ tipo === 'resolucion' ? 'una referencia' : 'un documento' }} para poder asignar
             </span>
           </div>
         </div>
@@ -213,7 +213,7 @@ import ResultadoAsignacionResolucion from '../../resoluciones/components/Resulta
 
 const props = defineProps({
   // Permite abrir la vista ya fijada en un tipo, ej. desde dos entradas de
-  // menú distintas ("Asignar resolución" / "Asignar documento") que apuntan
+  // menú distintas ("Asignar referencia" / "Asignar documento") que apuntan
   // a la misma vista con distinto valor inicial.
   tipoInicial: { type: String, default: 'resolucion' }, // 'resolucion' | 'documento'
 })
@@ -257,7 +257,7 @@ function onLimpiarDocente() {
   filtroGestion.value = ''
 }
 
-// ─── Listados de origen (resolución / documento) ─────────────────
+// ─── Listados de origen (referencia / documento) ─────────────────
 const {
   filas: filasResolucion,
   loading: loadingResoluciones,
@@ -358,7 +358,7 @@ const materiasFiltradas = computed(() => {
 })
 
 // ─── Auto-filtro por año/periodo del origen activo ────────────────
-// Cuando se elige resolución o documento, si tiene anio/periodo definidos y
+// Cuando se elige referencia o documento, si tiene anio/periodo definidos y
 // alguno de esos valores existe entre las opciones disponibles del docente
 // actual, se preseleccionan los filtros automáticamente. Es solo un valor
 // por defecto: el usuario puede cambiarlo después.
@@ -480,7 +480,7 @@ function asignarOtraMas() {
   fase.value = 'formulario'
 }
 
-// Preselección por query string (solo tiene sentido para resoluciones,
+// Preselección por query string (solo tiene sentido para referencias,
 // que es el flujo que ya venía desde un link externo con ?resolucion=).
 onMounted(() => {
   const { resolucion: idResolucion, nro, anio, periodo } = route.query

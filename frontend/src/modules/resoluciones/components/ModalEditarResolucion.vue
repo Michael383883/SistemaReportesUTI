@@ -9,7 +9,7 @@
       <!-- Header -->
       <div class="bg-slate-900 px-5 py-3 flex items-center justify-between flex-shrink-0">
         <h3 class="text-[15px] font-semibold text-white">
-          Editar resolución {{ resolucion?.nroResolucion }}
+          Editar referencia {{ resolucion?.nroResolucion }}
         </h3>
         <button type="button" @click="cerrar" class="text-slate-300 hover:text-white">
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -23,7 +23,7 @@
 
         <div>
           <label class="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1">
-            N° Resolución
+            N° Referencia
           </label>
           <input
             v-model="form.nroResolucion"
@@ -77,7 +77,7 @@
           <div>
             <p class="font-semibold">Cuidado: estás cambiando {{ etiquetaCambio }}.</p>
             <p class="mt-0.5">
-              Esta resolución puede tener docentes o materias ya enlazados (en GRUPOS) que se
+              Esta referencia puede tener docentes o materias ya enlazados (en GRUPOS) que se
               relacionan con el año/periodo original. Si cambiás este dato, esos vínculos pueden
               dejar de coincidir. Verificá antes de guardar.
             </p>
@@ -102,7 +102,7 @@
           </div>
 
           <p class="text-[11px] text-gray-400 mt-1">
-            El PDF no se puede reemplazar desde aquí. Si necesitás cambiar el archivo, borrá la resolución y volvé a subirla.
+            El PDF no se puede reemplazar desde aquí. Si necesitás cambiar el archivo, borrá la referencia y volvé a subirla.
           </p>
         </div>
 
@@ -195,7 +195,7 @@ function guardar() {
   // riesgo de desalinear docentes/materias ya enlazados en GRUPOS.
   if (cambioAnioOPeriodo.value) {
     const ok = window.confirm(
-      `Estás por cambiar ${etiquetaCambio.value} de esta resolución. ` +
+      `Estás por cambiar ${etiquetaCambio.value} de esta referencia. ` +
       `Esto puede afectar docentes/materias ya enlazados. ¿Continuar?`
     )
     if (!ok) return

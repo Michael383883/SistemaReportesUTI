@@ -9,9 +9,9 @@
           class="px-3 py-1.5 text-xs font-semibold rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           :class="tipo === 'resolucion' ? 'bg-white shadow text-slate-800' : 'text-slate-500 hover:text-slate-700'"
           :disabled="bloqueadoCambioTipo && tipo !== 'resolucion'"
-          @click="$emit('cambiar-tipo', 'resolucion')"
+          @click="$emit('cambiar-tipo', 'referencia')"
         >
-          Resolución
+          Referencia
         </button>
         <button
           type="button"

@@ -3,8 +3,8 @@
 
     <!-- Header -->
     <div class="mb-8">
-      <h1 class="text-[20px] font-bold text-gray-1000">Digitalizar Resoluciones</h1>
-      <p class="text-[14px] text-gray-700 mt-1">Carga y procesamiento de resoluciones en PDF</p>
+      <h1 class="text-[20px] font-bold text-gray-1000">Digitalizar Referencias</h1>
+      <p class="text-[14px] text-gray-700 mt-1">Carga y procesamiento de referencias en PDF</p>
     </div>
 
     <!-- Stepper -->
@@ -170,7 +170,7 @@
     <!-- ══════════════════════════════════════════════ -->
     <div v-if="currentStep === 1">
 
-      <!-- Mensaje de éxito (solo "Guardar resolución") -->
+      <!-- Mensaje de éxito (solo "Guardar referencia") -->
       <div
         v-if="successMessage"
         class="bg-white rounded-xl border border-gray-200 p-10 text-center"
@@ -182,13 +182,13 @@
         </div>
         <p class="text-[15px] font-semibold text-gray-900">{{ successMessage }}</p>
         <p class="text-[13px] text-gray-400 mt-1">
-          Resolución <strong>{{ formNumero }}</strong> registrada correctamente (ID: {{ resolucion.resolucionId.value }}).
+          Referencia <strong>{{ formNumero }}</strong> registrada correctamente (ID: {{ resolucion.resolucionId.value }}).
         </p>
         <button
           @click="resetAll"
           class="mt-6 inline-flex items-center gap-2 px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-[14px] font-medium rounded-lg transition-colors"
         >
-          Registrar otra resolución
+          Registrar otra referencia
         </button>
       </div>
 
@@ -275,7 +275,7 @@ function onPdfListo(file) {
   currentStep.value = 1
 }
 
-// Botón "Guardar resolución"
+// Botón "Guardar referencia"
 async function onGuardar({ numero, descripcion, anio, periodo }) {
   formNumero.value      = numero
   formDescripcion.value = descripcion
@@ -284,7 +284,7 @@ async function onGuardar({ numero, descripcion, anio, periodo }) {
 
   try {
     await resolucion.guardarResolucion({ numero, descripcion, anio, periodo, archivo: archivo.value })
-    successMessage.value = 'Resolución guardada exitosamente'
+    successMessage.value = 'Referencia guardada exitosamente'
   } catch {
     // error visible vía :error en ResolucionForm (resolucion.error.value)
   }

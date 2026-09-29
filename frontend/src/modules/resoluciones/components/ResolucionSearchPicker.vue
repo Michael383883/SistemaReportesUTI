@@ -9,7 +9,7 @@
       <input
         v-model="terminoLocal"
         type="text"
-        placeholder="Buscar por número de resolución..."
+        placeholder="Buscar por número de referencia..."
         :disabled="bloqueado"
         autocomplete="off"
         class="w-full bg-gray-50 border border-gray-200 rounded-lg pl-9 pr-9 py-2.5 text-sm text-gray-800
@@ -39,7 +39,7 @@
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
       </svg>
-      Ya marcaste materias con esta resolución. Quita todas las materias para poder cambiarla.
+      Ya marcaste materias con esta referencia. Quita todas las materias para poder cambiarla.
     </p>
 
     <!-- Tarjeta resolución activa -->

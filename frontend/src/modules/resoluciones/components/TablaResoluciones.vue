@@ -6,7 +6,7 @@
       v-if="loading"
       class="py-10 text-center text-slate-400 text-sm"
     >
-      Cargando resoluciones...
+      Cargando referencias...
     </div>
 
     <!-- Vacío -->
@@ -39,11 +39,11 @@
       </div>
 
       <p class="text-sm font-semibold text-slate-700">
-        No se encontraron resoluciones
+        No se encontraron referencias
       </p>
 
       <p class="text-xs text-slate-400 mt-1">
-        Las resoluciones registradas aparecerán aquí.
+        Las referencias registradas aparecerán aquí.
       </p>
     </div>
 
@@ -59,7 +59,7 @@
             </th>
 
             <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-white">
-              Resolución
+              Referencia
             </th>
 
             <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-white">
