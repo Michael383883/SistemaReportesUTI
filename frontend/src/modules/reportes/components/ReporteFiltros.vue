@@ -122,7 +122,8 @@
     </button>
 
     <!-- ═══════════════════════════════════════════════════════════════════
-         Botón OPCIONES (incluir materias sin grupo / mostrar nota)
+         Botón OPCIONES (incluir materias sin grupo / mostrar nota /
+         ocultar verano e invierno)
     ═══════════════════════════════════════════════════════════════════ -->
     <div class="relative" ref="opcionesMenuRef">
       <button
@@ -183,28 +184,52 @@
             <div class="border-t border-slate-100"/>
 
             <!-- Toggle 2: mostrar nota -->
-            <!-- Toggle 2: mostrar nota -->
-<label class="flex items-start gap-3 cursor-pointer">
-  <button
-    type="button"
-    role="switch"
-    :aria-checked="mostrarNotaSinGrupoLocal"
-    @click.stop="toggleMostrarNota"
-    class="relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors duration-150 border-none cursor-pointer mt-0.5"
-    :class="mostrarNotaSinGrupoLocal ? 'bg-amber-500' : 'bg-slate-300'"
-  >
-    <span
-      class="inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform duration-150"
-      :class="mostrarNotaSinGrupoLocal ? 'translate-x-4.5' : 'translate-x-1'"
-    />
-  </button>
-  <span class="flex flex-col">
-    <span class="text-xs font-semibold text-slate-800">Mostrar nota</span>
-    <span class="text-[0.68rem] text-slate-500 leading-snug">
-      Si está deshabilitado, la descripción se muestra tal cual, sin agregar la nota.
-    </span>
-  </span>
-</label>
+            <label class="flex items-start gap-3 cursor-pointer">
+              <button
+                type="button"
+                role="switch"
+                :aria-checked="mostrarNotaSinGrupoLocal"
+                @click.stop="toggleMostrarNota"
+                class="relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors duration-150 border-none cursor-pointer mt-0.5"
+                :class="mostrarNotaSinGrupoLocal ? 'bg-amber-500' : 'bg-slate-300'"
+              >
+                <span
+                  class="inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform duration-150"
+                  :class="mostrarNotaSinGrupoLocal ? 'translate-x-4.5' : 'translate-x-1'"
+                />
+              </button>
+              <span class="flex flex-col">
+                <span class="text-xs font-semibold text-slate-800">Mostrar nota</span>
+                <span class="text-[0.68rem] text-slate-500 leading-snug">
+                  Si está deshabilitado, la descripción se muestra tal cual, sin agregar la nota.
+                </span>
+              </span>
+            </label>
+
+            <div class="border-t border-slate-100"/>
+
+            <!-- Toggle 3: ocultar verano / invierno (periodos 3 y 4) -->
+            <label class="flex items-start gap-3 cursor-pointer">
+              <button
+                type="button"
+                role="switch"
+                :aria-checked="ocultarVeranoInviernoLocal"
+                @click.stop="toggleOcultarVeranoInvierno"
+                class="relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors duration-150 border-none cursor-pointer mt-0.5"
+                :class="ocultarVeranoInviernoLocal ? 'bg-amber-500' : 'bg-slate-300'"
+              >
+                <span
+                  class="inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform duration-150"
+                  :class="ocultarVeranoInviernoLocal ? 'translate-x-4.5' : 'translate-x-1'"
+                />
+              </button>
+              <span class="flex flex-col">
+                <span class="text-xs font-semibold text-slate-800">Ocultar verano e invierno</span>
+                <span class="text-[0.68rem] text-slate-500 leading-snug">
+                  Oculta de la tabla las materias de los periodos 3 (Verano) y 4 (Invierno).
+                </span>
+              </span>
+            </label>
           </div>
         </div>
       </Transition>
@@ -497,6 +522,8 @@ const props = defineProps({
   // ── Opciones: materias sin grupo/plan cargadas solo en clasificación ──
   incluirSinGrupo:     { type: Boolean, default: false },
   mostrarNotaSinGrupo: { type: Boolean, default: true },
+  // ── Opción: ocultar de la tabla los periodos 3 (Verano) y 4 (Invierno) ──
+  ocultarVeranoInvierno: { type: Boolean, default: false },
 })
 
 // Sólo mostramos el botón único de "Generar Reporte de Documento" cuando
@@ -513,6 +540,7 @@ const emit = defineEmits([
   'update:grupo',
   'update:incluirSinGrupo',
   'update:mostrarNotaSinGrupo',
+  'update:ocultarVeranoInvierno',
 ])
 
 const anioLocal      = ref(props.anio      || '')
@@ -521,8 +549,9 @@ const materiaLocal   = ref(props.materia   || '')
 const grupoLocal     = ref(props.grupo     || '')
 
 // ── Opciones ──────────────────────────────────────────────────────────────────
-const incluirSinGrupoLocal     = ref(props.incluirSinGrupo)
-const mostrarNotaSinGrupoLocal = ref(props.mostrarNotaSinGrupo)
+const incluirSinGrupoLocal       = ref(props.incluirSinGrupo)
+const mostrarNotaSinGrupoLocal   = ref(props.mostrarNotaSinGrupo)
+const ocultarVeranoInviernoLocal = ref(props.ocultarVeranoInvierno)
 
 const opcionesMenuOpen = ref(false)
 const opcionesMenuRef  = ref(null)
@@ -544,6 +573,12 @@ const toggleMostrarNota = () => {
   mostrarNotaSinGrupoLocal.value = !mostrarNotaSinGrupoLocal.value
   emit('update:mostrarNotaSinGrupo', mostrarNotaSinGrupoLocal.value)
   onGenerar()
+}
+
+// Este toggle NO regenera: el padre solo filtra lo que ya está cargado en la tabla
+const toggleOcultarVeranoInvierno = () => {
+  ocultarVeranoInviernoLocal.value = !ocultarVeranoInviernoLocal.value
+  emit('update:ocultarVeranoInvierno', ocultarVeranoInviernoLocal.value)
 }
 
 // ── Menú PDF ──────────────────────────────────────────────────────────────────
@@ -584,30 +619,51 @@ onUnmounted(() => {
   document.removeEventListener('click', onClickOutsideOpciones)
 })
 
+// ── Reporte que se envía a los generadores de PDF ─────────────────────────────
+// Con "Ocultar verano e invierno" activo se quitan los periodos 3 y 4 y se
+// renumera "nro", igual que en la tabla.
+const esVeranoInvierno = (m) => {
+  const periodo = String(m?.PERIODO ?? m?.periodo ?? '').trim()
+  if (periodo) return periodo === '3' || periodo === '4'
+  return /\/\s*[34]\b/.test(String(m?.gestion ?? ''))
+}
+
+const reporteParaPDF = () => {
+  if (!ocultarVeranoInviernoLocal.value || !props.reporte) return props.reporte
+  const materias = (props.reporte.materias || [])
+    .filter((m) => !esVeranoInvierno(m))
+    .map((m, i) => ({ ...m, nro: i + 1 }))
+  return { ...props.reporte, materias }
+}
+
 const onPDF = (action) => {
   menuOpen.value = false
   if (!props.reporte) return
+
+  // Si la opción "Ocultar verano e invierno" está activa, el PDF usa la misma
+  // lista filtrada que la tabla.
+  const rep = reporteParaPDF()
 
   const opts = {
     documentosCategoria: props.documentosCategoria,
     categoriasSeleccionadas: props.categoriasSeleccionadas,
   }
 
-  if (action === 'open-tipo-ingreso')   return generarPDFConTipoIngreso(props.reporte, { action: 'open', ...opts })
-  if (action === 'save-tipo-ingreso')   return generarPDFConTipoIngreso(props.reporte, { action: 'save', ...opts })
-  if (action === 'print-tipo-ingreso')  return generarPDFConTipoIngreso(props.reporte, { action: 'print', ...opts })
+  if (action === 'open-tipo-ingreso')   return generarPDFConTipoIngreso(rep, { action: 'open', ...opts })
+  if (action === 'save-tipo-ingreso')   return generarPDFConTipoIngreso(rep, { action: 'save', ...opts })
+  if (action === 'print-tipo-ingreso')  return generarPDFConTipoIngreso(rep, { action: 'print', ...opts })
 
-  if (action === 'open-compartido')     return generarPDFCompartido(props.reporte, { action: 'open', ...opts })
-  if (action === 'save-compartido')     return generarPDFCompartido(props.reporte, { action: 'save', ...opts })
-  if (action === 'print-compartido')    return generarPDFCompartido(props.reporte, { action: 'print', ...opts })
+  if (action === 'open-compartido')     return generarPDFCompartido(rep, { action: 'open', ...opts })
+  if (action === 'save-compartido')     return generarPDFCompartido(rep, { action: 'save', ...opts })
+  if (action === 'print-compartido')    return generarPDFCompartido(rep, { action: 'print', ...opts })
 
   // ── Modo "solo documento": el mismo generador estándar, pero indicándole
   // que omita la tabla de materias y sólo emita la tabla de documentos ──
-  if (action === 'open-documento')  return generarPDF(props.reporte, { action: 'open',  soloDocumentos: true, ...opts })
-  if (action === 'save-documento')  return generarPDF(props.reporte, { action: 'save',  soloDocumentos: true, ...opts })
-  if (action === 'print-documento') return generarPDF(props.reporte, { action: 'print', soloDocumentos: true, ...opts })
+  if (action === 'open-documento')  return generarPDF(rep, { action: 'open',  soloDocumentos: true, ...opts })
+  if (action === 'save-documento')  return generarPDF(rep, { action: 'save',  soloDocumentos: true, ...opts })
+  if (action === 'print-documento') return generarPDF(rep, { action: 'print', soloDocumentos: true, ...opts })
 
-  generarPDF(props.reporte, {
+  generarPDF(rep, {
     action,
     ...opts,
   })

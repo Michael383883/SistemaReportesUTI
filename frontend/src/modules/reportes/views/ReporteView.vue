@@ -69,6 +69,7 @@
           v-model:grupo="grupoFiltro"
           v-model:incluir-sin-grupo="incluirSinGrupo"
           v-model:mostrar-nota-sin-grupo="mostrarNotaSinGrupo"
+          v-model:ocultar-verano-invierno="ocultarVeranoInvierno"
           :loading="loadingActivo"
           :reporte="reporteActivo"
           :documentos-categoria="documentosCategoria"
@@ -81,7 +82,7 @@
       <!-- Tabla de materias: solo en el modo normal (no en modo documento) -->
       <ReporteTabla
         v-if="!modoDocumento"
-        :materias="reporteActivo.materias"
+        :materias="materiasTabla"
         :cod-docente="reporteActivo.docente?.codigo"
         :agrupar-compartidos="verCompartidos"
       />
@@ -177,6 +178,28 @@ const periodoHabilitado    = ref(null)
 // ── Opciones: materias sin grupo/plan + nota ──
 const incluirSinGrupo     = ref(false)
 const mostrarNotaSinGrupo = ref(true)
+
+// ── Opción: ocultar verano/invierno (periodos 3 y 4) SOLO en la tabla ──
+// No regenera el reporte: solo filtra lo que ya se cargó. Los PDF siguen
+// usando el reporte completo.
+const ocultarVeranoInvierno = ref(false)
+
+const esVeranoInvierno = (m) => {
+  const periodo = String(m?.PERIODO ?? m?.periodo ?? '').trim()
+  if (periodo) return periodo === '3' || periodo === '4'
+  // Respaldo: "2024/3 - Verano" / "2024/4 - Invierno"
+  return /\/\s*[34]\b/.test(String(m?.gestion ?? ''))
+}
+
+// Materias que se pasan a la tabla (con "Nº" renumerado si se filtró)
+const materiasTabla = computed(() => {
+  const todas = reporteActivo.value?.materias ?? []
+  if (!ocultarVeranoInvierno.value) return todas
+
+  return todas
+    .filter(m => !esVeranoInvierno(m))
+    .map((m, i) => ({ ...m, nro: i + 1 }))
+})
 
 // Parsea "2016", "2016/1", "2016-2" → { anio, periodo }
 function parseAnioPeriodo(valorCrudo) {

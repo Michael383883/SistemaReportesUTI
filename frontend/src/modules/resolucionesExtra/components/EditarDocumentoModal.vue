@@ -24,6 +24,7 @@
           <div class="flex items-center gap-2 flex-shrink-0">
             <button
               v-if="doc.NOMBRE_ARCHIVO"
+              type="button"
               @click="verArchivo"
               :disabled="abriendoPdf"
               class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-800 hover:bg-blue-900 text-white text-sm font-semibold rounded-lg disabled:opacity-60"
@@ -33,7 +34,7 @@
               </svg>
               {{ abriendoPdf ? 'Abriendo...' : 'Ver PDF' }}
             </button>
-            <button @click="$emit('cerrar')" class="text-gray-400 hover:text-gray-600">
+            <button type="button" @click="$emit('cerrar')" class="text-gray-400 hover:text-gray-600">
               <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
               </svg>
@@ -68,12 +69,13 @@
             {{ errorCarga }}
           </div>
 
+          <!-- FIX: ya no se pasa :reutilizando-archivo="true"; ese banner ("se
+               reutilizará el PDF...") es de la ALTA, no de la edición. -->
           <ClasificacionForm
             v-else
             :saving="guardando"
             :error="errorGuardar"
             :archivo-nombre="doc.NOMBRE_ARCHIVO"
-            :reutilizando-archivo="true"
             :initial="initial"
             @guardar="onGuardar"
             @back="$emit('cerrar')"
@@ -138,63 +140,61 @@ async function cargar() {
 
 // ClasificacionForm emite: guardar(payload, asignaAGrupos, irAAsignarExtra)
 async function onGuardar(payload, asignaAGrupos) {
-    guardando.value = true
-    errorGuardar.value = ''
-    try {
-        await intentarGuardar(payload, asignaAGrupos, false)
-    } catch (e) {
-        if (e.message === 'confirmar_desvinculacion') {
-            const nombres = e.docentesADesvincular.map(d => d.nombre || d.cod_docente).join(', ')
-            const confirmar = confirm(
-                `${e.mensaje}\n\nDocente(s): ${nombres}\n\n¿Continuar?`
-            )
-            if (confirmar) {
-                try {
-                    await intentarGuardar(payload, asignaAGrupos, true)
-                } catch (e2) {
-                    // 👈 el reintento también puede fallar (otro 409, validación,
-                    // red, lo que sea). Antes esto quedaba como promesa
-                    // rechazada sin capturar y el modal se quedaba "mudo".
-                    errorGuardar.value = mensajeDeError(e2)
-                }
-            } else {
-                errorGuardar.value = 'Guardado cancelado.'
-            }
-        } else {
-            errorGuardar.value = mensajeDeError(e)
+  if (guardando.value) return
+  guardando.value = true
+  errorGuardar.value = ''
+  try {
+    await intentarGuardar(payload, asignaAGrupos, false)
+  } catch (e) {
+    if (e.message === 'confirmar_desvinculacion') {
+      const lista = (e.docentesADesvincular || [])
+        .map(d => {
+          const nombre = d.nombre || d.cod_docente
+          return d.tiene_titulo ? `${nombre} (también se eliminará su título)` : nombre
+        })
+        .join('\n- ')
+
+      const confirmar = confirm(`${e.mensaje}\n\nDocente(s):\n- ${lista}\n\n¿Continuar?`)
+      if (confirmar) {
+        try {
+          await intentarGuardar(payload, asignaAGrupos, true)
+        } catch (e2) {
+          // El reintento también puede fallar (otro 409, validación, red...)
+          errorGuardar.value = mensajeDeError(e2)
         }
-    } finally {
-        guardando.value = false
+      } else {
+        errorGuardar.value = 'Guardado cancelado.'
+      }
+    } else {
+      errorGuardar.value = mensajeDeError(e)
     }
+  } finally {
+    guardando.value = false
+  }
 }
 
-// Centraliza cómo se arma el mensaje de error, para no duplicar lógica
-// entre el intento normal y el reintento tras confirmar_desvinculacion.
 function mensajeDeError(e) {
-    if (e?.message === 'confirmar_desvinculacion') {
-        // Caso raro: el backend volvió a pedir confirmación incluso mandando
-        // confirmar_desvinculacion=1. No debería pasar, pero si pasa, que
-        // el mensaje sea entendible en vez de "[object Object]" o similar.
-        return e.mensaje || 'El servidor volvió a pedir confirmación de desvinculación.'
-    }
-    return clasificacion.error.value
-        || e?.response?.data?.error
-        || e?.message
-        || 'No se pudo guardar los cambios'
+  if (e?.message === 'confirmar_desvinculacion') {
+    return e.mensaje || 'El servidor volvió a pedir confirmación de desvinculación.'
+  }
+  return clasificacion.error.value
+    || e?.response?.data?.error
+    || e?.message
+    || 'No se pudo guardar los cambios'
 }
 
 async function intentarGuardar(payload, asignaAGrupos, confirmarDesvinculacion) {
-    const resultado = await clasificacion.actualizarClasificacion(
-        idClasificacionPrincipal.value, payload, confirmarDesvinculacion
-    )
-    if (asignaAGrupos) {
-        try {
-            await clasificacion.aplicarEnGrupos(resultado.id_documento ?? props.doc.ID_DOCUMENTO)
-        } catch (e) {
-            console.error('El documento se guardó, pero falló al aplicar en GRUPOS:', e)
-        }
+  const resultado = await clasificacion.actualizarClasificacion(
+    idClasificacionPrincipal.value, payload, confirmarDesvinculacion
+  )
+  if (asignaAGrupos) {
+    try {
+      await clasificacion.aplicarEnGrupos(resultado.id_documento ?? props.doc.ID_DOCUMENTO)
+    } catch (e) {
+      console.error('El documento se guardó, pero falló al aplicar en GRUPOS:', e)
     }
-    emit('guardado')
+  }
+  emit('guardado')
 }
 
 onMounted(cargar)

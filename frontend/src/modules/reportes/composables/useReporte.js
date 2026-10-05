@@ -32,6 +32,9 @@ const normalizeMateria = (m) => {
     out.resolucion = m.resolucion ?? m.RESOLUCION ?? m.resolucion_num ?? m.RESOLUCION_NUM ?? ''
     out.designacion = m.designacion ?? m.DESIGNACION ?? ''
     out.tipo_ingreso = m.tipo_ingreso ?? m.TIPO_INGRESO ?? ''
+
+    // Documentos referenciados (CLASIFICACION_REFERENCIA) — siempre un array
+    out.referencias = m.referencias ?? m.REFERENCIAS ?? []
     return out
 }
 

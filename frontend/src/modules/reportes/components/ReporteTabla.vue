@@ -15,6 +15,16 @@
             <th class="text-left px-4 py-3 text-[0.68rem] font-semibold tracking-widest uppercase text-slate-100">Designación</th>
             <th class="text-left px-4 py-3 text-[0.68rem] font-semibold tracking-widest uppercase text-slate-100 w-28">Modalidad de ingreso</th>
             <th class="text-left px-4 py-3 text-[0.68rem] font-semibold tracking-widest uppercase text-slate-100 w-28">Documento</th>
+            <!-- Referencias / compartidos (solo si algún registro tiene) -->
+            <th
+              v-if="tieneReferencias"
+              class="px-2 py-3 w-10 text-center text-slate-100"
+              title="Documentos referenciados"
+            >
+              <svg class="w-3.5 h-3.5 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
+              </svg>
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -144,6 +154,30 @@
               </template>
               <span v-else class="text-slate-400 dark:text-slate-600 text-xs">—</span>
             </td>
+
+            <!-- Referencias / compartidos -->
+            <td v-if="tieneReferencias" class="px-2 py-3 text-center">
+              <button
+                v-if="fila.principal.referencias?.length"
+                type="button"
+                @click.stop="onClickReferencias($event, fila.principal.referencias)"
+                class="relative inline-flex items-center justify-center w-7 h-7 rounded-md transition-colors
+                       bg-violet-50 text-violet-600 hover:bg-violet-100
+                       dark:bg-violet-500/15 dark:text-violet-300 dark:hover:bg-violet-500/25"
+                :title="fila.principal.referencias.length === 1
+                  ? 'Abrir ' + fila.principal.referencias[0].nro
+                  : fila.principal.referencias.length + ' documentos referenciados'"
+              >
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
+                </svg>
+                <span
+                  v-if="fila.principal.referencias.length > 1"
+                  class="absolute -top-1 -right-1 min-w-[14px] h-[14px] px-0.5 rounded-full bg-violet-600 text-white text-[9px] font-bold leading-[14px]"
+                >{{ fila.principal.referencias.length }}</span>
+              </button>
+              <span v-else class="text-slate-400 dark:text-slate-600 text-xs">—</span>
+            </td>
           </tr>
         </tbody>
       </table>
@@ -153,11 +187,45 @@
     <div class="px-4 py-2.5 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/30 text-xs text-slate-500 dark:text-slate-500 text-right">
       {{ filas.length }} registro{{ filas.length !== 1 ? 's' : '' }}
     </div>
+
+    <!-- Desplegable de referencias (Teleport para que overflow-x-auto no lo recorte) -->
+    <Teleport to="body">
+      <div
+        v-if="popover.abierto"
+        class="fixed z-50 w-64 max-h-60 overflow-y-auto rounded-lg border border-slate-200 dark:border-slate-700
+               bg-white dark:bg-slate-900 shadow-xl py-1"
+        :style="{ top: popover.top + 'px', left: popover.left + 'px' }"
+        @click.stop
+      >
+        <p class="px-3 py-1.5 text-[0.65rem] font-semibold uppercase tracking-widest text-slate-500">
+          Documentos referenciados
+        </p>
+        <button
+          v-for="r in popover.refs"
+          :key="r.id_ref"
+          type="button"
+          @click="abrirReferencia(r)"
+          :disabled="loadingRef[r.id_ref]"
+          class="w-full flex items-center gap-2 px-3 py-2 text-left text-xs text-slate-700 dark:text-slate-200
+                 hover:bg-violet-50 dark:hover:bg-violet-500/15 disabled:opacity-50"
+        >
+          <svg v-if="loadingRef[r.id_ref]" class="w-3.5 h-3.5 animate-spin shrink-0" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+          </svg>
+          <svg v-else class="w-3.5 h-3.5 shrink-0 text-violet-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+          </svg>
+          <span class="truncate font-medium">{{ r.nro }}</span>
+        </button>
+      </div>
+    </Teleport>
   </div>
 </template>
 
 <script setup>
-import { computed, toRef } from 'vue'
+import { computed, toRef, reactive, onMounted, onBeforeUnmount } from 'vue'
 import { useReporte } from '../composables/useReporte'
 import { useReporteCom } from '../composables/useReporteCom'
 import { useTablaFormato } from '../composables/reporte/useTablaFormato'
@@ -197,4 +265,53 @@ const verPdfActivo = computed(() => (props.agruparCompartidos ? verPdfCompartido
 const { loadingPdf, handleVer, handleDescargar } = usePdfMateria(
   (nro, descargar) => verPdfActivo.value(nro, descargar)
 )
+
+// ── Columna de referencias ──────────────────────────────────────────────
+// Solo se muestra si al menos una fila del reporte tiene referencias.
+const tieneReferencias = computed(() =>
+  props.materias.some(m => m.referencias?.length)
+)
+
+const popover = reactive({ abierto: false, top: 0, left: 0, refs: [] })
+const loadingRef = reactive({})
+
+const cerrarPopover = () => { popover.abierto = false }
+
+const abrirReferencia = async (r) => {
+  loadingRef[r.id_ref] = true
+  try {
+    await verPdfActivo.value(r.nro, false)
+  } catch (e) {
+    console.error('[ReporteTabla] No se pudo abrir la referencia', r.nro, e)
+    alert(`No se encontró el documento "${r.nro}" en resoluciones.`)
+  } finally {
+    loadingRef[r.id_ref] = false
+  }
+}
+
+const onClickReferencias = (event, refs) => {
+  // Una sola referencia: se abre directo, sin desplegable
+  if (refs.length === 1) {
+    cerrarPopover()
+    abrirReferencia(refs[0])
+    return
+  }
+
+  const rect = event.currentTarget.getBoundingClientRect()
+  popover.refs = refs
+  popover.top = rect.bottom + 4
+  popover.left = Math.max(8, Math.min(rect.left - 200, window.innerWidth - 272))
+  popover.abierto = true
+}
+
+onMounted(() => {
+  document.addEventListener('click', cerrarPopover)
+  window.addEventListener('resize', cerrarPopover)
+  window.addEventListener('scroll', cerrarPopover, true)
+})
+onBeforeUnmount(() => {
+  document.removeEventListener('click', cerrarPopover)
+  window.removeEventListener('resize', cerrarPopover)
+  window.removeEventListener('scroll', cerrarPopover, true)
+})
 </script>

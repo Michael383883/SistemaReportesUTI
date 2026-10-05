@@ -1,23 +1,18 @@
 import { computed } from 'vue'
 import { useClasificacion } from './useClasificacion'
 
+const NO_REGENTA_LABEL = 'NO REGENTA MATERIA EN LA FCE'
+
 /**
  * Composable de solo-agregación: no llama a rutas nuevas del backend.
  * Reutiliza useClasificacion() para:
  *   1) Agrupar el listado plano (una fila por CLASIFICACION_DOCENTE) en un
- *      listado por documento (una fila por CLASIFICACION_DOCUMENTO), con el
- *      array de docentes vinculados a cada uno. Sirve para la tabla.
- *   2) obtenerCompleto(doc): trae TODO lo de un documento (materias +
- *      título de cada docente vinculado, referencias, datos generales)
- *      llamando show() una vez por cada ID_CLASIFICACION_DOCENTE del
- *      documento, y arma un único objeto "initial" listo para pasarle a
- *      <ClasificacionForm :initial="...">.
+ *      listado por documento, con el array de docentes vinculados.
+ *   2) obtenerCompleto(doc): trae TODO lo de un documento llamando show()
+ *      una vez por cada ID_CLASIFICACION_DOCENTE, y arma un único objeto
+ *      "initial" listo para <ClasificacionForm :initial="...">.
  *
  * @param {ReturnType<typeof useClasificacion>} [clasificacionInstance]
- *        Pasa la MISMA instancia que ya usa la vista (la que llama a
- *        listar()) para que `documentos` refleje lo que está en pantalla.
- *        Si no se pasa, crea una instancia propia (útil para el modal de
- *        edición, que no necesita compartir el listado general).
  */
 export function useDocumentos(clasificacionInstance) {
     const clasificacion = clasificacionInstance ?? useClasificacion()
@@ -30,11 +25,6 @@ export function useDocumentos(clasificacionInstance) {
                 mapa.set(c.ID_DOCUMENTO, {
                     ID_DOCUMENTO: c.ID_DOCUMENTO,
                     TIPO_DOCUMENTO: c.TIPO_DOCUMENTO,
-                    // OJO: el SELECT de index() en el backend no trae
-                    // DETALLE_GENERAL hoy en día, así que esto puede venir
-                    // undefined hasta que se agregue al controlador (ver
-                    // nota al pie del chat). No es obligatorio para que
-                    // esta vista funcione.
                     DETALLE_GENERAL: c.DETALLE_GENERAL ?? null,
                     CATEGORIA: c.CATEGORIA,
                     NIVEL: c.NIVEL,
@@ -60,20 +50,14 @@ export function useDocumentos(clasificacionInstance) {
 
     /**
      * @param {{ docentes: {ID_CLASIFICACION_DOCENTE:number, COD_DOCENTE:number, NOMBRE_DOCENTE:string}[] }} doc
-     *        Una fila de `documentos` (ver arriba).
-     * @returns {Promise<{
-     *   idClasificacionPrincipal: number,
-     *   otrosTitulos: Array,
-     *   initial: object,
-     * }>}
      */
     async function obtenerCompleto(doc) {
         if (!doc?.docentes?.length) {
             throw new Error('El documento no tiene docentes vinculados')
         }
 
-        // show() ya trae, para cada docente: sus materias, su título propio
-        // y (repetidas en cada respuesta) las referencias del documento —
+        // show() trae, para cada docente: sus materias, su título propio y
+        // (repetidas en cada respuesta) las referencias del documento —
         // por eso solo usamos las de la primera respuesta.
         const respuestas = await Promise.all(
             doc.docentes.map(d => clasificacion.obtener(d.ID_CLASIFICACION_DOCENTE))
@@ -88,6 +72,8 @@ export function useDocumentos(clasificacionInstance) {
             const d = doc.docentes[i]
 
             for (const m of cabecera.materias || []) {
+                const esNoRegenta = !m.COD_MATERIA && m.NOMBRE_MATERIA === NO_REGENTA_LABEL
+
                 materias.push({
                     cod_materia: m.COD_MATERIA,
                     nombre_materia: m.NOMBRE_MATERIA,
@@ -95,26 +81,19 @@ export function useDocumentos(clasificacionInstance) {
                     nota: m.NOTA,
                     grupo: m.GRUPO,
                     detalle: m.DETALLE,
-                    // MateriasCard ya soporta materias de "otros docentes"
-                    // (así es como el backend distingue al hermano dueño).
+                    manual: !m.COD_MATERIA,
                     docente: {
                         cod_docente: d.COD_DOCENTE,
                         nombre_docente: d.NOMBRE_DOCENTE,
-                        // 👈 FIX real: antes leía m.APELLIDOS / m.NOMBRES, que NUNCA vienen
-                        // en la respuesta de show() porque esa query no junta DOCENTES.
-                        // Ahora usa el docente `d` del loop actual (doc.docentes[i]), que
-                        // es el mismo docente al que pertenecen TODAS las materias de esta
-                        // respuesta (show() ya está filtrado por ID_CLASIFICACION_DOCENTE).
                         apellidos: d.APELLIDOS ?? '',
                         nombres: d.NOMBRES ?? '',
                     },
-                    // 👈 FIX Bug 2: marca que esta materia YA existe en el
-                    // backend (viene cargada al editar), para que el
-                    // borrado pida confirmación SOLO en estas. Las
-                    // materias que se agregan nuevas desde el buscador
-                    // durante la edición no deben traer esta propiedad
-                    // (o debe quedar en false).
+                    // Marca que esta materia YA existe en el backend: el
+                    // borrado pide confirmación SOLO en estas.
                     yaRegistrada: true,
+                    // FIX: sin esta bandera, al editar un documento "No regenta"
+                    // el check de MateriasCard no se reconocía como marcado.
+                    ...(esNoRegenta ? { esNoRegenta: true } : {}),
                 })
             }
 
@@ -131,10 +110,8 @@ export function useDocumentos(clasificacionInstance) {
                         cod_docente: d.COD_DOCENTE,
                     }
                 } else {
-                    // El backend (update()) solo reemplaza el título del
-                    // docente "principal" (el $id de la URL). El título de
-                    // un hermano no se puede editar desde este mismo form,
-                    // así que solo lo mostramos como información.
+                    // update() solo reemplaza el título del docente principal.
+                    // El de un hermano se muestra solo como información.
                     otrosTitulos.push({ docente: d.NOMBRE_DOCENTE, ...t })
                 }
             }
@@ -145,6 +122,14 @@ export function useDocumentos(clasificacionInstance) {
             otrosTitulos,
             initial: {
                 cod_docente: principal.COD_DOCENTE,
+                // FIX: en edición el composable de búsqueda no tiene docente
+                // seleccionado; con esto el form puede mostrarlo y asignarlo
+                // a las materias nuevas.
+                docente_principal: {
+                    codigo: principal.COD_DOCENTE,
+                    apellidos: (principal.APELLIDOS ?? '').trim(),
+                    nombres: (principal.NOMBRES ?? '').trim(),
+                },
                 categoria: principal.CATEGORIA,
                 nivel: principal.NIVEL,
                 gestion: principal.GESTION,

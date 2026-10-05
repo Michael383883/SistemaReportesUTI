@@ -32,19 +32,54 @@
         <div class="bg-gray-50 rounded-xl border border-gray-200 p-4">
           <h4 class="text-[12px] font-bold text-slate-700 mb-3 uppercase tracking-wide">Datos generales</h4>
           <dl class="grid grid-cols-2 gap-x-4 gap-y-2 text-[13px]">
-            <div>
-              <dt class="text-gray-500 text-[11px]">Docente</dt>
-              <dd class="font-medium text-slate-800">{{ nombreDocente || '—' }}</dd>
+
+            <!-- Docente(s) -->
+            <div class="col-span-2">
+              <dt class="text-gray-500 text-[11px]">
+                Docente{{ docentes.length > 1 ? 's' : '' }}
+                <span v-if="docentes.length > 1">({{ docentes.length }})</span>
+              </dt>
+
+              <!-- Sin docentes -->
+              <dd v-if="docentes.length === 0" class="font-medium text-slate-800">—</dd>
+
+              <!-- Un solo docente -->
+              <dd v-else-if="docentes.length === 1" class="font-medium text-slate-800">
+                {{ docentes[0] }}
+              </dd>
+
+              <!-- Varios docentes: desplegable -->
+              <dd v-else>
+                <button
+                  type="button"
+                  @click="docentesExpandido = !docentesExpandido"
+                  class="flex items-center gap-1 font-medium text-slate-800 hover:text-orange-600"
+                >
+                  <span>{{ docentes[0] }} y {{ docentes.length - 1 }} más</span>
+                  <svg
+                    class="w-3.5 h-3.5 transition-transform"
+                    :class="{ 'rotate-180': docentesExpandido }"
+                    fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"
+                  >
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+                  </svg>
+                </button>
+
+                <ul v-if="docentesExpandido" class="mt-1 space-y-0.5 pl-3 border-l-2 border-orange-200">
+                  <li v-for="(d, i) in docentes" :key="i" class="text-slate-700">{{ d }}</li>
+                </ul>
+              </dd>
             </div>
+
             <div>
-  <dt class="text-gray-500 text-[11px]">Tipo/Nº de documento</dt>
-  <dd class="font-medium text-slate-800">
-    {{ tipoDocumentoMostrado }}
-  </dd>
-  <p v-if="!form.tipo_documento && form.titulo?.tipo_titulo" class="text-[10px] text-amber-600 mt-0.5">
-    (tomado del título)
-  </p>
-</div>
+              <dt class="text-gray-500 text-[11px]">Tipo/Nº de documento</dt>
+              <dd class="font-medium text-slate-800">
+                {{ tipoDocumentoMostrado }}
+              </dd>
+              <p v-if="!form.tipo_documento && form.titulo?.tipo_titulo" class="text-[10px] text-amber-600 mt-0.5">
+                (tomado del título)
+              </p>
+            </div>
             <div>
               <dt class="text-gray-500 text-[11px]">Categoría</dt>
               <dd class="font-medium text-slate-800">{{ form.categoria || '—' }}</dd>
@@ -200,7 +235,8 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
+
 const props = defineProps({
   form: { type: Object, required: true },
   nombreDocente: { type: String, default: '' },
@@ -209,7 +245,30 @@ const props = defineProps({
   saving: { type: Boolean, default: false },
 })
 
-defineEmits(['cerrar', 'confirmar'])
+defineEmits(['cerrar', 'confirmar', 'confirmar-y-asignar'])
+
+const docentesExpandido = ref(false)
+
+// Lista de docentes únicos: el principal + los de cada materia
+const docentes = computed(() => {
+  const nombres = new Map()
+
+  const agregar = (nombre) => {
+    const limpio = (nombre || '').trim()
+    if (!limpio) return
+    const clave = limpio.toLowerCase()
+    if (!nombres.has(clave)) nombres.set(clave, limpio)
+  }
+
+  agregar(props.nombreDocente)
+
+  for (const m of props.form.materias || []) {
+    if (!m.docente) continue
+    agregar(`${m.docente.apellidos || ''} ${m.docente.nombres || ''}`)
+  }
+
+  return [...nombres.values()]
+})
 
 const tipoDocumentoMostrado = computed(() => {
   if (props.form.tipo_documento?.trim()) return props.form.tipo_documento

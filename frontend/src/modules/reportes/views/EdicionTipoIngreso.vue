@@ -91,6 +91,15 @@
               Materias dictadas — {{ selectedDocente.nombres ?? selectedDocente.NOMBRES }} {{ selectedDocente.apellidos ?? selectedDocente.APELLIDOS }}
             </p>
 
+            <!-- Aviso: el filtro de último periodo se aplicó solo (docente 100 / por designar) -->
+            <span
+              v-if="filtrarUltimoPeriodo && (filtroAnio || filtroGestion)"
+              class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-amber-700 text-[11px] font-medium"
+              title="Para este docente se muestra por defecto solo el último periodo. Usá 'Limpiar' para ver todo."
+            >
+              Mostrando solo el último periodo
+            </span>
+
             <!-- ── Habilitar periodo no concluido (misma lógica que ReporteHeader) ── -->
             <button
               v-if="periodoPendiente"
@@ -174,12 +183,7 @@
         </p>
       </div>
 
-      <!--
-        Barra de "Aplicar cambios": queda fija (sticky) al fondo del viewport
-        en cuanto hay al menos un cambio pendiente, así siempre es visible
-        sin importar cuánto scrolleés la tabla — no hace falta bajar hasta
-        el final de la página para encontrarla.
-      -->
+      <!-- Barra fija de "Aplicar cambios" -->
       <Transition
         enter-active-class="transition ease-out duration-200"
         enter-from-class="opacity-0 translate-y-3"
@@ -240,7 +244,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import DocenteSearch from '../../docentes/components/DocenteSearch.vue'
 import { useDocentes } from '../../docentes/composables/useDocentes'
 import { useReporte } from '../../reportes/composables/useReporte'
@@ -286,6 +290,21 @@ const docenteCodActual = computed(() =>
     : null
 )
 
+// ─── Docentes "comodín" que acumulan muchas materias de todos los periodos ──
+// Solo para ellos el filtro de año/gestión se activa solo con el último periodo.
+// Si el código del "docente por designar" fuera otro, se agrega aquí.
+const CODIGOS_DOCENTE_POR_DESIGNAR = ['100']
+
+function esDocentePorDesignar(doc) {
+  if (!doc) return false
+  const cod = String(doc.codigo ?? doc.CODIGO ?? doc.cod_docente ?? '').trim()
+  if (CODIGOS_DOCENTE_POR_DESIGNAR.includes(cod)) return true
+  const nombre = `${doc.apellidos ?? doc.APELLIDOS ?? ''} ${doc.nombres ?? doc.NOMBRES ?? ''}`.toUpperCase()
+  return nombre.includes('POR DESIGNAR')
+}
+
+const filtrarUltimoPeriodo = computed(() => esDocentePorDesignar(selectedDocente.value))
+
 // ─── Reporte de materias del docente seleccionado ────────────────
 const { reporte, loading: loadingReporte, error: errorReporte, generarReporte, limpiarReporte } = useReporte()
 
@@ -295,6 +314,10 @@ function onSeleccionarDocente(doc) {
   habilitarRestriccion.value = false
   anioHabilitado.value = null
   periodoHabilitado.value = null
+  // Resetea los filtros: si venimos del docente "por designar", su filtro
+  // automático no debe quedarse pegado al siguiente docente.
+  filtroAnio.value = ''
+  filtroGestion.value = ''
 
   const codigo = doc.codigo ?? doc.CODIGO
   if (codigo) generarReporte(codigo)
@@ -460,6 +483,34 @@ const materiasFiltradas = computed(() => {
     if (filtroGestion.value && gest !== filtroGestion.value) return false
     return true
   })
+})
+
+// ─── Auto-filtro al último periodo (solo docente 100 / por designar) ───
+// "Último periodo" = el año más reciente del reporte y, dentro de ese año,
+// la gestión/periodo más alto. Se aplica cada vez que llega un reporte nuevo
+// para ese docente (al seleccionarlo, o al habilitar/ocultar un periodo no
+// concluido, que puede cambiar cuál es el último). El usuario puede cambiar
+// los selects o usar "Limpiar" y su elección se respeta hasta el próximo reporte.
+function aplicarFiltroUltimoPeriodo() {
+  const anio = aniosDisponibles.value[0] // ya viene ordenado de mayor a menor
+  if (!anio) return
+
+  const gestiones = new Set()
+  materiasDelReporte.value.forEach(m => {
+    const [a, ...resto] = String(m.gestion ?? '').split('/')
+    if (a?.trim() === anio) {
+      const g = resto.join('/').trim()
+      if (g) gestiones.add(g)
+    }
+  })
+
+  filtroAnio.value = anio
+  filtroGestion.value = [...gestiones].sort().pop() ?? ''
+}
+
+watch(reporte, (nuevo) => {
+  if (!nuevo || !filtrarUltimoPeriodo.value) return
+  aplicarFiltroUltimoPeriodo()
 })
 
 // ─── Fase final ────────────────────────────────────────────────────

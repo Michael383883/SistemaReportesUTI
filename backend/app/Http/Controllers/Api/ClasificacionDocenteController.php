@@ -20,7 +20,7 @@ class ClasificacionDocenteController extends Controller
                 'ccd.ID_CLASIFICACION_DOCENTE',
                 'ccd.ID_DOCUMENTO',
                 'ccd.COD_DOCENTE',
-                'd.APELLIDOS',   
+                'd.APELLIDOS',
                 'd.NOMBRES',
                 DB::raw("LTRIM(RTRIM(d.APELLIDOS + ' ' + d.NOMBRES)) AS NOMBRE_DOCENTE"),
                 'cdoc.CATEGORIA',
@@ -133,8 +133,7 @@ class ClasificacionDocenteController extends Controller
                 'observacion' => 'nullable|string|max:300',
                 'observacion2' => 'nullable|string|max:300',
                 'archivo_pdf' => 'nullable|file|mimes:pdf|max:20480',
-                // 👇 NUEVO: id de un CLASIFICACION_DOCUMENTO existente cuyo
-                // archivo se reutilizará (sin volver a subirlo/almacenarlo)
+                // id de un CLASIFICACION_DOCUMENTO existente cuyo archivo se reutilizará
                 'id_documento_origen' => 'nullable|integer|exists:CLASIFICACION_DOCUMENTO,ID_DOCUMENTO',
                 'materias' => 'nullable|string',
                 'referencias' => 'nullable|string',
@@ -177,10 +176,10 @@ class ClasificacionDocenteController extends Controller
             $fotocopia = false;
 
             if ($request->hasFile('archivo_pdf')) {
-                // Caso normal: se sube un PDF nuevo y se almacena en disco.
                 $archivo = $request->file('archivo_pdf');
 
                 if (!$archivo->isValid()) {
+                    DB::rollBack();
                     return response()->json(['ok' => false, 'error' => 'Archivo inválido'], 400);
                 }
 
@@ -191,9 +190,8 @@ class ClasificacionDocenteController extends Controller
                 $fotocopia = true;
 
             } elseif ($request->filled('id_documento_origen')) {
-                // 👇 NUEVO: no se sube archivo nuevo; se reutiliza la ruta del
-                // PDF ya almacenado en otro documento (para no duplicarlo en
-                // disco cuando solo cambia la clasificación/categoría).
+                // No se sube archivo nuevo; se reutiliza la ruta del PDF ya
+                // almacenado en otro documento.
                 $docOrigen = DB::table('CLASIFICACION_DOCUMENTO')
                     ->select('RUTA_ARCHIVO', 'NOMBRE_ARCHIVO', 'FOTOCOPIA_TITULAR')
                     ->where('ID_DOCUMENTO', $request->id_documento_origen)
@@ -242,6 +240,11 @@ class ClasificacionDocenteController extends Controller
                     ? ($mapaDocenteId[$codDocenteMateria] ?? null)
                     : null;
 
+                // Materias sin docente propio (ej. "No regenta") se cuelgan del primer docente
+                if (!$idClasifDocenteMateria && !empty($mapaDocenteId)) {
+                    $idClasifDocenteMateria = reset($mapaDocenteId);
+                }
+
                 DB::table('CLASIFICACION_MATERIA')->insert([
                     'ID_DOCUMENTO' => $idDocumento,
                     'ID_CLASIFICACION_DOCENTE' => $idClasifDocenteMateria,
@@ -249,10 +252,6 @@ class ClasificacionDocenteController extends Controller
                     'NOMBRE_MATERIA' => $m['nombre_materia'],
                     'COD_PLAN' => $m['cod_plan'] ?? null,
                     'GRUPO' => isset($m['grupo']) && $m['grupo'] !== null ? (string) $m['grupo'] : null,
-                    // FIX NOTA: antes era `$m['nota'] ?? null`, lo que dejaba pasar
-                    // strings vacíos ('') tal cual hacia el INSERT. SQL Server
-                    // truena al convertir '' a numeric. Ahora se sanitiza: vacío,
-                    // null o no-numérico => null.
                     'NOTA' => $this->notaSanitizada($m['nota'] ?? null),
                     'DETALLE' => $m['detalle'] ?? null,
                     'ORDEN' => $i,
@@ -330,7 +329,7 @@ class ClasificacionDocenteController extends Controller
                 $e->getMessage()
             );
 
-            \Log::error('Error ClasificacionDocente', [
+            Log::error('Error ClasificacionDocente', [
                 'mensaje' => $mensajeSeguro,
                 'linea' => $e->getLine(),
                 'archivo' => $e->getFile(),
@@ -343,33 +342,24 @@ class ClasificacionDocenteController extends Controller
     // PUT /clasificaciones/{id}
     //
     // ── MODELO "EDICIÓN SUPREMA DEL DOCUMENTO" ──
-    // Este endpoint edita el DOCUMENTO completo, no solo al docente que se
-    // abrió para editar. El formulario (useDocumentos.obtenerCompleto) ya
-    // junta las materias de TODOS los docentes vinculados (principal +
-    // hermanos) en un solo array `materias`, así que ese array es la lista
-    // completa y definitiva de a quién pertenece cada materia.
+    // El formulario junta las materias de TODOS los docentes vinculados
+    // (principal + hermanos) en un solo array `materias`, que es la lista
+    // completa y definitiva.
     //
-    // Reglas:
-    //  - AGREGAR: si en `materias` aparece un docente que no estaba vinculado
-    //    al documento, se crea su vínculo (CLASIFICACION_DOCENTE) como
-    //    hermano nuevo. Los demás hermanos existentes NO se tocan.
-    //  - ACTUALIZAR: si un docente ya vinculado sigue apareciendo en
-    //    `materias` (con al menos una), solo se reemplazan SUS materias
-    //    (se borran las viejas de ese docente y se insertan las nuevas).
-    //  - QUITAR/DESVINCULAR: si un docente YA vinculado al documento deja de
-    //    aparecer en `materias` (se quedó sin ninguna), eso significa que el
-    //    usuario lo quitó del documento en el formulario. Como es una acción
-    //    destructiva (se borran sus materias, su título y su vínculo), se
-    //    exige una confirmación explícita del frontend (`confirmar_desvinculacion=1`)
-    //    antes de ejecutarla. Sin esa confirmación, el endpoint responde 409
-    //    con la lista de quién se desvincularía, y no hace ningún cambio.
-    //
-    // El docente "principal" (el $id de la URL) nunca se desvincula por esta
-    // vía; si el usuario quiere separarlo, existe el flujo aparte
-    // "solo_este_docente" (ver más abajo, $desvincular).
+    //  - AGREGAR: docente nuevo en `materias` => se crea su vínculo.
+    //  - ACTUALIZAR: solo se reemplazan las materias de los docentes que
+    //    aparecen en el payload (más el principal).
+    //  - QUITAR: un hermano que TENÍA materias y ya no aparece se desvincula,
+    //    previa confirmación explícita (`confirmar_desvinculacion=1`); sin ella
+    //    se responde 409 y no se cambia nada.
+    //  - Un hermano que solo tiene TÍTULO (no editable desde este form) nunca
+    //    se desvincula por esta vía.
+    //  - Las materias que el usuario quitó se limpian también en GRUPOS.
     public function update(Request $request, $id)
     {
         DB::beginTransaction();
+
+        $rutaViejaABorrar = null;
 
         try {
             $ccd = DB::table('CLASIFICACION_DOCENTE')
@@ -397,8 +387,6 @@ class ClasificacionDocenteController extends Controller
                 'referencias' => 'nullable|string',
                 'titulo' => 'nullable|string',
                 'solo_este_docente' => 'nullable|boolean',
-                // 👇 NUEVO: confirmación explícita para desvincular hermanos
-                // que se quedaron sin materias en el payload.
                 'confirmar_desvinculacion' => 'nullable|boolean',
             ]);
 
@@ -424,9 +412,7 @@ class ClasificacionDocenteController extends Controller
 
             $desvincular = $request->boolean('solo_este_docente') && $tieneHermanos;
 
-            // ── NUEVO: detectar hermanos que se quedan sin materias ──
-            // (solo aplica si NO estamos en el flujo "solo este docente",
-            // que es un caso distinto y ya maneja su propia separación).
+            // ── Detectar hermanos que se quedan sin materias ──
             $hermanosADesvincular = collect();
 
             if (!$desvincular) {
@@ -437,15 +423,24 @@ class ClasificacionDocenteController extends Controller
                 $codigosEnPayload = collect($materias)
                     ->pluck('docente.cod_docente')
                     ->filter()
-                    ->push($ccd->COD_DOCENTE) // el docente principal nunca se desvincula por esta vía
+                    ->push($ccd->COD_DOCENTE) // el principal nunca se desvincula por esta vía
                     ->when($titulo && !empty($titulo['cod_docente']), fn($c) => $c->push($titulo['cod_docente']))
                     ->unique()
                     ->map(fn($c) => (string) $c);
 
-                $hermanosADesvincular = $docentesActuales->filter(function ($d) use ($codigosEnPayload, $id) {
-                    return (string) $d->ID_CLASIFICACION_DOCENTE !== (string) $id
-                        && !$codigosEnPayload->contains((string) $d->COD_DOCENTE);
-                })->values();
+                $hermanosADesvincular = $docentesActuales
+                    ->filter(function ($d) use ($codigosEnPayload, $id) {
+                        return (string) $d->ID_CLASIFICACION_DOCENTE !== (string) $id
+                            && !$codigosEnPayload->contains((string) $d->COD_DOCENTE);
+                    })
+                    // FIX: si el hermano NO tenía materias (solo título, que no se
+                    // edita desde este form) no se toca: no se "quitó" nada.
+                    ->filter(function ($d) {
+                        return DB::table('CLASIFICACION_MATERIA')
+                            ->where('ID_CLASIFICACION_DOCENTE', $d->ID_CLASIFICACION_DOCENTE)
+                            ->exists();
+                    })
+                    ->values();
 
                 if ($hermanosADesvincular->isNotEmpty() && !$request->boolean('confirmar_desvinculacion')) {
                     DB::rollBack();
@@ -455,17 +450,24 @@ class ClasificacionDocenteController extends Controller
                         ->get()
                         ->keyBy('CODIGO');
 
+                    $idsConTitulo = DB::table('CLASIFICACION_TITULO')
+                        ->whereIn('ID_CLASIFICACION_DOCENTE', $hermanosADesvincular->pluck('ID_CLASIFICACION_DOCENTE'))
+                        ->pluck('ID_CLASIFICACION_DOCENTE')
+                        ->map(fn($v) => (string) $v)
+                        ->all();
+
                     return response()->json([
                         'ok' => false,
                         'tipo' => 'confirmar_desvinculacion',
                         'mensaje' => 'Al guardar, se va(n) a desvincular ' . $hermanosADesvincular->count()
                             . ' docente(s) de este documento porque ya no tienen materias asignadas. Confirma para continuar.',
-                        'docentes_a_desvincular' => $hermanosADesvincular->map(function ($d) use ($nombresADesvincular) {
+                        'docentes_a_desvincular' => $hermanosADesvincular->map(function ($d) use ($nombresADesvincular, $idsConTitulo) {
                             $doc = $nombresADesvincular->get($d->COD_DOCENTE);
                             return [
                                 'id_clasificacion_docente' => $d->ID_CLASIFICACION_DOCENTE,
                                 'cod_docente' => $d->COD_DOCENTE,
                                 'nombre' => $doc ? trim("{$doc->APELLIDOS} {$doc->NOMBRES}") : null,
+                                'tiene_titulo' => in_array((string) $d->ID_CLASIFICACION_DOCENTE, $idsConTitulo, true),
                             ];
                         })->values(),
                     ], 409);
@@ -485,17 +487,8 @@ class ClasificacionDocenteController extends Controller
 
             $docActual = DB::table('CLASIFICACION_DOCUMENTO')->where('ID_DOCUMENTO', $idDocumentoOriginal)->first();
 
-            // ── FIX: detecta si GESTION o PERIODO van a cambiar. Si cambian,
-            // hay que limpiar en GRUPOS lo que estaba aplicado con la
-            // combinación VIEJA antes de que se pierda la referencia (si no,
-            // GRUPOS queda con resolución/designación "fantasma" de una
-            // gestión/periodo que el documento ya no tiene, y el buscador
-            // de materias, que sí compara CLASIFICACION_DOCUMENTO al pie de
-            // la letra, deja de reconocerlas como "ya registradas"). ──
-            //
-            // 👇 AJUSTADO: ahora cubre TODOS los docentes del documento
-            // (principal + hermanos), no solo al principal, porque el
-            // guardado ahora también puede tocar materias de hermanos.
+            // ── ¿Cambió GESTION o PERIODO? Si sí, hay que limpiar GRUPOS con la
+            // combinación VIEJA (para todos los docentes del documento). ──
             $gestionCambio = $docActual && (
                 (string) ($docActual->GESTION ?? '') !== (string) ($request->gestion ?? '')
                 || (string) ($docActual->PERIODO ?? '') !== (string) ($request->periodo ?? '')
@@ -518,10 +511,11 @@ class ClasificacionDocenteController extends Controller
                     return response()->json(['ok' => false, 'error' => 'Archivo inválido'], 400);
                 }
 
-                // Solo borramos el archivo físico anterior si NO nos desvinculamos
-                // (si nos desvinculamos, los hermanos lo siguen usando)
-                if (!$desvincular && $docActual && $docActual->RUTA_ARCHIVO && Storage::disk('public')->exists($docActual->RUTA_ARCHIVO)) {
-                    Storage::disk('public')->delete($docActual->RUTA_ARCHIVO);
+                // FIX: el PDF viejo NO se borra aquí (si algo falla después y se
+                // hace rollback, el documento quedaría sin archivo). Se borra
+                // tras el commit y solo si ningún otro documento lo comparte.
+                if (!$desvincular && $docActual && $docActual->RUTA_ARCHIVO) {
+                    $rutaViejaABorrar = $docActual->RUTA_ARCHIVO;
                 }
 
                 $carpeta = 'clasificacion_docente/' . ($request->gestion ?: 'sin_gestion');
@@ -532,7 +526,6 @@ class ClasificacionDocenteController extends Controller
                 $datosDocumento['NOMBRE_ARCHIVO'] = $archivo->getClientOriginalName();
                 $datosDocumento['FOTOCOPIA_TITULAR'] = true;
             } elseif ($desvincular && $docActual) {
-                // Sin archivo nuevo: el documento nuevo apunta al mismo archivo físico
                 $datosDocumento['RUTA_ARCHIVO'] = $docActual->RUTA_ARCHIVO;
                 $datosDocumento['NOMBRE_ARCHIVO'] = $docActual->NOMBRE_ARCHIVO;
                 $datosDocumento['FOTOCOPIA_TITULAR'] = $docActual->FOTOCOPIA_TITULAR;
@@ -554,10 +547,7 @@ class ClasificacionDocenteController extends Controller
                     ->update($datosDocumento);
             }
 
-            // ── NUEVO: ejecutar la desvinculación de hermanos confirmada ──
-            // Se hace ANTES de tocar materias/título del resto, para que
-            // limpiarGruposPorMateriasAntiguas() todavía encuentre sus
-            // materias (se leen aquí mismo, justo antes de borrarlas).
+            // ── Ejecutar la desvinculación de hermanos confirmada ──
             if (!$desvincular && $hermanosADesvincular->isNotEmpty()) {
                 foreach ($hermanosADesvincular as $h) {
                     $materiasDelHermano = DB::table('CLASIFICACION_MATERIA')
@@ -589,16 +579,7 @@ class ClasificacionDocenteController extends Controller
                 }
             }
 
-            // ── FIX HERMANOS (agregar) ──
-            // Mapa docente -> ID_CLASIFICACION_DOCENTE para este guardado.
-            // El docente que se está editando ya tiene su fila ($id, y si se
-            // desvinculó "solo este docente", ya vive en $idDocumento). Si en
-            // las materias aparece un docente DISTINTO (agregado ahora en el
-            // formulario), se busca si ya existe una fila CLASIFICACION_DOCENTE
-            // para ese docente en este documento (hermano creado en una edición
-            // anterior) y se reutiliza; si no existe, se crea una nueva. Así el
-            // docente nuevo queda como hermano real del documento, en vez de
-            // que sus materias se cuelguen (duplicadas) del docente que se edita.
+            // ── Mapa docente -> ID_CLASIFICACION_DOCENTE (agrega hermanos nuevos) ──
             $mapaDocenteId = [(string) $ccd->COD_DOCENTE => $id];
 
             foreach ($materias as $m) {
@@ -618,16 +599,7 @@ class ClasificacionDocenteController extends Controller
                 ], 'ID_CLASIFICACION_DOCENTE');
             }
 
-            // ── FIX MATERIAS (edición "suprema" pero quirúrgica) ──
-            // Se agrupan las materias entrantes por el docente destino
-            // (principal o hermano). Solo se borran y reinsertan las
-            // materias de los docentes que efectivamente aparecen en el
-            // payload (más el principal, aunque venga sin materias, para
-            // soportar "vaciar mis propias materias"). Los hermanos que NO
-            // aparecen en el payload y NO están en $hermanosADesvincular no
-            // deberían existir (ya se cubrieron arriba), pero por seguridad
-            // nunca se tocan materias de un ID_CLASIFICACION_DOCENTE que no
-            // esté en $idsAEliminar.
+            // ── Agrupar materias entrantes por docente destino ──
             $materiasPorDestino = [];
             foreach ($materias as $m) {
                 $codDocenteMateria = $m['docente']['cod_docente'] ?? null;
@@ -635,15 +607,24 @@ class ClasificacionDocenteController extends Controller
                 $idClasifDestino = $esDocentePrincipal ? $id : ($mapaDocenteId[(string) $codDocenteMateria] ?? null);
 
                 if (!$idClasifDestino) {
-                    continue; // seguridad: docente sin resolver, se descarta la materia
+                    continue; // seguridad: docente sin resolver
                 }
 
                 $materiasPorDestino[$idClasifDestino][] = $m;
             }
 
-            // El docente principal siempre se incluye en el borrado, aunque
-            // no traiga materias en el payload (soporta "vaciar mis materias").
+            // El principal siempre se incluye (soporta "vaciar mis materias").
             $idsAEliminar = array_unique(array_merge([$id], array_keys($materiasPorDestino)));
+
+            // FIX: foto de las materias ANTES de borrarlas, para saber cuáles
+            // quitó el usuario y limpiarlas también en GRUPOS.
+            $materiasAntes = DB::table('CLASIFICACION_MATERIA as cm')
+                ->join('CLASIFICACION_DOCENTE as dd', 'dd.ID_CLASIFICACION_DOCENTE', '=', 'cm.ID_CLASIFICACION_DOCENTE')
+                ->where('cm.ID_DOCUMENTO', $idDocumentoOriginal)
+                ->whereIn('cm.ID_CLASIFICACION_DOCENTE', $idsAEliminar)
+                ->whereNotNull('cm.COD_MATERIA')
+                ->select('cm.*', 'dd.COD_DOCENTE as COD_DOCENTE_MATERIA')
+                ->get();
 
             DB::table('CLASIFICACION_MATERIA')
                 ->where('ID_DOCUMENTO', $idDocumentoOriginal)
@@ -662,9 +643,6 @@ class ClasificacionDocenteController extends Controller
                         'NOMBRE_MATERIA' => $m['nombre_materia'],
                         'COD_PLAN' => $m['cod_plan'] ?? null,
                         'GRUPO' => isset($m['grupo']) && $m['grupo'] !== null ? (string) $m['grupo'] : null,
-                        // FIX NOTA: mismo motivo que en store(). Antes era
-                        // `$m['nota'] ?? null`; ahora se sanitiza para nunca
-                        // mandar '' (string vacío) a una columna numeric.
                         'NOTA' => $this->notaSanitizada($m['nota'] ?? null),
                         'DETALLE' => $m['detalle'] ?? null,
                         'ORDEN' => $orden,
@@ -674,16 +652,46 @@ class ClasificacionDocenteController extends Controller
                 }
             }
 
-            // ── FIX: limpieza en GRUPOS por cambio de gestión/periodo ──
-            // Ahora agrupa las materias antiguas por el docente al que
-            // pertenecían (cubre principal + hermanos), y limpia GRUPOS una
-            // vez por cada docente afectado con su propio COD_DOCENTE.
+            // ── Limpieza en GRUPOS por cambio de gestión/periodo (todos los docentes) ──
             if ($gestionCambio && $materiasAntiguasParaLimpiar->isNotEmpty() && $docActual) {
                 $porDocente = $materiasAntiguasParaLimpiar->groupBy('COD_DOCENTE_MATERIA');
                 foreach ($porDocente as $codDocenteMateria => $materiasDeEseDocente) {
                     $this->limpiarGruposPorMateriasAntiguas(
                         $materiasDeEseDocente,
                         $codDocenteMateria,
+                        $docActual->GESTION,
+                        $docActual->PERIODO
+                    );
+                }
+            }
+
+            // ── FIX: limpieza en GRUPOS de las materias que el usuario QUITÓ ──
+            // (si cambió gestión/periodo ya se limpió todo arriba).
+            if (!$gestionCambio && $docActual && $materiasAntes->isNotEmpty()) {
+                $clave = fn($idDest, $plan, $mat, $grupo) =>
+                    $idDest . '|' . trim((string) $plan) . '|' . trim((string) $mat) . '|' . trim((string) $grupo);
+
+                $clavesNuevas = collect($materiasPorDestino)
+                    ->flatMap(function ($lista, $idDest) use ($clave) {
+                        return collect($lista)->map(fn($m) => $clave(
+                            $idDest,
+                            $m['cod_plan'] ?? '',
+                            $m['cod_materia'] ?? '',
+                            $m['grupo'] ?? ''
+                        ));
+                    })
+                    ->flip();
+
+                $removidas = $materiasAntes->filter(function ($o) use ($clavesNuevas, $clave) {
+                    return !$clavesNuevas->has(
+                        $clave($o->ID_CLASIFICACION_DOCENTE, $o->COD_PLAN, $o->COD_MATERIA, $o->GRUPO)
+                    );
+                });
+
+                foreach ($removidas->groupBy('COD_DOCENTE_MATERIA') as $codDoc => $ms) {
+                    $this->limpiarGruposPorMateriasAntiguas(
+                        $ms,
+                        $codDoc,
                         $docActual->GESTION,
                         $docActual->PERIODO
                     );
@@ -710,8 +718,7 @@ class ClasificacionDocenteController extends Controller
                 $tituloActualizado = true;
             }
 
-            // Referencias: son por documento (compartidas). Si nos desvinculamos,
-            // se copian al documento nuevo sin tocar las del original (hermanos).
+            // Referencias: son por documento (compartidas).
             $referenciasActualizadas = 0;
             if ($request->has('referencias')) {
                 $referencias = json_decode($request->referencias, true) ?: [];
@@ -731,6 +738,19 @@ class ClasificacionDocenteController extends Controller
 
             DB::commit();
 
+            // FIX: borrado del PDF anterior DESPUÉS del commit, y solo si
+            // ningún otro documento lo usa y no es el mismo archivo recién guardado.
+            if ($rutaViejaABorrar && $rutaViejaABorrar !== ($datosDocumento['RUTA_ARCHIVO'] ?? null)) {
+                try {
+                    $this->borrarArchivoSiHuerfano($rutaViejaABorrar, $idDocumentoOriginal);
+                } catch (\Throwable $eArchivo) {
+                    Log::warning('No se pudo borrar el PDF anterior', [
+                        'ruta' => $rutaViejaABorrar,
+                        'error' => $eArchivo->getMessage(),
+                    ]);
+                }
+            }
+
             return response()->json([
                 'ok' => true,
                 'mensaje' => $desvincular
@@ -742,13 +762,9 @@ class ClasificacionDocenteController extends Controller
                 'titulo_actualizado' => $tituloActualizado,
                 'referencias_actualizadas' => $referenciasActualizadas,
                 'desvinculado' => $desvincular,
-                // 👇 NUEVO: informativo, para que el frontend pueda avisar
-                // cuántos hermanos se desvincularon en este guardado.
                 'hermanos_desvinculados' => $hermanosADesvincular->count(),
-                // ── FIX: informativo para el frontend. Si esto viene true,
-                // conviene avisar al usuario que vuelva a presionar
-                // "Aplicar en GRUPOS" para la gestión/periodo nueva, ya que
-                // la vieja se limpió pero la nueva no se aplica sola. ──
+                // Si viene true, conviene avisar que vuelva a "Aplicar en GRUPOS"
+                // para la gestión/periodo nueva.
                 'gestion_o_periodo_cambio' => $gestionCambio,
             ]);
 
@@ -758,7 +774,7 @@ class ClasificacionDocenteController extends Controller
         } catch (\Throwable $e) {
             DB::rollBack();
             $mensajeSeguro = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x80-\xFF]/', '?', $e->getMessage());
-            \Log::error('Error al actualizar ClasificacionDocente', [
+            Log::error('Error al actualizar ClasificacionDocente', [
                 'mensaje' => $mensajeSeguro,
                 'linea' => $e->getLine(),
                 'archivo' => $e->getFile(),
@@ -768,22 +784,8 @@ class ClasificacionDocenteController extends Controller
     }
 
     /**
-     * ── FIX NOTA ──
-     * Sanitiza el valor de NOTA antes de insertarlo en una columna numeric.
-     * El input del frontend es un <input type="text">, así que puede llegar
-     * como: null, undefined (ausente => no llega la key), '' (string vacío
-     * al borrar todo el contenido), o un string numérico como "85".
-     *
-     * SQL Server (columna NOTA numeric) no puede convertir '' a numeric y
-     * tira: "Error al convertir el tipo de datos nvarchar a numeric."
-     *
-     * Reglas:
-     *  - null, '' o no numérico  => null (sin calificación)
-     *  - cualquier otro valor numérico (int, float, o string numérico) => se
-     *    devuelve tal cual, para que el driver lo castee normalmente.
-     *
-     * @param mixed $valor
-     * @return int|float|string|null
+     * Sanitiza NOTA antes de insertarla en una columna numeric.
+     * null, '' o no numérico => null; cualquier otro numérico se devuelve tal cual.
      */
     private function notaSanitizada($valor)
     {
@@ -794,27 +796,37 @@ class ClasificacionDocenteController extends Controller
     }
 
     /**
-     * ── FIX ──
-     * Limpia (pone en NULL) los campos RESOLUCION/DESIGNACION/TIPO_INGRESO en
-     * GRUPOS para un conjunto de materias "antiguas" de un documento. Se usa:
-     *  - desde update() cuando la GESTION o el PERIODO de un documento cambian
-     *  - desde update() cuando un hermano se desvincula del documento
-     *  - desde destroy() y destroyDocente()
+     * Borra el archivo físico SOLO si ningún otro documento lo referencia
+     * (el PDF puede compartirse vía id_documento_origen en store()).
+     */
+    private function borrarArchivoSiHuerfano($ruta, $excluirIdDocumento)
+    {
+        if (!$ruta) {
+            return;
+        }
+
+        $enUso = DB::table('CLASIFICACION_DOCUMENTO')
+            ->where('RUTA_ARCHIVO', $ruta)
+            ->where('ID_DOCUMENTO', '!=', $excluirIdDocumento)
+            ->exists();
+
+        if (!$enUso && Storage::disk('public')->exists($ruta)) {
+            Storage::disk('public')->delete($ruta);
+        }
+    }
+
+    /**
+     * Limpia (NULL) RESOLUCION/DESIGNACION/TIPO_INGRESO en GRUPOS para un
+     * conjunto de materias. Se usa desde update() (cambio de gestión/periodo,
+     * hermano desvinculado, materia quitada), destroy() y destroyDocente().
      *
-     * No lanza excepción hacia arriba: si un UPDATE puntual falla, se loguea
-     * como warning y se continúa. El residuo que pudiera quedar en GRUPOS es
-     * recuperable a mano con "Quitar de GRUPOS" desde el listado.
+     * No lanza excepción hacia arriba: si un UPDATE falla se loguea y se continúa.
      *
-     * @param \Illuminate\Support\Collection|array $materiasAntiguas filas de CLASIFICACION_MATERIA (antes de borrarlas), deben incluir COD_MATERIA, COD_PLAN, GRUPO
-     * @param int|null $codDocente
-     * @param string|null $gestionAntigua
-     * @param string|null $periodoAntigua
+     * @param \Illuminate\Support\Collection|array $materiasAntiguas filas de CLASIFICACION_MATERIA (COD_MATERIA, COD_PLAN, GRUPO)
      */
     private function limpiarGruposPorMateriasAntiguas($materiasAntiguas, $codDocente, $gestionAntigua, $periodoAntigua)
     {
         if (!$gestionAntigua || !$codDocente) {
-            // Sin gestión antigua o sin docente no hay forma segura de acotar
-            // el UPDATE a las filas correctas de GRUPOS; mejor no tocar nada.
             return;
         }
 
@@ -849,7 +861,7 @@ class ClasificacionDocenteController extends Controller
                     $periodoAntigua,
                 ]);
             } catch (\Throwable $e) {
-                Log::warning('No se pudo limpiar GRUPOS por cambio de gestión/periodo', [
+                Log::warning('No se pudo limpiar GRUPOS', [
                     'cod_materia' => $m->COD_MATERIA,
                     'cod_plan' => $m->COD_PLAN,
                     'grupo' => $m->GRUPO,
@@ -887,6 +899,9 @@ class ClasificacionDocenteController extends Controller
     }
 
     // DELETE /clasificaciones/{id}
+    // FIX: todo en una transacción (GRUPOS + hijos + documento), hijos primero
+    // (compatible con FK sin cascada), try/catch con 500 controlado, y el PDF
+    // solo se borra si ningún otro documento lo comparte.
     public function destroy($id)
     {
         $doc = DB::table('CLASIFICACION_DOCUMENTO')->where('ID_DOCUMENTO', $id)->first();
@@ -895,61 +910,51 @@ class ClasificacionDocenteController extends Controller
             return response()->json(['ok' => false, 'error' => 'Documento no encontrado'], 404);
         }
 
-        // ── FIX GRUPOS: antes de borrar el documento, hay que limpiar en
-        // GRUPOS todo lo que se había aplicado con este documento, para cada
-        // docente vinculado (puede haber varios "hermanos"). Si no se hace
-        // esto, GRUPOS se queda con RESOLUCION/DESIGNACION/TIPO_INGRESO
-        // "fantasma" apuntando a un documento que ya no existe. ──
-        $vinculos = DB::table('CLASIFICACION_DOCENTE')
-            ->where('ID_DOCUMENTO', $id)
-            ->get();
-
-        foreach ($vinculos as $v) {
-            $materiasDelDocente = DB::table('CLASIFICACION_MATERIA')
-                ->where('ID_DOCUMENTO', $id)
-                ->where('ID_CLASIFICACION_DOCENTE', $v->ID_CLASIFICACION_DOCENTE)
-                ->whereNotNull('COD_MATERIA')
-                ->get();
-
-            if ($materiasDelDocente->isNotEmpty()) {
-                $this->limpiarGruposPorMateriasAntiguas(
-                    $materiasDelDocente,
-                    $v->COD_DOCENTE,
-                    $doc->GESTION,
-                    $doc->PERIODO
-                );
-            }
-        }
-
-        DB::table('CLASIFICACION_DOCUMENTO')->where('ID_DOCUMENTO', $id)->delete();
-
-        // ── NOTA: esto también borra en cascada (si la FK lo permite) o deja
-        // huérfanas las filas de CLASIFICACION_DOCENTE / CLASIFICACION_MATERIA
-        // / CLASIFICACION_TITULO / CLASIFICACION_REFERENCIA vinculadas a este
-        // documento. Si tu base NO tiene ON DELETE CASCADE configurado en
-        // esas FKs, conviene borrarlas explícitamente aquí también. Lo dejo
-        // señalado porque es un problema aparte del de GRUPOS. ──
-        DB::table('CLASIFICACION_MATERIA')->where('ID_DOCUMENTO', $id)->delete();
-        DB::table('CLASIFICACION_TITULO')->where('ID_DOCUMENTO', $id)->delete();
-        DB::table('CLASIFICACION_REFERENCIA')->where('ID_DOCUMENTO', $id)->delete();
-        DB::table('CLASIFICACION_DOCENTE')->where('ID_DOCUMENTO', $id)->delete();
-
         try {
-            if ($doc->RUTA_ARCHIVO && Storage::disk('public')->exists($doc->RUTA_ARCHIVO)) {
-                Storage::disk('public')->delete($doc->RUTA_ARCHIVO);
-            }
-        } catch (\Throwable $eArchivo) {
-            \Log::warning('No se pudo borrar el archivo físico del documento', [
-                'id' => $id,
-                'ruta' => $doc->RUTA_ARCHIVO,
-                'error' => $eArchivo->getMessage(),
-            ]);
-        }
+            DB::transaction(function () use ($id, $doc) {
+                $vinculos = DB::table('CLASIFICACION_DOCENTE')->where('ID_DOCUMENTO', $id)->get();
 
-        return response()->json(['ok' => true, 'mensaje' => 'Documento eliminado correctamente']);
+                foreach ($vinculos as $v) {
+                    $materias = DB::table('CLASIFICACION_MATERIA')
+                        ->where('ID_DOCUMENTO', $id)
+                        ->where('ID_CLASIFICACION_DOCENTE', $v->ID_CLASIFICACION_DOCENTE)
+                        ->whereNotNull('COD_MATERIA')
+                        ->get();
+
+                    if ($materias->isNotEmpty()) {
+                        $this->limpiarGruposPorMateriasAntiguas($materias, $v->COD_DOCENTE, $doc->GESTION, $doc->PERIODO);
+                    }
+                }
+
+                DB::table('CLASIFICACION_MATERIA')->where('ID_DOCUMENTO', $id)->delete();
+                DB::table('CLASIFICACION_TITULO')->where('ID_DOCUMENTO', $id)->delete();
+                DB::table('CLASIFICACION_REFERENCIA')->where('ID_DOCUMENTO', $id)->delete();
+                DB::table('CLASIFICACION_DOCENTE')->where('ID_DOCUMENTO', $id)->delete();
+                DB::table('CLASIFICACION_DOCUMENTO')->where('ID_DOCUMENTO', $id)->delete();
+            });
+
+            try {
+                $this->borrarArchivoSiHuerfano($doc->RUTA_ARCHIVO, $id);
+            } catch (\Throwable $eArchivo) {
+                Log::warning('No se pudo borrar el archivo físico del documento', [
+                    'id' => $id,
+                    'ruta' => $doc->RUTA_ARCHIVO,
+                    'error' => $eArchivo->getMessage(),
+                ]);
+            }
+
+            return response()->json(['ok' => true, 'mensaje' => 'Documento eliminado correctamente']);
+
+        } catch (\Throwable $e) {
+            $mensajeSeguro = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x80-\xFF]/', '?', $e->getMessage());
+            Log::error('Error al eliminar documento', ['id' => $id, 'mensaje' => $mensajeSeguro]);
+            return response()->json(['ok' => false, 'error' => $mensajeSeguro], 500);
+        }
     }
 
     // DELETE /clasificaciones/docente/{idClasificacionDocente}
+    // FIX: limpieza de GRUPOS dentro de la transacción; si era el último
+    // docente, el documento (y sus hijos) se elimina también para no dejarlo huérfano.
     public function destroyDocente($idClasificacionDocente)
     {
         $ccd = DB::table('CLASIFICACION_DOCENTE')
@@ -960,50 +965,56 @@ class ClasificacionDocenteController extends Controller
             return response()->json(['ok' => false, 'error' => 'Registro de docente no encontrado'], 404);
         }
 
-        // ── FIX GRUPOS: antes de borrar a este docente de la clasificación,
-        // hay que limpiar en GRUPOS lo que se aplicó con SUS materias (no las
-        // de los otros hermanos del documento, que siguen intactas). Si no
-        // se hace esto, GRUPOS se queda con el RESOLUCION/DESIGNACION/
-        // TIPO_INGRESO de un docente que ya no está vinculado al documento. ──
-        $doc = DB::table('CLASIFICACION_DOCUMENTO')
-            ->where('ID_DOCUMENTO', $ccd->ID_DOCUMENTO)
-            ->first();
-
-        $materiasDelDocente = DB::table('CLASIFICACION_MATERIA')
-            ->where('ID_CLASIFICACION_DOCENTE', $idClasificacionDocente)
-            ->whereNotNull('COD_MATERIA')
-            ->get();
-
-        if ($doc && $materiasDelDocente->isNotEmpty()) {
-            $this->limpiarGruposPorMateriasAntiguas(
-                $materiasDelDocente,
-                $ccd->COD_DOCENTE,
-                $doc->GESTION,
-                $doc->PERIODO
-            );
-        }
+        $doc = DB::table('CLASIFICACION_DOCUMENTO')->where('ID_DOCUMENTO', $ccd->ID_DOCUMENTO)->first();
+        $rutaABorrar = null;
+        $documentoEliminado = false;
 
         try {
-            DB::transaction(function () use ($idClasificacionDocente) {
-                DB::table('CLASIFICACION_MATERIA')
+            DB::transaction(function () use ($idClasificacionDocente, $ccd, $doc, &$rutaABorrar, &$documentoEliminado) {
+                $materias = DB::table('CLASIFICACION_MATERIA')
                     ->where('ID_CLASIFICACION_DOCENTE', $idClasificacionDocente)
-                    ->delete();
+                    ->whereNotNull('COD_MATERIA')
+                    ->get();
 
-                DB::table('CLASIFICACION_TITULO')
-                    ->where('ID_CLASIFICACION_DOCENTE', $idClasificacionDocente)
-                    ->delete();
+                if ($doc && $materias->isNotEmpty()) {
+                    $this->limpiarGruposPorMateriasAntiguas($materias, $ccd->COD_DOCENTE, $doc->GESTION, $doc->PERIODO);
+                }
 
-                DB::table('CLASIFICACION_DOCENTE')
-                    ->where('ID_CLASIFICACION_DOCENTE', $idClasificacionDocente)
-                    ->delete();
+                DB::table('CLASIFICACION_MATERIA')->where('ID_CLASIFICACION_DOCENTE', $idClasificacionDocente)->delete();
+                DB::table('CLASIFICACION_TITULO')->where('ID_CLASIFICACION_DOCENTE', $idClasificacionDocente)->delete();
+                DB::table('CLASIFICACION_DOCENTE')->where('ID_CLASIFICACION_DOCENTE', $idClasificacionDocente)->delete();
+
+                $quedan = DB::table('CLASIFICACION_DOCENTE')->where('ID_DOCUMENTO', $ccd->ID_DOCUMENTO)->exists();
+                if (!$quedan) {
+                    DB::table('CLASIFICACION_MATERIA')->where('ID_DOCUMENTO', $ccd->ID_DOCUMENTO)->delete();
+                    DB::table('CLASIFICACION_TITULO')->where('ID_DOCUMENTO', $ccd->ID_DOCUMENTO)->delete();
+                    DB::table('CLASIFICACION_REFERENCIA')->where('ID_DOCUMENTO', $ccd->ID_DOCUMENTO)->delete();
+                    DB::table('CLASIFICACION_DOCUMENTO')->where('ID_DOCUMENTO', $ccd->ID_DOCUMENTO)->delete();
+                    $rutaABorrar = $doc->RUTA_ARCHIVO ?? null;
+                    $documentoEliminado = true;
+                }
             });
 
-            return response()->json(['ok' => true, 'mensaje' => 'Docente eliminado de la clasificación']);
+            if ($documentoEliminado) {
+                try {
+                    $this->borrarArchivoSiHuerfano($rutaABorrar, $ccd->ID_DOCUMENTO);
+                } catch (\Throwable $eArchivo) {
+                    Log::warning('No se pudo borrar el archivo físico', ['error' => $eArchivo->getMessage()]);
+                }
+            }
+
+            return response()->json([
+                'ok' => true,
+                'mensaje' => $documentoEliminado
+                    ? 'Docente eliminado; el documento se eliminó porque no quedaban docentes'
+                    : 'Docente eliminado de la clasificación',
+                'documento_eliminado' => $documentoEliminado,
+            ]);
 
         } catch (\Throwable $e) {
             $mensajeSeguro = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x80-\xFF]/', '?', $e->getMessage());
 
-            \Log::error('Error al eliminar docente de clasificación', [
+            Log::error('Error al eliminar docente de clasificación', [
                 'id_clasificacion_docente' => $idClasificacionDocente,
                 'mensaje' => $mensajeSeguro,
             ]);
@@ -1452,8 +1463,6 @@ class ClasificacionDocenteController extends Controller
     }
 
     // GET /api/reporte-docentes/tipos-titulo
-    // Devuelve los tipos de título distintos que ya se usaron en CLASIFICACION_TITULO,
-    // para alimentar el combobox del frontend (useTiposTitulo.js).
     public function tiposTitulo()
     {
         $tipos = DB::table('CLASIFICACION_TITULO')
@@ -1470,10 +1479,6 @@ class ClasificacionDocenteController extends Controller
 
     // PUT /api/reporte-docentes/tipos-titulo
     // Body: { "anterior": "DIPLOMADO", "nuevo": "DIPLOMADO ESPECIALIZADO" }
-    //
-    // No existe una tabla propia de tipos de título: son los valores distintos
-    // de CLASIFICACION_TITULO.TIPO_TITULO. "Editar" un tipo significa renombrarlo
-    // en TODOS los títulos que ya lo usan.
     public function actualizarTipoTitulo(Request $request)
     {
         $request->validate([
@@ -1512,12 +1517,8 @@ class ClasificacionDocenteController extends Controller
         ]);
     }
 
-
     // POST /clasificaciones/{idDocumento}/materias/bulk
-// Agrega materias de otros docentes a un documento YA guardado.
-// Si el docente no tiene fila en CLASIFICACION_DOCENTE para este
-// documento, se crea. Si ya la tiene (porque se guardó junto con el
-// formulario original o en una asignación previa), se reutiliza.
+    // Agrega materias de otros docentes a un documento YA guardado.
     public function agregarMateriasBulk(Request $request, $idDocumento)
     {
         $request->validate([
@@ -1538,7 +1539,7 @@ class ClasificacionDocenteController extends Controller
         $idsInsertados = [];
 
         DB::transaction(function () use ($request, $idDocumento, &$idsInsertados) {
-            $cacheDocente = []; // cod_docente => ID_CLASIFICACION_DOCENTE (evita duplicar por fila)
+            $cacheDocente = []; // cod_docente => ID_CLASIFICACION_DOCENTE
 
             foreach ($request->detalles as $item) {
                 $codDocente = $item['cod_docente'];
@@ -1573,7 +1574,7 @@ class ClasificacionDocenteController extends Controller
         return response()->json([
             'ok' => true,
             'total' => count($idsInsertados),
-            'ids_materia' => $idsInsertados, // ← se lo pasas directo a aplicarEnGrupos()
+            'ids_materia' => $idsInsertados, // se pasa directo a aplicarEnGrupos()
         ], 201);
     }
 }

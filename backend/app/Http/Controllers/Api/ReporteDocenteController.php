@@ -15,6 +15,67 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 class ReporteDocenteController extends Controller
 {
 
+    /**
+     * ── NUEVO ──
+     * Adjunta a cada fila de materias las referencias (CLASIFICACION_REFERENCIA)
+     * del documento de clasificación que la respalda.
+     * - Filas normales: se enlazan por plan|materia|grupo|año|periodo.
+     * - Filas "sin grupo": se enlazan por ID_DETALLE.
+     */
+    private function adjuntarReferencias(array $materias, $docente): array
+    {
+        $filas = DB::connection('sqlsrv')->select("
+            SELECT
+                cm.ID_DETALLE,
+                cm.COD_PLAN, cm.COD_MATERIA, cm.GRUPO,
+                cdoc.GESTION, cdoc.PERIODO,
+                cr.ID_REF, cr.NRO_REFERENCIA, cr.ID_RESOLUCION
+            FROM CLASIFICACION_MATERIA cm
+            INNER JOIN CLASIFICACION_DOCENTE ccd
+                ON ccd.ID_CLASIFICACION_DOCENTE = cm.ID_CLASIFICACION_DOCENTE
+            INNER JOIN CLASIFICACION_DOCUMENTO cdoc
+                ON cdoc.ID_DOCUMENTO = ccd.ID_DOCUMENTO
+            INNER JOIN CLASIFICACION_REFERENCIA cr
+                ON cr.ID_DOCUMENTO = cdoc.ID_DOCUMENTO
+            WHERE ccd.COD_DOCENTE = ?
+        ", [$docente]);
+
+        $porDetalle = [];
+        $porClave = [];
+
+        foreach ($filas as $f) {
+            $ref = [
+                'id_ref' => $f->ID_REF,
+                'nro' => trim($f->NRO_REFERENCIA),
+                'id_resolucion' => $f->ID_RESOLUCION,
+            ];
+
+            $porDetalle[$f->ID_DETALLE][$f->ID_REF] = $ref;
+
+            if ($f->COD_PLAN && $f->COD_MATERIA) {
+                $clave = trim($f->COD_PLAN) . '|' . trim($f->COD_MATERIA) . '|'
+                    . trim((string) $f->GRUPO) . '|' . (int) $f->GESTION . '|' . trim($f->PERIODO);
+                $porClave[$clave][$f->ID_REF] = $ref;
+            }
+        }
+
+        foreach ($materias as $m) {
+            $refs = [];
+
+            if (!empty($m->id_detalle)) { // fila "sin grupo"
+                $refs = $porDetalle[$m->id_detalle] ?? [];
+            } else {
+                $clave = trim((string) ($m->PLAN ?? '')) . '|' . trim((string) ($m->materia_codigo ?? '')) . '|'
+                    . trim((string) ($m->grp ?? '')) . '|' . (int) $m->ANIO . '|' . trim((string) $m->PERIODO);
+                $refs = $porClave[$clave] ?? [];
+            }
+
+            $m->referencias = array_values($refs);
+        }
+
+        return $materias;
+    }
+
     private function materiasSinGrupo(
         int $docente,
         string $nombreDocente,
@@ -99,6 +160,7 @@ class ReporteDocenteController extends Controller
 
             $obj = new \stdClass();
             $obj->nro = null;
+            $obj->id_detalle = $f->ID_DETALLE; // ── NUEVO: para enlazar referencias
             $obj->CODIGO = $docente;
             $obj->docente = $nombreDocente;
             $obj->gestion = $anio . '/' . match ($f->PERIODO) {
@@ -497,6 +559,9 @@ class ReporteDocenteController extends Controller
         SQL;
 
         $materias = DB::connection('sqlsrv')->select($sql, $bindings);
+
+        // ── NUEVO: adjunta referencias (compartidos/documentos) a cada fila ──
+        $materias = $this->adjuntarReferencias($materias, $docente);
 
         return response()->json([
             'success' => true,
@@ -1003,6 +1068,9 @@ class ReporteDocenteController extends Controller
                 $m->nro = $i + 1;
             }
         }
+
+        // ── NUEVO: adjunta referencias (compartidos/documentos) a cada fila ──
+        $materias = $this->adjuntarReferencias($materias, $docente);
 
         return response()->json([
             'success' => true,
