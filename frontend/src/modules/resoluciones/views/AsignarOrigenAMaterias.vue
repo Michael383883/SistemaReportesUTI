@@ -1,18 +1,40 @@
 <template>
   <div class="px-6 py-1 w-full">
 
-    <!-- Header -->
+       <!-- Header -->
     <div class="flex items-start justify-between mb-6">
       <div>
         <h1 class="text-xl font-bold text-slate-800 tracking-tight m-0 mb-1">
-          {{ tipo === 'resolucion' ? 'Asignación de Referencias a Docentes' : 'Asignar Documento a Otros Docentes' }}
+          {{ tipo === 'resolucion' ? 'Asignación solo a Kardex' : 'Asignar Documento a Otros Docentes' }}
         </h1>
         <p class="text-sm text-slate-500 m-0">
-          Buscá un docente, elegí {{ tipo === 'resolucion' ? 'la referencia' : 'el documento de clasificación' }} y marcá las materias correspondientes con un click.
+          Busca un docente, elige {{ tipo === 'resolucion' ? 'la referencia' : 'el documento de clasificación' }} y marca las materias correspondientes con un clic.
         </p>
+
+        <!-- Nota explicativa: solo para asignación de referencia -->
+        <div
+          v-if="tipo === 'resolucion'"
+          class="mt-3 flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800"
+        >
+          <svg
+            class="mt-0.5 h-4 w-4 shrink-0"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+            aria-hidden="true"
+          >
+            <path
+              fill-rule="evenodd"
+              d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+              clip-rule="evenodd"
+            />
+          </svg>
+          <p class="m-0">
+            Esta asignación de referencia será <strong>solo para el Kardex Docente</strong>.
+            La referencia quedará registrada en el kardex del docente seleccionado y no se vinculará a otros módulos.
+          </p>
+        </div>
       </div>
     </div>
-
     <!-- Vista de resultado final: detalles guardados + grupos actualizados -->
     <ResultadoAsignacionResolucion
       v-if="fase === 'resultado'"
