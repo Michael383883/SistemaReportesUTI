@@ -27,9 +27,9 @@ export const menuSections = [
                 label: 'Reportes',
                 icon: BarChart2,
                 children: [
-                    { to: '/reportes/docentes', label: 'Kardex docente' },
+                    { to: '/reportes/docentes', label: 'Kardex Docente' },
                     { to: '/reportes/edicion-tipo-ingreso', label: 'Asignar Modalidad' },
-                    { to: '/reportes/docentes-titulo', label: 'Docentes con título' },
+                    { to: '/reportes/docentes-titulo', label: 'Docentes con Título' },
                 ],
             },
 
@@ -43,10 +43,11 @@ export const menuSections = [
                 children: [
                     { to: '/clasificaciones/nueva', label: 'Subir Documento' },
                     { to: '/clasificaciones', label: 'Listado de Documentos' },
-                    { to: '/clasificaciones/listar-por-documento', label: 'Listado de Archivo' },
+                    { to: '/clasificaciones/listar-por-documento', label: 'Listado de Archivos' },
                     { to: '/resoluciones/subir', label: 'Subir Referencia' },
                     { to: '/resoluciones/listado', label: 'Lista de Referencias' },
                     { to: '/resoluciones/asignar', label: 'Asignar Solo a Kardex' },
+                    { to: '/clasificaciones/subir-titulo', label: 'Subir Título' },
                 ],
             },
 
@@ -67,8 +68,8 @@ export const menuSections = [
                 icon: Settings,
                 children: [
                     { to: '/usuarios', label: 'Usuarios' },
-                    { to: '/config-bd', label: 'Base de datos' },
-                    { to: '/periodos-academicos', label: 'Periodos Académicos' },
+                    { to: '/config-bd', label: 'Base de Datos' },
+                    { to: '/periodos-academicos', label: 'Períodos Académicos' },
                 ],
             },
         ],
@@ -78,7 +79,7 @@ export const menuSections = [
     // ROL: SECRETARIA
     // ─────────────────────────────────────────
     {
-        label: 'Secretaria',
+        label: 'Secretaría',
         roles: ['secretaria'],
         items: [
             { to: '/secretaria/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -91,7 +92,7 @@ export const menuSections = [
     // ROL: UTI
     // ─────────────────────────────────────────
     {
-        label: 'Secretaria',
+        label: 'UTI',
         roles: ['uti'],
         items: [
             { to: '/secretaria/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -109,7 +110,7 @@ export const menuSections = [
         items: [
             { to: '/secretariaTalleres/dashboard', label: 'Dashboard', icon: LayoutDashboard },
             { to: '/secretariaTalleres/docentes', label: 'Docentes', icon: BookOpen },
-            { to: '/secretariaTalleres/estudiante', label: 'Estudiante', icon: GraduationCap },
+            { to: '/secretariaTalleres/estudiante', label: 'Estudiantes', icon: GraduationCap },
         ],
     },
 ]

@@ -22,6 +22,11 @@ export const resolucionesExtraRoutes = [
     {
         path: '/clasificaciones/listar-por-documento',
         name: 'clasificaciones-listar-por-documento',
-        component: () => import('./views/ListarPorDocumento.vue'), 
+        component: () => import('./views/ListarPorDocumento.vue'),
+    },
+    {
+        path: '/clasificaciones/subir-titulo',
+        name: 'subir-titulo',
+        component: () => import('./views/SubirTituloView.vue'),
     },
 ]
