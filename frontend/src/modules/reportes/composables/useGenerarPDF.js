@@ -101,6 +101,10 @@ export function generarPDF(reporte, opts = {}) {
         // Cuando es true: omite la tabla de "Materias dictadas" y el PDF
         // sólo contiene la tabla de documentos por categoría.
         soloDocumentos = false,
+        // Cuando es true: la tabla de materias sale SIN las columnas
+        // "Resolución" y "Designación", y las columnas restantes se
+        // ensanchan para aprovechar todo el ancho de la página.
+        sinResolucionDesignacion = false,
     } = opts
 
     // ── PORTRAIT Letter (216 × 279 mm) ──────────────────────────────────────────
@@ -198,17 +202,38 @@ export function generarPDF(reporte, opts = {}) {
     let finalYMaterias = startY
 
     if (!soloDocumentos) {
-        const columnas = [
-            { header: 'Nº', dataKey: 'nro' },
-            { header: 'GESTIÓN', dataKey: 'gestion' },
-            { header: 'PLAN', dataKey: 'plan' },
-            { header: 'MATERIA', dataKey: 'materia' },
-            { header: 'COMPARTIDO', dataKey: 'compartido' },
-            { header: 'GRP', dataKey: 'grp' },
-            { header: 'RESOLUCIÓN', dataKey: 'resolucion' },
-            { header: 'DESIGNACIÓN', dataKey: 'designacion' },
-            ...(reporte.__extraColumnas || []),
+        const extras = reporte.__extraColumnas || []
+
+        // ── Definición de columnas ───────────────────────────────────────────────
+        // Cada columna lleva su ancho para el modo normal y para el modo
+        // "sin Resolución/Designación". En este último, las columnas que
+        // quedan se ensanchan y "MATERIA" absorbe el espacio restante.
+        // Con `soloEnNormal: true` la columna desaparece al ocultar.
+        const defsColumnas = [
+            { header: 'Nº', dataKey: 'nro', ancho: [10, 10], halign: 'center' },
+            { header: 'GESTIÓN', dataKey: 'gestion', ancho: [22, 28] },
+            { header: 'PLAN', dataKey: 'plan', ancho: [12, 16], halign: 'center' },
+            { header: 'MATERIA', dataKey: 'materia', ancho: [50, 'auto'], fontSize: 6.0 },
+            { header: 'COMPARTIDO', dataKey: 'compartido', ancho: [20, 26], halign: 'center' },
+            { header: 'GRP', dataKey: 'grp', ancho: [8, 12], halign: 'center' },
+            { header: 'RESOLUCIÓN', dataKey: 'resolucion', ancho: [22, 22], soloEnNormal: true },
+            {
+                header: 'DESIGNACIÓN', dataKey: 'designacion',
+                ancho: [extras.length ? 30 : 'auto', 'auto'],
+                fontSize: 6.0, soloEnNormal: true,
+            },
+            // Columnas extra inyectadas por el hijo (p. ej. modalidad de ingreso):
+            // la primera conserva su ancho de 22 mm, las demás quedan en auto.
+            ...extras.map((c, i) => ({
+                header: c.header,
+                dataKey: c.dataKey,
+                ancho: i === 0 ? [22, 22] : ['auto', 'auto'],
+                halign: i === 0 ? 'center' : undefined,
+            })),
         ]
+
+        const idxAncho = sinResolucionDesignacion ? 1 : 0
+        const columnas = defsColumnas.filter((c) => !(sinResolucionDesignacion && c.soloEnNormal))
 
         const materiasFuente = reporte.materias || []
         const hijasIndices = calcularHijasIndices(materiasFuente)
@@ -223,11 +248,20 @@ export function generarPDF(reporte, opts = {}) {
             resolucion: m.resolucion || '',
             designacion: m.designacion || '',
             // ── pasa cualquier campo extra que haya inyectado el hijo ──
-            ...(reporte.__extraColumnas || []).reduce((acc, col) => {
+            ...extras.reduce((acc, col) => {
                 acc[col.dataKey] = m[col.dataKey] ?? ''
                 return acc
             }, {}),
         }))
+
+        // columnStyles por índice, calculado sobre las columnas realmente visibles
+        const columnStyles = {}
+        columnas.forEach((c, i) => {
+            columnStyles[i] = {
+                cellWidth: c.ancho[idxAncho],
+                ...(c.halign ? { halign: c.halign } : {}),
+            }
+        })
 
         // ── Tabla ─────────────────────────────────────────────────────────────────────
         autoTable(doc, {
@@ -264,17 +298,7 @@ export function generarPDF(reporte, opts = {}) {
                 fillColor: false,
             },
 
-            columnStyles: {
-                0: { cellWidth: 10, halign: 'center' },  // Nº — cabe hasta 3 dígitos
-                1: { cellWidth: 22 },
-                2: { cellWidth: 12, halign: 'center' },  // PLAN — ancho suficiente para 1 línea
-                3: { cellWidth: 50 },
-                4: { cellWidth: 20, halign: 'center' },
-                5: { cellWidth: 8, halign: 'center' },
-                6: { cellWidth: 22 },
-                7: { cellWidth: reporte.__extraColumnas?.length ? 30 : 'auto' },
-                8: { cellWidth: 22, halign: 'center' },
-            },
+            columnStyles,
 
             // ── Solo líneas horizontales entre filas, sin verticales ──────────────
             didDrawCell(data) {
@@ -295,8 +319,11 @@ export function generarPDF(reporte, opts = {}) {
 
             didParseCell(data) {
                 // Materia y Designación: fuente ligeramente menor
-                if (data.section === 'body' && (data.column.index === 3 || data.column.index === 7)) {
-                    data.cell.styles.fontSize = 6.0
+                // (se identifican por su dataKey, no por índice, porque los
+                // índices cambian cuando se ocultan columnas)
+                if (data.section === 'body') {
+                    const def = columnas[data.column.index]
+                    if (def?.fontSize) data.cell.styles.fontSize = def.fontSize
                 }
             },
 

@@ -70,6 +70,7 @@
           v-model:incluir-sin-grupo="incluirSinGrupo"
           v-model:mostrar-nota-sin-grupo="mostrarNotaSinGrupo"
           v-model:ocultar-verano-invierno="ocultarVeranoInvierno"
+          v-model:ocultar-resolucion-designacion="ocultarResolucionDesignacion"
           :loading="loadingActivo"
           :reporte="reporteActivo"
           :documentos-categoria="documentosCategoria"
@@ -85,6 +86,7 @@
         :materias="materiasTabla"
         :cod-docente="reporteActivo.docente?.codigo"
         :agrupar-compartidos="verCompartidos"
+        :ocultar-resolucion-designacion="ocultarResolucionDesignacion"
       />
 
       <!-- Tabla de clasificación por categoría:
@@ -183,6 +185,10 @@ const mostrarNotaSinGrupo = ref(true)
 // No regenera el reporte: solo filtra lo que ya se cargó. Los PDF siguen
 // usando el reporte completo.
 const ocultarVeranoInvierno = ref(false)
+
+// ── Opción: ocultar las columnas Resolución y Designación SOLO en la tabla ──
+// No regenera el reporte: solo oculta columnas en ReporteTabla.
+const ocultarResolucionDesignacion = ref(false)
 
 const esVeranoInvierno = (m) => {
   const periodo = String(m?.PERIODO ?? m?.periodo ?? '').trim()

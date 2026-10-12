@@ -123,7 +123,7 @@
 
     <!-- ═══════════════════════════════════════════════════════════════════
          Botón OPCIONES (incluir materias sin grupo / mostrar nota /
-         ocultar verano e invierno)
+         ocultar verano e invierno / ocultar resolución y designación)
     ═══════════════════════════════════════════════════════════════════ -->
     <div class="relative" ref="opcionesMenuRef">
       <button
@@ -230,13 +230,38 @@
                 </span>
               </span>
             </label>
+
+            <div class="border-t border-slate-100"/>
+
+            <!-- Toggle 4: ocultar columnas Resolución y Designación -->
+            <label class="flex items-start gap-3 cursor-pointer">
+              <button
+                type="button"
+                role="switch"
+                :aria-checked="ocultarResolucionDesignacionLocal"
+                @click.stop="toggleOcultarResolucionDesignacion"
+                class="relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors duration-150 border-none cursor-pointer mt-0.5"
+                :class="ocultarResolucionDesignacionLocal ? 'bg-amber-500' : 'bg-slate-300'"
+              >
+                <span
+                  class="inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform duration-150"
+                  :class="ocultarResolucionDesignacionLocal ? 'translate-x-4.5' : 'translate-x-1'"
+                />
+              </button>
+              <span class="flex flex-col">
+                <span class="text-xs font-semibold text-slate-800">Ocultar resolución y designación</span>
+                <span class="text-[0.68rem] text-slate-500 leading-snug">
+                  Quita de la tabla las columnas Resolución y Designación.
+                </span>
+              </span>
+            </label>
           </div>
         </div>
       </Transition>
     </div>
 
     <!-- ═══════════════════════════════════════════════════════════════════
-         Botón(es) PDF
+         Botón(es) PDF / Excel
          - Modo documentos + hay categorías seleccionadas → un solo botón
            "Generar Reporte de Documento" con su propio mini-menú.
          - Modo normal → el menú de 3 secciones (estándar / modalidad /
@@ -298,7 +323,7 @@
           <div
             v-if="menuOpen"
             class="
-              absolute right-0 mt-1.5 w-44 rounded-xl
+              absolute right-0 mt-1.5 w-52 rounded-xl
               bg-white border border-slate-800
               shadow-xl shadow-black/10 z-50 overflow-hidden
             "
@@ -363,6 +388,26 @@
                     <line x1="12" y1="15" x2="12" y2="3"/>
                   </svg>
                 </button>
+
+                <button
+                  title="Descargar Excel"
+                  class="
+                    group inline-flex items-center justify-center flex-1 h-9 rounded-lg
+                    text-emerald-700 bg-emerald-50 border border-emerald-200
+                    hover:bg-emerald-200 hover:text-emerald-900 hover:border-emerald-300
+                    focus-visible:bg-emerald-200 focus-visible:text-emerald-900
+                    active:bg-emerald-300
+                    transition-colors duration-100 cursor-pointer outline-none
+                  "
+                  @click="onPDF('excel-documento')"
+                >
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="3" width="18" height="18" rx="2"/>
+                    <line x1="3" y1="9" x2="21" y2="9"/>
+                    <line x1="3" y1="15" x2="21" y2="15"/>
+                    <line x1="9" y1="3" x2="9" y2="21"/>
+                  </svg>
+                </button>
               </div>
             </div>
           </div>
@@ -423,7 +468,7 @@
           <div
             v-if="menuOpen"
             class="
-              absolute right-0 mt-1.5 w-60 rounded-xl
+              absolute right-0 mt-1.5 w-64 rounded-xl
               bg-white border border-slate-800
               shadow-xl shadow-black/10 z-50 overflow-hidden
             "
@@ -492,6 +537,26 @@
                       <line x1="12" y1="15" x2="12" y2="3"/>
                     </svg>
                   </button>
+
+                  <button
+                    title="Descargar Excel"
+                    class="
+                      group inline-flex items-center justify-center flex-1 h-9 rounded-lg
+                      text-emerald-700 bg-emerald-50 border border-emerald-200
+                      hover:bg-emerald-200 hover:text-emerald-900 hover:border-emerald-300
+                      focus-visible:bg-emerald-200 focus-visible:text-emerald-900
+                      active:bg-emerald-300
+                      transition-colors duration-100 cursor-pointer outline-none
+                    "
+                    @click="onPDF(sec.acciones.excel)"
+                  >
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <rect x="3" y="3" width="18" height="18" rx="2"/>
+                      <line x1="3" y1="9" x2="21" y2="9"/>
+                      <line x1="3" y1="15" x2="21" y2="15"/>
+                      <line x1="9" y1="3" x2="9" y2="21"/>
+                    </svg>
+                  </button>
                 </div>
               </div>
             </template>
@@ -507,6 +572,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { generarPDF } from '../composables/useGenerarPDF'
 import { generarPDFConTipoIngreso } from '../composables/useGenerarPDFConTipoIngreso'
 import { generarPDFCompartido } from '../composables/useGenerarPDFCompartido'
+import { generarExcel } from '../composables/useGenerarExcel'
 
 const props = defineProps({
   anio:      { type: [Number, String], default: null },
@@ -524,6 +590,8 @@ const props = defineProps({
   mostrarNotaSinGrupo: { type: Boolean, default: true },
   // ── Opción: ocultar de la tabla los periodos 3 (Verano) y 4 (Invierno) ──
   ocultarVeranoInvierno: { type: Boolean, default: false },
+  // ── Opción: ocultar de la tabla las columnas Resolución y Designación ──
+  ocultarResolucionDesignacion: { type: Boolean, default: false },
 })
 
 // Sólo mostramos el botón único de "Generar Reporte de Documento" cuando
@@ -541,6 +609,7 @@ const emit = defineEmits([
   'update:incluirSinGrupo',
   'update:mostrarNotaSinGrupo',
   'update:ocultarVeranoInvierno',
+  'update:ocultarResolucionDesignacion',
 ])
 
 const anioLocal      = ref(props.anio      || '')
@@ -549,9 +618,10 @@ const materiaLocal   = ref(props.materia   || '')
 const grupoLocal     = ref(props.grupo     || '')
 
 // ── Opciones ──────────────────────────────────────────────────────────────────
-const incluirSinGrupoLocal       = ref(props.incluirSinGrupo)
-const mostrarNotaSinGrupoLocal   = ref(props.mostrarNotaSinGrupo)
-const ocultarVeranoInviernoLocal = ref(props.ocultarVeranoInvierno)
+const incluirSinGrupoLocal               = ref(props.incluirSinGrupo)
+const mostrarNotaSinGrupoLocal           = ref(props.mostrarNotaSinGrupo)
+const ocultarVeranoInviernoLocal         = ref(props.ocultarVeranoInvierno)
+const ocultarResolucionDesignacionLocal  = ref(props.ocultarResolucionDesignacion)
 
 const opcionesMenuOpen = ref(false)
 const opcionesMenuRef  = ref(null)
@@ -581,6 +651,12 @@ const toggleOcultarVeranoInvierno = () => {
   emit('update:ocultarVeranoInvierno', ocultarVeranoInviernoLocal.value)
 }
 
+// Este toggle NO regenera: solo oculta las columnas Resolución y Designación en la tabla
+const toggleOcultarResolucionDesignacion = () => {
+  ocultarResolucionDesignacionLocal.value = !ocultarResolucionDesignacionLocal.value
+  emit('update:ocultarResolucionDesignacion', ocultarResolucionDesignacionLocal.value)
+}
+
 // ── Menú PDF ──────────────────────────────────────────────────────────────────
 const menuOpen   = ref(false)
 const pdfMenuRef = ref(null)
@@ -589,17 +665,17 @@ const pdfSecciones = [
   {
     key: 'estandar',
     titulo: 'Reporte estándar',
-    acciones: { open: 'open', print: 'print', save: 'save' },
+    acciones: { open: 'open', print: 'print', save: 'save', excel: 'excel' },
   },
   {
     key: 'modalidad',
     titulo: 'Con modalidad de ingreso',
-    acciones: { open: 'open-tipo-ingreso', print: 'print-tipo-ingreso', save: 'save-tipo-ingreso' },
+    acciones: { open: 'open-tipo-ingreso', print: 'print-tipo-ingreso', save: 'save-tipo-ingreso', excel: 'excel-tipo-ingreso' },
   },
   {
     key: 'compartido',
     titulo: 'Con compartidos',
-    acciones: { open: 'open-compartido', print: 'print-compartido', save: 'save-compartido' },
+    acciones: { open: 'open-compartido', print: 'print-compartido', save: 'save-compartido', excel: 'excel-compartido' },
   },
 ]
 
@@ -647,7 +723,16 @@ const onPDF = (action) => {
   const opts = {
     documentosCategoria: props.documentosCategoria,
     categoriasSeleccionadas: props.categoriasSeleccionadas,
+    // Bandera para que los generadores de PDF omitan Resolución y Designación.
+    // (Los generadores deben leer `sinResolucionDesignacion` para aplicarla.)
+    sinResolucionDesignacion: ocultarResolucionDesignacionLocal.value,
   }
+
+  // ── Excel: solo descarga (no hay "ver" ni "imprimir") ──
+  if (action === 'excel')              return generarExcel(rep, { variante: 'estandar',     ...opts })
+  if (action === 'excel-tipo-ingreso') return generarExcel(rep, { variante: 'tipo-ingreso', ...opts })
+  if (action === 'excel-compartido')   return generarExcel(rep, { variante: 'compartido',   ...opts })
+  if (action === 'excel-documento')    return generarExcel(rep, { variante: 'documento',    ...opts })
 
   if (action === 'open-tipo-ingreso')   return generarPDFConTipoIngreso(rep, { action: 'open', ...opts })
   if (action === 'save-tipo-ingreso')   return generarPDFConTipoIngreso(rep, { action: 'save', ...opts })

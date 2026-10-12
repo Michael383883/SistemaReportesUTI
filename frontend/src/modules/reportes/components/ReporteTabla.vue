@@ -11,8 +11,8 @@
             <th v-if="!agruparCompartidos" class="text-left px-4 py-3 text-[0.68rem] font-semibold tracking-widest uppercase text-slate-100 w-28">Compartido</th>
             <th class="text-left px-4 py-3 text-[0.68rem] font-semibold tracking-widest uppercase text-slate-100 w-14">GRP</th>
             <th v-if="agruparCompartidos" class="text-left px-4 py-3 text-[0.68rem] font-semibold tracking-widest uppercase text-slate-100 min-w-[320px]">Comparte</th>
-            <th class="text-left px-4 py-3 text-[0.68rem] font-semibold tracking-widest uppercase text-slate-100">Resolución</th>
-            <th class="text-left px-4 py-3 text-[0.68rem] font-semibold tracking-widest uppercase text-slate-100">Designación</th>
+            <th v-if="!ocultarResolucionDesignacion" class="text-left px-4 py-3 text-[0.68rem] font-semibold tracking-widest uppercase text-slate-100">Resolución</th>
+            <th v-if="!ocultarResolucionDesignacion" class="text-left px-4 py-3 text-[0.68rem] font-semibold tracking-widest uppercase text-slate-100">Designación</th>
             <th class="text-left px-4 py-3 text-[0.68rem] font-semibold tracking-widest uppercase text-slate-100 w-28">Modalidad de ingreso</th>
             <th class="text-left px-4 py-3 text-[0.68rem] font-semibold tracking-widest uppercase text-slate-100 w-28">Documento</th>
             <!-- Referencias / compartidos (solo si algún registro tiene) -->
@@ -95,13 +95,13 @@
             </td>
 
             <!-- Resolución -->
-            <td class="px-4 py-3">
+            <td v-if="!ocultarResolucionDesignacion" class="px-4 py-3">
               <span v-if="fila.principal.resolucion" class="text-xs text-emerald-600 dark:text-emerald-400 font-medium">{{ fila.principal.resolucion }}</span>
               <span v-else class="text-slate-400 dark:text-slate-600 text-xs">—</span>
             </td>
 
             <!-- Designación -->
-            <td class="px-4 py-3 max-w-xs">
+            <td v-if="!ocultarResolucionDesignacion" class="px-4 py-3 max-w-xs">
               <span v-if="fila.principal.designacion" class="text-xs text-slate-600 dark:text-slate-400 leading-relaxed line-clamp-2" :title="fila.principal.designacion">
                 {{ fila.principal.designacion }}
               </span>
@@ -238,6 +238,10 @@ const props = defineProps({
   // false (default) → tabla plana, badge "Compartido" en la fila hija
   // true             → hija colgada de la fila del padre, columna "Comparte"
   agruparCompartidos: { type: Boolean, default: false },
+  // true → se ocultan las columnas "Resolución" y "Designación" de la tabla.
+  // Solo afecta a lo visible: la columna "Documento" sigue usando los datos
+  // de cada fila (resolucion && designacion).
+  ocultarResolucionDesignacion: { type: Boolean, default: false },
 })
 
 const { tipoGestion, tipoGrp } = useTablaFormato()

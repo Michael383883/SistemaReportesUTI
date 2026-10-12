@@ -150,7 +150,15 @@ function formatComparte(hermanas) {
 }
 
 export function generarPDFCompartido(reporte, opts = {}) {
-    const { action = 'open', documentosCategoria = [], categoriasSeleccionadas = [] } = opts
+    const {
+        action = 'open',
+        documentosCategoria = [],
+        categoriasSeleccionadas = [],
+        // Cuando es true: la tabla sale SIN las columnas "Resolución" y
+        // "Designación", y las columnas restantes se ensanchan para
+        // aprovechar todo el ancho de la página.
+        sinResolucionDesignacion = false,
+    } = opts
 
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' })
 
@@ -203,16 +211,23 @@ export function generarPDFCompartido(reporte, opts = {}) {
 
     const startY = drawHeader()
 
-    const columnas = [
-        { header: 'N°', dataKey: 'nro' },
-        { header: 'GESTIÓN', dataKey: 'gestion' },
-        { header: 'PLAN', dataKey: 'plan' },
-        { header: 'MATERIA', dataKey: 'materia' },
-        { header: 'GRP', dataKey: 'grp' },
-        { header: 'COMPARTE', dataKey: 'comparte' },
-        { header: 'RESOLUCIÓN', dataKey: 'resolucion' },
-        { header: 'DESIGNACIÓN', dataKey: 'designacion' },
+    // ── Definición de columnas ───────────────────────────────────────────────────
+    // `ancho: [normal, sinResolucionDesignacion]`. Al ocultar Resolución y
+    // Designación, las columnas que quedan se ensanchan y "COMPARTE" absorbe
+    // el espacio restante.
+    const defsColumnas = [
+        { header: 'N°', dataKey: 'nro', ancho: [7, 8], halign: 'center' },
+        { header: 'GESTIÓN', dataKey: 'gestion', ancho: [22, 26], halign: 'center', fontSize: 6.5 },
+        { header: 'PLAN', dataKey: 'plan', ancho: [10, 12], halign: 'center' },
+        { header: 'MATERIA', dataKey: 'materia', ancho: [45, 60], halign: 'left', fontSize: 6.0 },
+        { header: 'GRP', dataKey: 'grp', ancho: [8, 10], halign: 'center', fontSize: 5.5 },
+        { header: 'COMPARTE', dataKey: 'comparte', ancho: [43, 'auto'], halign: 'left', fontSize: 6.0 },
+        { header: 'RESOLUCIÓN', dataKey: 'resolucion', ancho: [18, 18], halign: 'left', soloEnNormal: true },
+        { header: 'DESIGNACIÓN', dataKey: 'designacion', ancho: ['auto', 'auto'], halign: 'left', fontSize: 6.0, soloEnNormal: true },
     ]
+
+    const idxAncho = sinResolucionDesignacion ? 1 : 0
+    const columnas = defsColumnas.filter((c) => !(sinResolucionDesignacion && c.soloEnNormal))
 
     const filasAgrupadas = agruparCompartidas(reporte.materias)
 
@@ -228,6 +243,15 @@ export function generarPDFCompartido(reporte, opts = {}) {
         resolucion: m.resolucion || '',
         designacion: m.designacion || '',
     }))
+
+    // columnStyles por índice, calculado sobre las columnas realmente visibles
+    const columnStyles = {}
+    columnas.forEach((c, i) => {
+        columnStyles[i] = {
+            cellWidth: c.ancho[idxAncho],
+            ...(c.halign ? { halign: c.halign } : {}),
+        }
+    })
 
     autoTable(doc, {
         startY,
@@ -263,16 +287,7 @@ export function generarPDFCompartido(reporte, opts = {}) {
             fillColor: false,
         },
 
-        columnStyles: {
-            0: { cellWidth: 7, halign: 'center' },
-            1: { cellWidth: 22, halign: 'center' },
-            2: { cellWidth: 10, halign: 'center' },
-            3: { cellWidth: 45, halign: 'left' },
-            4: { cellWidth: 8, halign: 'center' },
-            5: { cellWidth: 43, halign: 'left' },
-            6: { cellWidth: 18, halign: 'left' },
-            7: { cellWidth: 'auto', halign: 'left' },
-        },
+        columnStyles,
 
         didDrawCell(data) {
             if (data.section !== 'body') return
@@ -289,15 +304,11 @@ export function generarPDFCompartido(reporte, opts = {}) {
         },
 
         didParseCell(data) {
-            if (data.section === 'body' && [3, 5, 7].includes(data.column.index)) {
-                data.cell.styles.fontSize = 6.0
-            }
-            if (data.section === 'body' && data.column.index === 1) {
-                data.cell.styles.fontSize = 6.5
-                data.cell.styles.halign = 'center'
-            }
-            if (data.section === 'body' && data.column.index === 4) {
-                data.cell.styles.fontSize = 5.5
+            // Tamaños de fuente por columna, identificadas por dataKey (no por
+            // índice, porque los índices cambian al ocultar columnas).
+            if (data.section === 'body') {
+                const def = columnas[data.column.index]
+                if (def?.fontSize) data.cell.styles.fontSize = def.fontSize
             }
             if (data.section === 'head' && data.column.index === 0) {
                 data.cell.styles.fontSize = 6.2
