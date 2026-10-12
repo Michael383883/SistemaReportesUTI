@@ -46,7 +46,7 @@ export const menuSections = [
                     { to: '/clasificaciones/listar-por-documento', label: 'Listado de Archivo' },
                     { to: '/resoluciones/subir', label: 'Subir Referencia' },
                     { to: '/resoluciones/listado', label: 'Lista de Referencias' },
-                    { to: '/resoluciones/asignar', label: 'Asignar Referencia' },
+                    { to: '/resoluciones/asignar', label: 'Asignar Solo a Kardex' },
                 ],
             },
 

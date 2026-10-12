@@ -16,6 +16,9 @@ use App\Http\Controllers\Api\ReporteDocenteController;
 use App\Http\Controllers\Api\HorarioDocenteController;
 use App\Http\Controllers\Api\HorarioAdminController;
 
+// Títulos del docente (NUEVO)
+use App\Http\Controllers\Api\DocenteTitulosController;
+
 // Resoluciones
 use App\Http\Controllers\Api\ResolucionPdfController;
 use App\Http\Controllers\Api\ResolucionDetalleController;
@@ -117,6 +120,13 @@ Route::middleware('auth:sanctum')->group(function () {
     /* ----------------------------------------------------------------
      | DOCENTES
      * ---------------------------------------------------------------- */
+    Route::get('/docentes/periodo-titulos', [DocenteTitulosController::class, 'porPeriodo']);
+    // NUEVO: títulos registrados de un docente (va ANTES del apiResource)
+    Route::get('/docentes/{codigo}/titulos', [DocenteTitulosController::class, 'titulos'])
+        ->where('codigo', '[0-9]+');
+
+    Route::post('/docentes/titulos-resumen', [DocenteTitulosController::class, 'resumen']);
+
     Route::apiResource('docentes', DocenteController::class);
 
     Route::post('/reporte-docente', [ReporteDocenteController::class, 'materiasDictadasCompartidas']);
@@ -171,6 +181,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/resoluciones/{id}/detalles', [ResolucionDetalleController::class, 'index']);
     Route::post('/resoluciones/{id}/detalles', [ResolucionDetalleController::class, 'store']);
     Route::post('/resoluciones/{id}/detalles/bulk', [ResolucionDetalleController::class, 'storeBulk']);
+    Route::delete('/resoluciones/{id}/detalles/{idDetalle}', [ResolucionDetalleController::class, 'destroy']);   // ← NUEVA: quitar un docente/materia de la referencia
     Route::post('/resoluciones/{id}/aplicar-grupos', [ResolucionDetalleController::class, 'aplicarEnGrupos']);
 
     // 3) Detalle individual (otro recurso)

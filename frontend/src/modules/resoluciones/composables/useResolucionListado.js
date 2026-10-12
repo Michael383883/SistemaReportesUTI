@@ -258,6 +258,69 @@ export function useResolucionListado() {
             editando.value = false
         }
     }
+
+    // ─────────────────────────────────────────────────────────────
+    // Docentes/materias asignados a la referencia que se está editando
+    // ─────────────────────────────────────────────────────────────
+    const detalles = ref([])
+    const cargandoDetalles = ref(false)
+    const errorDetalles = ref('')
+    const quitandoDetalleId = ref(null)
+
+    async function cargarDetalles(idResolucion) {
+        cargandoDetalles.value = true
+        errorDetalles.value = ''
+        detalles.value = []
+
+        try {
+            const { data } = await axios.get(
+                `${API_BASE}/api/resoluciones/${idResolucion}/detalles`,
+                { headers: authHeaders() }
+            )
+            detalles.value = mapKeys(Array.isArray(data) ? data : [])
+        } catch (e) {
+            errorDetalles.value = e.response?.data?.error
+                ?? 'No se pudieron cargar los docentes asignados.'
+        } finally {
+            cargandoDetalles.value = false
+        }
+    }
+
+    // Quita UN docente/materia de la referencia (borra la fila de
+    // RESOLUCION_DETALLE y limpia lo escrito en GRUPOS). Es inmediato:
+    // no depende del botón "Guardar cambios" del modal.
+    async function quitarDetalle(idResolucion, idDetalle) {
+        quitandoDetalleId.value = idDetalle
+        errorDetalles.value = ''
+
+        try {
+            const { data } = await axios.delete(
+                `${API_BASE}/api/resoluciones/${idResolucion}/detalles/${idDetalle}`,
+                { headers: authHeaders() }
+            )
+
+            if (data?.ok === false) {
+                errorDetalles.value = data.error ?? 'No se pudo quitar el docente.'
+                return false
+            }
+
+            detalles.value = detalles.value.filter(d => d.idDetalle !== idDetalle)
+            return true
+
+        } catch (e) {
+            errorDetalles.value = e.response?.data?.error
+                ?? 'Error al quitar el docente de la referencia.'
+            return false
+        } finally {
+            quitandoDetalleId.value = null
+        }
+    }
+
+    function limpiarDetalles() {
+        detalles.value = []
+        errorDetalles.value = ''
+    }
+
     return {
         filas,
         loading,
@@ -280,5 +343,12 @@ export function useResolucionListado() {
         editando,
         errorEditar,
         actualizarResolucion,
+        detalles,
+        cargandoDetalles,
+        errorDetalles,
+        quitandoDetalleId,
+        cargarDetalles,
+        quitarDetalle,
+        limpiarDetalles,
     }
 }

@@ -16,4 +16,10 @@ export const reportesRoutes = [
         name: 'reportes-docentes-titulo',
         component: () => import('./views/ReporteDocente.vue')
     },
+    {
+        path: '/reportes/docente-titulos/:codigo',
+        name: 'DocenteTitulos',
+        component: () => import('./views/DocenteTitulosView.vue'),
+        // meta: { requiresAuth: true }  ← igual que tus otras rutas
+    },
 ]

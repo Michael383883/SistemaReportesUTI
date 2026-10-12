@@ -4,7 +4,7 @@
     <div class="absolute inset-0 bg-black/50" @click="cerrar"></div>
 
     <!-- Modal -->
-    <div class="relative bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden">
+    <div class="relative bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
 
       <!-- Header -->
       <div class="bg-slate-900 px-5 py-3 flex items-center justify-between flex-shrink-0">
@@ -84,6 +84,57 @@
           </div>
         </div>
 
+        <!-- Docentes / materias asignados a esta referencia -->
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <label class="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide">
+              Docentes asignados
+            </label>
+            <span class="text-[11px] text-gray-400">{{ detalles.length }}</span>
+          </div>
+
+          <div v-if="cargandoDetalles" class="text-[12px] text-slate-500 py-3 text-center">
+            Cargando docentes...
+          </div>
+
+          <p v-else-if="errorDetalles" class="text-[12px] text-red-500">{{ errorDetalles }}</p>
+
+          <p
+            v-else-if="detalles.length === 0"
+            class="text-[12px] text-slate-400 py-3 text-center border border-dashed border-gray-200 rounded-lg"
+          >
+            Esta referencia no tiene docentes asignados.
+          </p>
+
+          <ul
+            v-else
+            class="max-h-60 overflow-y-auto divide-y divide-gray-100 border border-gray-200 rounded-lg"
+          >
+            <li
+              v-for="d in detalles"
+              :key="d.idDetalle"
+              class="flex items-center gap-3 px-3 py-2"
+            >
+              <div class="flex-1 min-w-0">
+                <p class="text-[13px] font-medium text-slate-800 truncate">{{ d.nombreCompleto }}</p>
+                <p class="text-[11px] text-slate-500 truncate">
+                  {{ d.codMateria }} · Plan {{ d.codPlan }} · Gr. {{ d.grupo ?? '-' }} · {{ d.tipo ?? '-' }}
+                  <span v-if="d.tipoIngreso"> · {{ d.tipoIngreso }}</span>
+                </p>
+              </div>
+
+              <button
+                type="button"
+                :disabled="quitandoDetalleId === d.idDetalle || editando"
+                @click="pedirQuitar(d)"
+                class="shrink-0 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-red-50 text-red-600 hover:bg-red-100 disabled:opacity-50"
+              >
+                {{ quitandoDetalleId === d.idDetalle ? 'Quitando...' : 'Quitar' }}
+              </button>
+            </li>
+          </ul>
+        </div>
+
         <!-- Archivo (solo lectura, no editable) -->
         <div>
           <label class="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1">
@@ -144,9 +195,13 @@ const props = defineProps({
   resolucion: { type: Object, default: null },
   editando: { type: Boolean, default: false },
   errorEditar: { type: String, default: '' },
+  detalles: { type: Array, default: () => [] },
+  cargandoDetalles: { type: Boolean, default: false },
+  errorDetalles: { type: String, default: '' },
+  quitandoDetalleId: { type: [Number, String], default: null },
 })
 
-const emit = defineEmits(['cerrar', 'guardar'])
+const emit = defineEmits(['cerrar', 'guardar', 'quitar-detalle'])
 
 const form = ref({
   nroResolucion: '',
@@ -188,6 +243,15 @@ const etiquetaCambio = computed(() => {
 function cerrar() {
   if (props.editando) return
   emit('cerrar')
+}
+
+// Quitar un docente/materia es inmediato (no espera a "Guardar cambios"),
+// por eso se pide confirmación antes de emitir el evento.
+function pedirQuitar(d) {
+  const ok = window.confirm(
+    `¿Quitar a ${d.nombreCompleto} (${d.codMateria}, grupo ${d.grupo ?? '-'}) de esta referencia?`
+  )
+  if (ok) emit('quitar-detalle', d.idDetalle)
 }
 
 function guardar() {

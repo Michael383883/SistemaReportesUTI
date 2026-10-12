@@ -176,15 +176,19 @@
       @editar="abrirEdicion"
     />
 
-    <!-- ... modal de borrado que ya tenías ... -->
-
+    <!-- Modal de edición (incluye la lista de docentes asignados) -->
     <ModalEditarResolucion
       v-if="filaParaEditar"
       :resolucion="filaParaEditar"
       :editando="editando"
       :error-editar="errorEditar"
+      :detalles="detalles"
+      :cargando-detalles="cargandoDetalles"
+      :error-detalles="errorDetalles"
+      :quitando-detalle-id="quitandoDetalleId"
       @cerrar="cerrarEdicion"
       @guardar="guardarEdicion"
+      @quitar-detalle="quitarDetalleDeResolucion"
     />
 
     <!-- Modal de confirmación de borrado -->
@@ -306,6 +310,13 @@ const {
   editando,
   errorEditar,
   actualizarResolucion,
+  detalles,
+  cargandoDetalles,
+  errorDetalles,
+  quitandoDetalleId,
+  cargarDetalles,
+  quitarDetalle,
+  limpiarDetalles,
 } = useResolucionListado()
 
 const filaParaEditar = ref(null)
@@ -313,17 +324,27 @@ const filaParaEditar = ref(null)
 function abrirEdicion(fila) {
   errorEditar.value = ''
   filaParaEditar.value = fila
+  cargarDetalles(fila.idResolucion)
 }
 
 function cerrarEdicion() {
   filaParaEditar.value = null
   errorEditar.value = ''
+  limpiarDetalles()
 }
 
 async function guardarEdicion(formData) {
   if (!filaParaEditar.value) return
   const ok = await actualizarResolucion(filaParaEditar.value.idResolucion, formData)
-  if (ok) filaParaEditar.value = null
+  if (ok) {
+    filaParaEditar.value = null
+    limpiarDetalles()
+  }
+}
+
+async function quitarDetalleDeResolucion(idDetalle) {
+  if (!filaParaEditar.value) return
+  await quitarDetalle(filaParaEditar.value.idResolucion, idDetalle)
 }
 
 // Fila pendiente de confirmación de borrado (null = modal cerrado)
