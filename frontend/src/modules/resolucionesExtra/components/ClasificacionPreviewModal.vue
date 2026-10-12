@@ -227,7 +227,7 @@
           @click="$emit('confirmar-y-asignar')"
           class="inline-flex items-center gap-2 px-5 py-2 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-white text-[13px] font-bold rounded-lg transition-colors"
         >
-          Guardar + Asignar a otros docentes
+          Guardar + Asignar a otros docentes solo a kardex
         </button>
       </div>
     </div>

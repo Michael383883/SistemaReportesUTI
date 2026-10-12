@@ -139,7 +139,7 @@
 </template>
 
 <script setup>
-import { reactive, computed, ref } from 'vue'
+import { reactive, computed, ref, onMounted, nextTick } from 'vue'
 import { useDocentesReportes } from '../composables/useDocentesReportes'
 import DatosGeneralesCard from './formulario/DatosGeneralesCard.vue'
 import MateriasCard from './formulario/MateriasCard.vue'
@@ -153,14 +153,34 @@ const props = defineProps({
   archivoNombre:       { type: String, default: '' },
   reutilizandoArchivo: { type: Boolean, default: false },
   initial:             { type: Object, default: () => ({}) },
+  // true cuando, al subir el PDF, el usuario indicó que es un título:
+  // abre el módulo de título, deja la categoría en SIN CATEGORIA y
+  // enfoca el buscador de docente.
+  abrirTitulo:         { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['guardar', 'back'])
+
+// Categoría que se usa para los documentos de tipo título.
+// Debe existir con este texto exacto en Configuración → Categorías.
+const CATEGORIA_TITULO = 'SIN CATEGORIA'
 
 // `initial` puede llegar null si el padre aún no cargó: se protege.
 const initial = props.initial ?? {}
 
 const mostrarPreview = ref(false)
+
+// Estructura vacía del título (la misma que crea TituloCard por defecto)
+function tituloVacio() {
+  return {
+    tipo_titulo: '',
+    nombre_titulo: '',
+    universidad: '',
+    pais: '',
+    fecha_titulo: '',
+    numero: '',
+  }
+}
 
 // ─── Formulario (fuente única de verdad, compartida por las cards) ───
 const form = reactive({
@@ -177,6 +197,14 @@ const form = reactive({
   referencias:     initial.referencias     ?? [],
   titulo:          initial.titulo          ?? null,
 })
+
+// Si el usuario dijo "es un título" al subir el PDF, se prepara todo antes
+// de que se pinte el formulario: categoría fija y módulo de título abierto.
+if (props.abrirTitulo && !form.titulo) {
+  form.titulo    = tituloVacio()
+  form.categoria = CATEGORIA_TITULO
+}
+
 const esTitulo = ref(!!form.titulo)
 
 // ─── Búsqueda del docente general (docente "por defecto") ───
@@ -193,9 +221,17 @@ const {
 
 fetchDocentes()
 
-// FIX: en edición, `selectedDocente` empieza vacío aunque el documento ya
-// tenga docente. Se usa el docente principal que viene en `initial` como
-// respaldo mientras el usuario no elija otro (y solo si sigue siendo el mismo).
+// En flujo "es título", se enfoca el buscador de docente para escribir el nombre.
+onMounted(() => {
+  if (props.abrirTitulo) {
+    nextTick(() => {
+      document.querySelector('input[placeholder="Buscar docente..."]')?.focus()
+    })
+  }
+})
+
+// En edición, `selectedDocente` empieza vacío aunque el documento ya tenga
+// docente. Se usa el docente principal de `initial` como respaldo.
 const docenteActual = computed(() => {
   if (selectedDocente.value) return selectedDocente.value
   const p = initial.docente_principal
@@ -229,7 +265,7 @@ const avisoValidacion = ref('')
 
 function requiereGestionPeriodo() {
   if (!form.gestion || !form.periodo || !form.categoria) {
-    avisoValidacion.value = 'Debes completar Categoria, Gestión y Periodo antes de agregar materia, referencia o título.'
+    avisoValidacion.value = 'Debes completar Categoria, Gestión y Periodo antes de agregar materia o referencia.'
     return false
   }
   avisoValidacion.value = ''
@@ -246,8 +282,12 @@ function abrirReferencias() {
   mostrarReferencias.value = true
 }
 
+// El título NO exige Gestión/Periodo: se calculan solos desde la fecha del
+// título (TituloCard). La categoría pasa a SIN CATEGORIA si estaba vacía.
 function abrirTitulo() {
-  if (!requiereGestionPeriodo()) return
+  avisoValidacion.value = ''
+  if (!form.categoria) form.categoria = CATEGORIA_TITULO
+  if (!form.titulo) form.titulo = tituloVacio()
   esTitulo.value = true
 }
 
@@ -294,8 +334,8 @@ function armarPayload() {
 }
 
 // ─── Confirmación desde el preview ───
-// FIX: se cierra el preview ANTES de emitir; si no, los errores, el
-// "Guardado cancelado" y el confirm de desvinculación quedaban escondidos detrás.
+// Se cierra el preview ANTES de emitir; si no, los errores, el
+// "Guardado cancelado" y el confirm de desvinculación quedan escondidos detrás.
 function onConfirmarGuardar() {
   mostrarPreview.value = false
   emit('guardar', armarPayload(), asignaAGrupos.value)

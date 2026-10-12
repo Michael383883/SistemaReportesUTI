@@ -3,8 +3,14 @@
 
     <!-- Header -->
     <div class="mb-8">
-      <h1 class="text-[20px] font-bold text-gray-1000">Digitalizar Documentos de Docente</h1>
-      <p class="text-[14px] text-gray-700 mt-1">Carga y registro de documentos (Web sis 2001)</p>
+      <h1 class="text-[20px] font-bold text-gray-1000">
+        {{ modoTitulo ? 'Subir Título de Docente' : 'Digitalizar Documentos de Docente' }}
+      </h1>
+      <p class="text-[14px] text-gray-700 mt-1">
+        {{ modoTitulo
+          ? 'Carga del título (PDF) y registro de sus datos. Categoría SIN CATEGORIA; gestión y periodo según la fecha del título.'
+          : 'Carga y registro de documentos (Web sis 2001)' }}
+      </p>
     </div>
 
     <!-- Stepper -->
@@ -88,7 +94,9 @@
             </div>
 
             <div v-else>
-              <p class="text-[15px] font-semibold text-gray-700">Arrastra el PDF aquí</p>
+              <p class="text-[15px] font-semibold text-gray-700">
+                {{ modoTitulo ? 'Arrastra el PDF del título aquí' : 'Arrastra el PDF aquí' }}
+              </p>
               <p class="text-[14px] text-gray-800 mt-1">Selecciona el documento desde tu dispositivo</p>
             </div>
 
@@ -173,12 +181,12 @@
             @click="resetAll"
             class="inline-flex items-center gap-2 px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-[14px] font-medium rounded-lg transition-colors"
           >
-            Registrar otra clasificación
+            {{ modoTitulo ? 'Subir otro título' : 'Registrar nuevo documento' }}
           </button>
 
           <!-- Reutilizar el mismo PDF para otra categoría, sin volver a subirlo/almacenarlo -->
           <button
-            v-if="ultimoId"
+            v-if="ultimoId && !modoTitulo"
             @click="guardarConOtraCategoria"
             class="inline-flex items-center gap-2 px-5 py-2 bg-amber-500 hover:bg-amber-400 text-white text-[14px] font-medium rounded-lg transition-colors"
           >
@@ -216,6 +224,7 @@
         :archivo-nombre="reutilizarArchivo ? archivoOrigenNombre : (archivo?.name || '')"
         :reutilizando-archivo="reutilizarArchivo"
         :initial="datosPrevios || {}"
+        :abrir-titulo="modoTitulo && !reutilizarArchivo"
         @guardar="onGuardar"
         @back="onBackDesdeFormulario"
       />
@@ -229,6 +238,13 @@ import { useRouter } from 'vue-router'
 import ClasificacionForm from '../components/ClasificacionForm.vue'
 import { useClasificacion } from '../composables/useClasificacion'
 import { useDocentesReportes } from '../composables/useDocentesReportes' // ajusta la ruta
+
+// modoTitulo = true: el PDF es un título. El formulario abre directo el
+// módulo de título (categoría SIN CATEGORIA, gestión/periodo por fecha).
+// Lo usa SubirTituloView; por defecto la vista funciona como siempre.
+const props = defineProps({
+  modoTitulo: { type: Boolean, default: false },
+})
 
 const router = useRouter()
 const clasificacion = useClasificacion()
@@ -336,7 +352,6 @@ function onBackDesdeFormulario() {
 }
 
 // Dispara el flujo de "misma PDF, otra categoría"
-// Dispara el flujo de "misma PDF, otra categoría"
 function guardarConOtraCategoria() {
   idDocumentoOrigen.value   = ultimoId.value
   archivoOrigenNombre.value = archivo.value?.name || archivoOrigenNombre.value || `Documento #${ultimoId.value}`
@@ -422,7 +437,9 @@ async function onGuardar(formData, debeAplicarAGrupos, irAAsignarExtra = false) 
       return
     }
 
-    successMessage.value = 'Clasificación guardada exitosamente'
+    successMessage.value = props.modoTitulo
+      ? 'Título guardado exitosamente'
+      : 'Clasificación guardada exitosamente'
 
     // Ya se guardó: apagamos el modo "reutilizar" para que "Registrar otra
     // clasificación" vuelva al flujo normal de subir PDF desde cero.
