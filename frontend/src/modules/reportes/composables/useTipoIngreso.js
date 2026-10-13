@@ -18,6 +18,9 @@ function authHeaders() {
  *     TODOS los cambios pendientes de una sola vez (bulk), actualizando
  *     tanto GRUPOS como, si existe, el detalle correspondiente en
  *     RESOLUCION_DETALLE.
+ *
+ * Además expone la lista de tipos de ingreso que tiene un docente
+ * (cargarTipos), usada por el botón "Modalidad de Ingreso" del ReporteHeader.
  */
 export function useTipoIngreso() {
     const guardando = ref(false)
@@ -29,6 +32,33 @@ export function useTipoIngreso() {
 
     const cantidadCambios = computed(() => Object.keys(cambiosPendientes.value).length)
     const hayCambiosPendientes = computed(() => cantidadCambios.value > 0)
+
+    // ── Lista de tipos de ingreso del docente (para el botón del reporte) ──
+    const tiposDisponibles = ref([])
+    const loadingTipos = ref(false)
+    const tieneTipos = computed(() => tiposDisponibles.value.length > 0)
+
+    async function cargarTipos(codDocente) {
+        loadingTipos.value = true
+        try {
+            // ⚠️ AJUSTAR la ruta al endpoint real de Laravel
+            const { data } = await axios.get(
+                `${API_BASE}/api/docentes/${codDocente}/tipos-ingreso`,
+                { headers: { ...authHeaders() } }
+            )
+            // Se espera: ['EXAMEN SUFICIENCIA', 'CONCURSO', ...]
+            tiposDisponibles.value = Array.isArray(data) ? data : (data?.data ?? [])
+        } catch (e) {
+            console.error('❌ cargarTipos (tipo_ingreso):', e.response?.data ?? e.message)
+            tiposDisponibles.value = []
+        } finally {
+            loadingTipos.value = false
+        }
+    }
+
+    function limpiarTipos() {
+        tiposDisponibles.value = []
+    }
 
     function generarKey(docenteCod, materia) {
         return `${docenteCod}__${materia.plan}__${materia.materia}__${materia.grp}__${materia.gestion}`
@@ -119,6 +149,13 @@ export function useTipoIngreso() {
         guardando,
         errorGuardado,
         resultadoGuardado,
+
+        // lista de tipos del docente
+        tiposDisponibles,
+        loadingTipos,
+        tieneTipos,
+        cargarTipos,
+        limpiarTipos,
 
         generarKey,
         registrarCambio,

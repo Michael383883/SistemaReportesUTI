@@ -313,10 +313,11 @@ class ReporteDocenteController extends Controller
         return $noConcluidos;
     }
 
+
     public function materiasDictadas(Request $request)
     {
         $request->validate([
-            'docente' => 'required|numeric',
+            'docente' => 'nullable|numeric',          // ← antes era required
             'anio' => 'nullable|numeric',
             'periodo' => 'nullable|string|in:1,2,3,4',
             'anio_hasta' => 'nullable|numeric',
@@ -337,21 +338,34 @@ class ReporteDocenteController extends Controller
         $materia = $request->materia;
         $grupo = $request->grupo;
 
+        // ── MODO MATERIA: no viene docente ──────────────────────────────────
+        $modoMateria = !$request->filled('docente');
+
+        if ($modoMateria && !($request->filled('materia') && $request->filled('grupo'))) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Debe indicar el código de materia y el grupo'
+            ], 422);
+        }
+
         $habilitarRestriccion = $request->boolean('habilitar_restriccion');
         $anioHabilitado = $request->anio_habilitado;
         $periodoHabilitado = $request->periodo_habilitado;
 
-        $docenteInfo = DB::connection('sqlsrv')->selectOne("
-        SELECT CODIGO, NOMBRES, APELLIDOS
-        FROM DOCENTES
-        WHERE CODIGO = ?
-    ", [$docente]);
+        $docenteInfo = null;
+        if (!$modoMateria) {
+            $docenteInfo = DB::connection('sqlsrv')->selectOne("
+                SELECT CODIGO, NOMBRES, APELLIDOS
+                FROM DOCENTES
+                WHERE CODIGO = ?
+            ", [$docente]);
 
-        if (!$docenteInfo) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Docente no encontrado'
-            ], 404);
+            if (!$docenteInfo) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Docente no encontrado'
+                ], 404);
+            }
         }
 
         $ordenDesde = null;
@@ -370,7 +384,8 @@ class ReporteDocenteController extends Controller
                 : $this->ordenTemporal((int) $anio, '3');
         }
 
-        $materiaEsCodigo = $materia && preg_match('/^\d+$/', $materia);
+        // En modo materia el código se compara siempre exacto
+        $materiaEsCodigo = $materia && ($modoMateria || preg_match('/^\d+$/', $materia));
 
         $filtroAnioExacto = $filtroSoloAnioExacto ? "AND GRUPOS.ANIO = :anio" : "";
 
@@ -396,7 +411,16 @@ class ReporteDocenteController extends Controller
 
         $filtroGrupo = $grupo ? "AND GRUPOS.GRUPO = :grupo" : "";
 
-        $bindings = ['docente' => $docente];
+        // ── Filtro de docente (solo si NO es modo materia) ──
+        $filtroDocente = $modoMateria ? "" : "AND DOCENTES.CODIGO = :docente";
+
+        // ── Modo materia: igual que tu consulta, sin verano/invierno ──
+        $filtroSinVeranoInvierno = $modoMateria ? "AND GRUPOS.PERIODO NOT IN ('3','4')" : "";
+
+        $bindings = [];
+        if (!$modoMateria) {
+            $bindings['docente'] = $docente;
+        }
 
         if ($filtroSoloAnioExacto) {
             $bindings['anio'] = $anio;
@@ -534,10 +558,11 @@ class ReporteDocenteController extends Controller
             ON [PLANES].CODIGO = GRUPOS.[PLAN]
             AND [PLANES].ANIO = GRUPOS.ANIO
 
-        WHERE DOCENTES.CODIGO = :docente
-          AND GRUPOS.PRIMARIO = 'Y'
+        WHERE GRUPOS.PRIMARIO = 'Y'
           AND GRUPOS.TIPO = 'N'
 
+          {$filtroDocente}
+          {$filtroSinVeranoInvierno}
           {$filtroNoConcluidos}
           {$filtroAnioExacto}
           {$filtroRango}
@@ -560,16 +585,22 @@ class ReporteDocenteController extends Controller
 
         $materias = DB::connection('sqlsrv')->select($sql, $bindings);
 
-        // ── NUEVO: adjunta referencias (compartidos/documentos) a cada fila ──
-        $materias = $this->adjuntarReferencias($materias, $docente);
+        // Referencias (documentos) dependen del docente: solo en modo docente
+        if ($modoMateria) {
+            foreach ($materias as $m) {
+                $m->referencias = [];
+            }
+        } else {
+            $materias = $this->adjuntarReferencias($materias, $docente);
+        }
 
         return response()->json([
             'success' => true,
 
-            'docente' => [
+            'docente' => $docenteInfo ? [
                 'codigo' => $docenteInfo->CODIGO,
                 'nombre' => trim($docenteInfo->APELLIDOS . ' ' . $docenteInfo->NOMBRES),
-            ],
+            ] : null,
 
             'anio_filtro' => $anio ?? 'todos',
             'periodo_filtro' => $periodo ?? null,
@@ -756,10 +787,11 @@ class ReporteDocenteController extends Controller
         ]);
     }
 
+
     public function materiasDictadasCompartidas(Request $request)
     {
         $request->validate([
-            'docente' => 'required|numeric',
+            'docente' => 'nullable|numeric',          // ← antes: required|numeric
             'anio' => 'nullable|numeric',
             'periodo' => 'nullable|string|in:1,2,3,4',
             'anio_hasta' => 'nullable|numeric',
@@ -782,24 +814,38 @@ class ReporteDocenteController extends Controller
         $materia = $request->materia;
         $grupo = $request->grupo;
 
-        $incluirSinGrupo = $request->boolean('incluir_sin_grupo');
+        // ── MODO MATERIA: no viene docente ──────────────────────────────────
+        $modoMateria = !$request->filled('docente');
+
+        if ($modoMateria && !($request->filled('materia') && $request->filled('grupo'))) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Debe indicar el código de materia y el grupo'
+            ], 422);
+        }
+
+        // En modo materia no aplica "materias sin grupo" (dependen del docente)
+        $incluirSinGrupo = $modoMateria ? false : $request->boolean('incluir_sin_grupo');
         $mostrarNotaSinGrupo = $request->boolean('mostrar_nota_sin_grupo', true);
 
         $habilitarRestriccion = $request->boolean('habilitar_restriccion');
         $anioHabilitado = $request->anio_habilitado;
         $periodoHabilitado = $request->periodo_habilitado;
 
-        $docenteInfo = DB::connection('sqlsrv')->selectOne("
-        SELECT CODIGO, NOMBRES, APELLIDOS
-        FROM DOCENTES
-        WHERE CODIGO = ?
-    ", [$docente]);
+        $docenteInfo = null;
+        if (!$modoMateria) {
+            $docenteInfo = DB::connection('sqlsrv')->selectOne("
+                SELECT CODIGO, NOMBRES, APELLIDOS
+                FROM DOCENTES
+                WHERE CODIGO = ?
+            ", [$docente]);
 
-        if (!$docenteInfo) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Docente no encontrado'
-            ], 404);
+            if (!$docenteInfo) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Docente no encontrado'
+                ], 404);
+            }
         }
 
         $ordenDesde = null;
@@ -818,7 +864,8 @@ class ReporteDocenteController extends Controller
                 : $this->ordenTemporal((int) $anio, '3');
         }
 
-        $materiaEsCodigo = $materia && preg_match('/^\d+$/', $materia);
+        // En modo materia el código se compara siempre exacto
+        $materiaEsCodigo = $materia && ($modoMateria || preg_match('/^\d+$/', $materia));
 
         $filtroAnioExacto = $filtroSoloAnioExacto ? "AND GRUPOS.ANIO = :anio" : "";
 
@@ -844,7 +891,16 @@ class ReporteDocenteController extends Controller
 
         $filtroGrupo = $grupo ? "AND GRUPOS.GRUPO = :grupo" : "";
 
-        $bindings = ['docente' => $docente];
+        // ── Filtro de docente (solo si NO es modo materia) ──
+        $filtroDocente = $modoMateria ? "" : "AND DOCENTES.CODIGO = :docente";
+
+        // ── Modo materia: igual que tu consulta, sin verano/invierno ──
+        $filtroSinVeranoInvierno = $modoMateria ? "AND GRUPOS.PERIODO NOT IN ('3','4')" : "";
+
+        $bindings = [];
+        if (!$modoMateria) {
+            $bindings['docente'] = $docente;
+        }
 
         if ($filtroSoloAnioExacto) {
             $bindings['anio'] = $anio;
@@ -1018,10 +1074,11 @@ class ReporteDocenteController extends Controller
                 CM.ID_DETALLE DESC
         ) AS CM_NOTA
 
-        WHERE DOCENTES.CODIGO = :docente
-          AND GRUPOS.PRIMARIO = 'Y'
+        WHERE GRUPOS.PRIMARIO = 'Y'
           AND GRUPOS.TIPO = 'N'
 
+          {$filtroDocente}
+          {$filtroSinVeranoInvierno}
           {$filtroNoConcluidos}
           {$filtroAnioExacto}
           {$filtroRango}
@@ -1069,16 +1126,22 @@ class ReporteDocenteController extends Controller
             }
         }
 
-        // ── NUEVO: adjunta referencias (compartidos/documentos) a cada fila ──
-        $materias = $this->adjuntarReferencias($materias, $docente);
+        // Referencias (documentos) dependen del docente: solo en modo docente
+        if ($modoMateria) {
+            foreach ($materias as $m) {
+                $m->referencias = [];
+            }
+        } else {
+            $materias = $this->adjuntarReferencias($materias, $docente);
+        }
 
         return response()->json([
             'success' => true,
 
-            'docente' => [
+            'docente' => $docenteInfo ? [
                 'codigo' => $docenteInfo->CODIGO,
                 'nombre' => trim($docenteInfo->APELLIDOS . ' ' . $docenteInfo->NOMBRES),
-            ],
+            ] : null,
 
             'anio_filtro' => $anio ?? 'todos',
             'periodo_filtro' => $periodo ?? null,

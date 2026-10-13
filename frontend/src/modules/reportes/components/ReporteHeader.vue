@@ -6,12 +6,12 @@
 
     <div class="relative flex items-center gap-3 py-4 pr-6 pl-7 flex-wrap">
 
-      <!-- ── Identidad (nombre + código) ─────────────────────────────────── -->
+      <!-- ── Identidad (docente + código)  /  (materia + grupo) ─────────── -->
       <div class="flex items-center gap-2 min-w-0">
         <h2 class="text-base font-semibold text-slate-800 m-0 tracking-tight whitespace-nowrap truncate">
-          {{ reporte.docente?.nombre }}
+          {{ modoMateria ? materiaTitulo : reporte.docente?.nombre }}
         </h2>
-        <span class="text-[0.82rem] font-semibold text-indigo-600 whitespace-nowrap">
+        <span v-if="!modoMateria" class="text-[0.82rem] font-semibold text-indigo-600 whitespace-nowrap">
           · SIS {{ reporte.docente?.codigo }}
         </span>
       </div>
@@ -32,7 +32,7 @@
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
           <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
         </svg>
-        {{ reporte.total }} materia{{ reporte.total !== 1 ? 's' : '' }}
+        {{ reporte.total }} {{ modoMateria ? 'registro' : 'materia' }}{{ reporte.total !== 1 ? 's' : '' }}
       </div>
 
       <div class="flex-1"/>
@@ -88,6 +88,60 @@
               <polyline v-if="categoriasSeleccionadas.includes(cat)" points="20 6 9 17 4 12"/>
             </svg>
             {{ cat }}
+          </button>
+        </div>
+      </div>
+
+      <!-- ── Botón Tipo de Título (click directo, sin Aplicar) ───────────── -->
+      <div v-if="tieneTiposTitulo" class="relative" ref="tituloMenuRef">
+        <button
+          type="button"
+          :disabled="loadingTiposTitulo"
+          @click="mostrarDropdownTitulo = !mostrarDropdownTitulo"
+          class="
+            inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold
+            border shadow-sm transition-all duration-150 cursor-pointer whitespace-nowrap
+            active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed
+            bg-indigo-50 border-indigo-300 text-indigo-700 hover:bg-indigo-100
+          "
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M22 10L12 5 2 10l10 5 10-5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/>
+          </svg>
+          {{ etiquetaBotonTitulo }}
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+               :class="mostrarDropdownTitulo ? 'rotate-180' : ''" class="transition-transform">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </button>
+
+        <div
+          v-if="mostrarDropdownTitulo"
+          class="absolute right-0 z-20 mt-1 w-60 rounded-lg border border-slate-200 bg-white shadow-lg py-1"
+        >
+          <button
+            type="button"
+            @click="clickTodosTitulos"
+            class="w-full flex items-center gap-2 text-left px-3 py-2 text-xs font-semibold hover:bg-slate-50 border-b border-slate-100"
+            :class="todosTitulosSeleccionados ? 'text-indigo-700 bg-indigo-50' : 'text-slate-700'"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" class="shrink-0">
+              <polyline v-if="todosTitulosSeleccionados" points="20 6 9 17 4 12"/>
+            </svg>
+            Todas
+          </button>
+
+          <button
+            v-for="t in tiposTitulo" :key="t"
+            type="button"
+            @click="clickTipoTitulo(t)"
+            class="w-full flex items-center gap-2 text-left px-3 py-2 text-xs hover:bg-slate-50"
+            :class="tiposTituloSeleccionados.includes(t) ? 'font-semibold text-indigo-700 bg-indigo-50' : 'text-slate-700'"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" class="shrink-0">
+              <polyline v-if="tiposTituloSeleccionados.includes(t)" points="20 6 9 17 4 12"/>
+            </svg>
+            {{ t }}
           </button>
         </div>
       </div>
@@ -148,9 +202,22 @@ const props = defineProps({
   tieneCategorias: { type: Boolean, default: false },
   loadingCategorias: { type: Boolean, default: false },
   categoriasSeleccionadas: { type: Array, default: () => [] },
+  // Tipo de título
+  tiposTitulo: { type: Array, default: () => [] },
+  tieneTiposTitulo: { type: Boolean, default: false },
+  loadingTiposTitulo: { type: Boolean, default: false },
+  tiposTituloSeleccionados: { type: Array, default: () => [] },
+  // Modo materia: el título es la materia + grupo en vez del docente
+  modoMateria: { type: Boolean, default: false },
+  materiaTitulo: { type: String, default: '' },
 })
 
-const emit = defineEmits(['volver', 'toggle-restriccion', 'seleccionar-categorias'])
+const emit = defineEmits([
+  'volver',
+  'toggle-restriccion',
+  'seleccionar-categorias',
+  'seleccionar-tipos-titulo',
+])
 
 const anioDesde = computed(() => {
   const materias = props.reporte.materias || []
@@ -229,10 +296,44 @@ const etiquetaBoton = computed(() => {
   return `${n} categorías`
 })
 
-// ── Cierra el dropdown al hacer click fuera de él ────────────────────────
+// ── Tipo de título: cada click aplica al instante ───────────────────────
+const mostrarDropdownTitulo = ref(false)
+const tituloMenuRef = ref(null)
+
+const todosTitulosSeleccionados = computed(() =>
+  props.tiposTitulo.length > 0 &&
+  props.tiposTituloSeleccionados.length === props.tiposTitulo.length
+)
+
+function clickTipoTitulo(t) {
+  const yaEstaba = props.tiposTituloSeleccionados.includes(t)
+  const nuevaLista = yaEstaba
+    ? props.tiposTituloSeleccionados.filter(x => x !== t)
+    : [...props.tiposTituloSeleccionados, t]
+
+  emit('seleccionar-tipos-titulo', nuevaLista)
+}
+
+function clickTodosTitulos() {
+  const nuevaLista = todosTitulosSeleccionados.value ? [] : [...props.tiposTitulo]
+  emit('seleccionar-tipos-titulo', nuevaLista)
+}
+
+const etiquetaBotonTitulo = computed(() => {
+  const n = props.tiposTituloSeleccionados.length
+  if (n === 0) return 'Modalidad de Ingreso'
+  if (n === 1) return `Ingreso: ${props.tiposTituloSeleccionados[0]}`
+  if (n === props.tiposTitulo.length) return 'Todas las modalidades'
+  return `${n} modalidades`
+})
+
+// ── Cierra los dropdowns al hacer click fuera de ellos ──────────────────
 const onClickOutside = (e) => {
   if (categoriasMenuRef.value && !categoriasMenuRef.value.contains(e.target)) {
     mostrarDropdown.value = false
+  }
+  if (tituloMenuRef.value && !tituloMenuRef.value.contains(e.target)) {
+    mostrarDropdownTitulo.value = false
   }
 }
 onMounted(()  => document.addEventListener('click', onClickOutside))

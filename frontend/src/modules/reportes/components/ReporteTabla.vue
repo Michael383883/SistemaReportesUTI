@@ -8,6 +8,8 @@
             <th class="text-left px-4 py-3 text-[0.68rem] font-semibold tracking-widest uppercase text-slate-100">Gestión</th>
             <th class="text-left px-4 py-3 text-[0.68rem] font-semibold tracking-widest uppercase text-slate-100 w-16">Plan</th>
             <th class="text-left px-4 py-3 text-[0.68rem] font-semibold tracking-widest uppercase text-slate-100">Materia</th>
+            <!-- Modo materia: docente que dictó -->
+            <th v-if="mostrarDocente" class="text-left px-4 py-3 text-[0.68rem] font-semibold tracking-widest uppercase text-slate-100">Docente</th>
             <th v-if="!agruparCompartidos" class="text-left px-4 py-3 text-[0.68rem] font-semibold tracking-widest uppercase text-slate-100 w-28">Compartido</th>
             <th class="text-left px-4 py-3 text-[0.68rem] font-semibold tracking-widest uppercase text-slate-100 w-14">GRP</th>
             <th v-if="agruparCompartidos" class="text-left px-4 py-3 text-[0.68rem] font-semibold tracking-widest uppercase text-slate-100 min-w-[320px]">Comparte</th>
@@ -66,6 +68,11 @@
             <!-- Materia -->
             <td class="px-4 py-3 text-slate-800 dark:text-slate-200 font-medium">{{ fila.principal.materia }}</td>
 
+            <!-- Docente (modo materia) -->
+            <td v-if="mostrarDocente" class="px-4 py-3 text-slate-800 dark:text-slate-200 font-medium">
+              <span class="text-indigo-600 dark:text-indigo-400 text-xs font-semibold mr-1.5 tabular-nums">{{ fila.principal.cod_docente }}</span>{{ fila.principal.docente_nombre }}
+            </td>
+
             <!-- Compartido (modo plano) -->
             <td v-if="!agruparCompartidos" class="px-4 py-3">
               <span v-if="fila.esHija" class="inline-flex items-center px-2 py-0.5 rounded text-[0.68rem] font-semibold bg-violet-50 text-violet-600 dark:bg-violet-500/15 dark:text-violet-300">
@@ -74,9 +81,29 @@
               <span v-else class="text-slate-400 dark:text-slate-600 text-xs">—</span>
             </td>
 
-            <!-- GRP -->
+            <!-- GRP: al pasar el mouse pregunta si quiere ver el historial; click → nueva pestaña -->
             <td class="px-4 py-3 tabular-nums text-slate-700 dark:text-slate-300 font-semibold text-xs">
-              {{ fila.principal.grp ?? '—' }}
+              <button
+                v-if="puedeVerHistorial(fila.principal)"
+                type="button"
+                class="group relative inline-flex items-center px-1.5 py-0.5 -mx-1.5 rounded font-semibold tabular-nums
+                       cursor-pointer border-none bg-transparent text-inherit
+                       hover:bg-amber-100 hover:text-amber-700 dark:hover:bg-amber-500/15 dark:hover:text-amber-300
+                       transition-colors"
+                @click.stop="verHistorialMateria(fila.principal)"
+              >
+                {{ fila.principal.grp }}
+
+                <span
+                  class="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 z-30
+                         hidden group-hover:block whitespace-nowrap rounded-md bg-slate-900 text-slate-100
+                         text-[11px] font-medium px-2.5 py-1.5 shadow-lg"
+                >
+                  ¿Quieres ver el historial de la materia?
+                  <span class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900"/>
+                </span>
+              </button>
+              <template v-else>{{ fila.principal.grp ?? '—' }}</template>
             </td>
 
             <!-- Comparte (modo agrupado) -->
@@ -122,7 +149,7 @@
                 <div class="flex items-center gap-1.5">
                   <button
                     :disabled="loadingPdf[fila.principal.nro]"
-                    @click="handleVer(fila.principal, codDocente)"
+                    @click="handleVer(fila.principal, fila.principal.cod_docente || codDocente)"
                     class="inline-flex items-center gap-1 px-2 py-1 rounded text-[0.68rem] font-medium transition-colors
                            bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-500/10 dark:text-blue-400 dark:hover:bg-blue-500/20 disabled:opacity-40 disabled:cursor-not-allowed"
                     title="Ver PDF"
@@ -140,7 +167,7 @@
 
                   <button
                     :disabled="loadingPdf[fila.principal.nro]"
-                    @click="handleDescargar(fila.principal, codDocente)"
+                    @click="handleDescargar(fila.principal, fila.principal.cod_docente || codDocente)"
                     class="inline-flex items-center gap-1 px-2 py-1 rounded text-[0.68rem] font-medium transition-colors
                            bg-emerald-50 text-emerald-600 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-400 dark:hover:bg-emerald-500/20 disabled:opacity-40 disabled:cursor-not-allowed"
                     title="Descargar PDF"
@@ -226,6 +253,7 @@
 
 <script setup>
 import { computed, toRef, reactive, onMounted, onBeforeUnmount } from 'vue'
+import { useRouter } from 'vue-router'
 import { useReporte } from '../composables/useReporte'
 import { useReporteCom } from '../composables/useReporteCom'
 import { useTablaFormato } from '../composables/reporte/useTablaFormato'
@@ -242,7 +270,31 @@ const props = defineProps({
   // Solo afecta a lo visible: la columna "Documento" sigue usando los datos
   // de cada fila (resolucion && designacion).
   ocultarResolucionDesignacion: { type: Boolean, default: false },
+  // true → (modo materia) muestra la columna "Docente" con cod_docente + docente_nombre
+  mostrarDocente: { type: Boolean, default: false },
 })
+
+const router = useRouter()
+
+// Solo filas con grupo y materia reales (no "Sin grupo"), y no en el kardex de materia,
+// donde ya se está viendo ese historial
+const puedeVerHistorial = (m) =>
+  !props.mostrarDocente &&
+  !!m.materia_codigo &&
+  m.grp !== null && m.grp !== undefined && String(m.grp).trim() !== ''
+
+// Abre el kardex de la materia + grupo en una NUEVA pestaña
+const verHistorialMateria = (m) => {
+  const { href } = router.resolve({
+    name: 'reporte',
+    query: {
+      modo: 'materia',
+      materia: String(m.materia_codigo).trim(),
+      grupo: String(m.grp).trim(),
+    },
+  })
+  window.open(href, '_blank')
+}
 
 const { tipoGestion, tipoGrp } = useTablaFormato()
 

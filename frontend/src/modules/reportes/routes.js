@@ -22,4 +22,6 @@ export const reportesRoutes = [
         component: () => import('./views/DocenteTitulosView.vue'),
         // meta: { requiresAuth: true }  ← igual que tus otras rutas
     },
+
+    { path: '/materias-kardex', name: 'materias-kardex', component: () => import('./views/MateriasKardexView.vue') },
 ]

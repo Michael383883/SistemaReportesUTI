@@ -33,6 +33,10 @@ const normalizeMateria = (m) => {
     out.designacion = m.designacion ?? m.DESIGNACION ?? ''
     out.tipo_ingreso = m.tipo_ingreso ?? m.TIPO_INGRESO ?? ''
 
+    // ── Modo materia: docente de cada fila ──
+    out.cod_docente = m.cod_docente ?? m.CODIGO ?? m.codigo ?? ''
+    out.docente_nombre = m.docente_nombre ?? m.docente ?? ''
+
     // Documentos referenciados (CLASIFICACION_REFERENCIA) — siempre un array
     out.referencias = m.referencias ?? m.REFERENCIAS ?? []
     return out
@@ -64,19 +68,11 @@ export function useReporte() {
     const error = ref(null)
 
     /**
-     * Genera el reporte de un docente.
+     * Genera el reporte de un docente, o (modo materia) de una materia + grupo.
      *
-     * @param {number|string} codigoDocente
+     * @param {number|string|null} codigoDocente  null/undefined => modo materia
+     *                                            (requiere filtros.materia y filtros.grupo)
      * @param {Object} filtros
-     * @param {number|null} filtros.anio               Año "desde" (o único año si no hay rango)
-     * @param {string|null} filtros.periodo             Periodo del año desde: '1' | '2' | '3' | '4'
-     * @param {number|null} filtros.anioHasta           Año "hasta" (para filtrar por rango)
-     * @param {string|null} filtros.periodoHasta        Periodo del año hasta
-     * @param {string|null} filtros.materia             Código o nombre de materia
-     * @param {string|null} filtros.grupo
-     * @param {boolean}     filtros.habilitarRestriccion  true = pide liberar un periodo puntual restringido
-     * @param {number|null} filtros.anioHabilitado        Año del periodo a liberar (junto con habilitarRestriccion)
-     * @param {string|null} filtros.periodoHabilitado     Periodo a liberar (junto con habilitarRestriccion)
      */
     const generarReporte = async (codigoDocente, filtros = {}) => {
         loading.value = true
@@ -100,7 +96,10 @@ export function useReporte() {
 
         try {
             const token = localStorage.getItem('token')
-            const payload = { docente: Number(codigoDocente) }
+
+            // docente es opcional: sin docente el backend arma el kardex de la materia
+            const payload = {}
+            if (codigoDocente) payload.docente = Number(codigoDocente)
 
             if (anio) payload.anio = Number(anio)
             if (periodo) payload.periodo = periodo

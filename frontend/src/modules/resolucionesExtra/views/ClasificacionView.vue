@@ -8,7 +8,7 @@
       </h1>
       <p class="text-[14px] text-gray-700 mt-1">
         {{ modoTitulo
-          ? 'Carga del título (PDF) y registro de sus datos. Categoría SIN CATEGORIA; gestión y periodo según la fecha del título.'
+          ? 'Carga del título (PDF) y registro de sus datos. Categoría SIN CATEGORÍA; gestión y periodo según la fecha del título.'
           : 'Carga y registro de documentos (Web sis 2001)' }}
       </p>
     </div>

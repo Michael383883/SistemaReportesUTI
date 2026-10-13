@@ -28,6 +28,8 @@ export const menuSections = [
                 icon: BarChart2,
                 children: [
                     { to: '/reportes/docentes', label: 'Kardex Docente' },
+                    { to: '/materias-kardex', label: 'Kardex Materia' },
+
                     { to: '/reportes/edicion-tipo-ingreso', label: 'Asignar Modalidad' },
                     { to: '/reportes/docentes-titulo', label: 'Docentes con Título' },
                 ],
