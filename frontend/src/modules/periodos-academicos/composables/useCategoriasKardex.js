@@ -1,7 +1,7 @@
 import { ref } from 'vue'
 import axios from 'axios'
 
-const API_BASE = import.meta.env.VITE_API_URL 
+const API_BASE = import.meta.env.VITE_API_URL
 
 function authHeaders() {
     const token = localStorage.getItem('token')
@@ -86,10 +86,27 @@ export function useCategoriasKardex() {
         }
     }
 
-    // Elimina la categoría del catálogo. Si todavía está en uso en GRUPOS
-    // o RESOLUCION_DETALLE, el backend igual la va a seguir devolviendo en
-    // index() (porque une catálogo + uso real), así que no desaparece del
-    // todo hasta que ya nadie la use.
+    // Consulta si la categoría está en uso y en qué tablas.
+    // Devuelve { success: true, en_uso, total, detalle: [{ tabla, etiqueta, cantidad }] }
+    // o { success: false, message } si la verificación falló.
+    async function consultarUso(nombre) {
+        try {
+            const { data } = await axios.get(
+                `${API_BASE}/api/categorias-clasificacion/kardex/uso`,
+                { params: { nombre }, headers: authHeaders() }
+            )
+            return { success: true, ...data }
+        } catch (e) {
+            console.error('[useCategoriasKardex] ERROR consultarUso →', e.response?.data || e.message)
+            return {
+                success: false,
+                message: e?.response?.data?.error || 'No se pudo verificar el uso de la categoría',
+            }
+        }
+    }
+
+    // Elimina la categoría del catálogo. El backend vuelve a validar el uso:
+    // si está en uso responde 409 con el detalle de dónde se usa.
     async function eliminar(nombre) {
         try {
             await axios.delete(
@@ -102,6 +119,15 @@ export function useCategoriasKardex() {
             categorias.value = categorias.value.filter((c) => c !== nombre)
             return { success: true }
         } catch (e) {
+            if (e?.response?.status === 409) {
+                return {
+                    success: false,
+                    enUso: true,
+                    detalle: e.response.data?.detalle ?? [],
+                    total: e.response.data?.total ?? 0,
+                    message: e.response.data?.error || 'La categoría está en uso',
+                }
+            }
             console.error('[useCategoriasKardex] ERROR eliminar →', e.response?.data || e.message)
             const msg = e?.response?.data?.error || 'No se pudo eliminar la categoría'
             error.value = msg
@@ -109,5 +135,5 @@ export function useCategoriasKardex() {
         }
     }
 
-    return { categorias, loading, error, cargar, agregar, actualizar, eliminar, clearError }
+    return { categorias, loading, error, cargar, agregar, actualizar, consultarUso, eliminar, clearError }
 }

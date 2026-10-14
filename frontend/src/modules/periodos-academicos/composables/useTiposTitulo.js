@@ -1,7 +1,7 @@
 import { ref } from 'vue'
 import axios from 'axios'
 
-const API_BASE = import.meta.env.VITE_API_URL 
+const API_BASE = import.meta.env.VITE_API_URL
 
 const tipos = ref([])
 const cargado = ref(false)
@@ -76,6 +76,54 @@ async function actualizarTipo(anterior, nuevo) {
     }
 }
 
+// Consulta si el tipo está en uso y en qué tablas.
+// Devuelve { success: true, en_uso, total, detalle: [{ tabla, etiqueta, cantidad }] }
+// o { success: false, message } si la verificación falló.
+async function consultarUso(nombre) {
+    try {
+        const { data } = await axios.get(
+            `${API_BASE}/api/categorias-clasificacion/titulo/uso`,
+            { params: { nombre: normalizar(nombre) }, headers: authHeaders() }
+        )
+        return { success: true, ...data }
+    } catch (e) {
+        return {
+            success: false,
+            message: e.response?.data?.error ?? e.response?.data?.message ?? 'No se pudo verificar el uso del tipo',
+        }
+    }
+}
+
+// Elimina el tipo del catálogo. El backend vuelve a validar el uso:
+// si está en uso responde 409 con el detalle de dónde se usa.
+// Al ser estado global compartido, el combobox de TituloCard.vue se actualiza solo.
+async function eliminarTipo(nombre) {
+    const v = normalizar(nombre)
+
+    try {
+        await axios.delete(`${API_BASE}/api/categorias-clasificacion/titulo`, {
+            data: { nombre: v },
+            headers: authHeaders(),
+        })
+        tipos.value = tipos.value.filter((t) => t !== v)
+        return { success: true }
+    } catch (e) {
+        if (e.response?.status === 409) {
+            return {
+                success: false,
+                enUso: true,
+                detalle: e.response.data?.detalle ?? [],
+                total: e.response.data?.total ?? 0,
+                message: e.response.data?.error ?? 'El tipo está en uso',
+            }
+        }
+        return {
+            success: false,
+            message: e.response?.data?.error ?? e.response?.data?.message ?? 'Error al eliminar el tipo',
+        }
+    }
+}
+
 export function useTiposTitulo() {
-    return { tipos, loading, cargarTipos, agregarTipoLocal, actualizarTipo }
+    return { tipos, loading, cargarTipos, agregarTipoLocal, actualizarTipo, consultarUso, eliminarTipo }
 }

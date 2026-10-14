@@ -22,6 +22,15 @@ class CategoriaClasificacionController extends Controller
         ['tabla' => 'RESOLUCION_DETALLE', 'columna' => 'TIPO_INGRESO'],
     ];
 
+    // Nombre legible de cada tabla, para mostrarlo en el front cuando una
+    // categoría está en uso ("Grupos (materias): 12").
+    private const ETIQUETAS_TABLAS = [
+        'CLASIFICACION_DOCUMENTO' => 'Documentos de clasificación',
+        'CLASIFICACION_TITULO' => 'Títulos académicos registrados',
+        'GRUPOS' => 'Grupos (materias)',
+        'RESOLUCION_DETALLE' => 'Detalles de resolución',
+    ];
+
     private function normalizarTipoRuta(string $tipo): string
     {
         // La ruta usa minúscula ('documento' / 'titulo' / 'kardex'); internamente
@@ -29,6 +38,49 @@ class CategoriaClasificacionController extends Controller
         $tipo = strtoupper($tipo);
         abort_unless(in_array($tipo, ['DOCUMENTO', 'TITULO', 'KARDEX']), 422, 'Tipo inválido');
         return $tipo;
+    }
+
+    /**
+     * Fuentes (tabla + columna) donde puede estar usada una categoría del tipo dado.
+     */
+    private function fuentesUso(string $tipo): array
+    {
+        if ($tipo === 'KARDEX') {
+            return self::TABLAS_USO_KARDEX;
+        }
+
+        return isset(self::TABLAS_USO[$tipo]) ? [self::TABLAS_USO[$tipo]] : [];
+    }
+
+    /**
+     * Cuenta en qué tablas está usada una categoría.
+     * Devuelve: ['en_uso' => bool, 'total' => int, 'detalle' => [['tabla','etiqueta','cantidad'], ...]]
+     * Solo incluye en 'detalle' las tablas donde realmente hay registros.
+     */
+    private function calcularUso(string $tipo, string $nombre): array
+    {
+        $nombreUpper = mb_strtoupper(trim($nombre));
+        $detalle = [];
+
+        foreach ($this->fuentesUso($tipo) as $fuente) {
+            $cantidad = DB::table($fuente['tabla'])
+                ->whereRaw('UPPER(' . $fuente['columna'] . ') = ?', [$nombreUpper])
+                ->count();
+
+            if ($cantidad > 0) {
+                $detalle[] = [
+                    'tabla' => $fuente['tabla'],
+                    'etiqueta' => self::ETIQUETAS_TABLAS[$fuente['tabla']] ?? $fuente['tabla'],
+                    'cantidad' => $cantidad,
+                ];
+            }
+        }
+
+        return [
+            'en_uso' => count($detalle) > 0,
+            'total' => (int) collect($detalle)->sum('cantidad'),
+            'detalle' => $detalle,
+        ];
     }
 
     public function index(string $tipo)
@@ -76,6 +128,21 @@ class CategoriaClasificacionController extends Controller
             ->values();
 
         return response()->json($nombres);
+    }
+
+    /**
+     * GET /api/categorias-clasificacion/{tipo}/uso?nombre=X
+     *
+     * Informa si la categoría está en uso y en qué tablas, para que el front
+     * decida si muestra el botón "Eliminar" o la lista de dependencias.
+     */
+    public function uso(Request $request, string $tipo)
+    {
+        $tipo = $this->normalizarTipoRuta($tipo);
+
+        $request->validate(['nombre' => 'required|string']);
+
+        return response()->json($this->calcularUso($tipo, (string) $request->query('nombre')));
     }
 
     public function store(Request $request, string $tipo)
@@ -167,24 +234,19 @@ class CategoriaClasificacionController extends Controller
         $nombreUpper = mb_strtoupper($nombre);
 
         // ── Verificar si está en uso real ────────────────────────────────
-        // No tiene sentido "borrar del catálogo" algo que sigue asignado a
-        // registros existentes: seguiría apareciendo igual (index() une
-        // catálogo + uso real). En ese caso, avisamos que hay que renombrar
-        // en vez de borrar.
-        $fuentesUso = $tipo === 'KARDEX'
-            ? self::TABLAS_USO_KARDEX
-            : (isset(self::TABLAS_USO[$tipo]) ? [self::TABLAS_USO[$tipo]] : []);
+        // Aunque el front ya consulta /uso antes de mostrar el botón, acá se
+        // vuelve a validar: nadie debe poder borrar una categoría en uso
+        // llamando directo a la API. Se responde 409 (conflicto) con el mismo
+        // detalle que devuelve /uso para que el front pueda mostrarlo.
+        $uso = $this->calcularUso($tipo, $nombre);
 
-        foreach ($fuentesUso as $fuente) {
-            $enUso = DB::table($fuente['tabla'])
-                ->whereRaw('UPPER(' . $fuente['columna'] . ') = ?', [$nombreUpper])
-                ->exists();
-
-            if ($enUso) {
-                return response()->json([
-                    'error' => 'No se puede eliminar: esta categoría está en uso en registros existentes. Usá el ícono de editar para renombrarla en vez de borrarla.',
-                ], 422);
-            }
+        if ($uso['en_uso']) {
+            return response()->json([
+                'error' => 'No se puede eliminar: la categoría está en uso. Cambiala o quitala de esos registros primero.',
+                'en_uso' => true,
+                'total' => $uso['total'],
+                'detalle' => $uso['detalle'],
+            ], 409);
         }
 
         // ── Ya no está en uso en ningún lado → segura para borrar del catálogo ──

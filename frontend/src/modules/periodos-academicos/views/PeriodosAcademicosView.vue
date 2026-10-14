@@ -271,62 +271,72 @@
               </tr>
             </thead>
             <tbody>
-              <tr
-                v-for="(c, i) in categorias"
-                :key="c.nombre"
-                class="border-b border-slate-100 dark:border-slate-700/60 transition-colors hover:bg-slate-50 dark:hover:bg-white/[0.025]"
-                :class="i % 2 === 0 ? 'bg-white' : 'bg-slate-50/70 dark:bg-slate-900/20'"
-              >
-                <!-- Nombre: texto normal, o input editable si está en modo edición -->
-                <td class="px-4 py-1.5">
-                  <input
-                    v-if="categoriaEditando === c.nombre"
-                    v-model="valorEdicion"
-                    type="text"
-                    maxlength="60"
-                    class="w-full rounded-md border border-amber-300 dark:border-amber-500 dark:bg-slate-900
-                           text-slate-800 dark:text-slate-200 text-[12.5px] px-2 py-1
-                           focus:outline-none focus:ring-2 focus:ring-amber-400"
-                    ref="inputEdicionRef"
-                    @keydown.enter.prevent="guardarEdicion(c)"
-                    @keydown.esc="cancelarEdicion"
-                  />
-                  <span v-else class="font-medium text-slate-800 dark:text-slate-200">
-                    {{ c.nombre }}
-                  </span>
-                </td>
-                <td class="px-4 py-1.5 text-right whitespace-nowrap">
-                  <template v-if="categoriaEditando === c.nombre">
+              <template v-for="(c, i) in categorias" :key="c.nombre">
+                <tr
+                  class="border-b border-slate-100 dark:border-slate-700/60 transition-colors hover:bg-slate-50 dark:hover:bg-white/[0.025]"
+                  :class="i % 2 === 0 ? 'bg-white' : 'bg-slate-50/70 dark:bg-slate-900/20'"
+                >
+                  <!-- Nombre: texto normal, o input editable si está en modo edición -->
+                  <td class="px-4 py-1.5">
+                    <input
+                      v-if="categoriaEditando === c.nombre"
+                      v-model="valorEdicion"
+                      type="text"
+                      maxlength="60"
+                      class="w-full rounded-md border border-amber-300 dark:border-amber-500 dark:bg-slate-900
+                             text-slate-800 dark:text-slate-200 text-[12.5px] px-2 py-1
+                             focus:outline-none focus:ring-2 focus:ring-amber-400"
+                      ref="inputEdicionRef"
+                      @keydown.enter.prevent="guardarEdicion(c)"
+                      @keydown.esc="cancelarEdicion"
+                    />
+                    <span v-else class="font-medium text-slate-800 dark:text-slate-200">
+                      {{ c.nombre }}
+                    </span>
+                  </td>
+                  <td class="px-4 py-1.5 text-right whitespace-nowrap">
+                    <template v-if="categoriaEditando === c.nombre">
+                      <button
+                        type="button"
+                        :disabled="guardandoEdicionNombre === c.nombre"
+                        @click="guardarEdicion(c)"
+                        class="inline-flex items-center gap-1 px-1.5 py-1 rounded-lg text-[11.5px] font-semibold
+                               text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 transition-colors"
+                      >
+                        <Check class="w-3.5 h-3.5" /> Guardar
+                      </button>
+                      <button
+                        type="button"
+                        @click="cancelarEdicion"
+                        class="inline-flex items-center gap-1 px-1.5 py-1 rounded-lg text-[11.5px] font-semibold
+                               text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                      >
+                        <X class="w-3.5 h-3.5" /> Cancelar
+                      </button>
+                    </template>
                     <button
+                      v-else
                       type="button"
-                      :disabled="guardandoEdicionNombre === c.nombre"
-                      @click="guardarEdicion(c)"
-                      class="inline-flex items-center gap-1 px-1.5 py-1 rounded-lg text-[11.5px] font-semibold
-                             text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 transition-colors"
+                      @click="iniciarEdicion(c)"
+                      class="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-[11.5px] font-semibold
+                             text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700
+                             transition-colors"
                     >
-                      <Check class="w-3.5 h-3.5" /> Guardar
+                      <Pencil class="w-3.5 h-3.5" />
                     </button>
-                    <button
-                      type="button"
-                      @click="cancelarEdicion"
-                      class="inline-flex items-center gap-1 px-1.5 py-1 rounded-lg text-[11.5px] font-semibold
-                             text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-                    >
-                      <X class="w-3.5 h-3.5" /> Cancelar
-                    </button>
-                  </template>
-                  <button
-                    v-else
-                    type="button"
-                    @click="iniciarEdicion(c)"
-                    class="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-[11.5px] font-semibold
-                           text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700
-                           transition-colors"
-                  >
-                    <Pencil class="w-3.5 h-3.5" />
-                  </button>
-                </td>
-              </tr>
+                  </td>
+                </tr>
+
+                <!-- Panel de borrado: solo en modo edición -->
+                <CategoriaUsoPanel
+                  v-if="categoriaEditando === c.nombre"
+                  :nombre="c.nombre"
+                  :uso="usoCategoria"
+                  :cargando="cargandoUsoCategoria"
+                  :eliminando="eliminandoCategoriaNombre === c.nombre"
+                  @eliminar="eliminarCategoria(c)"
+                />
+              </template>
 
               <tr v-if="!categorias.length && !loadingCategorias">
                 <td colspan="2" class="px-4 py-6 text-center text-[12px] text-slate-600 dark:text-slate-500">
@@ -438,61 +448,71 @@
               </tr>
             </thead>
             <tbody>
-              <tr
-                v-for="(t, i) in tiposTitulo"
-                :key="t"
-                class="border-b border-slate-100 dark:border-slate-700/60 transition-colors hover:bg-slate-50 dark:hover:bg-white/[0.025]"
-                :class="i % 2 === 0 ? 'bg-white' : 'bg-slate-50/70 dark:bg-slate-900/20'"
-              >
-                <td class="px-4 py-1.5">
-                  <input
-                    v-if="tipoEditando === t"
-                    v-model="valorEdicionTipo"
-                    type="text"
-                    maxlength="60"
-                    class="w-full uppercase rounded-md border border-amber-300 dark:border-amber-500 dark:bg-slate-900
-                           text-slate-800 dark:text-slate-200 text-[12.5px] px-2 py-1
-                           focus:outline-none focus:ring-2 focus:ring-amber-400"
-                    ref="inputEdicionTipoRef"
-                    @keydown.enter.prevent="guardarEdicionTipo(t)"
-                    @keydown.esc="cancelarEdicionTipo"
-                  />
-                  <span v-else class="font-medium text-slate-800 dark:text-slate-200">
-                    {{ t }}
-                  </span>
-                </td>
-                <td class="px-4 py-1.5 text-right whitespace-nowrap">
-                  <template v-if="tipoEditando === t">
+              <template v-for="(t, i) in tiposTitulo" :key="t">
+                <tr
+                  class="border-b border-slate-100 dark:border-slate-700/60 transition-colors hover:bg-slate-50 dark:hover:bg-white/[0.025]"
+                  :class="i % 2 === 0 ? 'bg-white' : 'bg-slate-50/70 dark:bg-slate-900/20'"
+                >
+                  <td class="px-4 py-1.5">
+                    <input
+                      v-if="tipoEditando === t"
+                      v-model="valorEdicionTipo"
+                      type="text"
+                      maxlength="60"
+                      class="w-full uppercase rounded-md border border-amber-300 dark:border-amber-500 dark:bg-slate-900
+                             text-slate-800 dark:text-slate-200 text-[12.5px] px-2 py-1
+                             focus:outline-none focus:ring-2 focus:ring-amber-400"
+                      ref="inputEdicionTipoRef"
+                      @keydown.enter.prevent="guardarEdicionTipo(t)"
+                      @keydown.esc="cancelarEdicionTipo"
+                    />
+                    <span v-else class="font-medium text-slate-800 dark:text-slate-200">
+                      {{ t }}
+                    </span>
+                  </td>
+                  <td class="px-4 py-1.5 text-right whitespace-nowrap">
+                    <template v-if="tipoEditando === t">
+                      <button
+                        type="button"
+                        :disabled="guardandoEdicionTipoNombre === t"
+                        @click="guardarEdicionTipo(t)"
+                        class="inline-flex items-center gap-1 px-1.5 py-1 rounded-lg text-[11.5px] font-semibold
+                               text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 transition-colors"
+                      >
+                        <Check class="w-3.5 h-3.5" /> Guardar
+                      </button>
+                      <button
+                        type="button"
+                        @click="cancelarEdicionTipo"
+                        class="inline-flex items-center gap-1 px-1.5 py-1 rounded-lg text-[11.5px] font-semibold
+                               text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                      >
+                        <X class="w-3.5 h-3.5" /> Cancelar
+                      </button>
+                    </template>
                     <button
+                      v-else
                       type="button"
-                      :disabled="guardandoEdicionTipoNombre === t"
-                      @click="guardarEdicionTipo(t)"
-                      class="inline-flex items-center gap-1 px-1.5 py-1 rounded-lg text-[11.5px] font-semibold
-                             text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 transition-colors"
+                      @click="iniciarEdicionTipo(t)"
+                      class="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-[11.5px] font-semibold
+                             text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700
+                             transition-colors"
                     >
-                      <Check class="w-3.5 h-3.5" /> Guardar
+                      <Pencil class="w-3.5 h-3.5" />
                     </button>
-                    <button
-                      type="button"
-                      @click="cancelarEdicionTipo"
-                      class="inline-flex items-center gap-1 px-1.5 py-1 rounded-lg text-[11.5px] font-semibold
-                             text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-                    >
-                      <X class="w-3.5 h-3.5" /> Cancelar
-                    </button>
-                  </template>
-                  <button
-                    v-else
-                    type="button"
-                    @click="iniciarEdicionTipo(t)"
-                    class="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-[11.5px] font-semibold
-                           text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700
-                           transition-colors"
-                  >
-                    <Pencil class="w-3.5 h-3.5" />
-                  </button>
-                </td>
-              </tr>
+                  </td>
+                </tr>
+
+                <!-- Panel de borrado: solo en modo edición -->
+                <CategoriaUsoPanel
+                  v-if="tipoEditando === t"
+                  :nombre="t"
+                  :uso="usoTipo"
+                  :cargando="cargandoUsoTipo"
+                  :eliminando="eliminandoTipoNombre === t"
+                  @eliminar="eliminarTipo(t)"
+                />
+              </template>
 
               <tr v-if="!tiposTitulo.length && !loadingTipos">
                 <td colspan="2" class="px-4 py-6 text-center text-[12px] text-slate-600 dark:text-slate-500">
@@ -605,51 +625,50 @@
               </tr>
             </thead>
             <tbody>
-              <tr
-                v-for="(c, i) in categoriasKardex"
-                :key="c"
-                class="border-b border-slate-100 dark:border-slate-700/60 transition-colors hover:bg-slate-50 dark:hover:bg-white/[0.025]"
-                :class="i % 2 === 0 ? 'bg-white' : 'bg-slate-50/70 dark:bg-slate-900/20'"
-              >
-                <td class="px-4 py-1.5">
-                  <input
-                    v-if="kardexEditando === c"
-                    v-model="valorEdicionKardex"
-                    type="text"
-                    maxlength="60"
-                    class="w-full uppercase rounded-md border border-amber-300 dark:border-amber-500 dark:bg-slate-900
-                           text-slate-800 dark:text-slate-200 text-[12.5px] px-2 py-1
-                           focus:outline-none focus:ring-2 focus:ring-amber-400"
-                    ref="inputEdicionKardexRef"
-                    @keydown.enter.prevent="guardarEdicionKardex(c)"
-                    @keydown.esc="cancelarEdicionKardex"
-                  />
-                  <span v-else class="font-medium text-slate-800 dark:text-slate-200">
-                    {{ c }}
-                  </span>
-                </td>
-                <td class="px-4 py-1.5 text-right whitespace-nowrap">
-                  <template v-if="kardexEditando === c">
+              <template v-for="(c, i) in categoriasKardex" :key="c">
+                <tr
+                  class="border-b border-slate-100 dark:border-slate-700/60 transition-colors hover:bg-slate-50 dark:hover:bg-white/[0.025]"
+                  :class="i % 2 === 0 ? 'bg-white' : 'bg-slate-50/70 dark:bg-slate-900/20'"
+                >
+                  <td class="px-4 py-1.5">
+                    <input
+                      v-if="kardexEditando === c"
+                      v-model="valorEdicionKardex"
+                      type="text"
+                      maxlength="60"
+                      class="w-full uppercase rounded-md border border-amber-300 dark:border-amber-500 dark:bg-slate-900
+                             text-slate-800 dark:text-slate-200 text-[12.5px] px-2 py-1
+                             focus:outline-none focus:ring-2 focus:ring-amber-400"
+                      ref="inputEdicionKardexRef"
+                      @keydown.enter.prevent="guardarEdicionKardex(c)"
+                      @keydown.esc="cancelarEdicionKardex"
+                    />
+                    <span v-else class="font-medium text-slate-800 dark:text-slate-200">
+                      {{ c }}
+                    </span>
+                  </td>
+                  <td class="px-4 py-1.5 text-right whitespace-nowrap">
+                    <template v-if="kardexEditando === c">
+                      <button
+                        type="button"
+                        :disabled="guardandoEdicionKardexNombre === c"
+                        @click="guardarEdicionKardex(c)"
+                        class="inline-flex items-center gap-1 px-1.5 py-1 rounded-lg text-[11.5px] font-semibold
+                               text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 transition-colors"
+                      >
+                        <Check class="w-3.5 h-3.5" /> Guardar
+                      </button>
+                      <button
+                        type="button"
+                        @click="cancelarEdicionKardex"
+                        class="inline-flex items-center gap-1 px-1.5 py-1 rounded-lg text-[11.5px] font-semibold
+                               text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                      >
+                        <X class="w-3.5 h-3.5" /> Cancelar
+                      </button>
+                    </template>
                     <button
-                      type="button"
-                      :disabled="guardandoEdicionKardexNombre === c"
-                      @click="guardarEdicionKardex(c)"
-                      class="inline-flex items-center gap-1 px-1.5 py-1 rounded-lg text-[11.5px] font-semibold
-                             text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 transition-colors"
-                    >
-                      <Check class="w-3.5 h-3.5" /> Guardar
-                    </button>
-                    <button
-                      type="button"
-                      @click="cancelarEdicionKardex"
-                      class="inline-flex items-center gap-1 px-1.5 py-1 rounded-lg text-[11.5px] font-semibold
-                             text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-                    >
-                      <X class="w-3.5 h-3.5" /> Cancelar
-                    </button>
-                  </template>
-                  <template v-else>
-                    <button
+                      v-else
                       type="button"
                       @click="iniciarEdicionKardex(c)"
                       class="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-[11.5px] font-semibold
@@ -659,21 +678,19 @@
                     >
                       <Pencil class="w-3.5 h-3.5" />
                     </button>
-                    <button
-                      type="button"
-                      :disabled="eliminandoKardexNombre === c"
-                      @click="eliminarKardex(c)"
-                      class="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-[11.5px] font-semibold
-                             text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10
-                             transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      title="Eliminar"
-                    >
-                      <Loader2 v-if="eliminandoKardexNombre === c" class="w-3.5 h-3.5 animate-spin" />
-                      <Trash2 v-else class="w-3.5 h-3.5" />
-                    </button>
-                  </template>
-                </td>
-              </tr>
+                  </td>
+                </tr>
+
+                <!-- Panel de borrado: solo en modo edición -->
+                <CategoriaUsoPanel
+                  v-if="kardexEditando === c"
+                  :nombre="c"
+                  :uso="usoKardex"
+                  :cargando="cargandoUsoKardex"
+                  :eliminando="eliminandoKardexNombre === c"
+                  @eliminar="eliminarKardex(c)"
+                />
+              </template>
 
               <tr v-if="!categoriasKardex.length && !loadingKardex">
                 <td colspan="2" class="px-4 py-6 text-center text-[12px] text-slate-600 dark:text-slate-500">
@@ -694,14 +711,15 @@
 
 <script setup>
 import { ref, computed, watch, onMounted, nextTick } from 'vue'
-import { RotateCcw, Save, AlertCircle, X, Info, Loader2, Plus, Pencil, Check, ChevronDown, Lock, Unlock, Trash2 } from 'lucide-vue-next'
-// (todos los iconos usados por las secciones de catálogos ya están en este import)
+import { RotateCcw, Save, AlertCircle, X, Info, Loader2, Plus, Pencil, Check, ChevronDown, Lock, Unlock } from 'lucide-vue-next'
 import { usePeriodosAcademicos } from '../composables/usePeriodosAcademicos'
 import { useCategorias } from '../composables/useCategorias'
 import { useTiposTitulo } from '../composables/useTiposTitulo'
 import { useCategoriasKardex } from '../composables/useCategoriasKardex'
 import { useNotify } from '@/shared/composables/useNotify'
 import PeriodoFechaSelector from '../components/PeriodoFechaSelector.vue'
+// NUEVO: panel que muestra si la categoría está en uso (y con qué) o el botón "Eliminar"
+import CategoriaUsoPanel from '../components/CategoriaUsoPanel.vue'
 
 const notify = useNotify()
 
@@ -808,6 +826,8 @@ const {
   cargarCategorias,
   crearCategoria,
   actualizarCategoria,
+  consultarUso: consultarUsoCategoria,
+  eliminarCategoria: eliminarCategoriaApi,
   clearError: clearErrorCategorias,
 } = useCategorias()
 
@@ -849,15 +869,32 @@ const valorEdicion = ref('')
 const guardandoEdicionNombre = ref(null)
 const inputEdicionRef = ref(null)
 
-function iniciarEdicion(c) {
+// Estado del panel de borrado (uso de la categoría que se está editando)
+const usoCategoria = ref(null)
+const cargandoUsoCategoria = ref(false)
+const eliminandoCategoriaNombre = ref(null)
+
+async function iniciarEdicion(c) {
   categoriaEditando.value = c.nombre
   valorEdicion.value = c.nombre
+  usoCategoria.value = null
   nextTick(() => inputEdicionRef.value?.[0]?.focus?.())
+
+  // Al entrar a editar, se consulta en qué está usada para decidir si se puede borrar
+  cargandoUsoCategoria.value = true
+  const r = await consultarUsoCategoria(c.nombre)
+  // Si el usuario canceló o cambió de fila mientras cargaba, se descarta el resultado
+  if (categoriaEditando.value === c.nombre) {
+    usoCategoria.value = r
+    cargandoUsoCategoria.value = false
+  }
 }
 
 function cancelarEdicion() {
   categoriaEditando.value = null
   valorEdicion.value = ''
+  usoCategoria.value = null
+  cargandoUsoCategoria.value = false
 }
 
 async function guardarEdicion(c) {
@@ -892,6 +929,32 @@ async function guardarEdicion(c) {
   }
 }
 
+async function eliminarCategoria(c) {
+  if (!confirm(`¿Eliminar la categoría "${c.nombre}"? Esta acción no se puede deshacer.`)) return
+
+  eliminandoCategoriaNombre.value = c.nombre
+  try {
+    const resultado = await eliminarCategoriaApi(c.nombre)
+    if (resultado?.success) {
+      notify.success('Categoría eliminada')
+      cancelarEdicion()
+    } else if (resultado?.enUso) {
+      // Alguien la usó entre la consulta y el borrado: se muestra el detalle actualizado
+      usoCategoria.value = {
+        success: true,
+        en_uso: true,
+        total: resultado.total,
+        detalle: resultado.detalle,
+      }
+      notify.error('No se puede eliminar: la categoría está en uso')
+    } else {
+      notify.error(resultado?.message ?? 'Error al eliminar la categoría')
+    }
+  } finally {
+    eliminandoCategoriaNombre.value = null
+  }
+}
+
 onMounted(cargarCategorias)
 
 // ══════════════ Tipos de título académico (misma vista, sección colapsable) ══════════════
@@ -907,6 +970,8 @@ const {
   cargarTipos,
   agregarTipoLocal,
   actualizarTipo,
+  consultarUso: consultarUsoTipo,
+  eliminarTipo: eliminarTipoApi,
 } = useTiposTitulo()
 
 const nuevoTipo = ref('')
@@ -929,15 +994,30 @@ const valorEdicionTipo = ref('')
 const guardandoEdicionTipoNombre = ref(null)
 const inputEdicionTipoRef = ref(null)
 
-function iniciarEdicionTipo(t) {
+// Estado del panel de borrado
+const usoTipo = ref(null)
+const cargandoUsoTipo = ref(false)
+const eliminandoTipoNombre = ref(null)
+
+async function iniciarEdicionTipo(t) {
   tipoEditando.value = t
   valorEdicionTipo.value = t
+  usoTipo.value = null
   nextTick(() => inputEdicionTipoRef.value?.[0]?.focus?.())
+
+  cargandoUsoTipo.value = true
+  const r = await consultarUsoTipo(t)
+  if (tipoEditando.value === t) {
+    usoTipo.value = r
+    cargandoUsoTipo.value = false
+  }
 }
 
 function cancelarEdicionTipo() {
   tipoEditando.value = null
   valorEdicionTipo.value = ''
+  usoTipo.value = null
+  cargandoUsoTipo.value = false
 }
 
 async function guardarEdicionTipo(t) {
@@ -970,6 +1050,32 @@ async function guardarEdicionTipo(t) {
   }
 }
 
+async function eliminarTipo(t) {
+  if (!confirm(`¿Eliminar el tipo de título "${t}"? Esta acción no se puede deshacer.`)) return
+
+  eliminandoTipoNombre.value = t
+  try {
+    const resultado = await eliminarTipoApi(t)
+    if (resultado?.success) {
+      notify.success('Tipo de título eliminado')
+      cancelarEdicionTipo()
+    } else if (resultado?.enUso) {
+      usoTipo.value = {
+        success: true,
+        en_uso: true,
+        total: resultado.total,
+        detalle: resultado.detalle,
+      }
+      notify.error('No se puede eliminar: el tipo de título está en uso')
+    } else {
+      errorTipos.value = resultado?.message ?? 'Error al eliminar el tipo de título'
+      notify.error(errorTipos.value)
+    }
+  } finally {
+    eliminandoTipoNombre.value = null
+  }
+}
+
 onMounted(cargarTipos)
 
 // ══════════════ Categorías de tipo de ingreso (Kardex) ══════════════
@@ -984,6 +1090,7 @@ const {
   cargar: cargarKardex,
   agregar: agregarKardexApi,
   actualizar: actualizarKardexApi,
+  consultarUso: consultarUsoKardex,
   eliminar: eliminarKardexApi,
   clearError: clearErrorKardex,
 } = useCategoriasKardex()
@@ -1022,15 +1129,30 @@ const valorEdicionKardex = ref('')
 const guardandoEdicionKardexNombre = ref(null)
 const inputEdicionKardexRef = ref(null)
 
-function iniciarEdicionKardex(c) {
+// Estado del panel de borrado
+const usoKardex = ref(null)
+const cargandoUsoKardex = ref(false)
+const eliminandoKardexNombre = ref(null)
+
+async function iniciarEdicionKardex(c) {
   kardexEditando.value = c
   valorEdicionKardex.value = c
+  usoKardex.value = null
   nextTick(() => inputEdicionKardexRef.value?.[0]?.focus?.())
+
+  cargandoUsoKardex.value = true
+  const r = await consultarUsoKardex(c)
+  if (kardexEditando.value === c) {
+    usoKardex.value = r
+    cargandoUsoKardex.value = false
+  }
 }
 
 function cancelarEdicionKardex() {
   kardexEditando.value = null
   valorEdicionKardex.value = ''
+  usoKardex.value = null
+  cargandoUsoKardex.value = false
 }
 
 async function guardarEdicionKardex(c) {
@@ -1062,16 +1184,23 @@ async function guardarEdicionKardex(c) {
   }
 }
 
-const eliminandoKardexNombre = ref(null)
-
 async function eliminarKardex(c) {
-  if (!confirm(`¿Eliminar la categoría "${c}" del catálogo?\n\nSi todavía está en uso en algún grupo o resolución, va a seguir apareciendo en la lista hasta que ya no se use.`)) return
+  if (!confirm(`¿Eliminar la categoría "${c}"? Esta acción no se puede deshacer.`)) return
 
   eliminandoKardexNombre.value = c
   try {
     const resultado = await eliminarKardexApi(c)
-    if (resultado?.success !== false) {
-      notify.success('Categoría eliminada del catálogo')
+    if (resultado?.success) {
+      notify.success('Categoría eliminada')
+      cancelarEdicionKardex()
+    } else if (resultado?.enUso) {
+      usoKardex.value = {
+        success: true,
+        en_uso: true,
+        total: resultado.total,
+        detalle: resultado.detalle,
+      }
+      notify.error('No se puede eliminar: la categoría está en uso')
     } else {
       notify.error(resultado?.message ?? 'Error al eliminar la categoría')
     }

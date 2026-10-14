@@ -3,7 +3,7 @@
 import { ref } from 'vue'
 import axios from 'axios'
 
-const API_BASE = import.meta.env.VITE_API_URL 
+const API_BASE = import.meta.env.VITE_API_URL
 
 // /api/admin/horarios y /api/admin/horarios/{docente} ahora están
 // protegidas con auth:sanctum. Antes estas llamadas no mandaban ningún
@@ -248,7 +248,12 @@ export function useHorarioAdmin() {
             item.carga += Number(h.CARGA_HORARIA || 0)
         }
 
-        return Array.from(mapa.values())
+        // Orden: PLAN → MATERIA → GRUPO
+        return Array.from(mapa.values()).sort((a, b) =>
+            String(a.plan ?? '').localeCompare(String(b.plan ?? ''), 'es', { numeric: true }) ||
+            String(a.materia ?? '').localeCompare(String(b.materia ?? ''), 'es', { numeric: true }) ||
+            String(a.grupo ?? '').localeCompare(String(b.grupo ?? ''), 'es', { numeric: true })
+        )
     }
 
     return {

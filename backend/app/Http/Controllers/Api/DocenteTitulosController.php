@@ -8,6 +8,54 @@ use Illuminate\Support\Facades\DB;
 
 class DocenteTitulosController extends Controller
 {
+    /**
+     * Prefijos de materias que cuentan para considerar a un docente "activo".
+     * Si cambian en el futuro, se modifican solo aquí.
+     */
+    private const PREFIJOS_MATERIAS = ['1301', '1302', '1304'];
+
+    /**
+     * Los códigos de docente <= a este valor se ignoran (códigos especiales).
+     */
+    private const DOCENTE_MINIMO = 100;
+
+    /**
+     * Códigos de docentes activos en un año/periodo.
+     * Mismo criterio que la consulta de verificación:
+     *  - GRUPOS + MATERIAS + DOCENTES
+     *  - PRIMARIO = 'Y'
+     *  - DOCENTE > 100
+     *  - MATERIA que empiece con 1301, 1302 o 1304
+     *
+     * Reutilizable desde otros controladores (por ejemplo, el Excel).
+     */
+    public static function codigosDocentesActivos(int $anio, string $periodo): array
+    {
+        return DB::table('GRUPOS as g')
+            ->join('MATERIAS as m', function ($j) {
+                $j->on('m.CODIGO', '=', 'g.MATERIA')
+                    ->on('m.ANIO', '=', 'g.ANIO')
+                    ->on('m.PERIODO', '=', 'g.PERIODO')
+                    ->on('m.PLAN', '=', 'g.PLAN');
+            })
+            ->join('DOCENTES as d', 'd.CODIGO', '=', 'g.DOCENTE')
+            ->where('g.ANIO', $anio)
+            ->where('g.PERIODO', $periodo)
+            ->where('g.PRIMARIO', 'Y')
+            ->where('g.DOCENTE', '>', self::DOCENTE_MINIMO)
+            ->where(function ($q) {
+                foreach (self::PREFIJOS_MATERIAS as $prefijo) {
+                    $q->orWhere('g.MATERIA', 'like', $prefijo . '%');
+                }
+            })
+            ->distinct()
+            ->pluck('g.DOCENTE')
+            ->map(fn($c) => (string) $c)
+            ->unique()
+            ->values()
+            ->all();
+    }
+
     // GET /api/docentes/{codigo}/titulos
     public function titulos($codigo)
     {
@@ -78,8 +126,8 @@ class DocenteTitulosController extends Controller
         ]);
     }
 
-    // GET /api/docentes/periodo-titulos?anio=2026&periodo=1&tipo_titulo=
-    // Docentes con carga (GRUPOS) en ese periodo + sus títulos registrados.
+    // GET /api/docentes/periodo-titulos?anio=2026&periodo=2&tipo_titulo=
+    // Docentes activos en ese periodo (según GRUPOS/MATERIAS) + sus títulos registrados.
     public function porPeriodo(Request $request)
     {
         $request->validate([
@@ -92,17 +140,8 @@ class DocenteTitulosController extends Controller
         $periodo = (string) $request->query('periodo');
         $tipo = trim((string) $request->query('tipo_titulo', ''));
 
-        // 1) Docentes activos en el periodo
-        $codigos = DB::table('GRUPOS')
-            ->where('ANIO', $anio)
-            ->where('PERIODO', $periodo)
-            ->whereNotNull('DOCENTE')
-            ->distinct()
-            ->pluck('DOCENTE')
-            ->map(fn($c) => (string) $c)
-            ->unique()
-            ->values()
-            ->all();
+        // 1) Docentes activos en el periodo (criterio unificado)
+        $codigos = self::codigosDocentesActivos($anio, $periodo);
 
         $docentes = [];
         $titulosPorDocente = [];

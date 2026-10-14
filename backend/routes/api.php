@@ -288,9 +288,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::pattern('tipoCategoria', 'documento|titulo|kardex');
 
     Route::get('/categorias-clasificacion/{tipoCategoria}', [CategoriaClasificacionController::class, 'index']);
+    // NUEVO: ¿está en uso esta categoría? (y en qué tablas)
+    Route::get('/categorias-clasificacion/{tipoCategoria}/uso', [CategoriaClasificacionController::class, 'uso']);
     Route::post('/categorias-clasificacion/{tipoCategoria}', [CategoriaClasificacionController::class, 'store']);
     Route::put('/categorias-clasificacion/{tipoCategoria}', [CategoriaClasificacionController::class, 'update']);
-    Route::delete('/categorias-clasificacion/{tipo}', [CategoriaClasificacionController::class, 'destroy']);
+    // CAMBIO: antes era {tipo} (sin restricción); ahora usa {tipoCategoria} y hereda el pattern
+    Route::delete('/categorias-clasificacion/{tipoCategoria}', [CategoriaClasificacionController::class, 'destroy']);
 
     /* ----------------------------------------------------------------
      | ÍNDICES DE BASE DE DATOS
