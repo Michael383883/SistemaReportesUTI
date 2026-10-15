@@ -436,6 +436,24 @@ class HorarioAdminController extends Controller
      * match y el LEFT JOIN se comporta como INNER JOIN de todas formas.
      * sqlInscritos se deja igual (INNER JOIN), porque ahi si solo
      * queremos filas cuando existe al menos un estudiante inscrito.
+     *
+     * NUEVO (columna C / compartidos): cada materia devuelve
+     *   - comp (bool)            → COMP = 1  (hijo)  /  0 (padre o no compartida)
+     *   - descripcion_comp       → GRUPOS_COMPARTIDOS.COMPARTIDO
+     *   - orden_comp             → GRUPOS_COMPARTIDOS.ORDEN (M1, M2...). Dentro de un
+     *                              docente, mismo ORDEN = mismo grupo compartido
+     *                              (COMP 0 = origen, COMP 1 = derivadas). Es la
+     *                              clave que usa el frontend (igual que el reporte
+     *                              de horarios).
+     *   - rol_comp               → 'padre' | 'hijo' | null
+     *   - padre_clave            → "plan-cod_materia-grupo" del padre (solo hijos)
+     *   - comparte_con[]         → materias con las que comparte (carrera, código,
+     *                              nombre, grupo, rol)
+     * Padre = COMP 0, hijo = COMP 1. Se relacionan por MATERIA + GRUPO entre
+     * planes distintos:
+     *   - Matriciales: el padre también tiene fila en GRUPOS_COMPARTIDOS.
+     *   - "Comparte de XXX" simples: el padre es un grupo normal de GRUPOS en
+     *     el plan que indica el texto (ADM, COM, ECO, FIN, CONTA→CCP).
      */
     public function listaInscritos(Request $request)
     {
@@ -526,6 +544,9 @@ class HorarioAdminController extends Controller
         // Mismo fix: LEFT JOIN KARDEX_EXT con condiciones en el ON, para que
         // una materia/grupo sin inscritos siga generando su fila (con
         // SUBTOTAL_REGULAR y SUBTOTAL_ESPECIAL en 0 en vez de desaparecer).
+        //
+        // NUEVO: se agrega COMPARTIDO (descripción) con MAX() para no tocar
+        // el GROUP BY, igual que ya se hacía con COMP.
         $sqlMaterias = "
     SELECT
         DOCENTES.CODIGO AS COD_DOCENTE,
@@ -541,7 +562,9 @@ class HorarioAdminController extends Controller
         MATERIAS.CODIGO  AS COD_MATERIA,
         MATERIAS.NOMBRE  AS NOM_MATERIA,
         GRUPOS.GRUPO,
-        MAX(GRUPOS_COMPARTIDOS.COMP) AS COMP,
+        MAX(GRUPOS_COMPARTIDOS.COMP)       AS COMP,
+        MAX(GRUPOS_COMPARTIDOS.COMPARTIDO) AS COMPARTIDO,
+        MAX(GRUPOS_COMPARTIDOS.ORDEN)      AS ORDEN_COMP,
         SUM(CASE WHEN KARDEX_EXT.TIPO_EXAMEN = 'N' THEN 1 ELSE 0 END) AS SUBTOTAL_REGULAR,
         SUM(CASE WHEN KARDEX_EXT.TIPO_EXAMEN = 'E' THEN 1 ELSE 0 END) AS SUBTOTAL_ESPECIAL
     FROM DOCENTES
@@ -585,6 +608,232 @@ class HorarioAdminController extends Controller
     ";
 
         $materias = DB::select($sqlMaterias, $bindings);
+
+        // ── 2b. Relaciones padre / hijo de grupos compartidos ─────────────────
+        // Sin filtro de docente ni de horario: el padre puede ser de otro
+        // docente (o de otra carrera) y aun así hay que mostrarlo.
+        $sqlCompartidos = "
+    SELECT
+        GRUPOS.[PLAN],
+        CASE GRUPOS.[PLAN]
+            WHEN '059801' THEN 'ECO'
+            WHEN '109401' THEN 'ADM'
+            WHEN '089801' THEN 'CCP'
+            WHEN '125091' THEN 'COM'
+            WHEN '126091' THEN 'FIN'
+            ELSE 'NN'
+        END AS CARRERA,
+        MATERIAS.CODIGO  AS COD_MATERIA,
+        MATERIAS.NOMBRE  AS NOM_MATERIA,
+        GRUPOS.GRUPO,
+        MAX(GRUPOS_COMPARTIDOS.COMP)       AS COMP,
+        MAX(GRUPOS_COMPARTIDOS.COMPARTIDO) AS COMPARTIDO
+    FROM GRUPOS
+    INNER JOIN MATERIAS
+        ON GRUPOS.ANIO     = MATERIAS.ANIO
+        AND GRUPOS.PERIODO = MATERIAS.PERIODO
+        AND GRUPOS.[PLAN]  = MATERIAS.[PLAN]
+        AND GRUPOS.MATERIA = MATERIAS.CODIGO
+    INNER JOIN GRUPOS_COMPARTIDOS
+        ON GRUPOS.[PLAN]     = GRUPOS_COMPARTIDOS.[PLAN]
+        AND GRUPOS.MATERIA   = GRUPOS_COMPARTIDOS.MATERIA
+        AND GRUPOS.GRUPO     = GRUPOS_COMPARTIDOS.GRUPO
+        AND GRUPOS.PRIMARIO  = GRUPOS_COMPARTIDOS.PRIMARIO
+    WHERE GRUPOS.ANIO     = :anio
+      AND GRUPOS.PERIODO  = :periodo
+      AND GRUPOS.[PLAN]   IN ('109401','125091','089801','126091','059801')
+      AND GRUPOS.PRIMARIO = 'Y'
+      AND GRUPOS.TIPO     = 'N'
+    GROUP BY
+        GRUPOS.[PLAN],
+        MATERIAS.CODIGO,
+        MATERIAS.NOMBRE,
+        GRUPOS.GRUPO
+    ";
+
+        $filasCompartidos = DB::select($sqlCompartidos, [
+            'anio' => $anio,
+            'periodo' => $periodo,
+        ]);
+
+        // Clusters: "MATERIA|GRUPO" => miembros (uno por plan)
+        $clusters = [];
+        foreach ($filasCompartidos as $r) {
+            $clusters["{$r->COD_MATERIA}|{$r->GRUPO}"][] = [
+                'plan' => $r->PLAN,
+                'carrera' => $r->CARRERA,
+                'cod_materia' => $r->COD_MATERIA,
+                'nom_materia' => $r->NOM_MATERIA,
+                'grupo' => $r->GRUPO,
+                'comp' => (int) ($r->COMP ?? 0) === 1,
+                'descripcion' => trim((string) ($r->COMPARTIDO ?? '')),
+            ];
+        }
+        unset($filasCompartidos);
+
+        // En el texto "Comparte de CONTA" la carrera no siempre usa el mismo
+        // código que CARRERA (CONTA → CCP).
+        $aliasCarrera = ['CONTA' => 'CCP', 'CONTADURIA' => 'CCP'];
+        $planPorCarrera = [
+            'ECO' => '059801',
+            'ADM' => '109401',
+            'CCP' => '089801',
+            'COM' => '125091',
+            'FIN' => '126091',
+        ];
+
+        // "Matricial ADM-COM - Comparte de ADM" / "Comparte de CONTA" → 'ADM' / 'CCP'
+        $carreraDeTexto = function (string $texto) use ($aliasCarrera): ?string {
+            if (!preg_match('/Comparte\s+de\s+([A-Za-z]+)/u', $texto, $mt)) {
+                return null;
+            }
+            $cod = strtoupper($mt[1]);
+            return $aliasCarrera[$cod] ?? $cod;
+        };
+
+        $relaciones = [];  // "plan|cod_materia|grupo" => info de relación
+        $huerfanos = [];   // hijos cuyo padre NO tiene fila en GRUPOS_COMPARTIDOS
+
+        foreach ($clusters as $miembros) {
+            // 1) Padre de cada hijo dentro del cluster (matriciales: el padre
+            //    también tiene su fila en GRUPOS_COMPARTIDOS con COMP = 0)
+            $padreDe = []; // índice del hijo => índice del padre (o null)
+            foreach ($miembros as $i => $m) {
+                if (!$m['comp']) {
+                    continue;
+                }
+                $candidatos = [];
+                foreach ($miembros as $j => $p) {
+                    if (!$p['comp'] && $p['plan'] !== $m['plan']) {
+                        $candidatos[] = $j;
+                    }
+                }
+                $elegido = $candidatos[0] ?? null;
+                if (count($candidatos) > 1) {
+                    $cod = $carreraDeTexto($m['descripcion']);
+                    if ($cod !== null) {
+                        foreach ($candidatos as $j) {
+                            if ($miembros[$j]['carrera'] === $cod) {
+                                $elegido = $j;
+                                break;
+                            }
+                        }
+                    }
+                }
+                $padreDe[$i] = $elegido;
+            }
+
+            // 2) Info de relación por miembro
+            foreach ($miembros as $i => $m) {
+                $kRel = "{$m['plan']}|{$m['cod_materia']}|{$m['grupo']}";
+
+                if ($m['comp']) {
+                    $j = $padreDe[$i] ?? null;
+                    $relaciones[$kRel] = [
+                        'rol' => 'hijo',
+                        'padre_clave' => $j !== null
+                            ? "{$miembros[$j]['plan']}-{$miembros[$j]['cod_materia']}-{$miembros[$j]['grupo']}"
+                            : null,
+                        'comparte_con' => $j !== null
+                            ? [$this->formatoRelacionComp($miembros[$j], 'padre')]
+                            : [],
+                    ];
+                    if ($j === null) {
+                        $huerfanos[] = $m;
+                    }
+                } else {
+                    $hijos = [];
+                    foreach ($padreDe as $iHijo => $jPadre) {
+                        if ($jPadre === $i) {
+                            $hijos[] = $this->formatoRelacionComp($miembros[$iHijo], 'hijo');
+                        }
+                    }
+                    if ($hijos) {
+                        $relaciones[$kRel] = [
+                            'rol' => 'padre',
+                            'padre_clave' => null,
+                            'comparte_con' => $hijos,
+                        ];
+                    }
+                }
+            }
+        }
+        unset($clusters);
+
+        // 3) Hijos "simples" ("Comparte de ADM", "Comparte de CONTA"...):
+        //    el padre es un grupo normal de GRUPOS (sin fila en
+        //    GRUPOS_COMPARTIDOS). Se busca en el plan que indica el texto,
+        //    con la misma MATERIA y el mismo GRUPO.
+        if ($huerfanos) {
+            $sqlGruposPlanes = "
+    SELECT
+        GRUPOS.[PLAN],
+        CASE GRUPOS.[PLAN]
+            WHEN '059801' THEN 'ECO'
+            WHEN '109401' THEN 'ADM'
+            WHEN '089801' THEN 'CCP'
+            WHEN '125091' THEN 'COM'
+            WHEN '126091' THEN 'FIN'
+            ELSE 'NN'
+        END AS CARRERA,
+        MATERIAS.CODIGO  AS COD_MATERIA,
+        MATERIAS.NOMBRE  AS NOM_MATERIA,
+        GRUPOS.GRUPO
+    FROM GRUPOS
+    INNER JOIN MATERIAS
+        ON GRUPOS.ANIO     = MATERIAS.ANIO
+        AND GRUPOS.PERIODO = MATERIAS.PERIODO
+        AND GRUPOS.[PLAN]  = MATERIAS.[PLAN]
+        AND GRUPOS.MATERIA = MATERIAS.CODIGO
+    WHERE GRUPOS.ANIO    = :anio
+      AND GRUPOS.PERIODO = :periodo
+      AND GRUPOS.[PLAN]  IN ('109401','125091','089801','126091','059801')
+      AND GRUPOS.TIPO    = 'N'
+    GROUP BY
+        GRUPOS.[PLAN],
+        MATERIAS.CODIGO,
+        MATERIAS.NOMBRE,
+        GRUPOS.GRUPO
+    ";
+
+            $gruposMap = [];
+            foreach (DB::select($sqlGruposPlanes, ['anio' => $anio, 'periodo' => $periodo]) as $g) {
+                $gruposMap["{$g->PLAN}|{$g->COD_MATERIA}|{$g->GRUPO}"] = [
+                    'plan' => $g->PLAN,
+                    'carrera' => $g->CARRERA,
+                    'cod_materia' => $g->COD_MATERIA,
+                    'nom_materia' => $g->NOM_MATERIA,
+                    'grupo' => $g->GRUPO,
+                ];
+            }
+
+            foreach ($huerfanos as $h) {
+                $carreraPadre = $carreraDeTexto($h['descripcion']);
+                $planPadre = $carreraPadre !== null ? ($planPorCarrera[$carreraPadre] ?? null) : null;
+                if ($planPadre === null || $planPadre === $h['plan']) {
+                    continue;
+                }
+
+                $padre = $gruposMap["{$planPadre}|{$h['cod_materia']}|{$h['grupo']}"] ?? null;
+                if ($padre === null) {
+                    continue;
+                }
+
+                $kHijo = "{$h['plan']}|{$h['cod_materia']}|{$h['grupo']}";
+                $relaciones[$kHijo]['padre_clave'] = "{$padre['plan']}-{$padre['cod_materia']}-{$padre['grupo']}";
+                $relaciones[$kHijo]['comparte_con'] = [$this->formatoRelacionComp($padre, 'padre')];
+
+                $kPadre = "{$padre['plan']}|{$padre['cod_materia']}|{$padre['grupo']}";
+                if (!isset($relaciones[$kPadre])) {
+                    $relaciones[$kPadre] = ['rol' => 'padre', 'padre_clave' => null, 'comparte_con' => []];
+                }
+                if ($relaciones[$kPadre]['rol'] === 'padre') {
+                    $relaciones[$kPadre]['comparte_con'][] = $this->formatoRelacionComp($h, 'hijo');
+                }
+            }
+            unset($gruposMap);
+        }
+        unset($huerfanos);
 
         // ── 3. Inscritos por materia ──────────────────────────────────────────
         // Se deja INNER JOIN a propósito: aquí solo interesa listar
@@ -633,7 +882,7 @@ class HorarioAdminController extends Controller
 
         $inscritos = DB::select($sqlInscritos, $bindings);
 
-        // ── 4. Armar estructura en PHP (sin cambios) ────────────────────────
+        // ── 4. Armar estructura en PHP ──────────────────────────────────────
         $inscritosMap = [];
         foreach ($inscritos as $ins) {
             $key = "{$ins->COD_DOCENTE}|{$ins->PLAN}|{$ins->COD_MATERIA}|{$ins->GRUPO}";
@@ -673,11 +922,22 @@ class HorarioAdminController extends Controller
                     $listaRegulares = $inscritosMap[$key]['regulares'] ?? [];
                     $listaEspeciales = $inscritosMap[$key]['especiales'] ?? [];
 
+                    // Descripción del compartido (ej. "Matricial ADM-ECO - Comparte de ADM").
+                    // Puede venir NULL o vacía; en ese caso se devuelve null.
+                    $descripcionComp = isset($mat->COMPARTIDO) ? trim((string) $mat->COMPARTIDO) : '';
+                    $ordenComp = isset($mat->ORDEN_COMP) ? trim((string) $mat->ORDEN_COMP) : '';
+                    $rel = $relaciones["{$mat->PLAN}|{$mat->COD_MATERIA}|{$mat->GRUPO}"] ?? null;
+
                     $materiasArr[] = [
                         'cod_materia' => $mat->COD_MATERIA,
                         'nom_materia' => $mat->NOM_MATERIA,
                         'grupo' => $mat->GRUPO,
                         'comp' => (int) ($mat->COMP ?? 0) === 1,
+                        'descripcion_comp' => $descripcionComp !== '' ? $descripcionComp : null,
+                        'orden_comp' => $ordenComp !== '' ? $ordenComp : null,
+                        'rol_comp' => $rel['rol'] ?? null,
+                        'padre_clave' => $rel['padre_clave'] ?? null,
+                        'comparte_con' => $rel['comparte_con'] ?? [],
                         'inscritos' => $listaRegulares,
                         'subtotal' => count($listaRegulares),
                         'inscritos_examen_mesa' => $listaEspeciales,
@@ -710,7 +970,7 @@ class HorarioAdminController extends Controller
             ];
         }
 
-        unset($inscritosMap, $materiasMap, $docentes);
+        unset($inscritosMap, $materiasMap, $docentes, $relaciones);
 
         return response()->json([
             'anio' => $anio,
@@ -728,6 +988,20 @@ class HorarioAdminController extends Controller
             $request->merge(['docente' => $docente])
         );
     }
+    /**
+     * Formato de una materia relacionada (para "comparte_con").
+     */
+    private function formatoRelacionComp(array $m, string $rol): array
+    {
+        return [
+            'rol' => $rol,
+            'carrera' => $m['carrera'],
+            'cod_materia' => $m['cod_materia'],
+            'nom_materia' => $m['nom_materia'],
+            'grupo' => $m['grupo'],
+        ];
+    }
+
     /**
      * Determina el período académico y año que corresponden a HOY,
      * usando los rangos de `periodos_academicos` (los mismos que edita

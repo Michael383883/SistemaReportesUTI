@@ -80,8 +80,9 @@
         </thead>
 
         <tbody>
+          <!-- filasOrdenadas: cada padre (COMP 0) seguido de sus hijos (COMP 1) -->
           <tr
-            v-for="(mat, i) in materiasAgrupadas"
+            v-for="({ mat, anidado }, i) in filasOrdenadas"
             :key="i"
             class="border-b border-slate-200 dark:border-slate-700 transition-colors"
             :class="filaClase(i)"
@@ -104,14 +105,24 @@
 
             <td 
               translate="no"
-              class="px-3 py-1.5"
+              class="py-1.5 pr-3"
+              :class="anidado ? 'pl-8' : 'pl-3'"
             >
-              <span class="block font-semibold text-slate-800 dark:text-slate-100 leading-snug text-[12px]">
-                {{ mat.nombre }}
-              </span>
-              <span class="block text-[10px] font-semibold text-slate-400 dark:text-slate-500">
-                {{ mat.materia }}
-              </span>
+              <div class="flex items-start gap-1.5">
+                <span
+                  v-if="anidado"
+                  class="text-indigo-400 text-xs shrink-0 -ml-4 mt-0.5"
+                  aria-hidden="true"
+                >↳</span>
+                <div class="min-w-0">
+                  <span class="block font-semibold text-slate-800 dark:text-slate-100 leading-snug text-[12px]">
+                    {{ mat.nombre }}
+                  </span>
+                  <span class="block text-[10px] font-semibold text-slate-400 dark:text-slate-500">
+                    {{ mat.materia }}
+                  </span>
+                </div>
+              </div>
             </td>
 
             <td 
@@ -260,6 +271,105 @@ function norm(v) {
 const materiasVisibles = computed(() =>
   materiasAgrupadas.value.filter(mat => norm(mat.comp) !== '1')
 )
+
+// ─── Padres e hijos de grupos compartidos ──────────────────────────────────
+// Mismo criterio que el reporte resumen:
+//   1) Mismo ORDEN (M1, M2...) dentro del docente: COMP 0 = padre/origen,
+//      COMP 1 = hijos/derivadas (un padre puede tener varios hijos).
+//   2) Sin ORDEN pero con COMPARTIDO: se empareja por misma carga horaria y
+//      distinta carrera (uno COMP 0 y el otro COMP 1).
+// El ORDEN se toma de la materia agrupada si viene ahí (mat.orden); si no, se
+// busca en las filas crudas de horarios (campo ORDEN) por carrera+materia+grupo.
+const ordenPorClave = computed(() => {
+  const mapa = new Map()
+  ;(props.docente.horarios ?? []).forEach(h => {
+    const orden = norm(h.ORDEN)
+    if (!orden) return
+    const k = `${norm(h.CARRERA)}|${norm(h.MATERIA)}|${norm(h.GRUPO)}`
+    if (!mapa.has(k)) mapa.set(k, orden)
+  })
+  return mapa
+})
+
+function ordenDe(mat) {
+  return (
+    norm(mat.orden ?? mat.ORDEN) ||
+    ordenPorClave.value.get(`${norm(mat.carrera)}|${norm(mat.materia)}|${norm(mat.grupo)}`) ||
+    ''
+  )
+}
+
+// Lista plana en el orden de pantalla: padre arriba, hijos justo debajo (anidado = true)
+const filasOrdenadas = computed(() => {
+  const mats = materiasAgrupadas.value
+  const hijoDe = new Map()  // índice del hijo  -> índice del padre
+  const hijosDe = new Map() // índice del padre -> [índices de hijos]
+
+  function vincular(padre, hijo) {
+    if (padre === hijo || hijoDe.has(hijo) || hijoDe.has(padre) || hijosDe.has(hijo)) return
+    hijoDe.set(hijo, padre)
+    if (!hijosDe.has(padre)) hijosDe.set(padre, [])
+    hijosDe.get(padre).push(hijo)
+  }
+
+  // 1) Por ORDEN
+  const porOrden = new Map()
+  mats.forEach((m, idx) => {
+    const orden = ordenDe(m)
+    if (!orden) return
+    if (!porOrden.has(orden)) porOrden.set(orden, [])
+    porOrden.get(orden).push(idx)
+  })
+
+  for (const [, indices] of porOrden) {
+    if (indices.length < 2) continue
+    const origenes = indices.filter(i => norm(mats[i].comp) === '0')
+    const derivadas = indices.filter(i => norm(mats[i].comp) === '1')
+    if (!origenes.length || !derivadas.length) continue
+
+    derivadas.forEach((d, n) => {
+      const origen = origenes.length === 1 ? origenes[0] : origenes[n]
+      if (origen !== undefined) vincular(origen, d)
+    })
+  }
+
+  // 2) Lo que quedó suelto pero tiene COMPARTIDO: misma CH y distinta carrera
+  const sueltas = mats
+    .map((m, idx) => idx)
+    .filter(idx => !hijoDe.has(idx) && !hijosDe.has(idx) && norm(mats[idx].compartido) !== '')
+
+  const usadas = new Set()
+  for (let a = 0; a < sueltas.length; a++) {
+    if (usadas.has(a)) continue
+    const ma = mats[sueltas[a]]
+    for (let b = a + 1; b < sueltas.length; b++) {
+      if (usadas.has(b)) continue
+      const mb = mats[sueltas[b]]
+      const mismaChYDistintaCarrera =
+        norm(ma.carga) === norm(mb.carga) && norm(ma.carrera) !== norm(mb.carrera)
+      if (!mismaChYDistintaCarrera) continue
+
+      const compA = norm(ma.comp)
+      const compB = norm(mb.comp)
+      if (compA === '0' && compB === '1') vincular(sueltas[a], sueltas[b])
+      else if (compA === '1' && compB === '0') vincular(sueltas[b], sueltas[a])
+      else continue
+
+      usadas.add(a)
+      usadas.add(b)
+      break
+    }
+  }
+
+  // Lista final
+  const salida = []
+  mats.forEach((mat, idx) => {
+    if (hijoDe.has(idx)) return
+    salida.push({ mat, anidado: false })
+    ;(hijosDe.get(idx) ?? []).forEach(h => salida.push({ mat: mats[h], anidado: true }))
+  })
+  return salida
+})
 
 function tieneSesionesEnDia(dia) {
   return materiasAgrupadas.value.some(mat =>
