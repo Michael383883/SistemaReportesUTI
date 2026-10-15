@@ -163,7 +163,7 @@ const emit = defineEmits(['guardar', 'back'])
 
 // Categoría que se usa para los documentos de tipo título.
 // Debe existir con este texto exacto en Configuración → Categorías.
-const CATEGORIA_TITULO = 'SIN CATEGORIA'
+const CATEGORIA_TITULO = 'SIN CATEGORÍA'
 
 // `initial` puede llegar null si el padre aún no cargó: se protege.
 const initial = props.initial ?? {}

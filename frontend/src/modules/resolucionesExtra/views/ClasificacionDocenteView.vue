@@ -610,32 +610,39 @@ const clasificacionesFiltradas = computed(() => {
   })
 })
 
+// ─── Normalizar: quita tildes, mayúsculas y espacios sobrantes ───
+const norm = (s) => String(s || '')
+  .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  .toUpperCase().trim()
+
+// ─── Color por categoría (una sola fuente de verdad) ───
+// badge = fondo/texto del pill, dot = color del puntito
+const COLORES_CATEGORIA = {
+  'TITULARES':                { badge: 'bg-emerald-50 text-emerald-700', dot: 'bg-emerald-500' },
+  'TITULARES REV':            { badge: 'bg-green-50 text-green-700',     dot: 'bg-green-500' },
+  'REEMPLAZO TEMPORAL':       { badge: 'bg-amber-50 text-amber-700',     dot: 'bg-amber-500' },
+  'SUPLENCIA':                { badge: 'bg-yellow-50 text-yellow-700',   dot: 'bg-yellow-500' },
+  'EXAMEN SUFICIENCIA':       { badge: 'bg-blue-50 text-blue-700',       dot: 'bg-blue-500' },
+  'ACEFALA':                  { badge: 'bg-sky-100 text-sky-800',        dot: 'bg-sky-500' },
+  'SIN CATEGORIA':            { badge: 'bg-orange-50 text-red-700',      dot: 'bg-orange-500' },
+  'CERTIFICADO':              { badge: 'bg-violet-50 text-violet-700',   dot: 'bg-violet-500' },
+  'CONCURSO DE MERITO':       { badge: 'bg-fuchsia-50 text-fuchsia-700', dot: 'bg-fuchsia-500' },
+  'PLANILLA DE CALIFICACION': { badge: 'bg-cyan-50 text-cyan-700',       dot: 'bg-cyan-500' },
+  'COORDINADOR':              { badge: 'bg-indigo-50 text-indigo-700',   dot: 'bg-indigo-500' },
+  'DIRECTOR':                 { badge: 'bg-purple-50 text-purple-700',   dot: 'bg-purple-500' },
+  'JEFE':                     { badge: 'bg-rose-50 text-rose-700',       dot: 'bg-rose-500' },
+  'HISTORICO':                { badge: 'bg-stone-100 text-stone-700',    dot: 'bg-stone-500' },
+  'PRELACION':                { badge: 'bg-teal-50 text-teal-700',       dot: 'bg-teal-500' },
+}
+
 // ─── Badge de Categoria ───
 function badgeCategoria(categoria) {
-  if (categoria === 'TITULARES')  return 'bg-emerald-50 text-emerald-700'
-  if (categoria === 'DOCENTES TEMPORALES') return 'bg-amber-50 text-amber-700'
-  if (categoria === 'EXAMEN SUFICIENCIA') return 'bg-blue-50 text-blue-700'
-  if (categoria === 'ACÉFALA') return 'bg-sky-100 text-sky-800'
-  if (categoria === 'SIN CATEGORÍA') return 'bg-orange-50 text-red-700'
-  if (categoria === 'CERTIFICADO') return 'bg-violet-50 text-violet-700'
-  if (categoria === 'CONCURSO DE MÉRITO') return 'bg-fuchsia-50 text-fuchsia-700'
-  if (categoria === 'PLANILLA DE CALIFICACIÓN') return 'bg-cyan-50 text-cyan-700'  
-
-  return 'bg-gray-50 text-gray-600'
+  return COLORES_CATEGORIA[norm(categoria)]?.badge ?? 'bg-gray-50 text-gray-600'
 }
 
 // ─── Dot de Categoria ───
 function dotCategoria(categoria) {
-  if (categoria === 'TITULARES')  return 'bg-emerald-500'
-  if (categoria === 'DOCENTES TEMPORALES') return 'bg-amber-500'
-  if (categoria === 'EXAMEN SUFICIENCIA') return 'bg-blue-500'
-  if (categoria === 'ACÉFALA') return 'bg-sky-500'
-  if (categoria === 'SIN CATEGORÍA') return 'bg-orange-500'
-  if (categoria === 'CERTIFICADO') return 'bg-violet-500'
-  if (categoria === 'CONCURSO DE MÉRITO') return 'bg-fuchsia-500'
-  if (categoria === 'PLANILLA DE CALIFICACIÓN') return 'bg-cyan-500'  
-
-  return 'bg-gray-400'
+  return COLORES_CATEGORIA[norm(categoria)]?.dot ?? 'bg-gray-400'
 }
 
 // ─── ¿La materia tiene nota registrada? ───

@@ -947,19 +947,33 @@ const listadoFiltrado = computed(() => {
   })
 })
 
+// ─── Normalizar: quita tildes, mayúsculas y espacios sobrantes ───
+const norm = (s) => String(s || '')
+  .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  .toUpperCase().trim()
+
+// ─── Color por categoría ───
+const COLORES_CATEGORIA = {
+  'TITULARES':                'bg-emerald-50 text-emerald-700',
+  'TITULARES REV':            'bg-green-50 text-green-700',
+  'REEMPLAZO TEMPORAL':       'bg-amber-50 text-amber-700',
+  'SUPLENCIA':                'bg-yellow-50 text-yellow-700',
+  'EXAMEN SUFICIENCIA':       'bg-blue-50 text-blue-700',
+  'ACEFALA':                  'bg-sky-100 text-sky-800',
+  'SIN CATEGORIA':            'bg-orange-50 text-red-700',
+  'CERTIFICADO':              'bg-violet-50 text-violet-700',
+  'CONCURSO DE MERITO':       'bg-fuchsia-50 text-fuchsia-700',
+  'PLANILLA DE CALIFICACION': 'bg-cyan-50 text-cyan-700',
+  'COORDINADOR':              'bg-indigo-50 text-indigo-700',
+  'DIRECTOR':                 'bg-purple-50 text-purple-700',
+  'JEFE':                     'bg-rose-50 text-rose-700',
+  'HISTORICO':                'bg-stone-100 text-stone-700',
+  'PRELACION':                'bg-teal-50 text-teal-700',
+}
+
 // ─── Badge de categoria ───
 function badgeCategoria(categoria) {
-  if (categoria === 'TITULARES')  return 'bg-emerald-50 text-emerald-700'
-  if (categoria === 'DOCENTES TEMPORALES') return 'bg-amber-50 text-amber-700'
-  if (categoria === 'EXAMEN SUFICIENCIA') return 'bg-blue-50 text-blue-700'
-  if (categoria === 'ACÉFALA') return 'bg-sky-100 text-sky-800'
-  if (categoria === 'SIN CATEGORÍA') return 'bg-orange-50 text-red-700'
-  if (categoria === 'CERTIFICADO') return 'bg-violet-50 text-violet-700'
-  if (categoria === 'CONCURSO DE MÉRITO') return 'bg-fuchsia-50 text-fuchsia-700'
-  if (categoria === 'PLANILLA DE CALIFICACIÓN') return 'bg-cyan-50 text-cyan-700'
-
-
-  return 'bg-gray-50 text-gray-600'
+  return COLORES_CATEGORIA[norm(categoria)] ?? 'bg-gray-50 text-gray-600'
 }
 
 // ─── Eliminar clasificación ───
