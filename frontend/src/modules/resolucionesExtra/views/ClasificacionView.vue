@@ -56,6 +56,16 @@
           {{ reutilizarArchivo ? archivoOrigenNombre : archivo.name }}
         </span>
         <span v-if="reutilizarArchivo" class="text-[10px] font-semibold text-emerald-500 uppercase">reutilizado</span>
+
+        <!-- Visualizar el PDF mientras se llena el formulario -->
+        <button
+          v-if="archivo && !successMessage"
+          type="button"
+          @click="mostrarVisor ? cerrarVisor() : abrirVisor()"
+          class="ml-2 px-3 py-1 text-[12px] font-semibold rounded-md bg-amber-500 hover:bg-amber-400 text-white transition-colors"
+        >
+          {{ mostrarVisor ? 'Ocultar PDF' : 'Visualizar' }}
+        </button>
       </div>
     </div>
 
@@ -142,102 +152,128 @@
     <!-- ══════════════════════════════════════════════ -->
     <!-- PASO 1: Formulario                             -->
     <!-- ══════════════════════════════════════════════ -->
-    <div v-if="currentStep === 1">
+    <div
+      v-if="currentStep === 1"
+      :class="visorVisible
+        ? (visorAmplio
+            ? 'grid grid-cols-1 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] gap-4 items-start'
+            : 'grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-4 items-start')
+        : ''"
+    >
 
-      <div v-if="successMessage" class="bg-white rounded-xl border border-gray-200 p-10 text-center">
-        <div class="w-14 h-14 mx-auto rounded-full bg-green-50 flex items-center justify-center mb-4">
-          <svg class="w-7 h-7 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
-          </svg>
-        </div>
-        <p class="text-[15px] font-semibold text-gray-900">{{ successMessage }}</p>
-        <p class="text-[13px] text-gray-400 mt-1">
-          Clasificación registrada correctamente (Documento ID: {{ ultimoId }}, docentes vinculados: {{ docentesRegistrados }}).
-        </p>
-
-        <!-- Estado de asignación a GRUPOS -->
-        <p v-if="aplicadoAGrupos === true" class="text-[13px] text-green-600 mt-1 font-medium">
-          ✓ Datos aplicados en GRUPOS correctamente.
-        </p>
-        <p v-else-if="aplicadoAGrupos === false" class="text-[13px] text-amber-600 mt-1 font-medium">
-          ⚠️ La clasificación se guardó, pero no se pudo aplicar en GRUPOS. Puedes intentarlo luego desde el listado.
-        </p>
-
-        <!-- Detalle técnico del error al aplicar en GRUPOS -->
-        <div v-if="errorGrupos" class="mt-2 mx-auto max-w-md text-left p-3 rounded-lg bg-red-50 border border-red-200 text-[11px] font-mono text-red-700 space-y-1">
-          <p v-if="errorGrupos.sqlstate"><strong>SQLSTATE:</strong> {{ errorGrupos.sqlstate }}</p>
-          <p v-if="errorGrupos.codigoDriver"><strong>Código driver:</strong> {{ errorGrupos.codigoDriver }}</p>
-          <p v-if="errorGrupos.mensajeDriver"><strong>Mensaje SQL Server:</strong> {{ errorGrupos.mensajeDriver }}</p>
-          <p v-if="errorGrupos.mensaje"><strong>Mensaje:</strong> {{ errorGrupos.mensaje }}</p>
-          <details v-if="errorGrupos.sql" class="cursor-pointer">
-            <summary class="text-red-600">Ver SQL y bindings</summary>
-            <pre class="whitespace-pre-wrap mt-1">{{ errorGrupos.sql }}</pre>
-            <pre class="whitespace-pre-wrap mt-1">Bindings: {{ JSON.stringify(errorGrupos.bindings) }}</pre>
-          </details>
-        </div>
-
-        <div class="flex items-center justify-center gap-3 mt-6 flex-wrap">
-          <button
-            @click="resetAll"
-            class="inline-flex items-center gap-2 px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-[14px] font-medium rounded-lg transition-colors"
-          >
-            {{ modoTitulo ? 'Subir otro título' : 'Registrar nuevo documento' }}
-          </button>
-
-          <!-- Reutilizar el mismo PDF para otra categoría, sin volver a subirlo/almacenarlo -->
-          <button
-            v-if="ultimoId && !modoTitulo"
-            @click="guardarConOtraCategoria"
-            class="inline-flex items-center gap-2 px-5 py-2 bg-amber-500 hover:bg-amber-400 text-white text-[14px] font-medium rounded-lg transition-colors"
-          >
-            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round"
-                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-            </svg>
-            Guardar con otra categoría (mismo PDF)
-          </button>
-
-          <!--
-            IMPORTANTE: aquí se arma el query "q" que llega al listado.
-            Antes usaba nombreDocenteBusqueda (nombre del docente), lo cual
-            era incorrecto porque una resolución puede tener varios docentes
-            asociados. Ahora se busca por resolucionBusqueda (TIPO_DOCUMENTO +
-            DETALLE_GENERAL), que es único por documento.
-          -->
-          <router-link
-            :to="{
-              name: 'clasificaciones-listado',
-              query: resolucionBusqueda ? { q: resolucionBusqueda } : {}
-            }"
-            class="inline-flex items-center gap-2 px-5 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-[14px] font-medium rounded-lg transition-colors"
-          >
-            Ver listado
-          </router-link>
-        </div>
+      <!-- Visor del PDF (fijo a la izquierda mientras se hace scroll en el formulario) -->
+      <div
+        v-if="visorVisible"
+        class="lg:sticky lg:top-4 h-[75vh] lg:h-[calc(100vh-2rem)]"
+      >
+        <PdfVisor
+          :file="archivo"
+          :nombre="archivo?.name || ''"
+          :ampliado="visorAmplio"
+          @cerrar="cerrarVisor"
+          @toggle-ancho="visorAmplio = !visorAmplio"
+        />
       </div>
 
-      <ClasificacionForm
-        v-else
-        :docentes="docentes"
-        :saving="clasificacion.loading.value"
-        :error="clasificacion.error.value"
-        :archivo-nombre="reutilizarArchivo ? archivoOrigenNombre : (archivo?.name || '')"
-        :reutilizando-archivo="reutilizarArchivo"
-        :initial="datosPrevios || {}"
-        :abrir-titulo="modoTitulo && !reutilizarArchivo"
-        @guardar="onGuardar"
-        @back="onBackDesdeFormulario"
-      />
+      <!-- Contenido del paso 1 -->
+      <div class="min-w-0">
+
+        <div v-if="successMessage" class="bg-white rounded-xl border border-gray-200 p-10 text-center">
+          <div class="w-14 h-14 mx-auto rounded-full bg-green-50 flex items-center justify-center mb-4">
+            <svg class="w-7 h-7 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+            </svg>
+          </div>
+          <p class="text-[15px] font-semibold text-gray-900">{{ successMessage }}</p>
+          <p class="text-[13px] text-gray-400 mt-1">
+            Clasificación registrada correctamente (Documento ID: {{ ultimoId }}, docentes vinculados: {{ docentesRegistrados }}).
+          </p>
+
+          <!-- Estado de asignación a GRUPOS -->
+          <p v-if="aplicadoAGrupos === true" class="text-[13px] text-green-600 mt-1 font-medium">
+            ✓ Datos aplicados en GRUPOS correctamente.
+          </p>
+          <p v-else-if="aplicadoAGrupos === false" class="text-[13px] text-amber-600 mt-1 font-medium">
+            ⚠️ La clasificación se guardó, pero no se pudo aplicar en GRUPOS. Puedes intentarlo luego desde el listado.
+          </p>
+
+          <!-- Detalle técnico del error al aplicar en GRUPOS -->
+          <div v-if="errorGrupos" class="mt-2 mx-auto max-w-md text-left p-3 rounded-lg bg-red-50 border border-red-200 text-[11px] font-mono text-red-700 space-y-1">
+            <p v-if="errorGrupos.sqlstate"><strong>SQLSTATE:</strong> {{ errorGrupos.sqlstate }}</p>
+            <p v-if="errorGrupos.codigoDriver"><strong>Código driver:</strong> {{ errorGrupos.codigoDriver }}</p>
+            <p v-if="errorGrupos.mensajeDriver"><strong>Mensaje SQL Server:</strong> {{ errorGrupos.mensajeDriver }}</p>
+            <p v-if="errorGrupos.mensaje"><strong>Mensaje:</strong> {{ errorGrupos.mensaje }}</p>
+            <details v-if="errorGrupos.sql" class="cursor-pointer">
+              <summary class="text-red-600">Ver SQL y bindings</summary>
+              <pre class="whitespace-pre-wrap mt-1">{{ errorGrupos.sql }}</pre>
+              <pre class="whitespace-pre-wrap mt-1">Bindings: {{ JSON.stringify(errorGrupos.bindings) }}</pre>
+            </details>
+          </div>
+
+          <div class="flex items-center justify-center gap-3 mt-6 flex-wrap">
+            <button
+              @click="resetAll"
+              class="inline-flex items-center gap-2 px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-[14px] font-medium rounded-lg transition-colors"
+            >
+              {{ modoTitulo ? 'Subir otro título' : 'Registrar nuevo documento' }}
+            </button>
+
+            <!-- Reutilizar el mismo PDF para otra categoría, sin volver a subirlo/almacenarlo -->
+            <button
+              v-if="ultimoId && !modoTitulo"
+              @click="guardarConOtraCategoria"
+              class="inline-flex items-center gap-2 px-5 py-2 bg-amber-500 hover:bg-amber-400 text-white text-[14px] font-medium rounded-lg transition-colors"
+            >
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+              </svg>
+              Guardar con otra categoría (mismo PDF)
+            </button>
+
+            <!--
+              IMPORTANTE: aquí se arma el query "q" que llega al listado.
+              Antes usaba nombreDocenteBusqueda (nombre del docente), lo cual
+              era incorrecto porque una resolución puede tener varios docentes
+              asociados. Ahora se busca por resolucionBusqueda (TIPO_DOCUMENTO +
+              DETALLE_GENERAL), que es único por documento.
+            -->
+            <router-link
+              :to="{
+                name: 'clasificaciones-listado',
+                query: resolucionBusqueda ? { q: resolucionBusqueda } : {}
+              }"
+              class="inline-flex items-center gap-2 px-5 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-[14px] font-medium rounded-lg transition-colors"
+            >
+              Ver listado
+            </router-link>
+          </div>
+        </div>
+
+        <ClasificacionForm
+          v-else
+          :docentes="docentes"
+          :saving="clasificacion.loading.value"
+          :error="clasificacion.error.value"
+          :archivo-nombre="reutilizarArchivo ? archivoOrigenNombre : (archivo?.name || '')"
+          :reutilizando-archivo="reutilizarArchivo"
+          :initial="datosPrevios || {}"
+          :abrir-titulo="modoTitulo && !reutilizarArchivo"
+          @guardar="onGuardar"
+          @back="onBackDesdeFormulario"
+        />
+      </div>
     </div>
 
   </div>
 </template>
 <script setup>
-import { ref } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import ClasificacionForm from '../components/ClasificacionForm.vue'
+import PdfVisor from '../components/PdfVisor.vue'
 import { useClasificacion } from '../composables/useClasificacion'
-import { useDocentesReportes } from '../composables/useDocentesReportes' // ajusta la ruta
+import { useDocentesReportes } from '../composables/useDocentesReportes' 
 
 // modoTitulo = true: el PDF es un título. El formulario abre directo el
 // módulo de título (categoría SIN CATEGORIA, gestión/periodo por fecha).
@@ -296,6 +332,26 @@ const ultimoFormData = ref(null)
 // flujo normal (o tras "Registrar otra clasificación") queda en null para
 // que el formulario arranque vacío como siempre.
 const datosPrevios = ref(null)
+
+// ─── Visor del PDF mientras se llena el formulario ───
+// El visor (PdfVisor.vue) dibuja el PDF con pdf.js: zoom, mano para
+// arrastrar y ajuste al ancho. Recibe el File que ya está en memoria.
+const mostrarVisor = ref(false)
+const visorAmplio  = ref(false) // true => el visor ocupa más ancho que el formulario
+
+// Solo se muestra mientras hay archivo y todavía no se guardó (en la
+// pantalla de éxito ya no hace falta).
+const visorVisible = computed(() =>
+  mostrarVisor.value && !!archivo.value && !successMessage.value
+)
+
+function abrirVisor()  { if (archivo.value) mostrarVisor.value = true }
+function cerrarVisor() { mostrarVisor.value = false }
+
+// Si vuelve al paso 0 (subir PDF), se cierra el visor
+watch(currentStep, (v) => {
+  if (v === 0) cerrarVisor()
+})
 
 function limpiarArchivo() {
   archivo.value     = null
@@ -479,5 +535,9 @@ function resetAll() {
   // de la clasificación anterior.
   ultimoFormData.value = null
   datosPrevios.value    = null
+
+  // Cierra el visor del PDF anterior
+  cerrarVisor()
+  visorAmplio.value = false
 }
 </script>
