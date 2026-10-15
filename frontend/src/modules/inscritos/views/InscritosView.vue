@@ -277,6 +277,16 @@
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
                   </svg>
                 </button>
+                <button
+                  :disabled="generandoExcel"
+                  class="flex-1 flex items-center justify-center h-9 rounded-lg text-emerald-700 bg-emerald-100 border border-emerald-300 hover:bg-emerald-200 hover:text-emerald-800 active:bg-emerald-300 transition-colors duration-100 cursor-pointer outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Descargar Excel"
+                  @click="generarExcelLista(); mostrarMenuPdf = false"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/>
+                  </svg>
+                </button>
               </div>
 
               <div class="border-t border-slate-100 mx-4"></div>
@@ -316,6 +326,16 @@
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
                   </svg>
                 </button>
+                <button
+                  :disabled="generandoExcel || generandoAprobadosResumido"
+                  class="flex-1 flex items-center justify-center h-9 rounded-lg text-emerald-700 bg-emerald-100 border border-emerald-300 hover:bg-emerald-200 hover:text-emerald-800 active:bg-emerald-300 transition-colors duration-100 cursor-pointer outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Descargar Excel"
+                  @click="generarExcelAprobadosCompleto(); mostrarMenuPdf = false"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/>
+                  </svg>
+                </button>
               </div>
 
               <div class="border-t border-slate-100 mx-4"></div>
@@ -350,6 +370,65 @@
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" class="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                  </svg>
+                </button>
+                <button
+                  :disabled="generandoExcel"
+                  class="flex-1 flex items-center justify-center h-9 rounded-lg text-emerald-700 bg-emerald-100 border border-emerald-300 hover:bg-emerald-200 hover:text-emerald-800 active:bg-emerald-300 transition-colors duration-100 cursor-pointer outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Descargar Excel"
+                  @click="generarExcelTotales(); mostrarMenuPdf = false"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/>
+                  </svg>
+                </button>
+              </div>
+
+              <div class="border-t border-slate-100 mx-4"></div>
+
+              <!-- NUEVO: Total de inscritos por materia -->
+              <div class="px-4 pt-3 pb-1.5">
+                <p class="text-[0.7rem] font-semibold text-slate-800">Total de inscritos por materia</p>
+              </div>
+              <div class="px-4 pb-3 flex items-center gap-2">
+                <button
+                  :disabled="generandoMaterias"
+                  class="flex-1 flex items-center justify-center h-9 rounded-lg text-slate-600 bg-slate-100 border border-slate-200 hover:bg-slate-200 hover:text-slate-800 active:bg-slate-300 transition-colors duration-100 cursor-pointer outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Ver PDF"
+                  @click="generarPDFInscritosMaterias('ver'); mostrarMenuPdf = false"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/>
+                  </svg>
+                </button>
+                <button
+                  :disabled="generandoMaterias"
+                  class="flex-1 flex items-center justify-center h-9 rounded-lg text-slate-600 bg-slate-100 border border-slate-200 hover:bg-slate-200 hover:text-slate-800 active:bg-slate-300 transition-colors duration-100 cursor-pointer outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Imprimir"
+                  @click="generarPDFInscritosMaterias('imprimir'); mostrarMenuPdf = false"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>
+                  </svg>
+                </button>
+                <button
+                  :disabled="generandoMaterias"
+                  class="flex-1 flex items-center justify-center h-9 rounded-lg text-amber-700 bg-amber-100 border border-amber-300 hover:bg-amber-200 hover:text-amber-800 active:bg-amber-300 transition-colors duration-100 cursor-pointer outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Descargar PDF"
+                  @click="generarPDFInscritosMaterias('descargar'); mostrarMenuPdf = false"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                  </svg>
+                </button>
+                <button
+                  :disabled="generandoMaterias"
+                  class="flex-1 flex items-center justify-center h-9 rounded-lg text-emerald-700 bg-emerald-100 border border-emerald-300 hover:bg-emerald-200 hover:text-emerald-800 active:bg-emerald-300 transition-colors duration-100 cursor-pointer outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Descargar Excel"
+                  @click="generarExcelInscritosMaterias(); mostrarMenuPdf = false"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/>
                   </svg>
                 </button>
               </div>
@@ -389,6 +468,16 @@
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" class="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                  </svg>
+                </button>
+                <button
+                  :disabled="generandoExcel || generandoAprobados"
+                  class="flex-1 flex items-center justify-center h-9 rounded-lg text-emerald-700 bg-emerald-100 border border-emerald-300 hover:bg-emerald-200 hover:text-emerald-800 active:bg-emerald-300 transition-colors duration-100 cursor-pointer outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Descargar Excel"
+                  @click="generarExcelAprobados(); mostrarMenuPdf = false"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/>
                   </svg>
                 </button>
               </div>
@@ -454,7 +543,7 @@
       </div>
 
       <!-- CARDS -->
-            <DocenteInscritosCard
+      <DocenteInscritosCard
         v-for="docente in dataFiltrada"
         :key="docente.cod_docente"
         :docente="docente"
@@ -477,13 +566,14 @@ import DocenteInscritosCard from '../components/DocenteInscritosCard.vue'
 import { useInscritos } from '../composables/useInscritos'
 import { useReporteInscritosLista } from '../composables/useReporteInscritosLista'
 import { useReporteInscritosTotales } from '../composables/useReporteInscritosTotales'
+import { useReporteInscritosMaterias } from '../composables/useReporteInscritosMaterias' // NUEVO
+import { useExcelReportes } from '../composables/useExcelReportes' // NUEVO: Excel de los demás reportes
 import { useInscritosAprobados } from '../composables/useInscritosAprobados'
 import { useReporteAprobadosReprobados } from '../composables/useReporteAprobadosReprobados'
 
 import { useResumenPorGrupo } from '../composables/useResumenPorGrupo'
 import { useReporteAprobadosReprobadosResumido } from '../composables/useReporteAprobadosReprobadosResumido'
 import { mostrarLoaderPdf } from '../utils/pdfLoader'
-// DESPUÉS
 import { usePeriodoAcademicoActual } from '@/modules/periodos-academicos/composables/usePeriodoAcademicoActual'
 
 
@@ -499,6 +589,16 @@ const AREAS = [
 const { data, loading, error, fetchInscritos } = useInscritos()
 const { generandoLista, exportarListaCompleta } = useReporteInscritosLista()
 const { generandoResumen, exportarResumenTotales } = useReporteInscritosTotales()
+// NUEVO: total de inscritos por materia (Regular / Mesa / Total)
+const { generandoMaterias, exportarTotalesPorMateria, exportarExcelTotalesPorMateria } = useReporteInscritosMaterias()
+// NUEVO: exportación a Excel de lista, aprobados completo, totales y aprobados resumido
+const {
+  generandoExcel,
+  exportarExcelLista,
+  exportarExcelAprobadosCompleto,
+  exportarExcelTotales,
+  exportarExcelAprobadosResumen,
+} = useExcelReportes()
 //ap
 const { data: dataResumenGrupo, fetchResumenPorGrupo } = useResumenPorGrupo()
 const { generandoAprobadosResumido, exportarAprobadosReprobadosResumido } = useReporteAprobadosReprobadosResumido()
@@ -508,7 +608,6 @@ const { data: dataAprobados, fetchAprobadosReprobados } = useInscritosAprobados(
 const { generandoAprobados, exportarAprobadosReprobados } = useReporteAprobadosReprobados()
 
 
-// ...junto a tus otros composables (useInscritos, etc.)
 const { anio: anioActual, periodo: periodoActual, promesa: promesaPeriodoActual } = usePeriodoAcademicoActual()
 
 const filtros = ref({
@@ -538,7 +637,12 @@ const yaSeBusco = ref(false)
 const ultimaBusquedaFueDocente = ref(false)
 
 const loadingPdf = computed(() =>
-  generandoLista.value || generandoResumen.value || generandoAprobados.value || generandoAprobadosResumido.value
+  generandoLista.value ||
+  generandoResumen.value ||
+  generandoMaterias.value || // NUEVO
+  generandoExcel.value || // NUEVO
+  generandoAprobados.value ||
+  generandoAprobadosResumido.value
 )
 // Texto resumen del botón: "Todas las áreas" / "ADM" / "ADM, FIN" / "3 áreas seleccionadas"
 const areaLabelResumen = computed(() => {
@@ -700,6 +804,38 @@ async function generarPDFLista(modo = 'descargar') {
   await exportarListaCompleta(dataFiltrada.value, filtros.value.anio, filtros.value.periodo, modo, ventana)
 }
 
+// ─── NUEVO: Total de inscritos por materia (Regular / Mesa / Total) ─────
+// No hace fetch: usa los mismos datos que se ven en pantalla (dataFiltrada),
+// por lo que respeta el filtro de plan y la búsqueda de docente.
+async function generarPDFInscritosMaterias(modo = 'descargar') {
+  mostrarMenuPdf.value = false
+  let ventana = null
+  if (modo === 'ver') {
+    ventana = abrirVentanaConLoader('Generando total de inscritos por materia...')
+  }
+  await exportarTotalesPorMateria(
+    dataFiltrada.value,
+    filtros.value.anio,
+    filtros.value.periodo,
+    modo,
+    ventana
+  )
+}
+
+// ─── NUEVO: mismo reporte en Excel (.xlsx) ──────────────────────────────
+async function generarExcelInscritosMaterias() {
+  mostrarMenuPdf.value = false
+  try {
+    await exportarExcelTotalesPorMateria(
+      dataFiltrada.value,
+      filtros.value.anio,
+      filtros.value.periodo
+    )
+  } catch (e) {
+    error.value = 'No se pudo generar el Excel. Verificá que esté instalada la librería exceljs.'
+  }
+}
+
 async function generarPDFTotales(modo = 'descargar') {
   mostrarMenuPdf.value = false
   let ventana = null
@@ -770,5 +906,101 @@ async function generarPDFAprobados(modo = 'descargar') {
     modo,
     ventana
   )
+}
+// ─── NUEVO: EXCEL de los demás reportes ─────────────────────────────────
+// Misma data y mismos filtros que el PDF correspondiente.
+async function ejecutarExcel(fn) {
+  mostrarMenuPdf.value = false
+  try {
+    await fn()
+  } catch (e) {
+    error.value = 'No se pudo generar el Excel. Verificá que esté instalada la librería exceljs.'
+  }
+}
+
+// 1) Lista completa de inscritos
+function generarExcelLista() {
+  return ejecutarExcel(() =>
+    exportarExcelLista(dataFiltrada.value, filtros.value.anio, filtros.value.periodo)
+  )
+}
+
+// 2) Aprobados/reprobados completo (plano por grupo)
+function generarExcelAprobadosCompleto() {
+  return ejecutarExcel(async () => {
+    await fetchResumenPorGrupo(filtros.value.anio, filtros.value.periodo)
+
+    let filas = dataResumenGrupo.value
+
+    if (filtros.value.area.length > 0) {
+      filas = filas.filter(f => filtros.value.area.includes(f.CARRERA))
+    }
+
+    const q = busqueda.value.trim()
+    if (q) {
+      if (/^\d+$/.test(q)) {
+        filas = filas.filter(f => String(f.COD_DOCENTE) === q)
+      } else {
+        filas = filas.filter(f =>
+          (f.NOMBRE_DOCENTE ?? '').toLowerCase().includes(q.toLowerCase())
+        )
+      }
+    }
+
+    await exportarExcelAprobadosCompleto(filas, filtros.value.anio, filtros.value.periodo)
+  })
+}
+
+// 3) Inscritos totales por docente (aprobados/reprobados/abandonos por carrera)
+function generarExcelTotales() {
+  return ejecutarExcel(async () => {
+    await fetchAprobadosReprobados(filtros.value.anio, filtros.value.periodo)
+
+    const mapaAprobadosPorCarrera = new Map()
+    dataAprobados.value.forEach(docente => {
+      docente.carreras.forEach(c => {
+        mapaAprobadosPorCarrera.set(`${docente.cod_docente}|${c.carrera}`, c)
+      })
+    })
+
+    const dataConAprobados = dataFiltrada.value.map(docente => ({
+      ...docente,
+      carreras: docente.carreras.map(c => {
+        const info = mapaAprobadosPorCarrera.get(`${docente.cod_docente}|${c.carrera}`)
+        return {
+          ...c,
+          subtotal_aprobados: info?.subtotal_aprobados ?? 0,
+          subtotal_reprobados: info?.subtotal_reprobados ?? 0,
+          subtotal_abandonos: info?.subtotal_abandonos ?? c.subtotal_abandonos ?? 0,
+        }
+      }),
+    }))
+
+    await exportarExcelTotales(dataConAprobados, filtros.value.anio, filtros.value.periodo)
+  })
+}
+
+// 4) Aprobados/reprobados resumido (matriz docente x carrera)
+function generarExcelAprobados() {
+  return ejecutarExcel(async () => {
+    await fetchAprobadosReprobados(filtros.value.anio, filtros.value.periodo)
+
+    const q = busqueda.value.trim()
+    if (q) {
+      if (/^\d+$/.test(q)) {
+        dataAprobados.value = dataAprobados.value.filter(d => d.cod_docente === q)
+      } else {
+        dataAprobados.value = dataAprobados.value.filter(d =>
+          `${d.apellidos} ${d.nombres}`.toLowerCase().includes(q.toLowerCase())
+        )
+      }
+    }
+
+    await exportarExcelAprobadosResumen(
+      dataAprobadosFiltrada.value, // ya filtra por área
+      filtros.value.anio,
+      filtros.value.periodo
+    )
+  })
 }
 </script>
