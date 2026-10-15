@@ -1,5 +1,6 @@
 // composables/useGenerarPDF.js
 // Genera un PDF oficial estilo UMSS – Materias dictadas de un docente
+// (o, con modoMateria, el kardex de una materia y grupo con sus docentes).
 // Orientación: PORTRAIT (vertical) – Letter 216 × 279 mm
 // Dependencias: jspdf  +  jspdf-autotable
 //   npm install jspdf jspdf-autotable
@@ -105,6 +106,17 @@ export function generarPDF(reporte, opts = {}) {
         // "Resolución" y "Designación", y las columnas restantes se
         // ensanchan para aprovechar todo el ancho de la página.
         sinResolucionDesignacion = false,
+
+        // ── Modo "Kardex de materia y grupo" ────────────────────────────────
+        // Cuando es true: el encabezado muestra la materia y el grupo en vez
+        // del docente, y la tabla agrega la columna DOCENTE
+        // (cod_docente + docente_nombre) junto a MATERIA.
+        modoMateria = false,
+        // Ej: "1301040 ADMINISTRACION DE COOPERATIVAS · Grupo 20"
+        materiaTitulo = '',
+        // Solo para el nombre del archivo
+        materiaCodigo = '',
+        grupo = '',
     } = opts
 
     // ── PORTRAIT Letter (216 × 279 mm) ──────────────────────────────────────────
@@ -141,6 +153,25 @@ export function generarPDF(reporte, opts = {}) {
         return PLAN_MAP[codigo] || codigo
     }
 
+    // ── Textos que cambian según el modo ────────────────────────────────────────
+    const tituloPdf = modoMateria
+        ? 'KARDEX DE MATERIA Y GRUPO'
+        : soloDocumentos
+            ? 'REPORTE DE DOCUMENTOS DEL DOCENTE'
+            : 'MATERIAS DICTADAS DE UN DOCENTE'
+
+    const descripcionPdf = modoMateria
+        ? 'Docentes que dictaron la materia y grupo, registrados en el SISS a partir de la gestión 2001.'
+        : soloDocumentos
+            ? 'Documentos registrados en el SISS para el docente, clasificados por categoría.'
+            : 'Datos Históricos pertenecientes a la Facultad de Ciencias Económicas registrados en el SISS ' +
+            'a partir de la gestión 2001. El reporte también detalla los grupos compartidos solo para los ' +
+            'cursos Intersemestrales de Verano e Invierno.'
+
+    const lineaSujeto = modoMateria
+        ? `MATERIA : ${materiaTitulo}`
+        : `DOCENTE : (${reporte.docente?.codigo || ''}) - ${reporte.docente?.nombre || ''}`
+
     // ════════════════════════════════════════════════════════════════════════════
     // Encabezado institucional — se repite en cada página
     // ════════════════════════════════════════════════════════════════════════════
@@ -154,12 +185,7 @@ export function generarPDF(reporte, opts = {}) {
 
         // ── Título centrado ──────────────────────────────────────────────────────
         doc.setFontSize(11)
-        doc.text(
-            soloDocumentos ? 'REPORTE DE DOCUMENTOS DEL DOCENTE' : 'MATERIAS DICTADAS DE UN DOCENTE',
-            PAGE_W / 2,
-            12,
-            { align: 'center' },
-        )
+        doc.text(tituloPdf, PAGE_W / 2, 12, { align: 'center' })
 
         // ── Línea divisoria ──────────────────────────────────────────────────────
         doc.setDrawColor(...COLOR_ROW_LINE)
@@ -170,28 +196,25 @@ export function generarPDF(reporte, opts = {}) {
         doc.setFont('helvetica', 'normal')
         doc.setFontSize(6.5)
         doc.setTextColor(40, 40, 40)
-        const descripcion = soloDocumentos
-            ? 'Documentos registrados en el SISS para el docente, clasificados por categoría.'
-            : 'Datos Históricos pertenecientes a la Facultad de Ciencias Económicas registrados en el SISS ' +
-            'a partir de la gestión 2001. El reporte también detalla los grupos compartidos solo para los ' +
-            'cursos Intersemestrales de Verano e Invierno.'
-        const descLines = doc.splitTextToSize(descripcion, CONTENT_W)
+        const descLines = doc.splitTextToSize(descripcionPdf, CONTENT_W)
         doc.text(descLines, MARGIN_L, 21)
 
-        // ── Nombre del docente ───────────────────────────────────────────────────
-        const docenteY = 21 + descLines.length * 3.0 + 3
+        // ── Docente (modo normal) o materia + grupo (modo materia) ──────────────
+        const sujetoY = 21 + descLines.length * 3.0 + 3
         doc.setFont('helvetica', 'bold')
         doc.setFontSize(8)
         doc.setTextColor(...COLOR_BLACK)
-        const codigoDoc = reporte.docente?.codigo || ''
-        const nombreDoc = reporte.docente?.nombre || ''
-        doc.text(`DOCENTE : (${codigoDoc}) - ${nombreDoc}`, MARGIN_L, docenteY)
+        doc.text(lineaSujeto, MARGIN_L, sujetoY)
 
-        return docenteY + 3
+        return sujetoY + 3
     }
 
     doc.setProperties({
-        title: soloDocumentos ? 'Reporte de documentos del docente' : 'Materias dictadas de un docente',
+        title: modoMateria
+            ? 'Kardex de materia y grupo'
+            : soloDocumentos
+                ? 'Reporte de documentos del docente'
+                : 'Materias dictadas de un docente',
     })
 
     const startY = drawHeader()
@@ -207,19 +230,23 @@ export function generarPDF(reporte, opts = {}) {
         // ── Definición de columnas ───────────────────────────────────────────────
         // Cada columna lleva su ancho para el modo normal y para el modo
         // "sin Resolución/Designación". En este último, las columnas que
-        // quedan se ensanchan y "MATERIA" absorbe el espacio restante.
+        // quedan se ensanchan y "MATERIA"/"DOCENTE" absorbe el espacio restante.
         // Con `soloEnNormal: true` la columna desaparece al ocultar.
+        // Con `soloMateria: true` la columna sólo sale en el kardex de materia.
         const defsColumnas = [
             { header: 'Nº', dataKey: 'nro', ancho: [10, 10], halign: 'center' },
-            { header: 'GESTIÓN', dataKey: 'gestion', ancho: [22, 28] },
+            { header: 'GESTIÓN', dataKey: 'gestion', ancho: modoMateria ? [20, 26] : [22, 28] },
             { header: 'PLAN', dataKey: 'plan', ancho: [12, 16], halign: 'center' },
-            { header: 'MATERIA', dataKey: 'materia', ancho: [50, 'auto'], fontSize: 6.0 },
-            { header: 'COMPARTIDO', dataKey: 'compartido', ancho: [20, 26], halign: 'center' },
+            // En modo materia se muestran MATERIA y DOCENTE (igual que la tabla
+            // en pantalla), así que MATERIA cede ancho para que entren ambas.
+            { header: 'MATERIA', dataKey: 'materia', ancho: modoMateria ? [34, 40] : [50, 'auto'], fontSize: 6.0 },
+            { header: 'DOCENTE', dataKey: 'docente', ancho: [36, 'auto'], fontSize: 6.0, soloMateria: true },
+            { header: 'COMPARTIDO', dataKey: 'compartido', ancho: modoMateria ? [19, 24] : [20, 26], halign: 'center' },
             { header: 'GRP', dataKey: 'grp', ancho: [8, 12], halign: 'center' },
             { header: 'RESOLUCIÓN', dataKey: 'resolucion', ancho: [22, 22], soloEnNormal: true },
             {
                 header: 'DESIGNACIÓN', dataKey: 'designacion',
-                ancho: [extras.length ? 30 : 'auto', 'auto'],
+                ancho: [extras.length ? (modoMateria ? 24 : 30) : 'auto', 'auto'],
                 fontSize: 6.0, soloEnNormal: true,
             },
             // Columnas extra inyectadas por el hijo (p. ej. modalidad de ingreso):
@@ -233,7 +260,10 @@ export function generarPDF(reporte, opts = {}) {
         ]
 
         const idxAncho = sinResolucionDesignacion ? 1 : 0
-        const columnas = defsColumnas.filter((c) => !(sinResolucionDesignacion && c.soloEnNormal))
+        const columnas = defsColumnas.filter((c) =>
+            !(sinResolucionDesignacion && c.soloEnNormal) &&
+            !(!modoMateria && c.soloMateria),
+        )
 
         const materiasFuente = reporte.materias || []
         const hijasIndices = calcularHijasIndices(materiasFuente)
@@ -243,6 +273,8 @@ export function generarPDF(reporte, opts = {}) {
             gestion: formatGestion(m.gestion),
             plan: getPlanAbbrev(m.plan, m.materia_codigo),
             materia: m.materia || '',
+            // Modo materia: "197300004 GARCIA PEREIRA OSVALDO"
+            docente: `${norm(m.cod_docente)} ${norm(m.docente_nombre)}`.trim(),
             compartido: hijasIndices.has(idx) ? 'COMPARTIDO' : '',
             grp: m.grp || '',
             resolucion: m.resolucion || '',
@@ -318,8 +350,8 @@ export function generarPDF(reporte, opts = {}) {
             },
 
             didParseCell(data) {
-                // Materia y Designación: fuente ligeramente menor
-                // (se identifican por su dataKey, no por índice, porque los
+                // Materia/Docente y Designación: fuente ligeramente menor
+                // (se identifican por su definición, no por índice, porque los
                 // índices cambian cuando se ocultan columnas)
                 if (data.section === 'body') {
                     const def = columnas[data.column.index]
@@ -474,9 +506,11 @@ export function generarPDF(reporte, opts = {}) {
 
     // ── Acción ────────────────────────────────────────────────────────────────────
     const codigoDoc = reporte.docente?.codigo || 'doc'
-    const fileName = soloDocumentos
-        ? `reporte_documentos_docente_${codigoDoc}.pdf`
-        : `reporte_docente_${codigoDoc}.pdf`
+    const fileName = modoMateria
+        ? `kardex_materia_${norm(materiaCodigo) || 'materia'}_grupo_${norm(grupo) || 'x'}.pdf`
+        : soloDocumentos
+            ? `reporte_documentos_docente_${codigoDoc}.pdf`
+            : `reporte_docente_${codigoDoc}.pdf`
 
     if (action === 'save') {
         doc.save(fileName)

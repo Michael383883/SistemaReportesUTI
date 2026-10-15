@@ -264,8 +264,10 @@
          Botón(es) PDF / Excel
          - Modo documentos + hay categorías seleccionadas → un solo botón
            "Generar Reporte de Documento" con su propio mini-menú.
-         - Modo normal → el menú de 3 secciones (estándar / modalidad /
+         - Modo normal → el menú de secciones (estándar / modalidad /
            compartido) de siempre.
+         - Modo materia → el mismo menú; los PDF salen con encabezado de materia
+           y columna Docente.
     ═══════════════════════════════════════════════════════════════════ -->
     <div class="relative ml-auto" ref="pdfMenuRef">
 
@@ -414,7 +416,7 @@
         </Transition>
       </template>
 
-      <!-- ── Modo normal: menú de 3 secciones ────────────────────────────── -->
+      <!-- ── Modo normal / materia: menú de secciones ────────────────────── -->
       <template v-else>
         <div class="inline-flex rounded-lg overflow-hidden shadow-sm shadow-red-900/10 border border-red-700/40">
           <button
@@ -585,6 +587,8 @@ const props = defineProps({
   categoriasSeleccionadas: { type: Array, default: () => [] },
   // true cuando venimos del modo "documentos" (query.modo === 'documentos')
   modoDocumento: { type: Boolean, default: false },
+  // true cuando venimos del buscador de materia (query.modo === 'materia')
+  modoMateria: { type: Boolean, default: false },
   // ── Opciones: materias sin grupo/plan cargadas solo en clasificación ──
   incluirSinGrupo:     { type: Boolean, default: false },
   mostrarNotaSinGrupo: { type: Boolean, default: true },
@@ -661,7 +665,7 @@ const toggleOcultarResolucionDesignacion = () => {
 const menuOpen   = ref(false)
 const pdfMenuRef = ref(null)
 
-const pdfSecciones = [
+const pdfSeccionesTodas = [
   {
     key: 'estandar',
     titulo: 'Reporte estándar',
@@ -678,6 +682,11 @@ const pdfSecciones = [
     acciones: { open: 'open-compartido', print: 'print-compartido', save: 'save-compartido', excel: 'excel-compartido' },
   },
 ]
+
+// Las tres variantes (estándar, con modalidad de ingreso y con compartidos)
+// soportan el modo materia: reciben `modoMateria`, `materiaTitulo`, etc. a
+// través de `opts` y agregan la columna Docente y el encabezado de materia.
+const pdfSecciones = pdfSeccionesTodas
 
 const toggleMenu = () => { menuOpen.value = !menuOpen.value }
 
@@ -712,6 +721,16 @@ const reporteParaPDF = () => {
   return { ...props.reporte, materias }
 }
 
+// Título del kardex de materia, igual que el header de pantalla:
+// "1301040 ADMINISTRACION DE COOPERATIVAS · Grupo 20"
+const tituloMateria = () => {
+  const filas  = props.reporte?.materias ?? []
+  const nombre = filas.length
+    ? filas[filas.length - 1].materia
+    : (materiaLocal.value || props.materia)
+  return `${nombre ?? ''} · Grupo ${grupoLocal.value || props.grupo || ''}`
+}
+
 const onPDF = (action) => {
   menuOpen.value = false
   if (!props.reporte) return
@@ -726,6 +745,12 @@ const onPDF = (action) => {
     // Bandera para que los generadores de PDF omitan Resolución y Designación.
     // (Los generadores deben leer `sinResolucionDesignacion` para aplicarla.)
     sinResolucionDesignacion: ocultarResolucionDesignacionLocal.value,
+
+    // ── Kardex de materia: encabezado con materia/grupo + columna Docente ──
+    modoMateria:   props.modoMateria,
+    materiaTitulo: tituloMateria(),
+    materiaCodigo: materiaLocal.value.trim() || props.materia || '',
+    grupo:         grupoLocal.value.trim() || props.grupo || '',
   }
 
   // ── Excel: solo descarga (no hay "ver" ni "imprimir") ──
