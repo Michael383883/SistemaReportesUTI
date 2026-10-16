@@ -111,14 +111,14 @@
               <div class="flex items-start gap-1.5">
                 <span
                   v-if="anidado"
-                  class="text-indigo-400 text-xs shrink-0 -ml-4 mt-0.5"
+                  class="text-indigo-600 dark:text-indigo-400 text-lg font-extrabold leading-none shrink-0 -ml-5 mt-0 w-4"
                   aria-hidden="true"
                 >↳</span>
                 <div class="min-w-0">
                   <span class="block font-semibold text-slate-800 dark:text-slate-100 leading-snug text-[12px]">
                     {{ mat.nombre }}
                   </span>
-                  <span class="block text-[10px] font-semibold text-slate-400 dark:text-slate-500">
+                  <span class="block text-[12px] font-semibold text-slate-800 dark:text-slate-900">
                     {{ mat.materia }}
                   </span>
                 </div>

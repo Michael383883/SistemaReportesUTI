@@ -59,7 +59,11 @@
           >
             <td class="py-2.5 pr-4" :class="item.anidado ? 'pl-9' : 'pl-4'">
               <div class="flex items-center gap-1.5 min-w-0">
-                <span v-if="item.anidado" class="text-indigo-400 text-xs shrink-0 -ml-4" aria-hidden="true">↳</span>
+                <span
+                  v-if="item.anidado"
+                  class="text-indigo-600 dark:text-indigo-400 text-lg font-extrabold leading-none shrink-0 -ml-5 w-4"
+                  aria-hidden="true"
+                >↳</span>
                 <svg
                   class="w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform duration-150"
                   :class="{ 'rotate-180': abiertos.has(item.key) }"

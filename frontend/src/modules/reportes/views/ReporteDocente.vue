@@ -90,6 +90,16 @@
           Generar por grado: Diploma académico
         </button>
 
+        <!-- NUEVO: documentos por categoría de título -->
+        <button @click="abrirCategorias" :disabled="loading || !datos.length"
+          title="Elige una categoría de título y mira los documentos de los docentes"
+          class="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 dark:bg-indigo-600 dark:hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-[13px] font-semibold rounded-lg transition-colors">
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M7 7h.01M7 3h5a1.99 1.99 0 011.414.586l7 7a2 2 0 010 2.828l-5 5a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z" />
+          </svg>
+          Categorías de títulos
+        </button>
+
         <button @click="onGenerarExcel" :disabled="!filtros.anio || !filtros.periodo || generandoExcel"
           class="inline-flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 disabled:cursor-not-allowed text-white text-[13px] font-bold rounded-lg transition-colors">
           <svg v-if="generandoExcel" class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
@@ -219,6 +229,101 @@
       class="text-center py-10 text-[13px] text-gray-800 dark:text-slate-300">
       No se encontraron docentes con carga en ese periodo.
     </div>
+
+    <!-- ═════ Modal: documentos por categoría de título ═════ -->
+    <div v-if="modalCategorias"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      @click.self="cerrarCategorias">
+      <div class="bg-white dark:bg-slate-800 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-xl w-full max-w-4xl max-h-[88vh] flex flex-col overflow-hidden">
+
+        <!-- Cabecera -->
+        <div class="flex items-center justify-between px-5 py-3 bg-slate-800 dark:bg-slate-950 text-white">
+          <div>
+            <h2 class="text-[15px] font-bold leading-tight">Documentos por categoría de título</h2>
+            <p class="text-[11px] text-slate-300">Periodo {{ filtros.anio }} - {{ nombrePeriodo }}</p>
+          </div>
+          <button @click="cerrarCategorias" aria-label="Cerrar"
+            class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors text-[16px] leading-none">✕</button>
+        </div>
+
+        <!-- Categorías registradas -->
+        <div class="px-5 py-3 border-b border-gray-200 dark:border-slate-700">
+          <p class="text-[12px] font-semibold text-gray-700 dark:text-slate-300 mb-2">
+            Elige una categoría ({{ categoriasRegistradas.length }} registradas)
+          </p>
+          <div class="flex flex-wrap gap-2">
+            <button v-for="c in categoriasRegistradas" :key="c.tipo" @click="seleccionarCategoria(c.tipo)"
+              class="inline-flex items-center gap-2 px-3 py-1 rounded-full border text-[12px] font-bold uppercase transition-all"
+              :class="catSel === c.tipo
+                ? 'bg-indigo-600 border-indigo-600 text-white ring-2 ring-offset-1 ring-indigo-300 dark:ring-offset-slate-800'
+                : 'bg-indigo-50 border-indigo-200 text-indigo-800 hover:bg-indigo-100 dark:bg-indigo-500/15 dark:border-indigo-500/40 dark:text-indigo-300 dark:hover:bg-indigo-500/25'">
+              {{ c.tipo }}
+              <span class="rounded-full px-1.5 text-[10px]"
+                :class="catSel === c.tipo ? 'bg-white/25' : 'bg-white/80 dark:bg-white/15'">{{ c.docentes }}</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Contenido -->
+        <div class="flex-1 overflow-y-auto px-5 py-3">
+          <p v-if="!catSel" class="py-10 text-center text-[13px] text-gray-500 dark:text-slate-400">
+            Selecciona una categoría para ver los documentos de los docentes.
+          </p>
+
+          <template v-else>
+            <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="text-[13px] font-semibold text-gray-700 dark:text-slate-300">
+                  {{ docentesPorCategoria.length }} docente{{ docentesPorCategoria.length === 1 ? '' : 's' }}
+                </span>
+                <span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-300 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/40">
+                  Con PDF: {{ resumenCategoria.conPdf }}
+                </span>
+                <span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-gray-100 text-gray-600 border border-gray-300 dark:bg-slate-700 dark:text-slate-300 dark:border-slate-600">
+                  Sin PDF: {{ resumenCategoria.sinPdf }}
+                </span>
+              </div>
+
+              <div class="relative w-full sm:w-64">
+                <svg class="w-4 h-4 text-gray-400 dark:text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z" />
+                </svg>
+                <input v-model="busquedaCat" type="text" placeholder="Buscar docente o título…"
+                  class="w-full border border-gray-300 dark:border-slate-600 rounded-lg pl-8 pr-3 py-1.5 text-[12px] text-gray-900 dark:text-slate-100 bg-white dark:bg-slate-900 placeholder-gray-400 dark:placeholder-slate-500 focus:outline-none focus:border-indigo-500 dark:focus:border-indigo-400" />
+              </div>
+            </div>
+
+            <div class="rounded-xl border border-gray-200 dark:border-slate-700 overflow-hidden">
+              <table class="w-full text-[12px]">
+                <thead>
+                  <tr class="bg-slate-100 dark:bg-slate-900 text-gray-700 dark:text-slate-300 text-left">
+                    <th class="px-3 py-2 font-semibold w-24">Código</th>
+                    <th class="px-3 py-2 font-semibold">Docente</th>
+                    <th class="px-3 py-2 font-semibold">{{ catSel }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(x, i) in docentesPorCategoria" :key="x.row.CODIGO"
+                    class="border-t border-gray-200 dark:border-slate-700 text-gray-800 dark:text-slate-200 align-top"
+                    :class="i % 2 === 1 ? 'bg-sky-50 dark:bg-slate-700/40' : 'bg-white dark:bg-slate-800'">
+                    <td class="px-3 py-2">{{ x.row.CODIGO }}</td>
+                    <td class="px-3 py-2 uppercase">{{ x.row.APELLIDOS }} {{ x.row.NOMBRES }}</td>
+                    <td class="px-3 py-2 min-w-[260px]">
+                      <TitulosCelda :titulos="x.titulos" :extras="filtros.campos_titulo" />
+                    </td>
+                  </tr>
+                  <tr v-if="!docentesPorCategoria.length">
+                    <td colspan="3" class="px-3 py-8 text-center text-gray-500 dark:text-slate-400">
+                      Ningún docente coincide con la búsqueda.
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </template>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -323,11 +428,82 @@ function textoContador(row) {
 const conDiploma = computed(() => datos.value.filter(r => diplomaDe(r)).length)
 const sinDiploma = computed(() => datos.value.length - conDiploma.value)
 
+// ── Documentos por categoría de título (modal) ──────────────────────────────
+// Las categorías salen de los títulos realmente registrados en los docentes
+// del periodo cargado (campo tipo_titulo), con el número de docentes de cada una.
+const modalCategorias = ref(false)
+const catSel = ref('')
+const busquedaCat = ref('')
+
+const claveTipo = (t) => t.tipo_titulo || 'Sin tipo'
+
+const categoriasRegistradas = computed(() => {
+  const mapa = new Map() // tipo -> Set de CODIGO de docentes
+  for (const r of datos.value) {
+    for (const t of r.titulos) {
+      const k = claveTipo(t)
+      if (!mapa.has(k)) mapa.set(k, new Set())
+      mapa.get(k).add(r.CODIGO)
+    }
+  }
+  return [...mapa.entries()]
+    .map(([tipo, set]) => ({ tipo, docentes: set.size }))
+    .sort((a, b) => b.docentes - a.docentes || a.tipo.localeCompare(b.tipo))
+})
+
+// Cada docente con SOLO los títulos de la categoría elegida (+ buscador)
+const docentesPorCategoria = computed(() => {
+  if (!catSel.value) return []
+  const q = norm(busquedaCat.value)
+
+  return datos.value
+    .map(row => ({ row, titulos: row.titulos.filter(t => claveTipo(t) === catSel.value) }))
+    .filter(x => x.titulos.length)
+    .filter(x => {
+      if (!q) return true
+      return [x.row.CODIGO, x.row.APELLIDOS, x.row.NOMBRES, ...x.titulos.map(t => t.nombre_titulo)]
+        .map(norm).join(' ').includes(q)
+    })
+})
+
+const resumenCategoria = computed(() => {
+  let conPdf = 0
+  let sinPdf = 0
+  for (const x of docentesPorCategoria.value) {
+    for (const t of x.titulos) {
+      if (t.tiene_archivo) conPdf++
+      else sinPdf++
+    }
+  }
+  return { conPdf, sinPdf }
+})
+
+const nombrePeriodo = computed(() => {
+  const nombres = { 1: '1', 2: '2', 3: 'Verano', 4: 'Invierno' }
+  return nombres[Number(filtros.periodo)] ?? filtros.periodo
+})
+
+function abrirCategorias() {
+  busquedaCat.value = ''
+  modalCategorias.value = true
+}
+
+function cerrarCategorias() {
+  modalCategorias.value = false
+}
+
+function seleccionarCategoria(tipo) {
+  busquedaCat.value = ''
+  catSel.value = catSel.value === tipo ? '' : tipo
+}
+
 async function ejecutarBusqueda(grado = null) {
   buscoAlMenosUnaVez.value = true
   tituloSeleccionado.value = null
   busqueda.value = ''
   abiertos.value = {}
+  catSel.value = ''
+  busquedaCat.value = ''
   // Por grado se traen TODOS los docentes (sin filtrar por tipo en el backend),
   // para poder avisar a quienes no tienen diploma académico.
   await buscar({

@@ -92,28 +92,105 @@
       v-if="mostrarFiltros"
       class="bg-slate-100 rounded-xl border border-gray-200 p-3 mb-4 flex flex-wrap items-end gap-2"
     >
-      <div class="flex flex-col gap-0.5">
+      <!-- Overlay invisible para cerrar los dropdowns al hacer clic fuera -->
+      <div
+        v-if="filtroCatOpen || filtroTituloOpen"
+        class="fixed inset-0 z-20"
+        @click="cerrarDropdownsFiltro"
+      ></div>
+
+      <!-- Categoría de documento (multi-selección) -->
+      <div class="relative flex flex-col gap-0.5" :class="{ 'z-30': filtroCatOpen }">
         <label class="text-[10px] font-medium text-gray-400 px-0.5">Categoría de documento</label>
-        <select
-          v-model="filtros.categoria"
-          @change="cargar"
-          class="px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+        <button
+          type="button"
+          @click="filtroCatOpen = !filtroCatOpen; filtroTituloOpen = false"
+          class="w-56 flex items-center justify-between gap-2 px-3 py-1.5 text-sm border border-gray-200 rounded-lg bg-white text-left"
         >
-          <option value="">Todos</option>
-          <option v-for="cat in categorias" :key="cat" :value="cat">{{ cat }}</option>
-        </select>
+          <span class="truncate" :class="filtros.categoria.length ? 'text-gray-800' : 'text-gray-400'">
+            {{ filtros.categoria.length ? `${filtros.categoria.length} seleccionada(s)` : 'Todos' }}
+          </span>
+          <svg class="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+          </svg>
+        </button>
+        <div
+          v-if="filtroCatOpen"
+          class="absolute top-full left-0 mt-1 w-64 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto"
+        >
+          <label
+            v-for="cat in categorias"
+            :key="cat"
+            class="flex items-center gap-2 px-3 py-2 text-[13px] text-slate-700 hover:bg-blue-50 cursor-pointer"
+          >
+            <input type="checkbox" :value="cat" v-model="filtros.categoria" @change="cargar" class="accent-blue-600" />
+            {{ cat }}
+          </label>
+          <div v-if="!categorias.length" class="px-3 py-2 text-[12px] text-gray-400 italic">Sin categorías</div>
+          <div class="flex items-center justify-between px-3 py-2 border-t border-gray-100 bg-gray-50">
+            <button
+              type="button"
+              class="text-[11px] text-gray-500 hover:text-red-500"
+              @mousedown.prevent="filtros.categoria = []; cargar()"
+            >
+              Limpiar
+            </button>
+            <button
+              type="button"
+              class="text-[11px] font-medium text-blue-600 hover:text-blue-700"
+              @mousedown.prevent="filtroCatOpen = false"
+            >
+              Listo
+            </button>
+          </div>
+        </div>
       </div>
 
-      <div class="flex flex-col gap-0.5">
+      <!-- Categoría de título (multi-selección) -->
+      <div class="relative flex flex-col gap-0.5" :class="{ 'z-30': filtroTituloOpen }">
         <label class="text-[10px] font-medium text-gray-400 px-0.5">Categoría de título</label>
-        <select
-          v-model="filtros.tipo_titulo"
-          @change="cargar"
-          class="px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+        <button
+          type="button"
+          @click="filtroTituloOpen = !filtroTituloOpen; filtroCatOpen = false"
+          class="w-56 flex items-center justify-between gap-2 px-3 py-1.5 text-sm border border-gray-200 rounded-lg bg-white text-left"
         >
-          <option value="">Todos</option>
-          <option v-for="tipo in tiposTitulo" :key="tipo" :value="tipo">{{ tipo }}</option>
-        </select>
+          <span class="truncate" :class="filtros.tipo_titulo.length ? 'text-gray-800' : 'text-gray-400'">
+            {{ filtros.tipo_titulo.length ? `${filtros.tipo_titulo.length} seleccionada(s)` : 'Todos' }}
+          </span>
+          <svg class="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+          </svg>
+        </button>
+        <div
+          v-if="filtroTituloOpen"
+          class="absolute top-full left-0 mt-1 w-64 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto"
+        >
+          <label
+            v-for="tipo in tiposTitulo"
+            :key="tipo"
+            class="flex items-center gap-2 px-3 py-2 text-[13px] text-slate-700 hover:bg-blue-50 cursor-pointer"
+          >
+            <input type="checkbox" :value="tipo" v-model="filtros.tipo_titulo" @change="cargar" class="accent-blue-600" />
+            {{ tipo }}
+          </label>
+          <div v-if="!tiposTitulo.length" class="px-3 py-2 text-[12px] text-gray-400 italic">Sin tipos de título</div>
+          <div class="flex items-center justify-between px-3 py-2 border-t border-gray-100 bg-gray-50">
+            <button
+              type="button"
+              class="text-[11px] text-gray-500 hover:text-red-500"
+              @mousedown.prevent="filtros.tipo_titulo = []; cargar()"
+            >
+              Limpiar
+            </button>
+            <button
+              type="button"
+              class="text-[11px] font-medium text-blue-600 hover:text-blue-700"
+              @mousedown.prevent="filtroTituloOpen = false"
+            >
+              Listo
+            </button>
+          </div>
+        </div>
       </div>
 
       <select
@@ -300,7 +377,10 @@
 
       <!-- Contador de registros -->
       <div class="px-4 py-2.5 bg-gray-50/80 border-t border-gray-100 text-xs text-gray-400 flex justify-between">
-        <span>Mostrando {{ listadoFiltrado.length }} docentes</span>
+        <span>
+          Mostrando {{ listadoFiltrado.length }}
+          {{ (filtroNombre.trim() || hayFiltroCategoria) ? 'documentos' : 'docentes' }}
+        </span>
         <span v-if="clasificacion.listado.value.length !== listadoFiltrado.length">
           ({{ clasificacion.listado.value.length }} clasificaciones en total)
         </span>
@@ -830,21 +910,30 @@ async function verPdf(idDocumento) {
 }
 
 // Filtros de la tabla principal
+// categoria y tipo_titulo son arrays (multi-selección)
 const filtroNombre = ref('')
 const filtros = ref({
-  categoria: '',
-  tipo_titulo: '',
+  categoria: [],
+  tipo_titulo: [],
   nivel: '',
   gestion: '',
   periodo: '',
 })
 
+// Dropdowns multi-selección del panel de filtros
+const filtroCatOpen = ref(false)
+const filtroTituloOpen = ref(false)
+function cerrarDropdownsFiltro() {
+  filtroCatOpen.value = false
+  filtroTituloOpen.value = false
+}
+
 // Panel de filtros colapsable
 const mostrarFiltros = ref(false)
 const filtrosActivosCount = computed(() => {
   let count = 0
-  if (filtros.value.categoria) count++
-  if (filtros.value.tipo_titulo) count++
+  if (filtros.value.categoria.length) count++
+  if (filtros.value.tipo_titulo.length) count++
   if (filtros.value.nivel) count++
   if (filtros.value.gestion) count++
   if (filtros.value.periodo) count++
@@ -860,8 +949,8 @@ const eliminando = ref(false)
 async function cargar() {
   try {
     await clasificacion.listar({
-      categoria: filtros.value.categoria || undefined,
-      tipo_titulo: filtros.value.tipo_titulo || undefined,
+      categoria: filtros.value.categoria.length ? filtros.value.categoria : undefined,
+      tipo_titulo: filtros.value.tipo_titulo.length ? filtros.value.tipo_titulo : undefined,
       nivel: filtros.value.nivel || undefined,
       gestion: filtros.value.gestion || undefined,
       periodo: filtros.value.periodo || undefined,
@@ -873,11 +962,12 @@ async function cargar() {
 
 function limpiarFiltros() {
   filtroNombre.value = ''
-  filtros.value.categoria = ''
-  filtros.value.tipo_titulo = ''
+  filtros.value.categoria = []
+  filtros.value.tipo_titulo = []
   filtros.value.nivel = ''
   filtros.value.gestion = ''
   filtros.value.periodo = ''
+  cerrarDropdownsFiltro()
   cargar()
 }
 
@@ -923,12 +1013,29 @@ const listadoPorDocente = computed(() => {
 // Sin búsqueda: se agrupa por docente (una fila por docente, la más reciente).
 // Con búsqueda: se muestra CADA documento que coincide como su propia fila,
 // así si un docente tiene 2 diplomados (doc #5 y #6), aparecen los 2 en la lista.
+//
+// Con filtros de categoría de documento / categoría de título activos
+// pasa lo mismo: se muestra CADA documento que cumple el filtro, no solo el
+// más reciente de cada docente. Así, si eliges "Titulares" + "Examen
+// suficiencia", un docente con ambos documentos aparece con sus 2 filas.
+const hayFiltroCategoria = computed(
+  () => filtros.value.categoria.length > 0 || filtros.value.tipo_titulo.length > 0
+)
+
 const listadoFiltrado = computed(() => {
   const term = filtroNombre.value.trim().toLowerCase()
 
-  if (!term) return listadoPorDocente.value
+  if (!term && !hayFiltroCategoria.value) return listadoPorDocente.value
 
   const coincide = (c) => {
+    // Categoría de documento: se vuelve a validar en cliente por seguridad
+    if (filtros.value.categoria.length) {
+      const cats = filtros.value.categoria.map(norm)
+      if (!cats.includes(norm(c.CATEGORIA))) return false
+    }
+
+    if (!term) return true
+
     const nombre  = (c.NOMBRE_DOCENTE  || '').toLowerCase()
     const tipoDoc = (c.TIPO_DOCUMENTO  || '').toLowerCase()
     const detalle = (c.DETALLE_GENERAL || '').toLowerCase()
@@ -1050,11 +1157,12 @@ async function abrirPreviewExcel() {
   if (filtros.value.gestion) {
     excelParams.value.gestion_desde = filtros.value.gestion
   }
-  if (filtros.value.categoria) {
-    excelParams.value.categorias = [filtros.value.categoria]
+  // Los filtros de la tabla ahora son arrays: se copian tal cual
+  if (filtros.value.categoria.length) {
+    excelParams.value.categorias = [...filtros.value.categoria]
   }
-  if (filtros.value.tipo_titulo) {
-    excelParams.value.tiposTitulo = [filtros.value.tipo_titulo]
+  if (filtros.value.tipo_titulo.length) {
+    excelParams.value.tiposTitulo = [...filtros.value.tipo_titulo]
   }
   mostrarPreviewExcel.value = true
   await cargarPreviewExcel()

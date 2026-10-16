@@ -11,6 +11,13 @@ use Illuminate\Support\Facades\Log;
 class ClasificacionDocenteController extends Controller
 {
     // GET /clasificaciones
+    // GET /clasificaciones
+    //
+    // Filtros multi-selección (categoria[] y tipo_titulo[]):
+    //  - Se devuelven solo los docentes que tienen TODAS las categorías (o
+    //    TODOS los tipos de título) seleccionados, no cualquiera de ellos.
+    //  - De cada docente se devuelven todos sus documentos que cumplen el
+    //    filtro, uno por fila, para que la tabla los muestre completos.
     public function index(Request $request)
     {
         $query = DB::table('CLASIFICACION_DOCENTE as ccd')
@@ -33,9 +40,29 @@ class ClasificacionDocenteController extends Controller
                 'cdoc.FECHA_REGISTRO'
             );
 
-        if ($request->filled('categoria')) {
-            $query->where('cdoc.CATEGORIA', $request->query('categoria'));
+        // ── Categoría de documento (acepta string o array) ──
+        $categorias = array_values(array_unique(array_filter(
+            (array) $request->query('categoria', []),
+            fn($v) => $v !== null && $v !== ''
+        )));
+
+        if (!empty($categorias)) {
+            // Filas: solo documentos de las categorías elegidas
+            $query->whereIn('cdoc.CATEGORIA', $categorias);
+
+            // Docentes: con 2 o más categorías, solo los que tienen documentos en TODAS
+            if (count($categorias) > 1) {
+                $query->whereIn('ccd.COD_DOCENTE', function ($sub) use ($categorias) {
+                    $sub->select('ccd2.COD_DOCENTE')
+                        ->from('CLASIFICACION_DOCENTE as ccd2')
+                        ->join('CLASIFICACION_DOCUMENTO as cdoc2', 'cdoc2.ID_DOCUMENTO', '=', 'ccd2.ID_DOCUMENTO')
+                        ->whereIn('cdoc2.CATEGORIA', $categorias)
+                        ->groupBy('ccd2.COD_DOCENTE')
+                        ->havingRaw('COUNT(DISTINCT cdoc2.CATEGORIA) = ?', [count($categorias)]);
+                });
+            }
         }
+
         if ($request->filled('nivel')) {
             $query->where('cdoc.NIVEL', $request->query('nivel'));
         }
@@ -52,13 +79,32 @@ class ClasificacionDocenteController extends Controller
             $query->where('cdoc.TIPO_DOCUMENTO', $request->query('tipo_documento'));
         }
 
-        if ($request->filled('tipo_titulo')) {
-            $tipoTitulo = $request->query('tipo_titulo');
-            $query->whereIn('ccd.ID_CLASIFICACION_DOCENTE', function ($sub) use ($tipoTitulo) {
+        // ── Categoría de título (acepta string o array) ──
+        $tiposTitulo = array_values(array_unique(array_filter(
+            (array) $request->query('tipo_titulo', []),
+            fn($v) => $v !== null && $v !== ''
+        )));
+
+        if (!empty($tiposTitulo)) {
+            // Filas: solo clasificaciones que tienen alguno de los títulos elegidos
+            $query->whereIn('ccd.ID_CLASIFICACION_DOCENTE', function ($sub) use ($tiposTitulo) {
                 $sub->select('ID_CLASIFICACION_DOCENTE')
                     ->from('CLASIFICACION_TITULO')
-                    ->where('TIPO_TITULO', $tipoTitulo);
+                    ->whereIn('TIPO_TITULO', $tiposTitulo);
             });
+
+            // Docentes: con 2 o más tipos, solo los que tienen TODOS los tipos
+            // (aunque estén repartidos en distintos documentos).
+            if (count($tiposTitulo) > 1) {
+                $query->whereIn('ccd.COD_DOCENTE', function ($sub) use ($tiposTitulo) {
+                    $sub->select('ccd3.COD_DOCENTE')
+                        ->from('CLASIFICACION_DOCENTE as ccd3')
+                        ->join('CLASIFICACION_TITULO as t3', 't3.ID_CLASIFICACION_DOCENTE', '=', 'ccd3.ID_CLASIFICACION_DOCENTE')
+                        ->whereIn('t3.TIPO_TITULO', $tiposTitulo)
+                        ->groupBy('ccd3.COD_DOCENTE')
+                        ->havingRaw('COUNT(DISTINCT t3.TIPO_TITULO) = ?', [count($tiposTitulo)]);
+                });
+            }
         }
 
         $listado = $query->orderBy('NOMBRE_DOCENTE')->get();
