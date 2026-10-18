@@ -94,7 +94,7 @@
               </span>
             </td>
 
-            <!-- Columna C: muestra 0 o 1. Si tiene descripción (en 0 o en 1), es clicable y abre el detalle -->
+            <!-- Columna C -->
             <td class="text-center px-2 py-2.5">
               <button
                 v-if="tieneDetalleComp(item)"
@@ -128,7 +128,7 @@
             </td>
           </tr>
 
-          <!-- Fila expandida: acciones PDF + lista de estudiantes -->
+          <!-- Fila expandida: acciones PDF/Excel + lista de estudiantes -->
           <tr v-if="abiertos.has(item.key)" class="border-b border-slate-200 dark:border-slate-700">
             <td colspan="6" class="p-0 bg-slate-100 dark:bg-slate-800">
 
@@ -174,6 +174,21 @@
                             >
                               <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                              </svg>
+                            </button>
+                            <!-- NUEVO: Excel de esta materia -->
+                            <button
+                              type="button"
+                              :disabled="generandoExcel"
+                              title="Descargar Excel de esta materia"
+                              class="inline-flex items-center justify-center w-6 h-6 rounded-md text-emerald-700 bg-emerald-100 border border-emerald-300 hover:bg-emerald-200 hover:text-emerald-800 transition-colors cursor-pointer outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                              @click.stop="generarExcelMateria(item)"
+                            >
+                              <svg v-if="generandoExcel" class="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                <path d="M21 12a9 9 0 1 1-6.219-8.56" stroke-linecap="round"/>
+                              </svg>
+                              <svg v-else xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/>
                               </svg>
                             </button>
                           </div>
@@ -247,9 +262,7 @@
       </tfoot>
     </table>
 
-    <!-- ── Modal: detalle del compartido ──────────────────────
-         Va en <Teleport to="body"> porque el card tiene overflow-hidden
-         y un popover dentro de la tabla quedaría cortado. -->
+    <!-- ── Modal: detalle del compartido ────────────────────── -->
     <Teleport to="body">
       <Transition
         enter-active-class="transition-opacity duration-150 ease-out"
@@ -333,6 +346,7 @@
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useReporteInscritosLista } from '../composables/useReporteInscritosLista'
+import { useExcelReportes } from '../composables/useExcelReportes'
 import { mostrarLoaderPdf } from '../utils/pdfLoader'
 
 const props = defineProps({
@@ -342,6 +356,8 @@ const props = defineProps({
 })
 
 const { generandoLista, exportarListaCompleta } = useReporteInscritosLista()
+// NUEVO: mismo Excel de "Lista completa de inscritos", pero con una sola materia
+const { generandoExcel, exportarExcelLista } = useExcelReportes()
 
 const abiertos = ref(new Set())
 
@@ -392,12 +408,6 @@ function infoRelacion(item, rol) {
   }
 }
 
-// Agrupa padres e hijos del docente. Misma idea que el reporte de horarios:
-//   1) Mismo ORDEN (M1, M2...) dentro del docente: COMP 0 = origen/padre,
-//      COMP 1 = derivadas/hijos. Un origen puede tener varias derivadas.
-//   2) Lo que quede suelto: se usa lo que calculó el backend
-//      (padre_clave / comparte_con, por código de materia + grupo).
-// Devuelve la lista plana: padre arriba, hijos justo debajo (anidado = true).
 const materiasFlat = computed(() => {
   const base = materiasBase.value
   const porKey = new Map(base.map((i) => [i.key, i]))
@@ -411,7 +421,7 @@ const materiasFlat = computed(() => {
   function vincular(padre, hijo) {
     if (padre.key === hijo.key) return
     if (hijoDe.has(hijo.key) || hijoDe.has(padre.key)) return
-    if (clusters.has(hijo.key)) return // un padre no puede ser hijo a la vez
+    if (clusters.has(hijo.key)) return
     if (!clusters.has(padre.key)) clusters.set(padre.key, { padre, hijos: [] })
     clusters.get(padre.key).hijos.push(hijo)
     hijoDe.set(hijo.key, padre.key)
@@ -451,7 +461,6 @@ const materiasFlat = computed(() => {
     if (padre) vincular(padre, i)
   })
 
-  // Lista final
   const salida = []
   base.forEach((i) => {
     if (hijoDe.has(i.key)) return
@@ -473,8 +482,6 @@ const materiasFlat = computed(() => {
         })
       })
     } else {
-      // Sin pareja en este docente (puede que el otro lado sea de otro docente):
-      // se muestra lo que sepa el backend.
       salida.push({
         ...i,
         anidado: false,
@@ -486,7 +493,6 @@ const materiasFlat = computed(() => {
   return salida
 })
 
-// "ADM · 1301132 - NOMBRE (GRP 42) · Ins: 35" para cada materia con la que comparte
 function textoComparte(lista) {
   return (lista ?? [])
     .map((r) => {
@@ -496,7 +502,6 @@ function textoComparte(lista) {
     .join('  |  ')
 }
 
-// El número de la columna C es clicable si hay descripción o materias relacionadas
 function tieneDetalleComp(item) {
   return !!item.materia.descripcion_comp || !!item.comparte?.length
 }
@@ -508,22 +513,12 @@ function toggleMateria(key) {
   abiertos.value = next
 }
 
-// ─── PDF de UNA sola materia ─────────────────────────────────────────────
-// Reutiliza el mismo generador de la lista completa, pasándole un docente
-// con una única carrera y una única materia.
-async function generarPDFMateria(item, modo = 'descargar') {
+// ─── Docente con UNA sola materia (lo usan el PDF y el Excel individuales) ──
+function dataDeUnaMateria(item) {
   const { carrera, materia } = item
-
-  // Ventana pre-abierta solo para 'ver' (evita el bloqueo de popups)
-  let ventana = null
-  if (modo === 'ver') {
-    ventana = window.open('', '_blank')
-    if (ventana) mostrarLoaderPdf(ventana, 'Generando lista de la materia...')
-  }
-
   const abandonos = materia.subtotal_abandonos ?? 0
 
-  const dataMateria = [{
+  return [{
     ...props.docente,
     carreras: [{
       ...carrera,
@@ -533,14 +528,38 @@ async function generarPDFMateria(item, modo = 'descargar') {
     total_inscritos: materia.subtotal,
     total_abandonos: abandonos,
   }]
+}
+
+// ─── PDF de UNA sola materia ─────────────────────────────────────────────
+async function generarPDFMateria(item, modo = 'descargar') {
+  const { materia } = item
+
+  // Ventana pre-abierta solo para 'ver' (evita el bloqueo de popups)
+  let ventana = null
+  if (modo === 'ver') {
+    ventana = window.open('', '_blank')
+    if (ventana) mostrarLoaderPdf(ventana, 'Generando lista de la materia...')
+  }
 
   const nombreArchivo = `Lista_${materia.cod_materia}_Gr${materia.grupo}_${props.anio}_${props.periodo}.pdf`
 
-  await exportarListaCompleta(dataMateria, props.anio, props.periodo, modo, ventana, {
+  await exportarListaCompleta(dataDeUnaMateria(item), props.anio, props.periodo, modo, ventana, {
     titulo: 'LISTA DE INSCRITOS POR MATERIA',
     etiquetaTotal: 'TOTAL INSCRITOS DE LA MATERIA',
     filename: nombreArchivo,
   })
+}
+
+// ─── NUEVO: Excel de UNA sola materia ────────────────────────────────────
+// Usa el mismo exportarExcelLista que la "Lista completa de inscritos",
+// pasándole el docente con una única carrera y una única materia.
+async function generarExcelMateria(item) {
+  try {
+    await exportarExcelLista(dataDeUnaMateria(item), props.anio, props.periodo)
+  } catch (e) {
+    console.error('Error generando Excel de la materia:', e)
+    alert('No se pudo generar el Excel. Verificá que esté instalada la librería exceljs.')
+  }
 }
 
 const colorClasses = {
