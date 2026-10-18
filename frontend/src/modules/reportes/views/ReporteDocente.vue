@@ -90,7 +90,6 @@
           Generar por grado: Diploma académico
         </button>
 
-        <!-- NUEVO: documentos por categoría de título -->
         <button @click="abrirCategorias" :disabled="loading || !datos.length"
           title="Elige una categoría de título y mira los documentos de los docentes"
           class="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 dark:bg-indigo-600 dark:hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-[13px] font-semibold rounded-lg transition-colors">
@@ -172,8 +171,21 @@
                 class="border-t border-gray-200 dark:border-slate-700 text-gray-800 dark:text-slate-200 align-top transition-colors hover:bg-sky-100/70 dark:hover:bg-sky-500/10"
                 :class="i % 2 === 1 ? 'bg-sky-50 dark:bg-slate-700/40' : 'bg-white dark:bg-slate-800'">
                 <td class="px-3 py-2">{{ row.CODIGO }}</td>
-                <td class="px-3 py-2">{{ row.APELLIDOS }}</td>
-                <td class="px-3 py-2">{{ row.NOMBRES }}</td>
+
+                <!-- Apellidos y nombres: clic abre el menú de acciones del docente -->
+                <td class="px-3 py-2">
+                  <button @click="abrirMenuDocente(row)" title="Ver opciones del docente"
+                    class="text-left font-semibold text-blue-800 dark:text-blue-300 hover:underline">
+                    {{ row.APELLIDOS }}
+                  </button>
+                </td>
+                <td class="px-3 py-2">
+                  <button @click="abrirMenuDocente(row)" title="Ver opciones del docente"
+                    class="text-left font-semibold text-blue-800 dark:text-blue-300 hover:underline">
+                    {{ row.NOMBRES }}
+                  </button>
+                </td>
+
                 <td v-for="c in filtros.campos" :key="c" class="px-3 py-2">{{ celda(row, c) }}</td>
                 <td class="px-3 py-2 min-w-[260px]">
                   <!-- Modo "por grado": solo el Diploma Académico + contador del resto -->
@@ -193,7 +205,6 @@
                       </svg>
                     </button>
 
-                    <!-- Otros títulos del docente (desplegable) -->
                     <div v-if="otrosCount(row) > 0 && abiertos[row.CODIGO]"
                       class="mt-2 pl-3 border-l-2 border-blue-200 dark:border-blue-500/40">
                       <TitulosCelda :titulos="otrosDe(row)" :extras="filtros.campos_titulo" />
@@ -236,7 +247,6 @@
       @click.self="cerrarCategorias">
       <div class="bg-white dark:bg-slate-800 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-xl w-full max-w-4xl max-h-[88vh] flex flex-col overflow-hidden">
 
-        <!-- Cabecera -->
         <div class="flex items-center justify-between px-5 py-3 bg-slate-800 dark:bg-slate-950 text-white">
           <div>
             <h2 class="text-[15px] font-bold leading-tight">Documentos por categoría de título</h2>
@@ -246,7 +256,6 @@
             class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors text-[16px] leading-none">✕</button>
         </div>
 
-        <!-- Categorías registradas -->
         <div class="px-5 py-3 border-b border-gray-200 dark:border-slate-700">
           <p class="text-[12px] font-semibold text-gray-700 dark:text-slate-300 mb-2">
             Elige una categoría ({{ categoriasRegistradas.length }} registradas)
@@ -264,7 +273,6 @@
           </div>
         </div>
 
-        <!-- Contenido -->
         <div class="flex-1 overflow-y-auto px-5 py-3">
           <p v-if="!catSel" class="py-10 text-center text-[13px] text-gray-500 dark:text-slate-400">
             Selecciona una categoría para ver los documentos de los docentes.
@@ -324,6 +332,62 @@
         </div>
       </div>
     </div>
+
+    <!-- ═════ Menú de acciones del docente (abre en pestaña nueva) ═════ -->
+    <div v-if="docenteMenu"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      @click.self="docenteMenu = null">
+      <div class="bg-white dark:bg-slate-800 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-xl w-full max-w-sm overflow-hidden">
+
+        <!-- Cabecera con avatar -->
+        <div class="relative flex items-center gap-3 pl-6 pr-4 py-3.5 bg-slate-800 dark:bg-slate-950 text-white">
+          <div class="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-amber-400 to-amber-600"></div>
+
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-700 to-violet-600 text-white text-[13px] font-bold flex items-center justify-center shrink-0 tracking-wide">
+            {{ iniciales(docenteMenu) }}
+          </div>
+
+          <div class="min-w-0 flex-1">
+            <h2 class="text-[14px] font-bold leading-tight uppercase truncate">
+              {{ docenteMenu.APELLIDOS }} {{ docenteMenu.NOMBRES }}
+            </h2>
+            <p class="text-[11px] text-slate-300 mt-0.5">
+              SIS: {{ docenteMenu.CODIGO }} · {{ filtros.anio }} - {{ nombrePeriodo }}
+            </p>
+          </div>
+
+          <button @click="docenteMenu = null" aria-label="Cerrar"
+            class="w-7 h-7 flex items-center justify-center rounded-full text-slate-300 hover:text-white hover:bg-white/10 transition-colors">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <!-- Opciones -->
+        <div class="p-2.5 space-y-1.5">
+          <button v-for="a in accionesDocente" :key="a.key" @click="irA(a.key)"
+            class="group w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-left transition-all"
+            :class="a.hover">
+            <span class="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" :class="a.tile">
+              <svg class="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" :d="a.icono" />
+              </svg>
+            </span>
+
+            <span class="min-w-0 flex-1">
+              <span class="block text-[13px] font-semibold text-gray-900 dark:text-slate-100 leading-tight">{{ a.titulo }}</span>
+              <span class="block text-[11px] text-gray-500 dark:text-slate-400 mt-0.5">{{ a.desc }}</span>
+            </span>
+
+            <svg class="w-4 h-4 text-gray-300 dark:text-slate-600 group-hover:text-gray-500 dark:group-hover:text-slate-300 group-hover:translate-x-0.5 transition-all shrink-0"
+              fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -356,9 +420,6 @@ const filtros = reactive({
   campos_titulo: [],
 })
 
-// El valor inicial de arriba es el fallback instantáneo (por mes).
-// En cuanto se resuelve contra la BD real, corregimos los filtros
-// (por si el rango real de algún periodo no calza con el fallback).
 promesaPeriodoActual.then(() => {
   filtros.anio = anioActual.value
   filtros.periodo = String(periodoActual.value)
@@ -372,7 +433,6 @@ const camposDocenteDisponibles = [
   { value: 'FECHA_NOMBRAMIENTO', label: 'Fecha de nombramiento' },
 ]
 
-// El nombre del título siempre se muestra, por eso no es opción
 const camposTituloDisponibles = [
   { value: 'UNIVERSIDAD', label: 'Universidad' },
   { value: 'PAIS', label: 'País' },
@@ -393,27 +453,81 @@ const generandoExcel = ref(false)
 const tituloSeleccionado = ref(null)
 const busqueda = ref('')
 
+// ── Menú de acciones por docente ────────────────────────────────────────────
+const docenteMenu = ref(null)
+
+const accionesDocente = [
+  {
+    key: 'inscritos', titulo: 'Ver sus inscritos', desc: 'Lista de inscritos del periodo',
+    icono: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z',
+    tile: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300',
+    hover: 'hover:border-emerald-300 hover:bg-emerald-50/40 dark:hover:border-emerald-500/50 dark:hover:bg-emerald-500/5',
+  },
+  {
+    key: 'documentos', titulo: 'Ver sus documentos', desc: 'Detalle de clasificaciones y archivos',
+    icono: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z',
+    tile: 'bg-indigo-50 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300',
+    hover: 'hover:border-indigo-300 hover:bg-indigo-50/40 dark:hover:border-indigo-500/50 dark:hover:bg-indigo-500/5',
+  },
+  {
+    key: 'horario', titulo: 'Ver su horario', desc: 'Carga horaria del periodo',
+    icono: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z',
+    tile: 'bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300',
+    hover: 'hover:border-amber-300 hover:bg-amber-50/40 dark:hover:border-amber-500/50 dark:hover:bg-amber-500/5',
+  },
+  {
+    key: 'kardex', titulo: 'Ver su kardex', desc: 'Materias dictadas',
+    icono: 'M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253',
+    tile: 'bg-blue-50 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300',
+    hover: 'hover:border-blue-300 hover:bg-blue-50/40 dark:hover:border-blue-500/50 dark:hover:bg-blue-500/5',
+  },
+]
+
+// Iniciales para el avatar de la cabecera del menú
+const iniciales = (d) =>
+  ((d?.NOMBRES?.[0] ?? '') + (d?.APELLIDOS?.[0] ?? '')).toUpperCase() || '?'
+
+const abrirMenuDocente = (row) => { docenteMenu.value = row }
+
+function irA(destino) {
+  const d = docenteMenu.value
+  if (!d) return
+
+  // Búsqueda por "APELLIDOS NOMBRES" (no por código) para inscritos y horario
+  const buscarTexto = `${d.APELLIDOS} ${d.NOMBRES}`.trim()
+  const periodo = { anio: filtros.anio, periodo: filtros.periodo }
+
+  const destinos = {
+    inscritos:  { name: 'inscritos',                query: { buscar: buscarTexto, ...periodo } },
+    horario:    { name: 'reporte-horario-completo', query: { buscar: buscarTexto, ...periodo } },
+    documentos: { name: 'clasificaciones-docente',  params: { cod_docente: d.CODIGO } },
+    kardex:     { name: 'reporte',                  query: { codigo: d.CODIGO } },
+  }
+
+  // Abre en una pestaña nueva
+  const { href } = router.resolve(destinos[destino])
+  window.open(href, '_blank')
+
+  docenteMenu.value = null
+}
+
 // ── Modo "por grado": solo se muestra el Diploma Académico de cada docente ──
 const GRADO_DIPLOMA = 'DIPLOMA ACADÉMICO'
 const gradoActivo = ref(null) // null = lista normal | 'DIPLOMA ACADÉMICO'
 
-// Compara sin tildes ni mayúsculas (ej. "Diploma Academico" == "DIPLOMA ACADÉMICO")
 const sinTildes = (s) =>
   String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toUpperCase()
 
 const esDiploma = (t) => sinTildes(t.tipo_titulo) === sinTildes(GRADO_DIPLOMA)
 
-// Primer diploma académico del docente (o null si no tiene)
 const diplomaDe = (row) => row.titulos.find(esDiploma) || null
 
-// Títulos que quedan fuera de la celda principal (otros grados + diplomas repetidos)
 const otrosDe = (row) => {
   const d = diplomaDe(row)
   return row.titulos.filter(t => t !== d)
 }
 const otrosCount = (row) => otrosDe(row).length
 
-// Filas con el contador desplegado (clave: CODIGO del docente)
 const abiertos = ref({})
 const toggleOtros = (row) => {
   abiertos.value[row.CODIGO] = !abiertos.value[row.CODIGO]
@@ -429,8 +543,6 @@ const conDiploma = computed(() => datos.value.filter(r => diplomaDe(r)).length)
 const sinDiploma = computed(() => datos.value.length - conDiploma.value)
 
 // ── Documentos por categoría de título (modal) ──────────────────────────────
-// Las categorías salen de los títulos realmente registrados en los docentes
-// del periodo cargado (campo tipo_titulo), con el número de docentes de cada una.
 const modalCategorias = ref(false)
 const catSel = ref('')
 const busquedaCat = ref('')
@@ -438,7 +550,7 @@ const busquedaCat = ref('')
 const claveTipo = (t) => t.tipo_titulo || 'Sin tipo'
 
 const categoriasRegistradas = computed(() => {
-  const mapa = new Map() // tipo -> Set de CODIGO de docentes
+  const mapa = new Map()
   for (const r of datos.value) {
     for (const t of r.titulos) {
       const k = claveTipo(t)
@@ -451,7 +563,6 @@ const categoriasRegistradas = computed(() => {
     .sort((a, b) => b.docentes - a.docentes || a.tipo.localeCompare(b.tipo))
 })
 
-// Cada docente con SOLO los títulos de la categoría elegida (+ buscador)
 const docentesPorCategoria = computed(() => {
   if (!catSel.value) return []
   const q = norm(busquedaCat.value)
@@ -504,8 +615,6 @@ async function ejecutarBusqueda(grado = null) {
   abiertos.value = {}
   catSel.value = ''
   busquedaCat.value = ''
-  // Por grado se traen TODOS los docentes (sin filtrar por tipo en el backend),
-  // para poder avisar a quienes no tienen diploma académico.
   await buscar({
     anio: filtros.anio,
     periodo: filtros.periodo,
@@ -522,7 +631,6 @@ async function onBuscarPorGrado() {
   await ejecutarBusqueda(GRADO_DIPLOMA)
 }
 
-// Valor de cada "dato adicional del título" para un título dado
 function valorExtraTitulo(t, campo) {
   switch (campo) {
     case 'UNIVERSIDAD': return t.universidad ?? ''
@@ -533,9 +641,6 @@ function valorExtraTitulo(t, campo) {
   }
 }
 
-// Excel en modo "por grado": mismo formato del reporte original, con
-// EXACTAMENTE lo que muestra la tabla (respeta chip y buscador), una fila por
-// docente con su diploma académico y sin los contadores.
 function excelPorGrado() {
   const extras = camposTituloDisponibles.filter(c => filtros.campos_titulo.includes(c.value))
 
@@ -573,10 +678,8 @@ async function onGenerarExcel() {
   generandoExcel.value = true
   try {
     if (gradoActivo.value && datosFiltrados.value.length) {
-      // Por grado: se arma en el navegador con el formato del reporte
       excelPorGrado()
     } else {
-      // Lista normal: Excel del backend, como siempre
       await descargarExcel({
         ...filtros,
         campos_titulo: [...new Set(['NOMBRE_TITULO', ...filtros.campos_titulo])],
@@ -635,12 +738,10 @@ function verTitulosDocente(row) {
 onMounted(async () => {
   cargarTiposTitulo()
 
-  // Espera a que el año/período se resuelvan contra la BD real
-  // y recién entonces genera la lista automáticamente.
   try {
     await promesaPeriodoActual
   } catch (e) {
-    // si falla, seguimos con el fallback por mes que ya está en filtros
+    // seguimos con el fallback por mes
   }
 
   if (filtros.anio && filtros.periodo) {
