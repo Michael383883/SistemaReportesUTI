@@ -56,7 +56,7 @@
 
         <StatCard
           icon="file-text"
-          label="Resoluciones"
+          label="Referencias"
           :value="resumen.total_resoluciones ?? 0"
           color="#10b981"
           :loading="loading"
