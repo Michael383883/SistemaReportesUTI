@@ -5,10 +5,9 @@
       <div class="flex items-center justify-between">
         <div>
           <h1 class="text-2xl font-bold text-slate-800 dark:text-white">Dashboard</h1>
-       
         </div>
         <div class="flex items-center gap-3">
-          <button 
+          <button
             @click="fetchKpis"
             :disabled="loading"
             class="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -30,13 +29,11 @@
       </div>
 
       <!-- KPI Cards -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
         <StatCard
           icon="users"
           label="Docentes Registrados"
           :value="resumen.total_docentes ?? 0"
-        
-          
           color="#D28B45"
           :loading="loading"
         />
@@ -62,6 +59,15 @@
           label="Resoluciones"
           :value="resumen.total_resoluciones ?? 0"
           color="#10b981"
+          :loading="loading"
+        />
+
+        <!-- NUEVA: Títulos -->
+        <StatCard
+          icon="graduation-cap"
+          label="Títulos de Docentes"
+          :value="resumen.total_titulos ?? 0"
+          color="#8b5cf6"
           :loading="loading"
         />
       </div>

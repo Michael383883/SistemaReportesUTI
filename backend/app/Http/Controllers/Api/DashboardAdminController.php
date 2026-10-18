@@ -58,7 +58,7 @@ class DashboardAdminController extends Controller
             // Cantidad de docentes registrados
             'total_docentes' => DB::table('DOCENTES')->count(),
 
-            // Cuántas materias hay en la gestión actual (2026/1)
+            // Cuántas materias hay en la gestión actual
             'total_materias' => DB::table('MATERIAS')
                 ->where('ANIO', $anio)
                 ->where('PERIODO', $periodo)
@@ -68,8 +68,11 @@ class DashboardAdminController extends Controller
             // Cantidad de resoluciones
             'total_resoluciones' => DB::table('RESOLUCIONES_PDF')->count(),
 
-            // Cantidad de documentos clasificados (CV, títulos, certificados, etc.)
+            // Cantidad de documentos clasificados
             'total_documentos' => DB::table('CLASIFICACION_DOCUMENTO')->count(),
+
+            // Cantidad de títulos registrados
+            'total_titulos' => DB::table('CLASIFICACION_TITULO')->count(),
         ];
 
         // =====================================================
@@ -146,12 +149,11 @@ class DashboardAdminController extends Controller
             ->get();
 
         // NOTA: se quitó "top_docentes" (JOIN HORARIOS2 + DOCENTES + GRUPOS
-        // sin índice, 1.6M filas). Esa era la consulta que aparecía en el DMV
-        // corriendo 141+ segundos y la causa real del timeout. Si más adelante
-        // la quieren de vuelta, lo ideal es agregar el índice compuesto sobre
-        // HORARIOS2(ANIO,PERIODO,MATERIA,GRUPO,DOCENTE) y GRUPOS(mismas columnas)
-        // antes de reactivarla, o exponerla en un endpoint aparte con su propio
-        // cache para que no bloquee el resto del dashboard si tarda.
+        // sin índice, 1.6M filas). Esa era la consulta que corría 141+ segundos
+        // y causaba el timeout. Si se reactiva, agregar antes el índice
+        // compuesto sobre HORARIOS2(ANIO,PERIODO,MATERIA,GRUPO,DOCENTE) y
+        // GRUPOS(mismas columnas), o exponerla en un endpoint aparte con su
+        // propio cache.
 
         return [
             'gestion' => [
@@ -167,9 +169,7 @@ class DashboardAdminController extends Controller
     }
 
     /**
-     * Gestión académica activa. Usado por kpis(), refreshKpis() y por
-     * cualquier otro controller que necesite invalidar la caché del
-     * dashboard tras crear/editar/borrar datos (ej. resoluciones, documentos).
+     * Gestión académica activa.
      */
     public static function getGestionActual(): array
     {
@@ -181,21 +181,17 @@ class DashboardAdminController extends Controller
 
     /**
      * Clave de cache determinística para una gestión dada.
+     * "v2": se cambió al agregar total_titulos, para no servir la caché vieja.
      */
     private static function cacheKey(int $anio, int $periodo): string
     {
-        return "dashboard_kpis_{$anio}_{$periodo}";
+        return "dashboard_kpis_v2_{$anio}_{$periodo}";
     }
 
     /**
      * Invalida la caché del dashboard para la gestión actual.
-     * Llamar esto desde cualquier controller que modifique datos que
-     * afecten al dashboard (resoluciones, documentos, docentes, materias, etc.)
-     * justo después de guardar en la BD. Ejemplo:
-     *
-     *   use App\Http\Controllers\Api\DashboardAdminController;
-     *   ...
-     *   DashboardAdminController::limpiarCacheDashboard();
+     * Llamar desde cualquier controller que guarde/borre datos que afecten
+     * al dashboard (resoluciones, documentos, títulos, etc.).
      */
     public static function limpiarCacheDashboard(): void
     {
