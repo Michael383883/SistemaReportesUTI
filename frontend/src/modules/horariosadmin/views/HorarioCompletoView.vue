@@ -14,130 +14,38 @@
         <PdfMenuButton :disabled="loadingPdf || docentes.length === 0" :loading="loadingPdf" menu-width="w-64">
           <template #default="{ cerrar }">
 
-            <!-- ===== Formato clásico ===== -->
-            <p class="px-4 pt-3 pb-1.5 text-[0.8rem] font-semibold text-slate-800">
-              Reporte estándar
-            </p>
-            <div class="px-4 pb-3 flex items-center gap-2">
-              <!-- Ver -->
-              <button
-                class="
-                  flex-1 flex items-center justify-center h-9 rounded-lg
-                  text-slate-600 bg-slate-100 border border-slate-200
-                  hover:bg-slate-200 hover:text-slate-800
-                  active:bg-slate-300
-                  transition-colors duration-100 cursor-pointer outline-none
-                "
-                title="Ver PDF"
-                @click="generarPDFCompleto('ver'); cerrar()"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" class="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/>
-                  <circle cx="12" cy="12" r="3"/>
-                </svg>
-              </button>
+            <div v-for="(sec, idx) in seccionesPdf" :key="sec.titulo">
+              <div v-if="idx > 0" class="border-t border-slate-100 mx-4"></div>
 
-              <!-- Imprimir -->
-              <button
-                class="
-                  flex-1 flex items-center justify-center h-9 rounded-lg
-                  text-slate-600 bg-slate-100 border border-slate-200
-                  hover:bg-slate-200 hover:text-slate-800
-                  active:bg-slate-300
-                  transition-colors duration-100 cursor-pointer outline-none
-                "
-                title="Imprimir"
-                @click="imprimirPDFCompleto(); cerrar()"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" class="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <polyline points="6 9 6 2 18 2 18 9"/>
-                  <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
-                  <rect x="6" y="14" width="12" height="8"/>
-                </svg>
-              </button>
+              <p class="px-4 pt-3 pb-1.5 text-[0.8rem] font-semibold text-slate-800">
+                {{ sec.titulo }}
+              </p>
 
-              <!-- Descargar -->
-              <button
-                class="
-                  flex-1 flex items-center justify-center h-9 rounded-lg
-                  text-amber-700 bg-amber-100 border border-amber-300
-                  hover:bg-amber-200 hover:text-amber-800
-                  active:bg-amber-300
-                  transition-colors duration-100 cursor-pointer outline-none
-                "
-                title="Descargar PDF"
-                @click="generarPDFCompleto('descargar'); cerrar()"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" class="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                  <polyline points="7 10 12 15 17 10"/>
-                  <line x1="12" y1="15" x2="12" y2="3"/>
-                </svg>
-              </button>
-            </div>
-
-            <div class="border-t border-slate-100 mx-4"></div>
-
-            <!-- ===== Formato nuevo ===== -->
-            <p class="px-4 pt-3 pb-1.5 text-[0.8rem] font-semibold text-slate-800">
-              Reporte nuevo formato
-            </p>
-            <div class="px-4 pb-3 flex items-center gap-2">
-              <!-- Ver -->
-              <button
-                class="
-                  flex-1 flex items-center justify-center h-9 rounded-lg
-                  text-slate-600 bg-slate-100 border border-slate-200
-                  hover:bg-slate-200 hover:text-slate-800
-                  active:bg-slate-300
-                  transition-colors duration-100 cursor-pointer outline-none
-                "
-                title="Ver PDF"
-                @click="generarPDFResumen('ver'); cerrar()"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" class="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/>
-                  <circle cx="12" cy="12" r="3"/>
-                </svg>
-              </button>
-
-              <!-- Imprimir -->
-              <button
-                class="
-                  flex-1 flex items-center justify-center h-9 rounded-lg
-                  text-slate-600 bg-slate-100 border border-slate-200
-                  hover:bg-slate-200 hover:text-slate-800
-                  active:bg-slate-300
-                  transition-colors duration-100 cursor-pointer outline-none
-                "
-                title="Imprimir"
-                @click="imprimirPDFResumen(); cerrar()"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" class="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <polyline points="6 9 6 2 18 2 18 9"/>
-                  <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
-                  <rect x="6" y="14" width="12" height="8"/>
-                </svg>
-              </button>
-
-              <!-- Descargar -->
-              <button
-                class="
-                  flex-1 flex items-center justify-center h-9 rounded-lg
-                  text-amber-700 bg-amber-100 border border-amber-300
-                  hover:bg-amber-200 hover:text-amber-800
-                  active:bg-amber-300
-                  transition-colors duration-100 cursor-pointer outline-none
-                "
-                title="Descargar PDF"
-                @click="generarPDFResumen('descargar'); cerrar()"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" class="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                  <polyline points="7 10 12 15 17 10"/>
-                  <line x1="12" y1="15" x2="12" y2="3"/>
-                </svg>
-              </button>
+              <div class="px-4 pb-3 flex items-center gap-2">
+                <button
+                  v-for="b in botonesMenu"
+                  :key="b.accion"
+                  class="flex-1 flex items-center justify-center h-9 rounded-lg border transition-colors duration-100 cursor-pointer outline-none"
+                  :class="b.clase"
+                  :title="b.title"
+                  @click="sec.ejecutar(b.accion); cerrar()"
+                >
+                  <svg v-if="b.accion === 'ver'" xmlns="http://www.w3.org/2000/svg" class="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/>
+                    <circle cx="12" cy="12" r="3"/>
+                  </svg>
+                  <svg v-else-if="b.accion === 'imprimir'" xmlns="http://www.w3.org/2000/svg" class="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="6 9 6 2 18 2 18 9"/>
+                    <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+                    <rect x="6" y="14" width="12" height="8"/>
+                  </svg>
+                  <svg v-else xmlns="http://www.w3.org/2000/svg" class="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="7 10 12 15 17 10"/>
+                    <line x1="12" y1="15" x2="12" y2="3"/>
+                  </svg>
+                </button>
+              </div>
             </div>
 
           </template>
@@ -169,7 +77,8 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import ReporteToolbar from '../components/ReporteToolbar.vue'
 import PdfMenuButton from '../components/PdfMenuButton.vue'
 import ReporteEstados from '../components/ReporteEstados.vue'
@@ -180,6 +89,8 @@ import { useReporteHorario } from '../composables/useReporteHorario'
 import { generarPDFCargaHoraria } from '../composables/useGenerarPDFCargaHoraria'
 import { generarPDFResumenDos } from '../composables/usePdfResumenDos'
 import { usePeriodoActual } from '../composables/usePeriodoActual'
+
+const route = useRoute()
 
 const { anio, periodo } = usePeriodoActual()
 
@@ -214,8 +125,7 @@ async function ejecutarPDF(generador, modo = 'descargar') {
   }
 }
 
-// Imprime el PDF usando un iframe oculto (más confiable que window.open + print,
-// porque el visor de PDF del navegador no siempre dispara 'onload' en la pestaña)
+// Imprime el PDF usando un iframe oculto
 async function imprimirPDF(generador) {
   loadingPdf.value = true
   try {
@@ -236,14 +146,12 @@ async function imprimirPDF(generador) {
         iframe.contentWindow.print()
       } catch (e) {
         console.error('No se pudo imprimir automáticamente', e)
-        // Fallback: si el navegador bloquea el print del iframe, abrimos el PDF
         window.open(url, '_blank')
       }
     }
 
     document.body.appendChild(iframe)
 
-    // Limpiamos el iframe y el blob URL después de un tiempo prudente
     setTimeout(() => {
       document.body.removeChild(iframe)
       URL.revokeObjectURL(url)
@@ -255,25 +163,58 @@ async function imprimirPDF(generador) {
   }
 }
 
+const generarCompleto = () =>
+  generarPDFCargaHoraria(docentes.value, { anio: anio.value, periodo: periodo.value })
+
+const generarResumen = () =>
+  generarPDFResumenDos(docentes.value, { anio: anio.value, periodo: periodo.value })
+
 async function generarPDFCompleto(modo = 'descargar') {
-  await ejecutarPDF(
-    () => generarPDFCargaHoraria(docentes.value, { anio: anio.value, periodo: periodo.value }),
-    modo
-  )
+  await ejecutarPDF(generarCompleto, modo)
 }
 
 async function generarPDFResumen(modo = 'descargar') {
-  await ejecutarPDF(
-    () => generarPDFResumenDos(docentes.value, { anio: anio.value, periodo: periodo.value }),
-    modo
-  )
+  await ejecutarPDF(generarResumen, modo)
 }
 
 async function imprimirPDFCompleto() {
-  await imprimirPDF(() => generarPDFCargaHoraria(docentes.value, { anio: anio.value, periodo: periodo.value }))
+  await imprimirPDF(generarCompleto)
 }
 
 async function imprimirPDFResumen() {
-  await imprimirPDF(() => generarPDFResumenDos(docentes.value, { anio: anio.value, periodo: periodo.value }))
+  await imprimirPDF(generarResumen)
 }
+
+// ─── Menú: dos secciones × 3 botones (Ver / Imprimir / Descargar) ───
+const botonesMenu = [
+  { accion: 'ver', title: 'Ver PDF',
+    clase: 'text-slate-600 bg-slate-100 border-slate-200 hover:bg-slate-200 hover:text-slate-800 active:bg-slate-300' },
+  { accion: 'imprimir', title: 'Imprimir',
+    clase: 'text-slate-600 bg-slate-100 border-slate-200 hover:bg-slate-200 hover:text-slate-800 active:bg-slate-300' },
+  { accion: 'descargar', title: 'Descargar PDF',
+    clase: 'text-amber-700 bg-amber-100 border-amber-300 hover:bg-amber-200 hover:text-amber-800 active:bg-amber-300' },
+]
+
+const seccionesPdf = [
+  {
+    titulo: 'Reporte estándar',
+    ejecutar: (accion) => accion === 'imprimir' ? imprimirPDFCompleto() : generarPDFCompleto(accion),
+  },
+  {
+    titulo: 'Reporte nuevo formato',
+    ejecutar: (accion) => accion === 'imprimir' ? imprimirPDFResumen() : generarPDFResumen(accion),
+  },
+]
+
+// ─── Llegó desde el menú del docente: autocompleta y busca ───
+// URL: ?buscar=APELLIDOS NOMBRES&anio=2026&periodo=2
+onMounted(async () => {
+  if (!route.query.buscar) return
+
+  if (route.query.anio)    anio.value = Number(route.query.anio)
+  if (route.query.periodo) periodo.value = Number(route.query.periodo)
+  busqueda.value = String(route.query.buscar)
+
+  await ejecutarBusqueda()
+})
 </script>
