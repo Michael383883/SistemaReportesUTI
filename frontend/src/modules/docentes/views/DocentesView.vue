@@ -3,7 +3,7 @@
 
     <div class="flex items-start justify-between mb-7">
       <div>
-        <h1 class="text-[20px] font-semibold text-gray-900">Reporte de Materias Dictadas</h1>
+        <h1 class="text-[20px] font-semibold text-gray-900">Reporte de Kardex Materias Dictadas del Docente</h1>
         <p class="text-[13px] text-slate-400 m-0">Búsqueda y consulta de docentes registrados</p>
       </div>
       <div class="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-500/10 border border-indigo-500/20 rounded-full text-[12px] text-indigo-400 font-medium">
