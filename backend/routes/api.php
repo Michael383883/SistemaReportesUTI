@@ -16,7 +16,7 @@ use App\Http\Controllers\Api\ReporteDocenteController;
 use App\Http\Controllers\Api\HorarioDocenteController;
 use App\Http\Controllers\Api\HorarioAdminController;
 
-// Títulos del docente (NUEVO)
+// Títulos del docente
 use App\Http\Controllers\Api\DocenteTitulosController;
 
 // Resoluciones
@@ -47,6 +47,9 @@ use App\Http\Controllers\Api\ReferenciaController;
 
 // Reportes Excel
 use App\Http\Controllers\Api\ReporteExcelController;
+
+// Reporte Tipo de ingreso (NUEVO)
+use App\Http\Controllers\Api\TipoIngresoReporteController;
 
 // Periodos
 use App\Http\Controllers\Api\PeriodoAcademicoController;
@@ -121,7 +124,7 @@ Route::middleware('auth:sanctum')->group(function () {
      | DOCENTES
      * ---------------------------------------------------------------- */
     Route::get('/docentes/periodo-titulos', [DocenteTitulosController::class, 'porPeriodo']);
-    // NUEVO: títulos registrados de un docente (va ANTES del apiResource)
+    // Títulos registrados de un docente (va ANTES del apiResource)
     Route::get('/docentes/{codigo}/titulos', [DocenteTitulosController::class, 'titulos'])
         ->where('codigo', '[0-9]+');
 
@@ -181,7 +184,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/resoluciones/{id}/detalles', [ResolucionDetalleController::class, 'index']);
     Route::post('/resoluciones/{id}/detalles', [ResolucionDetalleController::class, 'store']);
     Route::post('/resoluciones/{id}/detalles/bulk', [ResolucionDetalleController::class, 'storeBulk']);
-    Route::delete('/resoluciones/{id}/detalles/{idDetalle}', [ResolucionDetalleController::class, 'destroy']);   // ← NUEVA: quitar un docente/materia de la referencia
+    Route::delete('/resoluciones/{id}/detalles/{idDetalle}', [ResolucionDetalleController::class, 'destroy']);
     Route::post('/resoluciones/{id}/aplicar-grupos', [ResolucionDetalleController::class, 'aplicarEnGrupos']);
 
     // 3) Detalle individual (otro recurso)
@@ -283,16 +286,24 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/reportes/docentes-clasificados/excel-personalizado', [ReporteExcelController::class, 'generarListadoDocentesDesdeDatos']);
 
     /* ----------------------------------------------------------------
+     | REPORTE TIPO DE INGRESO (NUEVO)
+     | GET /api/reportes/tipo-ingreso/categorias
+     | GET /api/reportes/tipo-ingreso?anio=&periodo=&categoria=
+     * ---------------------------------------------------------------- */
+    Route::prefix('reportes/tipo-ingreso')->group(function () {
+        Route::get('/categorias', [TipoIngresoReporteController::class, 'categorias']);
+        Route::get('/', [TipoIngresoReporteController::class, 'index']);
+    });
+
+    /* ----------------------------------------------------------------
      | CATEGORÍAS CLASIFICACIÓN
      * ---------------------------------------------------------------- */
     Route::pattern('tipoCategoria', 'documento|titulo|kardex');
 
     Route::get('/categorias-clasificacion/{tipoCategoria}', [CategoriaClasificacionController::class, 'index']);
-    // NUEVO: ¿está en uso esta categoría? (y en qué tablas)
     Route::get('/categorias-clasificacion/{tipoCategoria}/uso', [CategoriaClasificacionController::class, 'uso']);
     Route::post('/categorias-clasificacion/{tipoCategoria}', [CategoriaClasificacionController::class, 'store']);
     Route::put('/categorias-clasificacion/{tipoCategoria}', [CategoriaClasificacionController::class, 'update']);
-    // CAMBIO: antes era {tipo} (sin restricción); ahora usa {tipoCategoria} y hereda el pattern
     Route::delete('/categorias-clasificacion/{tipoCategoria}', [CategoriaClasificacionController::class, 'destroy']);
 
     /* ----------------------------------------------------------------

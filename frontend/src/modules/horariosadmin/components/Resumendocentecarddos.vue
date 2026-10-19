@@ -7,7 +7,11 @@
       class="flex justify-between items-center px-5 py-1 bg-slate-800 text-white"
     >
       <div class="flex flex-col min-w-0">
-        <h2 class="text-[15px] font-bold truncate">
+        <h2
+          class="text-[15px] font-bold truncate cursor-pointer hover:underline"
+          title="Ver horario del docente"
+          @click="emit('ver-horario', docente)"
+        >
          {{ docente.docente }} - {{ docente.apellidos }} {{ docente.nombres }} 
         </h2>
       </div>
@@ -176,6 +180,9 @@ const { colorCarrera } = useHorarioResumen()
 const props = defineProps({
   docente: { type: Object, required: true },
 })
+
+// Se emite al hacer clic en el nombre del docente
+const emit = defineEmits(['ver-horario'])
 
 function norm(v) {
   if (v === null || v === undefined) return ''

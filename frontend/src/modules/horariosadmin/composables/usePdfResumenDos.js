@@ -2,12 +2,14 @@
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { useHorarioAdmin } from './useHorarioAdmin'
+import { ordenarFilasCompartidas } from './ordenCompartidas'
 
 const C_BLACK = [0, 0, 0]
 const C_WHITE = [255, 255, 255]
 const C_HEAD_BG = [240, 240, 240]
 const C_GRAY_LINE = [140, 140, 140]
 const C_DAY_SEPARATOR = [180, 180, 180]
+const C_ARROW = [0, 0, 0] // índigo, igual que la flecha de la vista
 
 // ── Función para determinar si una materia es compartida y su tipo ──
 function getTipoCompartido(mat) {
@@ -120,6 +122,7 @@ export function generarPDFResumenDos(docentes = [], { anio, periodo } = {}) {
 
     const body = []
     const totalRowIndices = []
+    const anidadoRowIndices = new Set()   // filas hijas (↳)
 
     for (let di = 0; di < docentes.length; di++) {
         const docente = docentes[di]
@@ -142,7 +145,10 @@ export function generarPDFResumenDos(docentes = [], { anio, periodo } = {}) {
         let totalInscritos = 0
         const gruposVistosInsc = new Set()
 
-        for (const mat of materiasAgrupadas) {
+        // Mismo orden que la vista: padre (COMP 0) y debajo sus hijos (COMP 1)
+        const filasOrdenadas = ordenarFilasCompartidas(materiasAgrupadas, docente.horarios)
+
+        for (const { mat, anidado } of filasOrdenadas) {
             const planNiv = [mat.carrera, mat.nivel].filter(Boolean).join(' - ')
             const materiaTexto = [mat.nombre, mat.materia].filter(Boolean).join('\n')
 
@@ -166,6 +172,8 @@ export function generarPDFResumenDos(docentes = [], { anio, periodo } = {}) {
             else if (tipo === 'derivada') compDisplay = '1'
             else compDisplay = '0'
             fila.push(compDisplay)
+
+            if (anidado) anidadoRowIndices.add(body.length)
 
             body.push(fila)
 
@@ -255,6 +263,11 @@ export function generarPDFResumenDos(docentes = [], { anio, periodo } = {}) {
             data.cell.styles.lineWidth = { top: 0, right: 0, bottom: 0.2, left: 0 }
             if (col === 1) data.cell.styles.fontStyle = 'normal'
             if (col === 0) data.cell.styles.fontSize = 5.5
+
+            // Materia hija: sangría para dejar espacio a la flechita
+            if (col === 1 && anidadoRowIndices.has(data.row.index)) {
+                data.cell.styles.cellPadding = { top: 0.3, bottom: 0.3, left: 4, right: 0.3 }
+            }
         },
         didDrawCell(data) {
             if (data.section !== 'body') return;
@@ -264,6 +277,27 @@ export function generarPDFResumenDos(docentes = [], { anio, periodo } = {}) {
             const raw = data.row.raw;
 
             if (totalRowIndices.includes(rowIndex)) return;
+
+            // Flechita ↳ para materias compartidas hijas (dibujada con líneas,
+            // porque la fuente helvetica no tiene ese carácter)
+            if (col === 1 && anidadoRowIndices.has(rowIndex)) {
+                const x0 = data.cell.x + 0.8
+                const yTop = data.cell.y + 0.4
+                const yMid = data.cell.y + 2.6
+                const xEnd = data.cell.x + 3.3
+
+                doc.setDrawColor(...C_ARROW)
+                doc.setFillColor(...C_ARROW)
+                doc.setLineWidth(0.35)
+                doc.line(x0, yTop, x0, yMid)               // vertical
+                doc.line(x0, yMid, xEnd - 0.6, yMid)       // horizontal
+                doc.triangle(                               // punta de flecha
+                    xEnd, yMid,
+                    xEnd - 1.1, yMid - 0.7,
+                    xEnd - 1.1, yMid + 0.7,
+                    'F'
+                )
+            }
 
             const dayStartCol = 3;
             const dayEndCol = 3 + dias.length - 1;

@@ -264,10 +264,10 @@ export function generarPDFResumenDos(
         },
         columnStyles: {
             0: { cellWidth: 16, halign: 'center' },
-            1: { cellWidth: 50 },
+            1: { cellWidth: 60 },
             2: { cellWidth: 11, halign: 'center' },
-            3: { cellWidth: 25, halign: 'center' },
-            4: { cellWidth: 13, halign: 'center' },
+            3: { cellWidth: 15, halign: 'center' },
+            4: { cellWidth: 10, halign: 'center' },
             5: { cellWidth: 'auto' },
             6: { cellWidth: 14, halign: 'center' },
         },

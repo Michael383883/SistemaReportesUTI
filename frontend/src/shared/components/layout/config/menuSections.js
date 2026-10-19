@@ -32,6 +32,7 @@ export const menuSections = [
 
                     { to: '/reportes/edicion-tipo-ingreso', label: 'Asignar Modalidad' },
                     { to: '/reportes/docentes-titulo', label: 'Docentes con Título' },
+                    { to: '/reporte-tipo-ingreso', label: 'Reporte tipo Ingreso'}
                 ],
             },
 

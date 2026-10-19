@@ -96,20 +96,37 @@
         <span>Total docentes: <strong class="text-slate-700">{{ docentes.length }}</strong></span>
       </div>
 
-      <ResumenDocenteCardDos v-for="doc in docentes" :key="doc.docente" :docente="doc" />
+      <ResumenDocenteCardDos
+        v-for="doc in docentes"
+        :key="doc.docente"
+        :docente="doc"
+        @ver-horario="abrirHorario"
+      />
 
       <div class="text-center text-slate-400 text-xs mt-8 pt-4 border-t border-slate-200">
         Procesado UTI – Facultad de Ciencias Económicas · Los inscritos incluyen ambos grupos de materias compartidas.
       </div>
     </div>
+
+    <!-- Horario del docente seleccionado (se abre al hacer clic en su nombre) -->
+    <HorarioDocenteModal
+      v-if="docenteSeleccionado"
+      :key="docenteSeleccionado.docente"
+      :docente="docenteSeleccionado"
+      :anio="anio"
+      :periodo="periodo"
+      @cerrar="cerrarHorario"
+    />
   </div>
 </template>
 
 <script setup>
+import { ref } from 'vue'
 import ReporteToolbar from '../components/ReporteToolbar.vue'
 import PdfMenuButton from '../components/PdfMenuButton.vue'
 import ReporteEstados from '../components/ReporteEstados.vue'
 import ResumenDocenteCardDos from '../components/Resumendocentecarddos.vue'
+import HorarioDocenteModal from '../components/HorarioDocenteModal.vue'
 
 import { useHorarioResumen } from '../composables/useHorarioResumen'
 import { useReporteHorario } from '../composables/useReporteHorario'
@@ -127,4 +144,9 @@ const {
 async function generarPDF(modo = 'descargar') {
   await generarPDFResumenDos(docentes.value, { anio: anio.value, periodo: periodo.value, modo })
 }
+
+// ─── Modal con el horario del docente ───
+const docenteSeleccionado = ref(null)
+const abrirHorario = (doc) => { docenteSeleccionado.value = doc }
+const cerrarHorario = () => { docenteSeleccionado.value = null }
 </script>

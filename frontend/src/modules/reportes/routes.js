@@ -24,4 +24,12 @@ export const reportesRoutes = [
     },
 
     { path: '/materias-kardex', name: 'materias-kardex', component: () => import('./views/MateriasKardexView.vue') },
+
+
+    { path: '/reporte-tipo-ingreso', 
+      name: 'reporte-tipo-ingreso',
+      component: () => import('./views/ReporteTipoIngreso.vue') 
+    },
+
+
 ]

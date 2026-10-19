@@ -1,6 +1,7 @@
 // composables/useGenerarPDF.js
 // Genera un PDF oficial estilo UMSS – Materias dictadas de un docente
-// (o, con modoMateria, el kardex de una materia y grupo con sus docentes).
+// (o, con modoMateria, el kardex de una materia y grupo con sus docentes,
+// o el reporte de tipo de ingreso con título/descripcion personalizados).
 // Orientación: PORTRAIT (vertical) – Letter 216 × 279 mm
 // Dependencias: jspdf  +  jspdf-autotable
 //   npm install jspdf jspdf-autotable
@@ -117,6 +118,17 @@ export function generarPDF(reporte, opts = {}) {
         // Solo para el nombre del archivo
         materiaCodigo = '',
         grupo = '',
+
+        // ── Personalización (p. ej. reporte de tipo de ingreso) ─────────────
+        // Si vienen con valor, reemplazan los textos por defecto.
+        tituloPersonalizado = '',
+        descripcionPersonalizada = '',
+        // Línea en negrita bajo la descripción (solo en modoMateria)
+        sujetoPersonalizado = '',
+        // Nombre completo del archivo .pdf al guardar
+        nombreArchivo = '',
+        // Oculta la columna COMPARTIDO (cuando no aplica)
+        ocultarCompartido = false,
     } = opts
 
     // ── PORTRAIT Letter (216 × 279 mm) ──────────────────────────────────────────
@@ -154,22 +166,22 @@ export function generarPDF(reporte, opts = {}) {
     }
 
     // ── Textos que cambian según el modo ────────────────────────────────────────
-    const tituloPdf = modoMateria
+    const tituloPdf = tituloPersonalizado || (modoMateria
         ? 'KARDEX DE MATERIA Y GRUPO'
         : soloDocumentos
             ? 'REPORTE DE DOCUMENTOS DEL DOCENTE'
-            : 'MATERIAS DICTADAS DE UN DOCENTE'
+            : 'MATERIAS DICTADAS DE UN DOCENTE')
 
-    const descripcionPdf = modoMateria
+    const descripcionPdf = descripcionPersonalizada || (modoMateria
         ? 'Docentes que dictaron la materia y grupo, registrados en el SISS a partir de la gestión 2001.'
         : soloDocumentos
             ? 'Documentos registrados en el SISS para el docente, clasificados por categoría.'
             : 'Datos Históricos pertenecientes a la Facultad de Ciencias Económicas registrados en el SISS ' +
             'a partir de la gestión 2001. El reporte también detalla los grupos compartidos solo para los ' +
-            'cursos Intersemestrales de Verano e Invierno.'
+            'cursos Intersemestrales de Verano e Invierno.')
 
     const lineaSujeto = modoMateria
-        ? `MATERIA : ${materiaTitulo}`
+        ? (sujetoPersonalizado || `MATERIA : ${materiaTitulo}`)
         : `DOCENTE : (${reporte.docente?.codigo || ''}) - ${reporte.docente?.nombre || ''}`
 
     // ════════════════════════════════════════════════════════════════════════════
@@ -210,11 +222,13 @@ export function generarPDF(reporte, opts = {}) {
     }
 
     doc.setProperties({
-        title: modoMateria
-            ? 'Kardex de materia y grupo'
-            : soloDocumentos
-                ? 'Reporte de documentos del docente'
-                : 'Materias dictadas de un docente',
+        title: tituloPersonalizado
+            ? tituloPersonalizado
+            : modoMateria
+                ? 'Kardex de materia y grupo'
+                : soloDocumentos
+                    ? 'Reporte de documentos del docente'
+                    : 'Materias dictadas de un docente',
     })
 
     const startY = drawHeader()
@@ -262,7 +276,8 @@ export function generarPDF(reporte, opts = {}) {
         const idxAncho = sinResolucionDesignacion ? 1 : 0
         const columnas = defsColumnas.filter((c) =>
             !(sinResolucionDesignacion && c.soloEnNormal) &&
-            !(!modoMateria && c.soloMateria),
+            !(!modoMateria && c.soloMateria) &&
+            !(ocultarCompartido && c.dataKey === 'compartido'),
         )
 
         const materiasFuente = reporte.materias || []
@@ -506,11 +521,11 @@ export function generarPDF(reporte, opts = {}) {
 
     // ── Acción ────────────────────────────────────────────────────────────────────
     const codigoDoc = reporte.docente?.codigo || 'doc'
-    const fileName = modoMateria
+    const fileName = nombreArchivo || (modoMateria
         ? `kardex_materia_${norm(materiaCodigo) || 'materia'}_grupo_${norm(grupo) || 'x'}.pdf`
         : soloDocumentos
             ? `reporte_documentos_docente_${codigoDoc}.pdf`
-            : `reporte_docente_${codigoDoc}.pdf`
+            : `reporte_docente_${codigoDoc}.pdf`)
 
     if (action === 'save') {
         doc.save(fileName)
