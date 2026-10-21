@@ -16,7 +16,7 @@
           class="text-xs font-semibold px-2.5 py-1 rounded-md"
           :class="colorClasses[carrera.carrera.toLowerCase()]?.pill ?? 'bg-slate-100 text-slate-700'"
         >
-          {{ carrera.carrera }} {{ carrera.subtotal }}
+          {{ carrera.carrera }} {{ modo === 'mesa' ? (carrera.subtotal_examen_mesa ?? 0) : carrera.subtotal }}
         </span>
       </div>
     </div>
@@ -176,7 +176,7 @@
                                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
                               </svg>
                             </button>
-                            <!-- NUEVO: Excel de esta materia -->
+                            <!-- Excel de esta materia -->
                             <button
                               type="button"
                               :disabled="generandoExcel"
@@ -353,10 +353,12 @@ const props = defineProps({
   docente: { type: Object, required: true },
   anio: { type: Number, default: null },
   periodo: { type: Number, default: null },
+  // 'todos' | 'regulares' | 'mesa'
+  modo: { type: String, default: 'todos' },
 })
 
 const { generandoLista, exportarListaCompleta } = useReporteInscritosLista()
-// NUEVO: mismo Excel de "Lista completa de inscritos", pero con una sola materia
+// Mismo Excel de "Lista completa de inscritos", pero con una sola materia
 const { generandoExcel, exportarExcelLista } = useExcelReportes()
 
 const abiertos = ref(new Set())
@@ -514,53 +516,57 @@ function toggleMateria(key) {
 }
 
 // ─── Docente con UNA sola materia (lo usan el PDF y el Excel individuales) ──
+// Incluye los datos de mesa para que el PDF/Excel respeten el modo elegido.
 function dataDeUnaMateria(item) {
   const { carrera, materia } = item
   const abandonos = materia.subtotal_abandonos ?? 0
+  const mesa = materia.subtotal_examen_mesa ?? materia.inscritos_examen_mesa?.length ?? 0
 
   return [{
     ...props.docente,
     carreras: [{
       ...carrera,
       subtotal: materia.subtotal,
+      subtotal_examen_mesa: mesa,
       materias: [materia],
     }],
     total_inscritos: materia.subtotal,
+    total_examen_mesa: mesa,
     total_abandonos: abandonos,
   }]
 }
 
-// ─── PDF de UNA sola materia ─────────────────────────────────────────────
 async function generarPDFMateria(item, modo = 'descargar') {
   const { materia } = item
 
-  // Ventana pre-abierta solo para 'ver' (evita el bloqueo de popups)
   let ventana = null
   if (modo === 'ver') {
     ventana = window.open('', '_blank')
     if (ventana) mostrarLoaderPdf(ventana, 'Generando lista de la materia...')
   }
 
-  const nombreArchivo = `Lista_${materia.cod_materia}_Gr${materia.grupo}_${props.anio}_${props.periodo}.pdf`
+  const sufijo = props.modo === 'mesa' ? '_Mesa' : props.modo === 'regulares' ? '_Normales' : ''
+  const nombreArchivo = `Lista_${materia.cod_materia}_Gr${materia.grupo}_${props.anio}_${props.periodo}${sufijo}.pdf`
 
   await exportarListaCompleta(dataDeUnaMateria(item), props.anio, props.periodo, modo, ventana, {
     titulo: 'LISTA DE INSCRITOS POR MATERIA',
     etiquetaTotal: 'TOTAL INSCRITOS DE LA MATERIA',
     filename: nombreArchivo,
+    modoAlumnos: props.modo,
   })
 }
 
-// ─── NUEVO: Excel de UNA sola materia ────────────────────────────────────
-// Usa el mismo exportarExcelLista que la "Lista completa de inscritos",
-// pasándole el docente con una única carrera y una única materia.
 async function generarExcelMateria(item) {
   try {
-    await exportarExcelLista(dataDeUnaMateria(item), props.anio, props.periodo)
+    await exportarExcelLista(dataDeUnaMateria(item), props.anio, props.periodo, {
+      modoAlumnos: props.modo,
+    })
   } catch (e) {
     console.error('Error generando Excel de la materia:', e)
     alert('No se pudo generar el Excel. Verificá que esté instalada la librería exceljs.')
   }
 }
+
 
 const colorClasses = {
   adm: { badge: 'bg-blue-100 text-blue-700',       pill: 'bg-blue-100 text-blue-700' },

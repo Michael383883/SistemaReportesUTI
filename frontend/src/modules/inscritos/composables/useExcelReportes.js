@@ -136,16 +136,44 @@ const num = v => Number(v) || 0
 // ════════════════════════════════════════════════════════════════════════════
 // 1) LISTA COMPLETA DE INSCRITOS (docente → materia → estudiantes)
 // ════════════════════════════════════════════════════════════════════════════
-async function generarListaCompleta(data, anio, periodo) {
+async function generarListaCompleta(data, anio, periodo, opciones = {}) {
+    const modoAlumnos = opciones.modoAlumnos ?? 'todos'
     const NCOLS = 3
     const wb = await crearLibro()
     const ws = crearHoja(wb, 'Lista de inscritos', { anchos: [7, 16, 70] })
+
+    const nota =
+        modoAlumnos === 'mesa' ? 'Solo alumnos de examen de mesa.'
+        : modoAlumnos === 'regulares' ? 'No incluye alumnos de examen de mesa.'
+        : 'Incluye alumnos normales y de examen de mesa.'
+
     encabezado(ws, {
-        titulo: 'LISTA DE INSCRITOS POR DOCENTE', anio, periodo,
-        nota: 'No incluye alumnos de examen de mesa.', nCols: NCOLS,
+        titulo: 'LISTA DE INSCRITOS POR DOCENTE', anio, periodo, nota, nCols: NCOLS,
     })
 
-    // Fila de una sola celda combinada en las 3 columnas
+    const cantMesa = m => m.subtotal_examen_mesa ?? m.inscritos_examen_mesa?.length ?? 0
+
+    const resumenMateria = m => {
+        const reg = m.subtotal ?? 0
+        const mesa = cantMesa(m)
+        if (modoAlumnos === 'mesa') return `${mesa} inscritos de mesa`
+        if (modoAlumnos === 'regulares') return `${reg} inscritos`
+        return mesa ? `${reg} inscritos + ${mesa} mesa` : `${reg} inscritos`
+    }
+
+    const textoTotal = docente => {
+        const reg = docente.total_inscritos ?? 0
+        const mesa = docente.total_examen_mesa ?? 0
+        let t
+        if (modoAlumnos === 'mesa') t = `TOTAL INSCRITOS DEL DOCENTE (MESA): ${mesa}`
+        else if (modoAlumnos === 'regulares') t = `TOTAL INSCRITOS DEL DOCENTE: ${reg}`
+        else t = mesa
+            ? `TOTAL INSCRITOS DEL DOCENTE: ${reg + mesa}  (${reg} normales + ${mesa} mesa)`
+            : `TOTAL INSCRITOS DEL DOCENTE: ${reg}`
+        if (docente.total_abandonos) t += `  (+ ${docente.total_abandonos} abandono)`
+        return t
+    }
+
     const filaCombinada = (texto, estiloCelda) => {
         const r = ws.addRow([texto])
         ws.mergeCells(r.number, 1, r.number, NCOLS)
@@ -164,8 +192,13 @@ async function generarListaCompleta(data, anio, periodo) {
         }
     }
 
+    const bandaSecundaria = texto => filaCombinada(texto, c => {
+        c.font = { name: FONT, size: 8.5, bold: true, italic: true, color: { argb: GRIS_TXT } }
+        c.alignment = { horizontal: 'left', vertical: 'middle', indent: 2 }
+    })
+
     data.forEach((docente, dIdx) => {
-        if (dIdx > 0) ws.addRow([]) // separación entre docentes
+        if (dIdx > 0) ws.addRow([])
 
         filaCombinada(
             `${dIdx + 1}.  COD. ${docente.cod_docente}   ${(docente.apellidos ?? '').toUpperCase()}, ${(docente.nombres ?? '').toUpperCase()}`,
@@ -182,7 +215,8 @@ async function generarListaCompleta(data, anio, periodo) {
 
             // Banda de materia
             filaCombinada(
-                `${materia.nom_materia}  (Gr. ${materia.grupo})  ·  ${carrera.carrera}  ·  Plan ${carrera.plan}  —  ${materia.subtotal} inscritos`,
+               
+               `${materia.cod_materia} - ${materia.nom_materia}  (Gr. ${materia.grupo})  ·  ${carrera.carrera}  ·  Plan ${carrera.plan}  —  ${resumenMateria(materia)}`,
                 c => {
                     c.font = { name: FONT, size: 9, bold: true, color: { argb: GRIS_TXT } }
                     c.fill = fillGrupo
@@ -194,40 +228,41 @@ async function generarListaCompleta(data, anio, periodo) {
             const head = ws.addRow(['N°', 'CÓDIGO', 'NOMBRE DEL ESTUDIANTE'])
             for (let c = 1; c <= NCOLS; c++) estiloCabecera(head.getCell(c), c > 1)
 
-                // Estudiantes regulares
-                ; (materia.inscritos ?? []).forEach((est, i) => filaEstudiante(i + 1, est))
+            // Regulares
+            if (modoAlumnos !== 'mesa') {
+                (materia.inscritos ?? []).forEach((est, i) => filaEstudiante(i + 1, est))
+            }
+
+            // Examen de mesa
+            if (modoAlumnos !== 'regulares' && materia.inscritos_examen_mesa?.length) {
+                if (modoAlumnos === 'todos') {
+                    bandaSecundaria(`Examen de mesa — ${cantMesa(materia)} estudiantes`)
+                }
+                materia.inscritos_examen_mesa.forEach((est, i) => filaEstudiante(i + 1, est))
+            }
 
             // Abandonos
-            if (materia.subtotal_abandonos) {
-                filaCombinada(
-                    `Abandono — ${materia.subtotal_abandonos} estudiantes`,
-                    c => {
-                        c.font = { name: FONT, size: 8.5, bold: true, italic: true, color: { argb: GRIS_TXT } }
-                        c.alignment = { horizontal: 'left', vertical: 'middle', indent: 2 }
-                    }
-                )
-                    ; (materia.inscritos_abandonos ?? []).forEach((est, i) => filaEstudiante(i + 1, est))
+            if (modoAlumnos !== 'mesa' && materia.subtotal_abandonos) {
+                bandaSecundaria(`Abandono — ${materia.subtotal_abandonos} estudiantes`)
+                ;(materia.inscritos_abandonos ?? []).forEach((est, i) => filaEstudiante(i + 1, est))
             }
 
             // Total del docente (al final de su última materia)
             if (esUltima) {
-                const totalTexto = docente.total_abandonos
-                    ? `TOTAL INSCRITOS DEL DOCENTE: ${docente.total_inscritos}  (+ ${docente.total_abandonos} abandono)`
-                    : `TOTAL INSCRITOS DEL DOCENTE: ${docente.total_inscritos}`
-                filaCombinada(totalTexto, c => {
+                filaCombinada(textoTotal(docente), c => {
                     c.font = { name: FONT, size: 9, bold: true }
                     c.alignment = { horizontal: 'right', vertical: 'middle' }
                     c.border = { top: lineaFina }
                 })
             } else {
-                ws.addRow([]) // separación entre materias
+                ws.addRow([])
             }
         })
     })
 
-    await descargar(wb, `Lista_Inscritos_${anio}_${periodo}.xlsx`)
+    const sufijo = modoAlumnos === 'mesa' ? '_Mesa' : modoAlumnos === 'regulares' ? '_Normales' : ''
+    await descargar(wb, `Lista_Inscritos_${anio}_${periodo}${sufijo}.xlsx`)
 }
-
 // ════════════════════════════════════════════════════════════════════════════
 // 2) APROBADOS/REPROBADOS COMPLETO — una fila por grupo/materia (plano)
 // ════════════════════════════════════════════════════════════════════════════

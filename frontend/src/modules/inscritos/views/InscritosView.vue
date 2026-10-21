@@ -268,6 +268,72 @@
         </div>
       </div>
 
+      <!-- Ajustes de impresión (tipo de alumnos) -->
+      <div class="flex flex-col" ref="configDropdownRef">
+        <label class="text-[0.68rem] invisible">Config</label>
+
+        <div class="relative">
+          <button
+            type="button"
+            @click.stop="mostrarMenuConfig = !mostrarMenuConfig"
+            title="Configuración de alumnos a mostrar / imprimir"
+            class="relative inline-flex items-center justify-center w-[38px] h-[38px] rounded-full
+                   bg-slate-800 hover:bg-slate-700 active:bg-slate-900 text-slate-100
+                   border border-slate-700 shadow-lg transition-all duration-150"
+          >
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="3" />
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+            </svg>
+            <!-- punto indicador cuando NO es "todos" -->
+            <span v-if="modoAlumnos !== 'todos'"
+                  class="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-amber-500 ring-2 ring-slate-100" />
+          </button>
+
+          <div v-if="mostrarMenuConfig" class="fixed inset-0 z-40" @click="mostrarMenuConfig = false" />
+
+          <Transition
+            enter-active-class="transition-all duration-150 ease-out"
+            enter-from-class="opacity-0 scale-95 -translate-y-1"
+            enter-to-class="opacity-100 scale-100 translate-y-0"
+            leave-active-class="transition-all duration-100 ease-in"
+            leave-from-class="opacity-100 scale-100 translate-y-0"
+            leave-to-class="opacity-0 scale-95 -translate-y-1"
+          >
+            <div
+              v-if="mostrarMenuConfig"
+              class="absolute right-0 top-full mt-1.5 z-50 w-64 bg-white border border-slate-200
+                     rounded-xl shadow-xl overflow-hidden"
+            >
+              <div class="px-4 pt-3 pb-1">
+                <p class="text-[0.65rem] font-semibold tracking-widest uppercase text-slate-400">
+                  Alumnos a mostrar e imprimir
+                </p>
+              </div>
+
+              <label
+                v-for="m in MODOS_ALUMNOS"
+                :key="m.value"
+                class="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50
+                       transition-colors cursor-pointer select-none"
+              >
+                <input
+                  type="radio"
+                  name="modoAlumnos"
+                  :value="m.value"
+                  v-model="modoAlumnos"
+                  @change="mostrarMenuConfig = false"
+                  class="w-4 h-4 border-slate-300 text-amber-500 focus:ring-amber-500/40 focus:ring-offset-0 cursor-pointer"
+                />
+                <span class="font-medium leading-tight">{{ m.label }}</span>
+              </label>
+              <div class="h-1.5" />
+            </div>
+          </Transition>
+        </div>
+      </div>
+
     </div>
 
     <!-- ERROR -->
@@ -328,6 +394,7 @@
         :docente="docente"
         :anio="filtros.anio"
         :periodo="filtros.periodo"
+        :modo="modoAlumnos"
       />
 
       <div class="text-center text-slate-400 text-xs mt-8 pt-4 border-t border-slate-200">
@@ -364,6 +431,13 @@ const AREAS = [
   { value: 'ECO', label: 'Economía' },
   { value: 'CCP', label: 'Contaduría Pública' },
   { value: 'COM', label: 'Ingeniería Comercial' },
+]
+
+// ─── Modos de alumnos a mostrar / imprimir ──────────────────────────────
+const MODOS_ALUMNOS = [
+  { value: 'todos',     label: 'Todos: normales y mesa' },
+  { value: 'regulares', label: 'Solo alumnos normales' },
+  { value: 'mesa',      label: 'Solo alumnos de mesa' },
 ]
 
 const { data, loading, error, fetchInscritos } = useInscritos()
@@ -404,6 +478,11 @@ const pdfDropdownRef = ref(null)
 const mostrarMenuArea = ref(false)
 const areaDropdownRef = ref(null)
 
+// Ajustes de impresión: por defecto se muestran alumnos normales + mesa
+const modoAlumnos = ref('todos')
+const mostrarMenuConfig = ref(false)
+const configDropdownRef = ref(null)
+
 const yaSeBusco = ref(false)
 const ultimaBusquedaFueDocente = ref(false)
 
@@ -423,8 +502,48 @@ const areaLabelResumen = computed(() => {
   return `${sel.length} planes seleccionados`
 })
 
-// ─── Filtra por una o varias áreas (lista de inscritos) ──────────────────
-const dataFiltrada = computed(() => {
+// ─── Aplica el modo (todos / regulares / mesa) recalculando subtotales y totales ───
+function aplicarModoAlumnos(docentes, modo) {
+  if (modo === 'todos') return docentes
+
+  const contMesa = (m) => m.subtotal_examen_mesa ?? m.inscritos_examen_mesa?.length ?? 0
+
+  return docentes
+    .map(docente => {
+      const carreras = docente.carreras
+        .map(c => {
+          const materias = c.materias
+            .map(m => modo === 'regulares'
+              ? { ...m, inscritos_examen_mesa: [], subtotal_examen_mesa: 0 }
+              : { ...m, inscritos: [], subtotal: 0, subtotal_examen_mesa: contMesa(m) }
+            )
+            .filter(m => (modo === 'regulares' ? m.subtotal : m.subtotal_examen_mesa) > 0)
+
+          if (!materias.length) return null
+
+          return {
+            ...c,
+            materias,
+            subtotal: materias.reduce((s, m) => s + (m.subtotal ?? 0), 0),
+            subtotal_examen_mesa: materias.reduce((s, m) => s + (m.subtotal_examen_mesa ?? 0), 0),
+          }
+        })
+        .filter(Boolean)
+
+      if (!carreras.length) return null
+
+      return {
+        ...docente,
+        carreras,
+        total_inscritos: carreras.reduce((s, c) => s + c.subtotal, 0),
+        total_examen_mesa: carreras.reduce((s, c) => s + c.subtotal_examen_mesa, 0),
+      }
+    })
+    .filter(Boolean)
+}
+
+// ─── 1) Filtra por una o varias áreas (lista de inscritos) ──────────────
+const dataPorArea = computed(() => {
   if (filtros.value.area.length === 0) return data.value
 
   return data.value
@@ -446,6 +565,9 @@ const dataFiltrada = computed(() => {
     })
     .filter(Boolean)
 })
+
+// ─── 2) + modo de alumnos → lo usan la lista y TODAS las exportaciones ──
+const dataFiltrada = computed(() => aplicarModoAlumnos(dataPorArea.value, modoAlumnos.value))
 
 // ─── Filtra por una o varias áreas (aprobados/reprobados) ────────────────
 const dataAprobadosFiltrada = computed(() => {
@@ -473,8 +595,9 @@ const dataAprobadosFiltrada = computed(() => {
     .filter(Boolean)
 })
 
+// Regulares + mesa: coincide con lo que muestra cada tarjeta
 const totalGlobal = computed(() =>
-  dataFiltrada.value.reduce((s, d) => s + (d.total_inscritos ?? 0), 0)
+  dataFiltrada.value.reduce((s, d) => s + (d.total_inscritos ?? 0) + (d.total_examen_mesa ?? 0), 0)
 )
 
 const fechaActual = computed(() =>
@@ -494,13 +617,16 @@ function abrirVentanaConLoader(mensaje) {
   return ventana
 }
 
-// Cierra ambos menús al hacer click fuera
+// Cierra los menús al hacer click fuera
 function onClickFuera(e) {
   if (pdfDropdownRef.value && !pdfDropdownRef.value.contains(e.target)) {
     mostrarMenuPdf.value = false
   }
   if (areaDropdownRef.value && !areaDropdownRef.value.contains(e.target)) {
     mostrarMenuArea.value = false
+  }
+  if (configDropdownRef.value && !configDropdownRef.value.contains(e.target)) {
+    mostrarMenuConfig.value = false
   }
 }
 
@@ -567,7 +693,10 @@ async function generarPDFLista(modo = 'descargar') {
   if (modo === 'ver') {
     ventana = abrirVentanaConLoader('Generando lista de inscritos... Esto puede tardar unos segundos.')
   }
-  await exportarListaCompleta(dataFiltrada.value, filtros.value.anio, filtros.value.periodo, modo, ventana)
+  await exportarListaCompleta(
+    dataFiltrada.value, filtros.value.anio, filtros.value.periodo, modo, ventana,
+    { modoAlumnos: modoAlumnos.value }
+  )
 }
 
 async function generarPDFInscritosMaterias(modo = 'descargar') {
@@ -672,7 +801,10 @@ async function ejecutarExcel(fn) {
 
 function generarExcelLista() {
   return ejecutarExcel(() =>
-    exportarExcelLista(dataFiltrada.value, filtros.value.anio, filtros.value.periodo)
+    exportarExcelLista(
+      dataFiltrada.value, filtros.value.anio, filtros.value.periodo,
+      { modoAlumnos: modoAlumnos.value }
+    )
   )
 }
 

@@ -255,6 +255,8 @@
         <table class="w-full text-sm">
           <thead>
             <tr class="border-b border-gray-100 bg-slate-900">
+              <!-- NUEVO: contador -->
+              <th class="text-center font-medium text-slate-100 px-3 py-3 text-xs uppercase tracking-wider w-12">N°</th>
               <th class="text-left font-medium text-slate-100 px-4 py-3 text-xs uppercase tracking-wider">Docente</th>
               <th class="text-left font-medium text-slate-100 px-4 py-3 text-xs uppercase tracking-wider">Documento</th>
               <th class="text-left font-medium text-slate-100 px-4 py-3 text-xs uppercase tracking-wider">Categoria</th>
@@ -266,9 +268,15 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="c in listadoFiltrado" :key="c.ID_CLASIFICACION_DOCENTE ?? c.COD_DOCENTE ?? c.NOMBRE_DOCENTE"
+            <!-- CAMBIO: ahora toma el índice (c, idx) -->
+            <tr v-for="(c, idx) in listadoFiltrado" :key="c.ID_CLASIFICACION_DOCENTE ?? c.COD_DOCENTE ?? c.NOMBRE_DOCENTE"
               class="border-b border-gray-50 last:border-0 hover:bg-gray-50/50 transition-colors"
             >
+              <!-- NUEVO: Contador -->
+              <td class="px-3 py-3 text-center text-sm font-semibold text-gray-400 tabular-nums">
+                {{ idx + 1 }}
+              </td>
+
               <!-- Docente -->
               <td class="px-4 py-3">
                 <div class="flex items-center gap-2">
@@ -319,11 +327,6 @@
 
               <!-- PDF -->
               <td class="px-4 py-3">
-                <!--
-                  Antes: <a :href="clasificacion.urlPdf(c.ID_DOCUMENTO, 'inline')" target="_blank">.
-                  /api/clasificaciones/{id}/pdf está protegida con auth:sanctum; un <a> normal
-                  no manda el token. Ahora usa clasificacion.verPdf(), que sí lo manda (axios + blob).
-                -->
                 <button
                   v-if="c.NOMBRE_ARCHIVO"
                   @click="verPdf(c.ID_DOCUMENTO)"
@@ -598,10 +601,7 @@
               {{ reporteExcel.materiasCombinadas.value ? 'Materias combinadas ✓' : 'Combinar Materias' }}
             </button>
 
-            <!-- Mostrar Referencias: incluye/oculta el Nº de CLASIFICACION_REFERENCIA
-                 dentro del texto de la columna Detalle. Como el DETALLE se arma en
-                 el backend, este botón vuelve a pedir la vista previa con el flag
-                 correspondiente (no es un filtro puramente visual del cliente). -->
+            <!-- Mostrar Referencias -->
             <button
               @click="alternarMostrarReferencias"
               :disabled="reporteExcel.loading.value"
@@ -757,9 +757,7 @@
                       {{ item.NOMBRE_DOCENTE }}
                     </td>
 
-                    <!-- Materia: cuando está en modo "Combinar Materias" respeta el
-                         rowspan (INICIO_MATERIA/FILAS_MATERIA); en modo normal esas
-                         propiedades no existen y la celda se dibuja como siempre -->
+                    <!-- Materia -->
                     <td
                       v-if="item.INICIO_MATERIA !== false"
                       :rowspan="item.FILAS_MATERIA || 1"
@@ -768,7 +766,7 @@
                     >
                       {{ item.NOMBRE_MATERIA }}
                     </td>
-                    <!-- CH: cuando está combinado sigue el mismo rowspan que la materia -->
+                    <!-- CH -->
                     <td
                       v-if="item.INICIO_MATERIA !== false"
                       :rowspan="item.FILAS_MATERIA || 1"
