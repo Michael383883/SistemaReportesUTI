@@ -35,14 +35,15 @@
             v-for="(fila, i) in filas"
             :key="fila.principal.nro ?? i"
             class="border-b border-slate-100 dark:border-slate-800 transition-colors hover:bg-slate-100 dark:hover:bg-slate-700/40"
-            :class="esCambioDocente(i)
-              ? 'bg-amber-100 dark:bg-amber-500/20'
-              : (i % 2 === 0 ? 'bg-white dark:bg-slate-900' : 'bg-sky-100 dark:bg-sky-500/15')"
+            :class="[
+              claseFila(i),
+              esCambioDocente(i) ? ['border-t-2', claseLinea(i)] : ''
+            ]"
           >
-            <!-- Nº (en modo materia lleva la barra lateral de color) -->
+            <!-- Nº (modo materia: barra lateral con el color del docente) -->
             <td
               class="px-4 py-3 text-slate-800 dark:text-slate-500 font-medium text-[13px] tabular-nums"
-              :class="mostrarDocente ? 'border-l-4 ' + (esCambioDocente(i) ? 'border-l-amber-500' : 'border-l-transparent') : ''"
+              :class="mostrarDocente ? ['border-l-4', claseBarra(i)] : ''"
             >{{ fila.nro }}</td>
 
             <!-- Gestión -->
@@ -74,8 +75,9 @@
             <!-- Materia -->
             <td class="px-4 py-3 text-slate-800 dark:text-slate-200 font-medium">{{ fila.principal.materia }}</td>
 
-            <!-- Docente (modo materia) con detección de cambios -->
+            <!-- Docente (modo materia): punto del color asignado a ese docente -->
             <td v-if="mostrarDocente" class="px-4 py-3 text-slate-900 dark:text-slate-100 font-medium">
+              <span class="inline-block w-2 h-2 rounded-full mr-1.5 align-middle" :class="clasePunto(i)"/>
               <span class="text-indigo-600 dark:text-indigo-400 text-xs font-semibold mr-1.5 tabular-nums">{{ fila.principal.cod_docente }}</span>{{ fila.principal.docente_nombre }}
             </td>
 
@@ -217,8 +219,24 @@
     </div>
 
     <!-- Footer -->
-    <div class="px-4 py-2.5 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/30 text-xs text-slate-500 dark:text-slate-500 text-right">
-      {{ filas.length }} registro{{ filas.length !== 1 ? 's' : '' }}
+    <div class="px-4 py-2.5 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/30 text-xs text-slate-500 dark:text-slate-500 flex items-start gap-4">
+      <!-- Leyenda (modo materia): un color por docente -->
+      <div v-if="mostrarDocente && leyendaDocentes.length" class="flex flex-wrap items-center gap-x-4 gap-y-1.5 min-w-0">
+        <span class="font-medium text-slate-600 dark:text-slate-400">Docentes clasificados:</span>
+        <span
+          v-for="d in leyendaDocentes"
+          :key="d.clave"
+          class="inline-flex items-center gap-1.5 max-w-[16rem]"
+          :title="d.nombre"
+        >
+          <span class="w-2.5 h-2.5 rounded-full shrink-0" :class="d.punto"/>
+          <span class="truncate">{{ d.nombre }}</span>
+        </span>
+      </div>
+
+      <span class="ml-auto whitespace-nowrap">
+        {{ filas.length }} registro{{ filas.length !== 1 ? 's' : '' }}
+      </span>
     </div>
 
     <!-- Desplegable de referencias (Teleport para que overflow-x-auto no lo recorte) -->
@@ -277,7 +295,7 @@ const props = defineProps({
   // de cada fila (resolucion && designacion).
   ocultarResolucionDesignacion: { type: Boolean, default: false },
   // true → (modo materia) muestra la columna "Docente" con cod_docente + docente_nombre
-  //        y resalta los cambios de docente en la tabla
+  //        y pinta cada docente con su propio color
   mostrarDocente: { type: Boolean, default: false },
 })
 
@@ -320,29 +338,90 @@ const filas = computed(() => {
   }))
 })
 
-// ── Kardex materia: detectar cambios de docente ─────────────────────────
-// Marca (true/false) cada fila cuyo docente es distinto al del periodo anterior.
-// Compara en orden cronológico (por gestión), sin importar en qué orden se muestre
-// la tabla, y por cod_docente.
-const cambiosDocente = computed(() => {
+// ── Kardex materia: un color por docente ────────────────────────────────
+// Cada docente recibe un color de la paleta (en orden de aparición).
+// - Filas seguidas del mismo docente → mismo color (forman un bloque).
+// - Si cambia el docente → color distinto al del bloque anterior, con una
+//   línea gruesa arriba para marcar el cambio.
+// - Si un docente vuelve a dictar más adelante, recupera su mismo color.
+// Las clases van escritas completas para que Tailwind las detecte.
+const PALETA = [
+  { fila: 'bg-white dark:bg-slate-900',            barra: 'border-l-slate-400',   linea: 'border-t-slate-500',   punto: 'bg-slate-400' },
+  { fila: 'bg-indigo-100/70 dark:bg-indigo-500/15',  barra: 'border-l-indigo-500',  linea: 'border-t-indigo-500',  punto: 'bg-indigo-500' },
+  { fila: 'bg-emerald-100/70 dark:bg-emerald-500/15', barra: 'border-l-emerald-500', linea: 'border-t-emerald-500', punto: 'bg-emerald-500' },
+  { fila: 'bg-rose-100/70 dark:bg-rose-500/15',      barra: 'border-l-rose-500',    linea: 'border-t-rose-500',    punto: 'bg-rose-500' },
+  { fila: 'bg-cyan-100/70 dark:bg-cyan-500/15',      barra: 'border-l-cyan-500',    linea: 'border-t-cyan-500',    punto: 'bg-cyan-500' },
+  { fila: 'bg-violet-100/70 dark:bg-violet-500/15',  barra: 'border-l-violet-500',  linea: 'border-t-violet-500',  punto: 'bg-violet-500' },
+]
+
+// Filas en orden cronológico (por gestión), sin importar cómo se muestre la tabla
+const ordenCronologico = computed(() => {
   if (!props.mostrarDocente) return []
 
-  const orden = filas.value
+  return filas.value
     .map((f, i) => ({
       i,
       gestion: String(f.principal.gestion ?? ''),
       clave: String(f.principal.cod_docente ?? f.principal.docente_nombre ?? '').trim(),
+      cod: f.principal.cod_docente,
+      nombre: f.principal.docente_nombre,
     }))
     .sort((a, b) => a.gestion.localeCompare(b.gestion, undefined, { numeric: true }) || a.i - b.i)
+})
 
+// Por cada fila (índice original): { cambio, color }
+const infoDocente = computed(() => {
   const res = []
-  orden.forEach((o, n) => {
-    res[o.i] = n > 0 && o.clave !== orden[n - 1].clave
+  const colorDe = new Map()
+  let siguiente = 0
+  let colorPrevio = -1
+
+  ordenCronologico.value.forEach((o, n, arr) => {
+    const cambio = n > 0 && o.clave !== arr[n - 1].clave
+
+    if (!colorDe.has(o.clave)) {
+      let c = siguiente % PALETA.length
+      // Un docente nuevo nunca repite el color del bloque inmediato anterior
+      if (c === colorPrevio) c = (c + 1) % PALETA.length
+      colorDe.set(o.clave, c)
+      siguiente = c + 1
+    }
+
+    const color = colorDe.get(o.clave)
+    colorPrevio = color
+    res[o.i] = { cambio, color }
   })
+
   return res
 })
 
-const esCambioDocente = (i) => !!cambiosDocente.value[i]
+const esCambioDocente = (i) => !!infoDocente.value[i]?.cambio
+const paletaDe = (i) => PALETA[infoDocente.value[i]?.color ?? 0]
+
+// Fondo de la fila: color del docente (modo materia) o zebra (modo docente)
+const claseFila = (i) => {
+  if (props.mostrarDocente) return paletaDe(i).fila
+  return i % 2 === 0 ? 'bg-white dark:bg-slate-900' : 'bg-sky-100 dark:bg-sky-500/15'
+}
+const claseBarra = (i) => paletaDe(i).barra
+const claseLinea = (i) => paletaDe(i).linea
+const clasePunto = (i) => paletaDe(i).punto
+
+// Leyenda del pie: un chip por docente, en orden de aparición
+const leyendaDocentes = computed(() => {
+  const vistos = new Set()
+  const lista = []
+  ordenCronologico.value.forEach((o) => {
+    if (vistos.has(o.clave)) return
+    vistos.add(o.clave)
+    lista.push({
+      clave: o.clave,
+      nombre: String(o.nombre ?? o.cod ?? '').trim(),
+      punto: PALETA[infoDocente.value[o.i]?.color ?? 0].punto,
+    })
+  })
+  return lista
+})
 
 // El endpoint de PDF depende de qué versión del reporte se está mostrando
 const { verPdfResolucion: verPdfNormal }     = useReporte()

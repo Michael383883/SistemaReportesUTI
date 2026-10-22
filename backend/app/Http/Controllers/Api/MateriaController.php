@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class MateriaController extends Controller
 {
@@ -197,5 +198,99 @@ class MateriaController extends Controller
     }
 
 
-    
+    /**
+     * GET /api/materias/buscar?q=texto
+     * Una fila por materia + plan + grupo, con la abreviatura del plan.
+     */
+    public function buscar(Request $request)
+    {
+        $request->validate([
+            'q' => 'required|string|min:2|max:60',
+        ]);
+
+        try {
+            $palabras = preg_split('/\s+/', trim($request->query('q')), -1, PREG_SPLIT_NO_EMPTY);
+
+            $condiciones = '';
+            $bindings = [];
+            foreach ($palabras as $i => $p) {
+                $condiciones .= " AND (MATERIAS.NOMBRE LIKE :n{$i} OR GRUPOS.MATERIA LIKE :c{$i})";
+                $bindings["n{$i}"] = "%{$p}%";
+                $bindings["c{$i}"] = "%{$p}%";
+            }
+
+            $sql = <<<SQL
+        SELECT TOP 40
+            GRUPOS.MATERIA            AS codigo,
+            MAX(MATERIAS.NOMBRE)      AS nombre,
+            GRUPOS.[PLAN]             AS cod_plan,
+            MAX([PLANES].NOMBRE)      AS nombre_plan,
+            GRUPOS.GRUPO              AS grupo,
+            MIN(GRUPOS.ANIO)          AS anio_desde,
+            MAX(GRUPOS.ANIO)          AS anio_hasta
+        FROM GRUPOS
+        INNER JOIN MATERIAS
+            ON MATERIAS.CODIGO  = GRUPOS.MATERIA
+            AND MATERIAS.ANIO    = GRUPOS.ANIO
+            AND MATERIAS.PERIODO = GRUPOS.PERIODO
+            AND MATERIAS.[PLAN]  = GRUPOS.[PLAN]
+        LEFT JOIN [PLANES]
+            ON [PLANES].CODIGO = GRUPOS.[PLAN]
+            AND [PLANES].ANIO  = GRUPOS.ANIO
+        WHERE GRUPOS.PRIMARIO = 'Y'
+          AND GRUPOS.TIPO = 'N'
+          AND GRUPOS.PERIODO NOT IN ('3','4')
+          AND MATERIAS.NOMBRE IS NOT NULL
+          {$condiciones}
+        GROUP BY GRUPOS.MATERIA, GRUPOS.[PLAN], GRUPOS.GRUPO
+        ORDER BY MAX(MATERIAS.NOMBRE), GRUPOS.MATERIA, GRUPOS.[PLAN], GRUPOS.GRUPO
+        SQL;
+
+            $filas = DB::connection('sqlsrv')->select($sql, $bindings);
+
+            $resultado = array_map(fn($f) => [
+                'codigo' => trim((string) $f->codigo),
+                'nombre' => trim((string) $f->nombre),
+                'cod_plan' => trim((string) $f->cod_plan),
+                'nombre_plan' => trim((string) $f->nombre_plan),
+                'plan' => $this->abreviarPlan($f->nombre_plan),
+                'grupo' => trim((string) $f->grupo),
+                'anio_desde' => (int) $f->anio_desde,
+                'anio_hasta' => (int) $f->anio_hasta,
+            ], $filas);
+
+            return response()->json($resultado);
+
+        } catch (\Exception $e) {
+            Log::error('Error en MateriaController@buscar', [
+                'message' => $e->getMessage(),
+                'line' => $e->getLine(),
+                'params' => $request->all(),
+            ]);
+
+            return response()->json([
+                'error' => 'Error al buscar materias',
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Misma regla que plan_abrev en ReporteDocenteController.
+     */
+    private function abreviarPlan(?string $nombrePlan): string
+    {
+        $n = Str::upper(Str::ascii(trim((string) $nombrePlan)));
+
+        return match (true) {
+            $n === '' => '—',
+            str_contains($n, 'ADMINISTRACION') => 'ADM',
+            str_contains($n, 'COMERCIAL') => 'COM',
+            str_contains($n, 'FINANCIERA') => 'FIN',
+            str_contains($n, 'ECONOMIA') => 'ECO',
+            str_contains($n, 'CONTADURIA') => 'CON',
+            default => mb_substr($n, 0, 3),
+        };
+    }
+
 }

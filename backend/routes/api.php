@@ -269,6 +269,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/materias', [MateriaController::class, 'index']);
     Route::get('/materias/periodos', [MateriaController::class, 'periodos']);
     Route::get('/materias/docente', [MateriaController::class, 'porDocente']);
+    Route::get('/materias/buscar', [MateriaController::class, 'buscar']);
 
     /* ----------------------------------------------------------------
      | REFERENCIAS
