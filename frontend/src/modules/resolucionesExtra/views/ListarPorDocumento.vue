@@ -103,6 +103,8 @@
         <table class="w-full text-sm">
           <thead>
             <tr class="border-b border-gray-100 bg-slate-900">
+              <!-- NUEVO: contador -->
+              <th class="text-center font-medium text-slate-100 px-3 py-3 text-xs uppercase tracking-wider w-12">N°</th>
               <th class="text-left font-medium text-slate-100 px-4 py-3 text-xs uppercase tracking-wider">Documento</th>
               <th class="text-left font-medium text-slate-100 px-4 py-3 text-xs uppercase tracking-wider">Docentes</th>
               <th class="text-left font-medium text-slate-100 px-4 py-3 text-xs uppercase tracking-wider">Categoria</th>
@@ -114,11 +116,17 @@
             </tr>
           </thead>
           <tbody>
+            <!-- CAMBIO: ahora toma el índice (doc, idx) -->
             <tr
-              v-for="doc in documentosFiltrados"
+              v-for="(doc, idx) in documentosFiltrados"
               :key="doc.ID_DOCUMENTO"
               class="border-b border-gray-50 last:border-0 hover:bg-gray-50/50 transition-colors"
             >
+              <!-- NUEVO: Contador -->
+              <td class="px-3 py-3 text-center text-sm font-semibold text-gray-400 tabular-nums">
+                {{ idx + 1 }}
+              </td>
+
               <!-- Documento -->
               <td class="px-4 py-3 max-w-[220px]">
                 <div class="flex flex-col">
@@ -135,7 +143,7 @@
                   (clic, no hover) con TODOS los docentes (incluido el primero),
                   cada uno como link real a su vista de docente.
 
-                👈 El badge muestra el TOTAL real de docentes (ej: "3 docentes"),
+                El badge muestra el TOTAL real de docentes (ej: "3 docentes"),
                 no la cantidad "extra". El desplegable, en consecuencia, lista
                 a los 3 (incluyendo al que ya se ve en el pill), para que el
                 número de arriba siempre coincida con la cantidad de filas

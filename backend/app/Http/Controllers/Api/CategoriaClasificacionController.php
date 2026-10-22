@@ -41,6 +41,16 @@ class CategoriaClasificacionController extends Controller
     }
 
     /**
+     * Largo máximo del nombre según el tipo.
+     * DOCUMENTO y KARDEX terminan copiándose a GRUPOS.TIPO_INGRESO, que es
+     * varchar(30): un nombre más largo haría fallar el UPDATE por truncamiento.
+     */
+    private function maxNombre(string $tipo): int
+    {
+        return $tipo === 'TITULO' ? 60 : 30;
+    }
+
+    /**
      * Fuentes (tabla + columna) donde puede estar usada una categoría del tipo dado.
      */
     private function fuentesUso(string $tipo): array
@@ -149,7 +159,7 @@ class CategoriaClasificacionController extends Controller
     {
         $tipo = $this->normalizarTipoRuta($tipo);
 
-        $request->validate(['nombre' => 'required|string|max:60']);
+        $request->validate(['nombre' => 'required|string|max:' . $this->maxNombre($tipo)]);
 
         $nombre = in_array($tipo, ['TITULO', 'KARDEX'])
             ? mb_strtoupper(trim($request->nombre))
@@ -178,7 +188,7 @@ class CategoriaClasificacionController extends Controller
 
         $request->validate([
             'anterior' => 'required|string',
-            'nuevo' => 'required|string|max:60',
+            'nuevo' => 'required|string|max:' . $this->maxNombre($tipo),
         ]);
 
         $anterior = $request->anterior;
@@ -206,6 +216,16 @@ class CategoriaClasificacionController extends Controller
                 DB::table('CLASIFICACION_DOCUMENTO')
                     ->where('CATEGORIA', $anterior)
                     ->update(['CATEGORIA' => $nuevo]);
+
+                // GRUPOS guarda una copia de la categoría aplicada, y es la
+                // que lee el reporte de tipo de ingreso: hay que renombrarla
+                // también o el reporte queda con el nombre viejo.
+                DB::update("
+                    UPDATE GRUPOS
+                    SET TIPO_INGRESO = ?
+                    WHERE UPPER(LTRIM(RTRIM(TIPO_INGRESO))) COLLATE Modern_Spanish_CI_AI
+                        = UPPER(LTRIM(RTRIM(?))) COLLATE Modern_Spanish_CI_AI
+                ", [$nuevo, $anterior]);
             } elseif ($tipo === 'TITULO') {
                 DB::table('CLASIFICACION_TITULO')
                     ->where('TIPO_TITULO', $anterior)

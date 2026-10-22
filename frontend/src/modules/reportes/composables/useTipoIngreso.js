@@ -20,7 +20,10 @@ function authHeaders() {
  *     RESOLUCION_DETALLE.
  *
  * Además expone la lista de tipos de ingreso que tiene un docente
- * (cargarTipos), usada por el botón "Modalidad de Ingreso" del ReporteHeader.
+ * (cargarTipos). OPCIONAL: ReporteView.vue ya no la llama porque el botón
+ * "Modalidad de Ingreso" se arma con los tipo_ingreso de las materias del
+ * reporte. Si se vuelve a usar, el backend debe exponer
+ * GET /api/docentes/{codigo}/tipos-ingreso devolviendo un array de strings.
  */
 export function useTipoIngreso() {
     const guardando = ref(false)
@@ -41,7 +44,6 @@ export function useTipoIngreso() {
     async function cargarTipos(codDocente) {
         loadingTipos.value = true
         try {
-            // ⚠️ AJUSTAR la ruta al endpoint real de Laravel
             const { data } = await axios.get(
                 `${API_BASE}/api/docentes/${codDocente}/tipos-ingreso`,
                 { headers: { ...authHeaders() } }
@@ -49,7 +51,11 @@ export function useTipoIngreso() {
             // Se espera: ['EXAMEN SUFICIENCIA', 'CONCURSO', ...]
             tiposDisponibles.value = Array.isArray(data) ? data : (data?.data ?? [])
         } catch (e) {
-            console.error('❌ cargarTipos (tipo_ingreso):', e.response?.data ?? e.message)
+            // 404 = el endpoint aún no existe en el backend: no es un error real,
+            // se ignora en silencio. Cualquier otro error sí se registra.
+            if (e.response?.status !== 404) {
+                console.error('❌ cargarTipos (tipo_ingreso):', e.response?.data ?? e.message)
+            }
             tiposDisponibles.value = []
         } finally {
             loadingTipos.value = false
@@ -88,9 +94,8 @@ export function useTipoIngreso() {
 
     /**
      * Aplica todos los cambios pendientes de una sola vez.
-     * materiasPorDocente: array de { docenteCod, materia } correspondientes
-     * a cada key presente en cambiosPendientes — lo arma la vista, que es
-     * quien tiene el contexto de qué docente/materia corresponde a cada key.
+     * itemsParaGuardar: array de items ya armados por la vista
+     * (cod_docente, cod_plan, cod_materia, grupo, gestion, tipo_ingreso).
      */
     async function aplicarCambios(itemsParaGuardar) {
         if (itemsParaGuardar.length === 0) {

@@ -10,7 +10,9 @@ use Illuminate\Support\Facades\Log;
 
 class ClasificacionDocenteController extends Controller
 {
-    // GET /clasificaciones
+    // GRUPOS.TIPO_INGRESO es varchar(30): la categoría no puede pasar de 30.
+    private const MAX_CATEGORIA = 30;
+
     // GET /clasificaciones
     //
     // Filtros multi-selección (categoria[] y tipo_titulo[]):
@@ -170,7 +172,7 @@ class ClasificacionDocenteController extends Controller
         try {
             $request->validate([
                 'cod_docente' => 'nullable|integer',
-                'categoria' => 'required|string|max:60',
+                'categoria' => 'required|string|max:' . self::MAX_CATEGORIA,
                 'nivel' => 'nullable|string|in:Primer nivel,Segundo nivel,Tercer nivel',
                 'tipo_documento' => 'nullable|string|max:40',
                 'gestion' => 'nullable|string|max:10',
@@ -401,6 +403,8 @@ class ClasificacionDocenteController extends Controller
     //  - Un hermano que solo tiene TÍTULO (no editable desde este form) nunca
     //    se desvincula por esta vía.
     //  - Las materias que el usuario quitó se limpian también en GRUPOS.
+    //  - NUEVO: si cambia categoría / tipo de documento / detalle, se
+    //    re-sincroniza GRUPOS (que es lo que lee el reporte de tipo de ingreso).
     public function update(Request $request, $id)
     {
         DB::beginTransaction();
@@ -420,7 +424,7 @@ class ClasificacionDocenteController extends Controller
             $idDocumentoOriginal = $ccd->ID_DOCUMENTO;
 
             $request->validate([
-                'categoria' => 'required|string|max:60',
+                'categoria' => 'required|string|max:' . self::MAX_CATEGORIA,
                 'nivel' => 'nullable|string|in:Primer nivel,Segundo nivel,Tercer nivel',
                 'tipo_documento' => 'nullable|string|max:40',
                 'gestion' => 'nullable|string|max:10',
@@ -479,7 +483,7 @@ class ClasificacionDocenteController extends Controller
                         return (string) $d->ID_CLASIFICACION_DOCENTE !== (string) $id
                             && !$codigosEnPayload->contains((string) $d->COD_DOCENTE);
                     })
-                    // FIX: si el hermano NO tenía materias (solo título, que no se
+                    // Si el hermano NO tenía materias (solo título, que no se
                     // edita desde este form) no se toca: no se "quitó" nada.
                     ->filter(function ($d) {
                         return DB::table('CLASIFICACION_MATERIA')
@@ -531,6 +535,7 @@ class ClasificacionDocenteController extends Controller
                 'OBSERVACION2' => $request->observacion2,
             ];
 
+            // Foto del documento ANTES de modificarlo (valores viejos).
             $docActual = DB::table('CLASIFICACION_DOCUMENTO')->where('ID_DOCUMENTO', $idDocumentoOriginal)->first();
 
             // ── ¿Cambió GESTION o PERIODO? Si sí, hay que limpiar GRUPOS con la
@@ -557,7 +562,7 @@ class ClasificacionDocenteController extends Controller
                     return response()->json(['ok' => false, 'error' => 'Archivo inválido'], 400);
                 }
 
-                // FIX: el PDF viejo NO se borra aquí (si algo falla después y se
+                // El PDF viejo NO se borra aquí (si algo falla después y se
                 // hace rollback, el documento quedaría sin archivo). Se borra
                 // tras el commit y solo si ningún otro documento lo comparte.
                 if (!$desvincular && $docActual && $docActual->RUTA_ARCHIVO) {
@@ -662,7 +667,7 @@ class ClasificacionDocenteController extends Controller
             // El principal siempre se incluye (soporta "vaciar mis materias").
             $idsAEliminar = array_unique(array_merge([$id], array_keys($materiasPorDestino)));
 
-            // FIX: foto de las materias ANTES de borrarlas, para saber cuáles
+            // Foto de las materias ANTES de borrarlas, para saber cuáles
             // quitó el usuario y limpiarlas también en GRUPOS.
             $materiasAntes = DB::table('CLASIFICACION_MATERIA as cm')
                 ->join('CLASIFICACION_DOCENTE as dd', 'dd.ID_CLASIFICACION_DOCENTE', '=', 'cm.ID_CLASIFICACION_DOCENTE')
@@ -711,7 +716,7 @@ class ClasificacionDocenteController extends Controller
                 }
             }
 
-            // ── FIX: limpieza en GRUPOS de las materias que el usuario QUITÓ ──
+            // ── Limpieza en GRUPOS de las materias que el usuario QUITÓ ──
             // (si cambió gestión/periodo ya se limpió todo arriba).
             if (!$gestionCambio && $docActual && $materiasAntes->isNotEmpty()) {
                 $clave = fn($idDest, $plan, $mat, $grupo) =>
@@ -782,9 +787,24 @@ class ClasificacionDocenteController extends Controller
                 }
             }
 
+            // ── NUEVO: reflejar en GRUPOS el cambio de categoría / tipo / detalle ──
+            // Si cambió gestión/periodo ya se limpió GRUPOS arriba y el usuario
+            // debe volver a "Aplicar en grupos" para la combinación nueva.
+            $gruposSincronizados = 0;
+            if (!$gestionCambio && $docActual) {
+                $cambioDatos =
+                    (string) ($docActual->CATEGORIA ?? '') !== (string) ($request->categoria ?? '')
+                    || (string) ($docActual->TIPO_DOCUMENTO ?? '') !== (string) ($request->tipo_documento ?? '')
+                    || (string) ($docActual->DETALLE_GENERAL ?? '') !== (string) ($request->detalle_general ?? '');
+
+                if ($cambioDatos) {
+                    $gruposSincronizados = $this->sincronizarGruposDocumento($idDocumento, $docActual->CATEGORIA);
+                }
+            }
+
             DB::commit();
 
-            // FIX: borrado del PDF anterior DESPUÉS del commit, y solo si
+            // Borrado del PDF anterior DESPUÉS del commit, y solo si
             // ningún otro documento lo usa y no es el mismo archivo recién guardado.
             if ($rutaViejaABorrar && $rutaViejaABorrar !== ($datosDocumento['RUTA_ARCHIVO'] ?? null)) {
                 try {
@@ -809,6 +829,7 @@ class ClasificacionDocenteController extends Controller
                 'referencias_actualizadas' => $referenciasActualizadas,
                 'desvinculado' => $desvincular,
                 'hermanos_desvinculados' => $hermanosADesvincular->count(),
+                'grupos_sincronizados' => $gruposSincronizados,
                 // Si viene true, conviene avisar que vuelva a "Aplicar en GRUPOS"
                 // para la gestión/periodo nueva.
                 'gestion_o_periodo_cambio' => $gestionCambio,
@@ -839,6 +860,45 @@ class ClasificacionDocenteController extends Controller
             return null;
         }
         return $valor;
+    }
+
+    /**
+     * Re-sincroniza GRUPOS con los datos actuales del documento.
+     * Solo toca grupos que ya estaban aplicados con la categoría ANTERIOR,
+     * para no pisar los que otro documento haya aplicado.
+     *
+     * Debe llamarse DESPUÉS de guardar el documento y sus materias.
+     */
+    private function sincronizarGruposDocumento($idDocumento, $categoriaAnterior)
+    {
+        if ($categoriaAnterior === null || trim((string) $categoriaAnterior) === '') {
+            return 0;
+        }
+
+        return DB::update("
+            UPDATE g
+            SET
+                g.RESOLUCION   = cdoc.TIPO_DOCUMENTO,
+                g.DESIGNACION  = cdoc.DETALLE_GENERAL,
+                g.TIPO_INGRESO = cdoc.CATEGORIA
+            FROM GRUPOS g
+            JOIN CLASIFICACION_MATERIA cm
+                ON  g.[PLAN]  COLLATE Modern_Spanish_CI_AS = cm.COD_PLAN    COLLATE Modern_Spanish_CI_AS
+                AND g.MATERIA COLLATE Modern_Spanish_CI_AS = cm.COD_MATERIA COLLATE Modern_Spanish_CI_AS
+                AND g.[GRUPO] COLLATE Modern_Spanish_CI_AS = CAST(cm.[GRUPO] AS VARCHAR(10)) COLLATE Modern_Spanish_CI_AS
+            JOIN CLASIFICACION_DOCENTE ccd
+                ON ccd.ID_CLASIFICACION_DOCENTE = cm.ID_CLASIFICACION_DOCENTE
+            JOIN CLASIFICACION_DOCUMENTO cdoc
+                ON cdoc.ID_DOCUMENTO = ccd.ID_DOCUMENTO
+            WHERE
+                cdoc.ID_DOCUMENTO = ?
+                AND g.DOCENTE = ccd.COD_DOCENTE
+                AND g.ANIO    = CAST(cdoc.GESTION AS NUMERIC(5,0))
+                AND g.PERIODO COLLATE Modern_Spanish_CI_AS = cdoc.PERIODO COLLATE Modern_Spanish_CI_AS
+                AND g.[TIPO]  COLLATE Modern_Spanish_CI_AS = 'N'
+                AND UPPER(LTRIM(RTRIM(COALESCE(g.TIPO_INGRESO, '')))) COLLATE Modern_Spanish_CI_AI
+                    = UPPER(LTRIM(RTRIM(?))) COLLATE Modern_Spanish_CI_AI
+        ", [$idDocumento, $categoriaAnterior]);
     }
 
     /**
@@ -945,7 +1005,7 @@ class ClasificacionDocenteController extends Controller
     }
 
     // DELETE /clasificaciones/{id}
-    // FIX: todo en una transacción (GRUPOS + hijos + documento), hijos primero
+    // Todo en una transacción (GRUPOS + hijos + documento), hijos primero
     // (compatible con FK sin cascada), try/catch con 500 controlado, y el PDF
     // solo se borra si ningún otro documento lo comparte.
     public function destroy($id)
@@ -999,7 +1059,7 @@ class ClasificacionDocenteController extends Controller
     }
 
     // DELETE /clasificaciones/docente/{idClasificacionDocente}
-    // FIX: limpieza de GRUPOS dentro de la transacción; si era el último
+    // Limpieza de GRUPOS dentro de la transacción; si era el último
     // docente, el documento (y sus hijos) se elimina también para no dejarlo huérfano.
     public function destroyDocente($idClasificacionDocente)
     {
@@ -1470,11 +1530,13 @@ class ClasificacionDocenteController extends Controller
     }
 
     // PUT /api/categorias
+    // Renombra la categoría en CLASIFICACION_DOCUMENTO Y en GRUPOS
+    // (GRUPOS guarda una copia que es la que lee el reporte de tipo de ingreso).
     public function actualizarCategoria(Request $request)
     {
         $request->validate([
-            'anterior' => 'required|string|max:60',
-            'nuevo' => 'required|string|max:60',
+            'anterior' => 'required|string|max:' . self::MAX_CATEGORIA,
+            'nuevo' => 'required|string|max:' . self::MAX_CATEGORIA,
         ]);
 
         $anterior = trim($request->anterior);
@@ -1497,15 +1559,37 @@ class ClasificacionDocenteController extends Controller
             return response()->json(['ok' => false, 'error' => 'Ya existe una categoría con ese nombre'], 422);
         }
 
-        $filas = DB::table('CLASIFICACION_DOCUMENTO')
-            ->where('CATEGORIA', $anterior)
-            ->update(['CATEGORIA' => $nuevo]);
+        try {
+            $filas = 0;
+            $filasGrupos = 0;
 
-        return response()->json([
-            'ok' => true,
-            'mensaje' => 'Categoría actualizada correctamente',
-            'filas_actualizadas' => $filas,
-        ]);
+            DB::transaction(function () use ($anterior, $nuevo, &$filas, &$filasGrupos) {
+                $filas = DB::table('CLASIFICACION_DOCUMENTO')
+                    ->where('CATEGORIA', $anterior)
+                    ->update(['CATEGORIA' => $nuevo]);
+
+                $filasGrupos = DB::update("
+                    UPDATE GRUPOS
+                    SET TIPO_INGRESO = ?
+                    WHERE UPPER(LTRIM(RTRIM(TIPO_INGRESO))) COLLATE Modern_Spanish_CI_AI
+                        = UPPER(LTRIM(RTRIM(?))) COLLATE Modern_Spanish_CI_AI
+                ", [$nuevo, $anterior]);
+            });
+
+            return response()->json([
+                'ok' => true,
+                'mensaje' => 'Categoría actualizada correctamente',
+                'filas_actualizadas' => $filas,
+                'grupos_actualizados' => $filasGrupos,
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Error al renombrar categoría', [
+                'anterior' => $anterior,
+                'nuevo' => $nuevo,
+                'mensaje' => $e->getMessage(),
+            ]);
+            return response()->json(['ok' => false, 'error' => 'No se pudo actualizar la categoría'], 500);
+        }
     }
 
     // GET /api/reporte-docentes/tipos-titulo

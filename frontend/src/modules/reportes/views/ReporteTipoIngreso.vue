@@ -76,6 +76,14 @@
           class="inline-flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 disabled:cursor-not-allowed text-white text-[13px] font-bold rounded-lg transition-colors">
           Descargar PDF
         </button>
+
+        <button @click="onExcel" :disabled="!datosFiltrados.length"
+          class="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-[13px] font-semibold rounded-lg transition-colors">
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+          </svg>
+          Descargar Excel
+        </button>
       </div>
     </div>
 
@@ -134,7 +142,15 @@
                 :class="i % 2 === 1 ? 'bg-sky-50 dark:bg-slate-700/40' : 'bg-white dark:bg-slate-800'">
                 <td class="px-3 py-2">{{ i + 1 }}</td>
                 <td class="px-3 py-2">{{ row.cod_docente }}</td>
-                <td class="px-3 py-2 uppercase font-semibold">{{ row.apellidos }} {{ row.nombres }}</td>
+
+                <!-- Docente: clic abre el menú de acciones (inscritos / horario) -->
+                <td class="px-3 py-2 uppercase">
+                  <button @click="abrirMenuDocente(row)" title="Ver opciones del docente"
+                    class="text-left font-semibold text-blue-800 dark:text-blue-300 hover:underline uppercase">
+                    {{ row.apellidos }} {{ row.nombres }}
+                  </button>
+                </td>
+
                 <td class="px-3 py-2">
                   <span class="text-gray-500 dark:text-slate-400">{{ row.materia_codigo }}</span>
                   {{ row.materia }}
@@ -175,16 +191,76 @@
       class="text-center py-10 text-[13px] text-gray-800 dark:text-slate-300">
       No se encontraron docentes activos con ese tipo de ingreso en el periodo.
     </div>
+
+    <!-- ═════ Menú de acciones del docente (abre en pestaña nueva) ═════ -->
+    <div v-if="docenteMenu"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      @click.self="docenteMenu = null">
+      <div class="bg-white dark:bg-slate-800 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-xl w-full max-w-sm overflow-hidden">
+
+        <!-- Cabecera con avatar -->
+        <div class="relative flex items-center gap-3 pl-6 pr-4 py-3.5 bg-slate-800 dark:bg-slate-950 text-white">
+          <div class="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-amber-400 to-amber-600"></div>
+
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-700 to-violet-600 text-white text-[13px] font-bold flex items-center justify-center shrink-0 tracking-wide">
+            {{ iniciales(docenteMenu) }}
+          </div>
+
+          <div class="min-w-0 flex-1">
+            <h2 class="text-[14px] font-bold leading-tight uppercase truncate">
+              {{ docenteMenu.apellidos }} {{ docenteMenu.nombres }}
+            </h2>
+            <p class="text-[11px] text-slate-300 mt-0.5">
+              SIS: {{ docenteMenu.cod_docente }} · {{ filtros.anio }} - {{ nombrePeriodo }}
+            </p>
+          </div>
+
+          <button @click="docenteMenu = null" aria-label="Cerrar"
+            class="w-7 h-7 flex items-center justify-center rounded-full text-slate-300 hover:text-white hover:bg-white/10 transition-colors">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <!-- Opciones: solo inscritos y horario -->
+        <div class="p-2.5 space-y-1.5">
+          <button v-for="a in accionesDocente" :key="a.key" @click="irA(a.key)"
+            class="group w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-left transition-all"
+            :class="a.hover">
+            <span class="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" :class="a.tile">
+              <svg class="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" :d="a.icono" />
+              </svg>
+            </span>
+
+            <span class="min-w-0 flex-1">
+              <span class="block text-[13px] font-semibold text-gray-900 dark:text-slate-100 leading-tight">{{ a.titulo }}</span>
+              <span class="block text-[11px] text-gray-500 dark:text-slate-400 mt-0.5">{{ a.desc }}</span>
+            </span>
+
+            <svg class="w-4 h-4 text-gray-300 dark:text-slate-600 group-hover:text-gray-500 dark:group-hover:text-slate-300 group-hover:translate-x-0.5 transition-all shrink-0"
+              fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
 import { reactive, ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { useRouter } from 'vue-router'
 import { useTipoIngreso, SIN_CATEGORIA, CATEGORIA_DEFECTO } from '../composables/useTiposIngreso'
 import { useDocumentoTitulo } from '../composables/useDocumentoTitulo'
 import { norm } from '../composables/utilsTitulo'
 import { generarPDF } from '../composables/useGenerarPDF'
+import { exportarReporteTitulos } from '../composables/exportarXlsx'
 import { usePeriodoAcademicoActual } from '@/modules/periodos-academicos/composables/usePeriodoAcademicoActual'
+
+const router = useRouter()
 
 const { categorias, datos, loading, error, cargarCategorias, buscar } = useTipoIngreso()
 const { cargandoId, errorDoc, ver } = useDocumentoTitulo()
@@ -229,6 +305,50 @@ const textoSeleccion = computed(() => {
 
 function cerrarAlClickFuera(e) {
   if (dropRef.value && !dropRef.value.contains(e.target)) abierto.value = false
+}
+
+// ── Menú de acciones por docente (solo inscritos y horario) ─────────────────
+const docenteMenu = ref(null)
+
+const accionesDocente = [
+  {
+    key: 'inscritos', titulo: 'Ver sus inscritos', desc: 'Lista de inscritos del periodo',
+    icono: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z',
+    tile: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300',
+    hover: 'hover:border-emerald-300 hover:bg-emerald-50/40 dark:hover:border-emerald-500/50 dark:hover:bg-emerald-500/5',
+  },
+  {
+    key: 'horario', titulo: 'Ver su horario', desc: 'Carga horaria del periodo',
+    icono: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z',
+    tile: 'bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300',
+    hover: 'hover:border-amber-300 hover:bg-amber-50/40 dark:hover:border-amber-500/50 dark:hover:bg-amber-500/5',
+  },
+]
+
+// Iniciales para el avatar de la cabecera del menú
+const iniciales = (d) =>
+  ((d?.nombres?.[0] ?? '') + (d?.apellidos?.[0] ?? '')).toUpperCase() || '?'
+
+const abrirMenuDocente = (row) => { docenteMenu.value = row }
+
+function irA(destino) {
+  const d = docenteMenu.value
+  if (!d) return
+
+  // Búsqueda por "APELLIDOS NOMBRES" (no por código) para inscritos y horario
+  const buscarTexto = `${d.apellidos} ${d.nombres}`.trim()
+  const periodo = { anio: filtros.anio, periodo: filtros.periodo }
+
+  const destinos = {
+    inscritos: { name: 'inscritos',                query: { buscar: buscarTexto, ...periodo } },
+    horario:   { name: 'reporte-horario-completo', query: { buscar: buscarTexto, ...periodo } },
+  }
+
+  // Abre en una pestaña nueva
+  const { href } = router.resolve(destinos[destino])
+  window.open(href, '_blank')
+
+  docenteMenu.value = null
 }
 
 // ── Buscar ──
@@ -300,6 +420,39 @@ function onPdf(action) {
       'Docentes activos en el periodo seleccionado, con su materia y la categoría de ingreso registrada en el SISS.',
     sujetoPersonalizado: `PERIODO : ${gestion}   ·   TIPO DE INGRESO : ${etiquetaCat}`,
     nombreArchivo: `reporte_tipo_ingreso_${filtros.anio}-${filtros.periodo}.pdf`,
+  })
+}
+
+// ── Excel (reutiliza exportarReporteTitulos, igual que el reporte de títulos) ──
+function onExcel() {
+  const encabezados = [
+    'Nº', 'Código', 'Apellidos', 'Nombres',
+    'Código materia', 'Materia', 'Grp',
+    'Tipo de ingreso', 'Resolución', 'Detalle', 'Documento',
+  ]
+
+  const filas = datosFiltrados.value.map((r, i) => [
+    i + 1,
+    r.cod_docente,
+    r.apellidos,
+    r.nombres,
+    r.materia_codigo,
+    r.materia,
+    r.grp,
+    r.categoria || 'Sin categoría',
+    r.resolucion || '',
+    r.detalle || '',
+    r.tiene_archivo && r.id ? 'Con PDF' : 'Sin PDF',
+  ])
+
+  exportarReporteTitulos({
+    nombre: `Reporte_Tipo_Ingreso_${filtros.anio}-${filtros.periodo}.xlsx`,
+    hoja: 'Tipo de ingreso',
+    anio: filtros.anio,
+    periodo: filtros.periodo,
+    encabezados,
+    filas,
+    columnasCentradas: [0, 1, 4, 6, 10],
   })
 }
 

@@ -198,16 +198,20 @@ const onSeleccionarCategorias = (cats) => {
 }
 
 // ── Modalidad de ingreso (tabla TIPO_INGRESO) ───────────────────────────────
+// Las opciones del botón salen de los tipo_ingreso de las materias del reporte.
+// El endpoint GET /api/docentes/{codigo}/tipos-ingreso NO existe en el backend,
+// por eso ya no se llama a cargarTipos (evita el 404 en consola).
+// Para reactivarlo: crear la ruta en Laravel, agregar `cargarTipos: cargarTiposIngreso`
+// en el destructuring y descomentar la llamada dentro del watch de más abajo.
 const {
   tiposDisponibles: tiposDelEndpoint,
   loadingTipos: loadingTiposTitulo,
-  cargarTipos: cargarTiposIngreso,
+  // cargarTipos: cargarTiposIngreso,
   limpiarTipos: limpiarTiposIngreso,
 } = useTipoIngreso()
 
-// Opciones del botón = lo que devuelva el endpoint + los tipo_ingreso que ya
-// vienen en las materias del reporte. Así el botón aparece aunque el endpoint
-// todavía no exista (o falle).
+// Opciones del botón = tipo_ingreso que vienen en las materias del reporte
+// (+ lo que devuelva el endpoint, si algún día se reactiva).
 const tiposTitulo = computed(() => {
   const deMaterias = (reporteActivo.value?.materias ?? [])
     .map(m => m.tipo_ingreso)
@@ -419,7 +423,8 @@ const onToggleVersion = async () => {
   }
 }
 
-// Al cambiar de docente: limpia y vuelve a cargar categorías y modalidades de ingreso
+// Al cambiar de docente: limpia y vuelve a cargar categorías
+// (las modalidades de ingreso salen de las materias del reporte)
 watch(
   () => reporteActivo.value?.docente?.codigo,
   (codigo, anterior) => {
@@ -431,7 +436,7 @@ watch(
     tiposTituloSeleccionados.value = []
     if (codigo) {
       cargarCategorias(codigo)
-      cargarTiposIngreso(codigo)
+      // cargarTiposIngreso(codigo)   // desactivado: el endpoint /tipos-ingreso no existe (404)
     }
   }
 )

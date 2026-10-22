@@ -1,5 +1,6 @@
 <template>
   <div class="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 overflow-hidden">
+
     <div class="overflow-x-auto">
       <table class="w-full text-sm border-collapse">
         <thead>
@@ -31,13 +32,18 @@
         </thead>
         <tbody>
           <tr
-  v-for="(fila, i) in filas"
-  :key="fila.principal.nro ?? i"
-  class="border-b border-slate-100 dark:border-slate-800 transition-colors hover:bg-slate-100 dark:hover:bg-slate-700/40"
-  :class="i % 2 === 0 ? 'bg-white dark:bg-slate-900' : 'bg-sky-100 dark:bg-sky-500/15'"
->
-            <!-- Nº -->
-            <td class="px-4 py-3 text-slate-800 dark:text-slate-500 font-medium text-[13px] tabular-nums">{{ fila.nro }}</td>
+            v-for="(fila, i) in filas"
+            :key="fila.principal.nro ?? i"
+            class="border-b border-slate-100 dark:border-slate-800 transition-colors hover:bg-slate-100 dark:hover:bg-slate-700/40"
+            :class="esCambioDocente(i)
+              ? 'bg-amber-100 dark:bg-amber-500/20'
+              : (i % 2 === 0 ? 'bg-white dark:bg-slate-900' : 'bg-sky-100 dark:bg-sky-500/15')"
+          >
+            <!-- Nº (en modo materia lleva la barra lateral de color) -->
+            <td
+              class="px-4 py-3 text-slate-800 dark:text-slate-500 font-medium text-[13px] tabular-nums"
+              :class="mostrarDocente ? 'border-l-4 ' + (esCambioDocente(i) ? 'border-l-amber-500' : 'border-l-transparent') : ''"
+            >{{ fila.nro }}</td>
 
             <!-- Gestión -->
             <td class="px-4 py-3">
@@ -68,8 +74,8 @@
             <!-- Materia -->
             <td class="px-4 py-3 text-slate-800 dark:text-slate-200 font-medium">{{ fila.principal.materia }}</td>
 
-            <!-- Docente (modo materia) -->
-            <td v-if="mostrarDocente" class="px-4 py-3 text-slate-800 dark:text-slate-200 font-medium">
+            <!-- Docente (modo materia) con detección de cambios -->
+            <td v-if="mostrarDocente" class="px-4 py-3 text-slate-900 dark:text-slate-100 font-medium">
               <span class="text-indigo-600 dark:text-indigo-400 text-xs font-semibold mr-1.5 tabular-nums">{{ fila.principal.cod_docente }}</span>{{ fila.principal.docente_nombre }}
             </td>
 
@@ -112,7 +118,7 @@
                 <div v-for="(h, hi) in fila.hermanas" :key="hi" class="flex items-center gap-1.5 flex-wrap text-[11px] leading-snug">
                   <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[0.65rem] font-bold tracking-wide" :class="tipoGrp(h.plan, h.materia_codigo).class">
                     <span class="w-1.5 h-1.5 rounded-full shrink-0" :class="tipoGrp(h.plan, h.materia_codigo).dot"/>
-  {{ tipoGrp(h.plan, h.materia_codigo).label }}
+                    {{ tipoGrp(h.plan, h.materia_codigo).label }}
                   </span>
                   <span class="text-slate-800 dark:text-slate-300 font-medium truncate">{{ h.materia }}</span>
                   <span class="text-slate-500 whitespace-nowrap">· Grp {{ h.grp }}</span>
@@ -271,6 +277,7 @@ const props = defineProps({
   // de cada fila (resolucion && designacion).
   ocultarResolucionDesignacion: { type: Boolean, default: false },
   // true → (modo materia) muestra la columna "Docente" con cod_docente + docente_nombre
+  //        y resalta los cambios de docente en la tabla
   mostrarDocente: { type: Boolean, default: false },
 })
 
@@ -312,6 +319,30 @@ const filas = computed(() => {
     hermanas: [],
   }))
 })
+
+// ── Kardex materia: detectar cambios de docente ─────────────────────────
+// Marca (true/false) cada fila cuyo docente es distinto al del periodo anterior.
+// Compara en orden cronológico (por gestión), sin importar en qué orden se muestre
+// la tabla, y por cod_docente.
+const cambiosDocente = computed(() => {
+  if (!props.mostrarDocente) return []
+
+  const orden = filas.value
+    .map((f, i) => ({
+      i,
+      gestion: String(f.principal.gestion ?? ''),
+      clave: String(f.principal.cod_docente ?? f.principal.docente_nombre ?? '').trim(),
+    }))
+    .sort((a, b) => a.gestion.localeCompare(b.gestion, undefined, { numeric: true }) || a.i - b.i)
+
+  const res = []
+  orden.forEach((o, n) => {
+    res[o.i] = n > 0 && o.clave !== orden[n - 1].clave
+  })
+  return res
+})
+
+const esCambioDocente = (i) => !!cambiosDocente.value[i]
 
 // El endpoint de PDF depende de qué versión del reporte se está mostrando
 const { verPdfResolucion: verPdfNormal }     = useReporte()
