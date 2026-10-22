@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\MigracionController;
 
 // Docentes y reportes
 use App\Http\Controllers\Api\DocenteController;
+use App\Http\Controllers\Api\DocentePublicController;
 use App\Http\Controllers\Api\ReporteDocenteController;
 use App\Http\Controllers\Api\HorarioDocenteController;
 use App\Http\Controllers\Api\HorarioAdminController;
@@ -59,6 +60,17 @@ use App\Http\Controllers\Api\CategoriaClasificacionController;
 
 // Índices de base de datos
 use App\Http\Controllers\Api\DatabaseIndexController;
+
+/*
+|--------------------------------------------------------------------------
+| API PÚBLICA (sin token, con throttle)
+| Consume SCIA / SCIA-TEST por CI. No expone FECHA_NOMBRAMIENTO.
+|--------------------------------------------------------------------------
+*/
+Route::middleware('throttle:60,1')->group(function () {
+    Route::get('/docentes/by-ci/{ci}', [DocentePublicController::class, 'showByCi']);
+    Route::get('/docentes/por-materia', [DocentePublicController::class, 'porMateria']);
+});
 
 /*
 |--------------------------------------------------------------------------
