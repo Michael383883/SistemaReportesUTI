@@ -84,9 +84,12 @@ const PLACEHOLDER_SIN_MATERIA = 'NO REGENTA MATERIA EN LA FCE'
 // Marcas de agrupación que se recalculan cada vez que se arman los bloques
 const MARCAS_GRUPO = ['N', 'NOMBRE_DOCENTE', 'INICIO_GRUPO', 'FILAS_GRUPO', 'FIN_GRUPO', 'INICIO_MATERIA', 'FILAS_MATERIA']
 
-// ─── Acéfala + compartido: no se muestran ───
+// ─── Acéfala + compartido ───
 // Si la categoría es ACEFALA y en alguna de estas columnas aparece
-// "compartido", esa fila se excluye del reporte.
+// "compartido", la fila se considera "acéfala compartida".
+// Según el botón "Compartido":
+//   - desactivado (por defecto): esa fila se excluye del reporte.
+//   - activado: esa fila se muestra tal cual, con CH = '-'.
 // Si la palabra vive en otra columna, agrégala a CAMPOS_COMPARTIDO.
 const CAMPOS_COMPARTIDO = ['COMPARTIDO', 'OBS2', 'OBS3', 'FOTOCOPIA_TITULAR', 'DETALLE']
 
@@ -99,9 +102,21 @@ function esAcefalaCompartida(fila) {
     return CAMPOS_COMPARTIDO.some(campo => textoPlano(fila[campo]).includes('COMPARTID'))
 }
 
-// Quita las filas acéfalas compartidas y recalcula las marcas de grupo
-// (Nº, rowspan del docente, etc.). Si un docente se queda sin filas, desaparece.
-function excluirAcefalasCompartidas(filas) {
+// Si mostrar === false: quita las filas ACEFALA + compartido y recalcula
+// las marcas de grupo (Nº, rowspan del docente, etc.). Si un docente se
+// queda sin filas, desaparece.
+// Si mostrar === true: las deja, con CH = '-' y la marca COMPARTIDA: true.
+function procesarCompartidas(filas, mostrar = false) {
+    if (mostrar) {
+        const resultado = filas.map(f =>
+            esAcefalaCompartida(f) ? { ...f, CH: '-', COMPARTIDA: true } : { ...f }
+        )
+        return { filas: resultado, ocultas: 0 }
+    }
+
+    const ocultas = filas.filter(esAcefalaCompartida).length
+    if (!ocultas) return { filas, ocultas: 0 }
+
     // 1) separar en bloques por docente
     const bloques = []
     let i = 0
@@ -111,9 +126,6 @@ function excluirAcefalasCompartidas(filas) {
         bloques.push(filas.slice(i, i + n))
         i += n
     }
-
-    const ocultas = filas.filter(esAcefalaCompartida).length
-    if (!ocultas) return { filas, ocultas: 0 }
 
     // 2) reconstruir
     const resultado = []
@@ -152,7 +164,7 @@ function excluirAcefalasCompartidas(filas) {
 }
 
 // Suma la CH de un bloque (docente). Si una misma materia aparece en varias
-// filas, su CH se cuenta una sola vez.
+// filas, su CH se cuenta una sola vez. Las CH '-' (compartidas) no suman.
 function totalChBloque(bloque) {
     const vistos = new Set()
     let total = 0
@@ -208,6 +220,35 @@ export function useReporteExcel() {
     // nada que transformar en el cliente sobre datos ya cargados.
     const mostrarReferencias = ref(false)
 
+    // ── Botón "Compartido" (por defecto desactivado) ──
+    // false: se ocultan las filas acéfalas compartidas.
+    // true: se muestran tal cual, con CH = '-'.
+    const mostrarCompartidas = ref(false)
+    let datosCrudos = null // filas tal cual llegaron del backend
+
+    // Aplica el filtro de compartidas sobre los datos crudos
+    function procesarCrudos() {
+        if (!datosCrudos) return
+        const { filas, ocultas } = procesarCompartidas(datosCrudos, mostrarCompartidas.value)
+        preview.value = filas
+        previewSinCompletar = filas
+        filasOcultasCompartidas.value = ocultas
+        cargaHorariaAsignada.value = false
+        materiasCombinadas.value = false
+        previewSinCombinar = null
+
+        // Si "Solo Activos" sigue encendido, se vuelve a completar
+        if (soloActivos.value && cargaActivos.value.length) {
+            aplicarCompletado()
+        }
+    }
+
+    // Toggle del botón "Compartido": no hace falta volver al backend
+    function alternarMostrarCompartidas() {
+        mostrarCompartidas.value = !mostrarCompartidas.value
+        procesarCrudos()
+    }
+
     function authHeaders(extra = {}) {
         const token = localStorage.getItem('token')
         return {
@@ -252,31 +293,25 @@ export function useReporteExcel() {
                 error.value = data.error || 'No se pudo obtener la vista previa'
                 preview.value = []
                 previewSinCompletar = null
+                datosCrudos = null
                 filasOcultasCompartidas.value = 0
                 return
             }
 
-            // Se excluyen las filas ACEFALA que figuran como "compartido"
-            const { filas, ocultas } = excluirAcefalasCompartidas(data.data)
-
-            preview.value = filas
-            previewSinCompletar = filas
-            filasOcultasCompartidas.value = ocultas
             gestionEtiqueta.value = data.gestion
             versionEtiqueta.value = data.version
             totalFilas.value = data.total_filas
             mostrarReferencias.value = referenciasActivas
 
-            // Si "Solo Activos" sigue encendido, se vuelve a completar el
-            // preview nuevo para que "Actualizar vista previa" no pierda
-            // los docentes/materias agregados.
-            if (soloActivos.value && cargaActivos.value.length) {
-                aplicarCompletado()
-            }
+            // Guarda los datos crudos y aplica el filtro de compartidas
+            // según el estado actual del botón "Compartido"
+            datosCrudos = data.data
+            procesarCrudos()
         } catch (e) {
             error.value = e?.response?.data?.error || 'No se pudo obtener la vista previa'
             preview.value = []
             previewSinCompletar = null
+            datosCrudos = null
             filasOcultasCompartidas.value = 0
             throw e
         } finally {
@@ -344,6 +379,7 @@ export function useReporteExcel() {
     //   y se le agregan las materias que faltan (también sin documento).
     // - La CH se asigna a toda fila cuya materia coincide con la carga real
     //   (coincidencia exacta normalizada o, si no hay, la más parecida).
+    // - Las filas COMPARTIDA conservan CH = '-' y cuentan como materia cubierta.
     function completarConActivos(filasBase) {
         // 1) Agrupar el preview actual por docente (bloques)
         const bloquesPorDocente = new Map()
@@ -411,8 +447,11 @@ export function useReporteExcel() {
                 const key = normalizarNombreMateria(f.NOMBRE_MATERIA)
                 const claveCarga = buscarClaveMateria(key, carga)
                 if (claveCarga) {
-                    f.CH = carga.get(claveCarga).ch
                     cubiertas.add(claveCarga)
+                    // Compartidas: se mantiene CH = '-'
+                    if (!f.COMPARTIDA) {
+                        f.CH = carga.get(claveCarga).ch
+                    }
                 }
             })
 
@@ -585,7 +624,7 @@ export function useReporteExcel() {
     // romanos = arábigos) y, si no hay, la materia más parecida de ESE docente
     // (mismos números y ≥ 75% de palabras en común). Si hay coincidencia asigna
     // la CH; si no, deja la fila como está. No toca filas sin materia real
-    // (placeholder "NO REGENTA...").
+    // (placeholder "NO REGENTA...") ni las filas compartidas (CH = '-').
     async function asignarCargaHoraria({ anio, periodo } = {}) {
         const cargaDocentes = await obtenerCargaHorariaDocentes({ anio, periodo })
 
@@ -606,6 +645,9 @@ export function useReporteExcel() {
         let sinCoincidencia = 0
 
         preview.value = preview.value.map(item => {
+            // Compartidas: no se toca su CH ('-')
+            if (item.COMPARTIDA) return item
+
             const nombreMateria = normalizarNombreMateria(item.NOMBRE_MATERIA)
 
             if (!item.COD_DOCENTE || !nombreMateria || nombreMateria === '-' || nombreMateria === PLACEHOLDER_SIN_MATERIA) {
@@ -721,7 +763,7 @@ export function useReporteExcel() {
             // Marcar los tramos de materia igual (ya quedaron consecutivos
             // tras reordenar) con INICIO_MATERIA / FILAS_MATERIA, y dejar
             // un solo valor de CH para todo el tramo (NO se suma, se toma
-            // el primer CH no vacío que aparezca dentro del tramo).
+            // el primer CH real que aparezca dentro del tramo).
             let idx = 0
             while (idx < ordenado.length) {
                 const clave = claveMateria(ordenado[idx].NOMBRE_MATERIA)
@@ -739,15 +781,18 @@ export function useReporteExcel() {
                 }
                 const cantidad = fin - idx
 
-                // Toma el primer CH no nulo/no vacío del tramo (no suma)
+                // Toma el primer CH real del tramo (no suma); '-' solo si no hay otro
                 let chUnico = null
+                let hayGuion = false
                 for (let k = idx; k < fin; k++) {
                     const ch = ordenado[k].CH
+                    if (ch === '-') { hayGuion = true; continue }
                     if (ch !== null && ch !== undefined && ch !== '') {
                         chUnico = ch
                         break
                     }
                 }
+                if (chUnico === null && hayGuion) chUnico = '-'
 
                 ordenado[idx].INICIO_MATERIA = true
                 ordenado[idx].FILAS_MATERIA = cantidad
@@ -884,12 +929,12 @@ export function useReporteExcel() {
 
     // POST /api/reportes/docentes-clasificados/excel-personalizado
     // Se usa cuando ya se asignó carga horaria automática, se combinaron
-    // materias, está activo "Solo Activos" o se ocultaron filas acéfalas
-    // compartidas: manda las filas tal cual se ven en pantalla
-    // (previewMostrado, que incluye TOTAL_CH en la primera fila de cada
-    // docente) para que el backend genere el Excel exactamente con esos
-    // datos. El estado de "Mostrar Referencias" ya viene implícito en el
-    // texto de DETALLE de cada fila.
+    // materias, está activo "Solo Activos", está activo "Compartido" o se
+    // ocultaron filas acéfalas compartidas: manda las filas tal cual se ven
+    // en pantalla (previewMostrado, que incluye TOTAL_CH en la primera fila
+    // de cada docente) para que el backend genere el Excel exactamente con
+    // esos datos. El estado de "Mostrar Referencias" ya viene implícito en
+    // el texto de DETALLE de cada fila.
     async function descargarExcelPersonalizado({ gestion, version } = {}) {
         try {
             const response = await axios.post(
@@ -938,6 +983,8 @@ export function useReporteExcel() {
         materiasCombinadas.value = false
         previewSinCombinar = null
         mostrarReferencias.value = false
+        mostrarCompartidas.value = false
+        datosCrudos = null
         filasOcultasCompartidas.value = 0
     }
 
@@ -954,6 +1001,10 @@ export function useReporteExcel() {
 
         // Acéfalas compartidas ocultadas
         filasOcultasCompartidas,
+
+        // Compartido
+        mostrarCompartidas,
+        alternarMostrarCompartidas,
 
         // Solo Activos
         cargandoActivos,

@@ -615,6 +615,20 @@
               {{ reporteExcel.mostrarReferencias.value ? 'Referencias visibles ✓' : 'Mostrar Referencias' }}
             </button>
 
+            <!-- Compartido (por defecto desactivado) -->
+            <button
+              @click="alternarMostrarCompartidas"
+              :disabled="reporteExcel.loading.value"
+              class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
+              :class="reporteExcel.mostrarCompartidas.value ? 'bg-pink-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
+              title="Muestra las materias acéfalas compartidas (con CH '-'). Desactivado: se ocultan."
+            >
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+              </svg>
+              {{ reporteExcel.mostrarCompartidas.value ? 'Compartido ✓' : 'Compartido' }}
+            </button>
+
             <div class="w-px h-8 bg-gray-200"></div>
 
             <!-- Solo Activos -->
@@ -738,7 +752,7 @@
                   <th class="text-center font-medium text-gray-500 px-2 py-2 uppercase tracking-wider">CH</th>
                   <th class="text-left font-medium text-gray-500 px-2 py-2 uppercase tracking-wider">Detalle</th>
                   <th class="text-left font-medium text-gray-500 px-2 py-2 uppercase tracking-wider">Categoria</th>
-                  <!-- NUEVO: total de CH por docente -->
+                  <!-- Total de CH por docente -->
                   <th class="text-center font-medium text-gray-500 px-2 py-2 uppercase tracking-wider" title="Total de carga horaria del docente">T. CH</th>
                   <th class="text-left font-medium text-gray-500 px-2 py-2 uppercase tracking-wider">Nivel</th>
                   <th class="text-left font-medium text-gray-500 px-2 py-2 uppercase tracking-wider">Fotocopia</th>
@@ -752,7 +766,8 @@
                     class="border-b border-gray-50"
                     :class="[
                       item.FIN_GRUPO ? 'border-b-2 border-b-gray-300' : '',
-                      item.SIN_DOCUMENTO ? 'bg-orange-50/60' : ''
+                      item.SIN_DOCUMENTO ? 'bg-orange-50/60' : '',
+                      item.COMPARTIDA ? 'bg-pink-50/60' : ''
                     ]"
                   >
                     <!-- Nº y Docente se fusionan visualmente con rowspan, igual que en el Excel -->
@@ -791,7 +806,7 @@
                     <td class="px-2 py-2 text-gray-600">{{ item.DETALLE || '—' }}</td>
                     <td class="px-2 py-2 text-gray-600">{{ item.CATEGORIA || '—' }}</td>
 
-                    <!-- NUEVO: T. CH (suma de la columna CH del docente), fusionado por docente -->
+                    <!-- T. CH (suma de la columna CH del docente), fusionado por docente -->
                     <td
                       v-if="item.INICIO_GRUPO"
                       :rowspan="item.FILAS_GRUPO"
@@ -1166,6 +1181,7 @@ async function abrirPreviewExcel() {
   modoPrelacion.value = false
   reporteExcel.soloActivos.value = false
   reporteExcel.mostrarReferencias.value = false
+  reporteExcel.mostrarCompartidas.value = false // Compartido: desactivado por defecto
   catDocDropdownOpen.value = false
   catTituloDropdownOpen.value = false
   excelParams.value = {
@@ -1223,6 +1239,10 @@ async function abrirPrelacion() {
 
   // 2. "Mostrar Referencias" activo (previsualizar() lee este valor)
   reporteExcel.mostrarReferencias.value = true
+
+  // 2b. "Compartido" desactivado por defecto (se puede activar antes
+  //     de pulsar Prelación si se quieren ver las compartidas)
+  reporteExcel.mostrarCompartidas.value = false
 
   mostrarPreviewExcel.value = true
 
@@ -1301,6 +1321,15 @@ async function alternarMostrarReferencias() {
   }
 }
 
+// ─── Compartido (botón) ───
+// Desactivado: se ocultan las filas acéfalas compartidas.
+// Activado: se muestran tal cual, con CH '-'.
+// No hace falta volver al backend: se rehace el preview con los datos ya cargados.
+function alternarMostrarCompartidas() {
+  resultadoCargaHoraria.value = null
+  reporteExcel.alternarMostrarCompartidas()
+}
+
 // ─── Asignar Carga Horaria (experimental) ───
 const mostrarModalCargaHoraria = ref(false)
 const resultadoCargaHoraria = ref(null) // { asignadas, sinCoincidencia } | { error }
@@ -1330,8 +1359,9 @@ async function ejecutarAsignarCargaHoraria() {
 
 async function descargarExcelConfirmado() {
   // Si ya se asignó carga horaria, se combinaron materias, está activo
-  // "Solo Activos" (que completa docentes/materias en pantalla) o se ocultaron
-  // filas acéfalas compartidas, se descarga con esos datos exactos (vía POST)
+  // "Solo Activos" (que completa docentes/materias en pantalla), está activo
+  // "Compartido" (CH '-' solo existe en el navegador) o se ocultaron filas
+  // acéfalas compartidas, se descarga con esos datos exactos (vía POST)
   // para no perder los cambios hechos en el navegador. El estado de
   // "Mostrar Referencias" ya viene incluido en el DETALLE de cada fila del
   // preview, así que no hace falta reenviarlo aparte.
@@ -1339,6 +1369,7 @@ async function descargarExcelConfirmado() {
     reporteExcel.cargaHorariaAsignada.value ||
     reporteExcel.materiasCombinadas.value ||
     reporteExcel.soloActivos.value ||
+    reporteExcel.mostrarCompartidas.value ||
     reporteExcel.filasOcultasCompartidas.value > 0
 
   if (usarDatosPersonalizados) {
