@@ -24,16 +24,18 @@
     <!-- ── Tabla de materias ──────────────────────────────── -->
     <table class="w-full text-sm table-fixed">
       <colgroup>
-        <col class="w-[46%]" />
+        <col class="w-[40%]" />
         <col class="w-[9%]" />
-        <col class="w-[9%]" />
-        <col class="w-[13%]" />
-        <col class="w-[13%]" />
-        <col class="w-[10%]" />
+        <col class="w-[8%]" />
+        <col class="w-[8%]" />
+        <col class="w-[12%]" />
+        <col class="w-[12%]" />
+        <col class="w-[11%]" />
       </colgroup>
       <thead>
         <tr class="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
           <th class="text-left font-medium text-slate-800 dark:text-slate-400 text-xs px-4 py-2">Materia</th>
+          <th class="text-center font-medium text-slate-800 dark:text-slate-400 text-xs px-2 py-2">Tipo</th>
           <th class="text-left font-medium text-slate-800 dark:text-slate-400 text-xs px-2 py-2">Plan</th>
           <th class="text-center font-medium text-slate-800 dark:text-slate-400 text-xs px-2 py-2" title="Compartido (0 / 1). Si el número es clicable, tiene descripción.">C</th>
           <th class="text-right font-medium text-slate-800 dark:text-slate-400 text-xs px-2 py-2">Regular</th>
@@ -85,6 +87,19 @@
                 </div>
               </div>
             </td>
+
+            <!-- Tipo (de ingreso, viene de GRUPOS.TIPO_INGRESO) -->
+            <td class="text-center px-2 py-2.5">
+              <span
+                v-if="norm(item.materia.tipo_ingreso)"
+                class="inline-block max-w-full truncate px-1.5 py-0.5 text-[10px] font-semibold rounded bg-amber-50 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-700 whitespace-nowrap"
+                :title="norm(item.materia.tipo_ingreso)"
+              >
+                {{ abreviarTipo(item.materia.tipo_ingreso) }}
+              </span>
+              <span v-else class="text-slate-300 dark:text-slate-600">—</span>
+            </td>
+
             <td class="px-2 py-2.5">
               <span
                 class="text-[11px] font-semibold px-2 py-0.5 rounded-md"
@@ -130,7 +145,7 @@
 
           <!-- Fila expandida: acciones PDF/Excel + lista de estudiantes -->
           <tr v-if="abiertos.has(item.key)" class="border-b border-slate-200 dark:border-slate-700">
-            <td colspan="6" class="p-0 bg-slate-100 dark:bg-slate-800">
+            <td colspan="7" class="p-0 bg-slate-100 dark:bg-slate-800">
 
               <div class="px-4 pl-10 py-2 max-h-72 overflow-y-auto">
 
@@ -248,7 +263,7 @@
       <!-- ── Fila de totales ────────────────────────────────── -->
       <tfoot>
         <tr class="bg-slate-100 dark:bg-slate-950 border-t-2 border-slate-200 dark:border-slate-700">
-          <td class="px-4 py-2.5 font-semibold text-slate-700 dark:text-slate-200 text-xs" colspan="3">Total</td>
+          <td class="px-4 py-2.5 font-semibold text-slate-700 dark:text-slate-200 text-xs" colspan="4">Total</td>
           <td class="text-right px-2 py-2.5 font-semibold tabular-nums text-slate-700 dark:text-slate-200">
             {{ docente.total_inscritos }}
           </td>
@@ -397,6 +412,22 @@ const materiasBase = computed(() =>
 function norm(v) {
   if (v === null || v === undefined) return ''
   return String(v).trim()
+}
+
+// ─── Columna TIPO: abreviatura corta del tipo de ingreso ─────────────────
+// Completa el mapa con tus categorías reales si quieres siglas fijas.
+const ABREV_TIPO = {
+  // 'TITULAR': 'TIT',
+  // 'INVITADO': 'INV',
+  // 'INTERINO': 'INT',
+}
+
+function abreviarTipo(texto) {
+  const t = norm(texto)
+  if (!t) return ''
+  const exacto = ABREV_TIPO[t.toUpperCase()]
+  if (exacto) return exacto
+  return t.length > 10 ? t.slice(0, 9) + '…' : t
 }
 
 function infoRelacion(item, rol) {

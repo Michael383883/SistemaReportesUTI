@@ -641,23 +641,24 @@
 
             <button
               @click="reporteExcel.alternarSoloActivos({ anio: reporteExcel.anioActivos.value, periodo: reporteExcel.periodoActivos.value })"
-              :disabled="reporteExcel.cargandoActivos.value"
+              :disabled="reporteExcel.cargandoActivos.value || reporteExcel.cargandoCargaHoraria.value"
               class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
               :class="reporteExcel.soloActivos.value ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
             >
-              <svg v-if="reporteExcel.cargandoActivos.value" class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+              <svg v-if="reporteExcel.cargandoActivos.value || reporteExcel.cargandoCargaHoraria.value" class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
               </svg>
               {{ reporteExcel.soloActivos.value ? '✓ Solo Activos' : 'Solo Activos' }}
             </button>
 
+            <!-- Actualizar: recarga activos + carga horaria y vuelve a completar -->
             <button
               v-if="reporteExcel.soloActivos.value"
-              @click="reporteExcel.cargarDocentesActivos({ anio: reporteExcel.anioActivos.value, periodo: reporteExcel.periodoActivos.value })"
-              :disabled="reporteExcel.cargandoActivos.value"
+              @click="reporteExcel.actualizarActivos()"
+              :disabled="reporteExcel.cargandoActivos.value || reporteExcel.cargandoCargaHoraria.value"
               class="px-2.5 py-1.5 text-sm text-gray-500 hover:text-blue-600"
-              title="Recargar lista de docentes activos"
+              title="Recargar lista de docentes activos y su carga horaria"
             >
               Actualizar
             </button>
@@ -691,9 +692,14 @@
               {{ resultadoCargaHoraria.error }}
             </span>
 
-            <span v-if="!reporteExcel.loading.value && !reporteExcel.error.value" class="text-xs text-gray-400 mb-1.5 ml-auto">
-              {{ reporteExcel.previewMostrado.value.length }} fila(s)
-              <span v-if="reporteExcel.soloActivos.value">de {{ reporteExcel.totalFilas.value }}</span>
+            <!-- Total de docentes + filas -->
+            <span v-if="!reporteExcel.loading.value && !reporteExcel.error.value" class="text-xs text-gray-400 mb-1.5 ml-auto text-right">
+              <span class="font-semibold text-gray-700">Total docentes: {{ reporteExcel.totalDocentes.value }}</span>
+              <span v-if="reporteExcel.soloActivos.value">
+                ({{ reporteExcel.docentesConDocumento.value }} con documento ·
+                <span class="text-orange-600">{{ reporteExcel.docentesSinDocumento.value }} sin documento</span>)
+              </span>
+              · {{ reporteExcel.previewMostrado.value.length }} fila(s)
               · {{ reporteExcel.gestionEtiqueta.value }}
             </span>
           </div>
@@ -739,7 +745,10 @@
                 <template v-for="(item, i) in reporteExcel.previewMostrado.value" :key="i">
                   <tr
                     class="border-b border-gray-50"
-                    :class="item.FIN_GRUPO ? 'border-b-2 border-b-gray-300' : ''"
+                    :class="[
+                      item.FIN_GRUPO ? 'border-b-2 border-b-gray-300' : '',
+                      item.SIN_DOCUMENTO ? 'bg-orange-50/60' : ''
+                    ]"
                   >
                     <!-- Nº y Docente se fusionan visualmente con rowspan, igual que en el Excel -->
                     <td
@@ -789,7 +798,7 @@
               <template v-if="reporteExcel.soloActivos.value && reporteExcel.preview.value.length">
                 Ningún docente coincide con la lista de activos de {{ reporteExcel.anioActivos.value }} / periodo {{ reporteExcel.periodoActivos.value }}.
                 <div class="mt-2">
-                  <button @click="reporteExcel.soloActivos.value = false" class="text-blue-500 hover:underline">Quitar filtro</button>
+                  <button @click="reporteExcel.alternarSoloActivos()" class="text-blue-500 hover:underline">Quitar filtro</button>
                 </div>
               </template>
               <template v-else>
@@ -1206,7 +1215,7 @@ async function abrirPrelacion() {
     await cargarPreviewExcel()
     if (reporteExcel.error.value) return
 
-    // 4. "Solo Activos" (necesario para Asignar Carga Horaria)
+    // 4. "Solo Activos" (completa docentes sin documento, materias faltantes y CH)
     if (!reporteExcel.soloActivos.value) {
       await reporteExcel.alternarSoloActivos({
         anio: reporteExcel.anioActivos.value,
@@ -1304,12 +1313,15 @@ async function ejecutarAsignarCargaHoraria() {
 }
 
 async function descargarExcelConfirmado() {
-  // Si ya se asignó carga horaria automática y/o se combinaron materias en
-  // la vista previa, se descarga con esos datos exactos (vía POST) para no
-  // perder los cambios hechos en pantalla. El estado de "Mostrar Referencias"
-  // ya viene incluido en el DETALLE de cada fila del preview, así que no
-  // hace falta reenviarlo aparte en ese caso.
-  const usarDatosPersonalizados = reporteExcel.cargaHorariaAsignada.value || reporteExcel.materiasCombinadas.value
+  // Si ya se asignó carga horaria, se combinaron materias o está activo
+  // "Solo Activos" (que completa docentes/materias en pantalla), se descarga
+  // con esos datos exactos (vía POST) para no perder los cambios hechos en
+  // el navegador. El estado de "Mostrar Referencias" ya viene incluido en el
+  // DETALLE de cada fila del preview, así que no hace falta reenviarlo aparte.
+  const usarDatosPersonalizados =
+    reporteExcel.cargaHorariaAsignada.value ||
+    reporteExcel.materiasCombinadas.value ||
+    reporteExcel.soloActivos.value
 
   if (usarDatosPersonalizados) {
     try {

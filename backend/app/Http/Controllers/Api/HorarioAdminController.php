@@ -52,7 +52,7 @@ class HorarioAdminController extends Controller
         m.NIVEL, h.DOCENTE, d.APELLIDOS, d.NOMBRES,
         g.MATERIA, m.NOMBRE, h.TIPO,
         CASE WHEN h.TIPO = 'C' THEN '' WHEN h.TIPO = 'P' THEN '[AUX]' ELSE 'N' END AS TIPO2,
-        g.GRUPO, h.DIA,
+                g.GRUPO, g.TIPO_INGRESO, h.DIA,
         CASE h.DIA
             WHEN 'LU' THEN 1 WHEN 'MA' THEN 2 WHEN 'MI' THEN 3
             WHEN 'JU' THEN 4 WHEN 'VI' THEN 5 WHEN 'SA' THEN 6 ELSE 0
@@ -92,10 +92,10 @@ class HorarioAdminController extends Controller
       AND g.TIPO = 'N'
       AND g.PRIMARIO = 'Y'
       AND h.HORA NOT IN (730,900,1030,1200,1330,1500,1630,1800,1930,2100)
-    GROUP BY
+        GROUP BY
         h.ANIO, h.PERIODO, g.[PLAN], m.NIVEL,
         h.DOCENTE, d.APELLIDOS, d.NOMBRES,
-        g.MATERIA, m.NOMBRE, h.TIPO, g.GRUPO, h.DIA, h.HORA,
+        g.MATERIA, m.NOMBRE, h.TIPO, g.GRUPO, g.TIPO_INGRESO, h.DIA, h.HORA,
         h.AMBIENTE, gc.COMP, gc.COMPARTIDO, gc.ORDEN
     ORDER BY d.APELLIDOS, d.NOMBRES, gc.ORDEN, g.MATERIA,
              g.GRUPO, g.[PLAN]
@@ -210,6 +210,8 @@ class HorarioAdminController extends Controller
      * uniera directo contra el query de horarios, cada fila se
      * multiplicaría por estudiante ANTES del GROUP BY y el
      * SUM(CARGA_HORARIA) quedaría inflado.
+     *
+     * NUEVO: se devuelve GRUPOS.TIPO_INGRESO (columna "Tipo" del reporte).
      */
     public function resumen(Request $request)
     {
@@ -258,6 +260,7 @@ class HorarioAdminController extends Controller
             END AS TIPO2,
 
             GRUPOS.GRUPO,
+            GRUPOS.TIPO_INGRESO,
 
             SUM(
                 CASE
@@ -320,6 +323,7 @@ class HorarioAdminController extends Controller
             MATERIAS.NOMBRE,
             HORARIOS2.TIPO,
             GRUPOS.GRUPO,
+            GRUPOS.TIPO_INGRESO,
             GRUPOS_COMPARTIDOS.COMP,
             GRUPOS_COMPARTIDOS.COMPARTIDO,
             GRUPOS_COMPARTIDOS.ORDEN
@@ -454,6 +458,9 @@ class HorarioAdminController extends Controller
      *   - Matriciales: el padre también tiene fila en GRUPOS_COMPARTIDOS.
      *   - "Comparte de XXX" simples: el padre es un grupo normal de GRUPOS en
      *     el plan que indica el texto (ADM, COM, ECO, FIN, CONTA→CCP).
+     *
+     * NUEVO (columna Tipo): cada materia devuelve además
+     *   - tipo_ingreso           → GRUPOS.TIPO_INGRESO (null si no tiene)
      */
     public function listaInscritos(Request $request)
     {
@@ -547,6 +554,7 @@ class HorarioAdminController extends Controller
         //
         // NUEVO: se agrega COMPARTIDO (descripción) con MAX() para no tocar
         // el GROUP BY, igual que ya se hacía con COMP.
+        // NUEVO: TIPO_INGRESO (GRUPOS.TIPO_INGRESO) también con MAX().
         $sqlMaterias = "
     SELECT
         DOCENTES.CODIGO AS COD_DOCENTE,
@@ -565,6 +573,7 @@ class HorarioAdminController extends Controller
         MAX(GRUPOS_COMPARTIDOS.COMP)       AS COMP,
         MAX(GRUPOS_COMPARTIDOS.COMPARTIDO) AS COMPARTIDO,
         MAX(GRUPOS_COMPARTIDOS.ORDEN)      AS ORDEN_COMP,
+        MAX(GRUPOS.TIPO_INGRESO)           AS TIPO_INGRESO,
         SUM(CASE WHEN KARDEX_EXT.TIPO_EXAMEN = 'N' THEN 1 ELSE 0 END) AS SUBTOTAL_REGULAR,
         SUM(CASE WHEN KARDEX_EXT.TIPO_EXAMEN = 'E' THEN 1 ELSE 0 END) AS SUBTOTAL_ESPECIAL
     FROM DOCENTES
@@ -926,12 +935,14 @@ class HorarioAdminController extends Controller
                     // Puede venir NULL o vacía; en ese caso se devuelve null.
                     $descripcionComp = isset($mat->COMPARTIDO) ? trim((string) $mat->COMPARTIDO) : '';
                     $ordenComp = isset($mat->ORDEN_COMP) ? trim((string) $mat->ORDEN_COMP) : '';
+                    $tipoIngreso = isset($mat->TIPO_INGRESO) ? trim((string) $mat->TIPO_INGRESO) : '';
                     $rel = $relaciones["{$mat->PLAN}|{$mat->COD_MATERIA}|{$mat->GRUPO}"] ?? null;
 
                     $materiasArr[] = [
                         'cod_materia' => $mat->COD_MATERIA,
                         'nom_materia' => $mat->NOM_MATERIA,
                         'grupo' => $mat->GRUPO,
+                        'tipo_ingreso' => $tipoIngreso !== '' ? $tipoIngreso : null,
                         'comp' => (int) ($mat->COMP ?? 0) === 1,
                         'descripcion_comp' => $descripcionComp !== '' ? $descripcionComp : null,
                         'orden_comp' => $ordenComp !== '' ? $ordenComp : null,

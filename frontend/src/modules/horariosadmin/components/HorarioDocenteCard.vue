@@ -43,6 +43,12 @@
             >
               Materia
             </th>
+            <th
+              translate="no"
+              class="px-2 py-2 text-center text-[11px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 whitespace-nowrap"
+            >
+              Tipo
+            </th>
             <th 
               translate="no"
               class="px-2 py-2 text-center text-[11px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300"
@@ -123,6 +129,21 @@
                   </span>
                 </div>
               </div>
+            </td>
+
+            <!-- Tipo de ingreso (viene de GRUPOS.TIPO_INGRESO) -->
+            <td
+              translate="no"
+              class="text-center px-2 py-1.5"
+            >
+              <span
+                v-if="mat.tipoIngreso"
+                class="inline-block px-2 py-0.5 text-[10px] font-semibold rounded bg-amber-50 text-amber-800 border border-amber-200 whitespace-nowrap"
+                :title="mat.tipoIngreso"
+              >
+                {{ abreviarIngreso(mat.tipoIngreso) }}
+              </span>
+              <span v-else class="text-slate-300 dark:text-slate-600">—</span>
             </td>
 
             <td 
@@ -210,7 +231,7 @@
           <tr class="bg-slate-100 dark:bg-slate-800 border-t-2 border-slate-200 dark:border-slate-700">
             <td
               translate="no"
-              :colspan="3 + diasConSesiones.length"
+              :colspan="4 + diasConSesiones.length"
               class="text-right px-4 py-1 text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300"
             >
               Total
@@ -231,7 +252,7 @@
               >
                 Mes({{ totalChReal * 4 }})
               </span>
-                          </td>
+            </td>
             <td 
               translate="no"
               class="text-center py-2.5"
@@ -439,6 +460,22 @@ function colorBloqueHorario(mat, s) {
   return clavesCompartidas.value.has(key)
     ? COLOR_COMPARTIDO
     : colorMateria(mat)
+}
+
+// ─── Tipo de ingreso (GRUPOS.TIPO_INGRESO) ─────────────────────────────────
+// Abreviaturas para que la columna sea corta. Completa con tus categorías reales.
+const ABREV_INGRESO = {
+  // 'TITULAR': 'TIT',
+  // 'INVITADO': 'INV',
+  // 'INTERINO': 'INT',
+}
+
+function abreviarIngreso(texto) {
+  const t = String(texto ?? '').trim()
+  if (!t) return ''
+  const exacto = ABREV_INGRESO[t.toUpperCase()]
+  if (exacto) return exacto
+  return t.length > 10 ? t.slice(0, 9) + '…' : t
 }
 
 function chMostrada(mat) {

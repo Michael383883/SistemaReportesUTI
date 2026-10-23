@@ -1,7 +1,7 @@
 import { ref, computed } from 'vue'
 import axios from 'axios'
 
-const API_BASE = import.meta.env.VITE_API_URL 
+const API_BASE = import.meta.env.VITE_API_URL
 
 // Acepta array (['a','b']) o string ('a') o undefined, y devuelve
 // siempre el formato que espera el backend: "a,b" (o undefined si está vacío).
@@ -24,6 +24,9 @@ function normalizarNombreMateria(nombre) {
 
 const PLACEHOLDER_SIN_MATERIA = 'NO REGENTA MATERIA EN LA FCE'
 
+// Marcas de agrupación que se recalculan cada vez que se arman los bloques
+const MARCAS_GRUPO = ['N', 'NOMBRE_DOCENTE', 'INICIO_GRUPO', 'FILAS_GRUPO', 'FIN_GRUPO', 'INICIO_MATERIA', 'FILAS_MATERIA']
+
 export function useReporteExcel() {
     const loading = ref(false)
     const error = ref(null)
@@ -39,6 +42,11 @@ export function useReporteExcel() {
     const soloActivos = ref(false)
     const anioActivos = ref(new Date().getFullYear())
     const periodoActivos = ref(1)
+
+    // Carga horaria real de TODOS los docentes activos (para completar materias/CH)
+    const cargaActivos = ref([])
+    // Preview original (sin completar con activos), para poder deshacer
+    let previewSinCompletar = null
 
     // ── Asignar Carga Horaria (experimental) ──
     const cargandoCargaHoraria = ref(false)
@@ -98,17 +106,27 @@ export function useReporteExcel() {
             if (!data.ok) {
                 error.value = data.error || 'No se pudo obtener la vista previa'
                 preview.value = []
+                previewSinCompletar = null
                 return
             }
 
             preview.value = data.data
+            previewSinCompletar = data.data
             gestionEtiqueta.value = data.gestion
             versionEtiqueta.value = data.version
             totalFilas.value = data.total_filas
             mostrarReferencias.value = referenciasActivas
+
+            // Si "Solo Activos" sigue encendido, se vuelve a completar el
+            // preview nuevo para que "Actualizar vista previa" no pierda
+            // los docentes/materias agregados.
+            if (soloActivos.value && cargaActivos.value.length) {
+                aplicarCompletado()
+            }
         } catch (e) {
             error.value = e?.response?.data?.error || 'No se pudo obtener la vista previa'
             preview.value = []
+            previewSinCompletar = null
             throw e
         } finally {
             loading.value = false
@@ -142,34 +160,6 @@ export function useReporteExcel() {
         }
     }
 
-    // Botón "Solo Activos": si aún no cargamos la lista de activos (o cambió
-    // el año/periodo), la carga; luego activa el filtro. Si ya estaba activo,
-    // lo desactiva (toggle).
-    async function alternarSoloActivos({ anio, periodo } = {}) {
-        if (soloActivos.value) {
-            soloActivos.value = false
-            return
-        }
-        if (anio !== undefined) anioActivos.value = anio
-        if (periodo !== undefined) periodoActivos.value = periodo
-        await cargarDocentesActivos({ anio: anioActivos.value, periodo: periodoActivos.value })
-        soloActivos.value = true
-    }
-
-    // Set de códigos de docente activos, como string, para comparar sin
-    // preocuparse si el backend devuelve number o string.
-    const codigosActivos = computed(() => {
-        return new Set(docentesActivos.value.map(d => String(d.codigo)))
-    })
-
-    // Lista que debe mostrarse en la tabla: si "Solo Activos" está apagado,
-    // es el preview completo; si está prendido, solo las filas cuyo
-    // COD_DOCENTE está en la lista de activos.
-    const previewMostrado = computed(() => {
-        if (!soloActivos.value) return preview.value
-        return preview.value.filter(item => codigosActivos.value.has(String(item.COD_DOCENTE)))
-    })
-
     // GET /api/reportes/carga-horaria-docentes?anio=X&periodo=Y
     // Trae, por docente, la carga horaria real (CH) de cada materia que dicta
     // en esa gestión/periodo (según HORARIOS2/GRUPOS/MATERIAS).
@@ -195,6 +185,222 @@ export function useReporteExcel() {
             cargandoCargaHoraria.value = false
         }
     }
+
+    // ── Completar el preview con TODOS los docentes activos ──
+    // - Docente activo sin ningún documento: se agrega con todas sus materias
+    //   y CH; el resto de columnas queda vacío y la categoría es "SIN DOCUMENTO".
+    // - Docente con documentos de solo algunas materias: conserva sus filas
+    //   y se le agregan las materias que faltan (también "SIN DOCUMENTO").
+    // - La CH se asigna a toda fila cuya materia coincide con la carga real.
+    function completarConActivos(filasBase) {
+        // 1) Agrupar el preview actual por docente (bloques)
+        const bloquesPorDocente = new Map()
+        let i = 0
+        while (i < filasBase.length) {
+            const f = filasBase[i]
+            const n = f.INICIO_GRUPO ? (f.FILAS_GRUPO || 1) : 1
+            const cod = String(f.COD_DOCENTE)
+            if (!bloquesPorDocente.has(cod)) {
+                bloquesPorDocente.set(cod, { nombre: f.NOMBRE_DOCENTE, filas: [] })
+            }
+            bloquesPorDocente.get(cod).filas.push(...filasBase.slice(i, i + n).map(x => ({ ...x })))
+            i += n
+        }
+
+        // 2) Materias reales por docente: cod -> Map(materiaNormalizada -> {nombre, ch})
+        const cargaPorDocente = new Map()
+        for (const d of cargaActivos.value) {
+            const m = new Map()
+            for (const mat of (d.materias || [])) {
+                const key = normalizarNombreMateria(mat.nom_materia)
+                if (!key) continue
+                const prev = m.get(key)
+                m.set(key, {
+                    nombre: mat.nom_materia,
+                    ch: (prev?.ch || 0) + Number(mat.carga_horaria || 0),
+                })
+            }
+            cargaPorDocente.set(String(d.codigo), m)
+        }
+
+        const filaSinDocumento = (cod, nombreMateria, ch) => ({
+            COD_DOCENTE: cod,
+            NOMBRE_MATERIA: nombreMateria,
+            CH: ch,
+            DETALLE: '',
+            CATEGORIA: 'SIN DOCUMENTO',
+            NIVEL: '',
+            FOTOCOPIA_TITULAR: '',
+            OBS2: '',
+            OBS3: '',
+            SIN_DOCUMENTO: true,
+        })
+
+        // 3) Armar el bloque de cada docente activo
+        const bloques = []
+        const vistos = new Set()
+
+        for (const a of docentesActivos.value) {
+            const cod = String(a.codigo)
+            if (vistos.has(cod)) continue
+            vistos.add(cod)
+
+            const existente = bloquesPorDocente.get(cod)
+            const carga = cargaPorDocente.get(cod) || new Map()
+            const nombre = existente?.nombre || `${a.apellidos || ''} ${a.nombres || ''}`.trim()
+            const filas = existente ? existente.filas : []
+            const cubiertas = new Set()
+
+            filas.forEach(f => {
+                MARCAS_GRUPO.forEach(k => delete f[k])
+                const key = normalizarNombreMateria(f.NOMBRE_MATERIA)
+                if (carga.has(key)) {
+                    f.CH = carga.get(key).ch
+                    cubiertas.add(key)
+                }
+            })
+
+            // materias que dicta pero no están en ningún documento
+            for (const [key, mat] of carga) {
+                if (!cubiertas.has(key)) filas.push(filaSinDocumento(cod, mat.nombre, mat.ch))
+            }
+
+            // activo sin documentos ni materias
+            if (!filas.length) filas.push(filaSinDocumento(cod, '-', null))
+
+            bloques.push({ nombre, filas })
+        }
+
+        // 4) Docentes no activos se conservan (previewMostrado los oculta)
+        for (const [cod, b] of bloquesPorDocente) {
+            if (vistos.has(cod)) continue
+            b.filas.forEach(f => MARCAS_GRUPO.forEach(k => delete f[k]))
+            bloques.push({ nombre: b.nombre, filas: b.filas })
+        }
+
+        bloques.sort((x, y) => (x.nombre || '').localeCompare(y.nombre || '', 'es'))
+
+        // 5) Marcas de grupo + numeración
+        const resultado = []
+        bloques.forEach((b, idx) => {
+            b.filas.forEach((f, k) => {
+                if (k === 0) {
+                    f.N = idx + 1
+                    f.NOMBRE_DOCENTE = b.nombre
+                    f.INICIO_GRUPO = true
+                    f.FILAS_GRUPO = b.filas.length
+                } else {
+                    f.N = null
+                    f.NOMBRE_DOCENTE = ''
+                }
+                if (k === b.filas.length - 1) f.FIN_GRUPO = true
+            })
+            resultado.push(...b.filas)
+        })
+        return resultado
+    }
+
+    function aplicarCompletado() {
+        if (!previewSinCompletar) previewSinCompletar = preview.value
+        preview.value = completarConActivos(previewSinCompletar)
+        cargaHorariaAsignada.value = true
+        materiasCombinadas.value = false
+        previewSinCombinar = null
+    }
+
+    function quitarCompletado() {
+        if (previewSinCompletar) {
+            preview.value = previewSinCompletar
+            previewSinCompletar = null
+        }
+        cargaHorariaAsignada.value = false
+        materiasCombinadas.value = false
+        previewSinCombinar = null
+    }
+
+    async function cargarActivosYCompletar() {
+        await cargarDocentesActivos({ anio: anioActivos.value, periodo: periodoActivos.value })
+        try {
+            cargaActivos.value = await obtenerCargaHorariaDocentes({
+                anio: anioActivos.value,
+                periodo: periodoActivos.value,
+            })
+            aplicarCompletado()
+        } catch (e) {
+            cargaActivos.value = [] // se activa el filtro, pero sin completar
+        }
+    }
+
+    // Botón "Actualizar" de Solo Activos: recarga activos + carga horaria
+    // sobre el preview original (sin completar).
+    async function actualizarActivos() {
+        if (previewSinCompletar) {
+            preview.value = previewSinCompletar
+        }
+        materiasCombinadas.value = false
+        previewSinCombinar = null
+        await cargarActivosYCompletar()
+    }
+
+    // Botón "Solo Activos": si aún no cargamos la lista de activos (o cambió
+    // el año/periodo), la carga y completa el preview; luego activa el filtro.
+    // Si ya estaba activo, lo desactiva (toggle) y deshace lo completado.
+    async function alternarSoloActivos({ anio, periodo } = {}) {
+        if (soloActivos.value) {
+            soloActivos.value = false
+            quitarCompletado()
+            return
+        }
+        if (anio !== undefined) anioActivos.value = anio
+        if (periodo !== undefined) periodoActivos.value = periodo
+
+        // Si había materias combinadas, se deshacen antes de tomar el snapshot
+        if (materiasCombinadas.value) alternarCombinarMaterias()
+
+        previewSinCompletar = preview.value // snapshot antes de completar
+        await cargarActivosYCompletar()
+        soloActivos.value = true
+    }
+
+    // Set de códigos de docente activos, como string, para comparar sin
+    // preocuparse si el backend devuelve number o string.
+    const codigosActivos = computed(() => {
+        return new Set(docentesActivos.value.map(d => String(d.codigo)))
+    })
+
+    // Lista que debe mostrarse en la tabla: si "Solo Activos" está apagado,
+    // es el preview completo; si está prendido, solo las filas cuyo
+    // COD_DOCENTE está en la lista de activos (con N° renumerado sin huecos).
+    const previewMostrado = computed(() => {
+        if (!soloActivos.value) return preview.value
+        let n = 0
+        return preview.value
+            .filter(item => codigosActivos.value.has(String(item.COD_DOCENTE)))
+            .map(item => (item.INICIO_GRUPO ? { ...item, N: ++n } : item))
+    })
+
+    // ── Totales de docentes (sobre lo que se está mostrando) ──
+    // totalDocentes: cantidad de docentes distintos (bloques) visibles.
+    // docentesSinDocumento: docentes cuyas filas son TODAS "SIN DOCUMENTO".
+    const resumenDocentes = computed(() => {
+        const filas = previewMostrado.value
+        let total = 0
+        let sinDocumento = 0
+        let i = 0
+        while (i < filas.length) {
+            const f = filas[i]
+            const n = f.INICIO_GRUPO ? (f.FILAS_GRUPO || 1) : 1
+            total++
+            const bloque = filas.slice(i, i + n)
+            if (bloque.length && bloque.every(x => x.SIN_DOCUMENTO)) sinDocumento++
+            i += n
+        }
+        return { total, sinDocumento, conDocumento: total - sinDocumento }
+    })
+
+    const totalDocentes = computed(() => resumenDocentes.value.total)
+    const docentesSinDocumento = computed(() => resumenDocentes.value.sinDocumento)
+    const docentesConDocumento = computed(() => resumenDocentes.value.conDocumento)
 
     // Función "experimental": compara cada fila del preview (docente + nombre de
     // materia) contra la carga horaria real obtenida de /carga-horaria-docentes.
@@ -494,19 +700,18 @@ export function useReporteExcel() {
 
 
     // POST /api/reportes/docentes-clasificados/excel-personalizado
-    // Se usa cuando ya se asignó carga horaria automática y/o se combinaron
-    // materias en el preview: manda el arreglo `preview` tal cual está en
-    // pantalla para que el backend genere el Excel exactamente con esos
-    // datos, en vez de reconstruirlos desde cero y perder los cambios
-    // hechos en el navegador. El estado de "Mostrar Referencias" ya viene
-    // implícito en el texto de DETALLE de cada fila, así que no hace falta
-    // reenviarlo aparte.
+    // Se usa cuando ya se asignó carga horaria automática, se combinaron
+    // materias o está activo "Solo Activos": manda las filas tal cual se ven
+    // en pantalla (previewMostrado) para que el backend genere el Excel
+    // exactamente con esos datos, en vez de reconstruirlos desde cero y
+    // perder los cambios hechos en el navegador. El estado de "Mostrar
+    // Referencias" ya viene implícito en el texto de DETALLE de cada fila.
     async function descargarExcelPersonalizado({ gestion, version } = {}) {
         try {
             const response = await axios.post(
                 `${API_BASE}/api/reportes/docentes-clasificados/excel-personalizado`,
                 {
-                    data: preview.value,
+                    data: previewMostrado.value,
                     gestion: gestion || gestionEtiqueta.value,
                     version: version || versionEtiqueta.value,
                 },
@@ -533,7 +738,7 @@ export function useReporteExcel() {
             throw e
         }
     }
-    
+
     function reset() {
         error.value = null
         preview.value = []
@@ -542,6 +747,8 @@ export function useReporteExcel() {
         totalFilas.value = 0
         soloActivos.value = false
         docentesActivos.value = []
+        cargaActivos.value = []
+        previewSinCompletar = null
         cargaHorariaAsignada.value = false
         errorCargaHoraria.value = null
         materiasCombinadas.value = false
@@ -569,7 +776,13 @@ export function useReporteExcel() {
         periodoActivos,
         cargarDocentesActivos,
         alternarSoloActivos,
+        actualizarActivos,
         previewMostrado,
+
+        // Totales de docentes
+        totalDocentes,
+        docentesConDocumento,
+        docentesSinDocumento,
 
         // Asignar Carga Horaria (experimental)
         cargandoCargaHoraria,

@@ -242,6 +242,7 @@ class EstudianteInscritoController extends Controller
 
     /**
      * Resumen de inscritos/aprobados/reprobados/abandonos por grupo, materia y docente.
+     * Incluye TIPO_INGRESO (GRUPOS.TIPO_INGRESO).
      *
      * NOTA: NO incluye alumnos de examen de mesa ('E'). Solo modalidad
      * normal ('N') y abandono (TIPO_EXAMEN NULL / sin nota).
@@ -335,6 +336,7 @@ class EstudianteInscritoController extends Controller
             K.MATERIA,
             M.NOMBRE,
             K.GRUPO,
+            G.TIPO_INGRESO,
             K.TIPO_EXAMEN,
             K.ESTUDIANTE,
             K.NOTA_FINAL
@@ -413,7 +415,7 @@ class EstudianteInscritoController extends Controller
         $groupBySelect = "
     SELECT
         ANIO, PERIODO, [PLAN], CARRERA, NIVEL, NOMBRE_DOCENTE,
-        MATERIA, NOMBRE, GRUPO, TIPO_EXAMEN,
+        MATERIA, NOMBRE, GRUPO, TIPO_INGRESO, TIPO_EXAMEN,
         COUNT(*) AS INSCRITOS,
         SUM(CASE WHEN NOTA_FINAL >= 51 THEN 1 ELSE 0 END) AS APROBADOS,
         SUM(CASE WHEN NOTA_FINAL < 51 AND NOTA_FINAL > 0 THEN 1 ELSE 0 END) AS REPROBADOS,
@@ -421,12 +423,12 @@ class EstudianteInscritoController extends Controller
     FROM BASE
     GROUP BY
         ANIO, PERIODO, [PLAN], CARRERA, NIVEL, NOMBRE_DOCENTE,
-        MATERIA, NOMBRE, GRUPO, TIPO_EXAMEN
+        MATERIA, NOMBRE, GRUPO, TIPO_INGRESO, TIPO_EXAMEN
 ";
 
         $sqlCount = " {$baseCte} SELECT COUNT(*) AS TOTAL FROM ({$groupBySelect}) AS RESUMEN ";
 
-                $sqlData = "
+        $sqlData = "
     {$baseCte},
     RESUMEN AS ( {$groupBySelect} ),
     PAGINADO AS (

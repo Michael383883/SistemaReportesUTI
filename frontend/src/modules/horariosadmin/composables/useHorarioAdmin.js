@@ -226,7 +226,7 @@ export function useHorarioAdmin() {
                     plan: h.PLAN,
                     nivel: h.NIVEL,
                     compartido: h.COMPARTIDO,
-                    comp: h.COMP,
+                    tipoIngreso: String(h.TIPO_INGRESO ?? '').trim(),
                     sesiones: [],
                     inscritos: h.TOTAL_NORMAL ?? 0,
                     carga: 0,

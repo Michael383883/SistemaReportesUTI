@@ -25,6 +25,11 @@ function getAbreviaturaPlan(plan) {
     if (PLAN_MAP[base]) return PLAN_MAP[base]
     return s
 }
+function abreviarIngreso(texto) {
+    const t = String(texto ?? '').trim()
+    if (!t) return ''
+    return t.length > 10 ? t.slice(0, 9) + '.' : t
+}
 
 // ── Determina el valor de C según la lógica del componente Vue ──
 function getValorC(h) {
@@ -121,7 +126,7 @@ export function generarPDFCargaHoraria(docentes = [], { anio, periodo } = {}) {
 
         body.push([{
             content: `${docente.docente}  ${(docente.apellidos ?? '').toUpperCase()} ${(docente.nombres ?? '').toUpperCase()}`,
-            colSpan: 10,
+            colSpan: 11,
             styles: {
                 fontStyle: 'normal', fontSize: 8.5, halign: 'left',
                 fillColor: C_WHITE, lineWidth: 0,
@@ -144,6 +149,7 @@ export function generarPDFCargaHoraria(docentes = [], { anio, periodo } = {}) {
             body.push([
                 planNivel,
                 materiaTexto,
+                abreviarIngreso(h.TIPO_INGRESO),
                 h.GRUPO ?? '',
                 h.DIA ?? '',
                 h.AMBIENTE ?? '',
@@ -181,6 +187,7 @@ export function generarPDFCargaHoraria(docentes = [], { anio, periodo } = {}) {
             { content: '', colSpan: 1, styles: { fillColor: C_WHITE, lineWidth: 0 } },
             { content: '', colSpan: 1, styles: { fillColor: C_WHITE, lineWidth: 0 } },
             { content: '', colSpan: 1, styles: { fillColor: C_WHITE, lineWidth: 0 } },
+            { content: '', colSpan: 1, styles: { fillColor: C_WHITE, lineWidth: 0 } },
             { content: 'TOTAL', colSpan: 1, styles: { halign: 'right', fontStyle: 'bold', fontSize: 8, fillColor: C_WHITE, lineWidth: 0 } },
             { content: `${totalCH} Mes(${totalCH * 4})`, colSpan: 1, styles: { halign: 'center', fontStyle: 'bold', fontSize: 8, fillColor: C_WHITE, lineWidth: 0 } },
             { content: String(totalInscN), colSpan: 1, styles: { halign: 'center', fontStyle: 'bold', fontSize: 8, fillColor: C_WHITE, lineWidth: 0 } },
@@ -195,7 +202,7 @@ export function generarPDFCargaHoraria(docentes = [], { anio, periodo } = {}) {
         startY: HEADER_H,
         margin: { left: ML, right: MR, top: HEADER_H, bottom: 12 },
         tableWidth: CW,
-        head: [['PLAN-NVL', 'MATERIA', 'GRP', 'DIA', 'AULA', 'HORA', 'CH', 'INSC-N', 'C', 'COMPARTIDO']],
+        head: [['PLAN-NVL', 'MATERIA', 'TIPO', 'GRP', 'DIA', 'AULA', 'HORA', 'CH', 'INSC-N', 'C', 'COMPARTIDO']],
         body,
         alternateRowStyles: { fillColor: C_WHITE },
         styles: {
@@ -218,15 +225,16 @@ export function generarPDFCargaHoraria(docentes = [], { anio, periodo } = {}) {
         },
         columnStyles: {
             0: { cellWidth: 12, halign: 'left', cellPadding: { top: 0.5, bottom: 0.5, left: 0.5, right: 0.5 } },
-            1: { cellWidth: 60, halign: 'left', cellPadding: { top: 0.5, bottom: 0.5, left: 0.5, right: 0.5 } },
-            2: { cellWidth: 8, halign: 'center' },
+            1: { cellWidth: 54, halign: 'left', cellPadding: { top: 0.5, bottom: 0.5, left: 0.5, right: 0.5 } },
+            2: { cellWidth: 14, halign: 'center', fontSize: 6 },
             3: { cellWidth: 8, halign: 'center' },
-            4: { cellWidth: 12, halign: 'center' },
-            5: { cellWidth: 18, halign: 'center' },
-            6: { cellWidth: 15, halign: 'center' },
-            7: { cellWidth: 10, halign: 'center' },
-            8: { cellWidth: 7, halign: 'center' },
-            9: { cellWidth: 'auto', halign: 'left' },
+            4: { cellWidth: 8, halign: 'center' },
+            5: { cellWidth: 12, halign: 'center' },
+            6: { cellWidth: 18, halign: 'center' },
+            7: { cellWidth: 15, halign: 'center' },
+            8: { cellWidth: 10, halign: 'center' },
+            9: { cellWidth: 7, halign: 'center' },
+            10: { cellWidth: 'auto', halign: 'left' },
         },
         didParseCell(data) {
             if (data.section === 'head') {
@@ -239,7 +247,7 @@ export function generarPDFCargaHoraria(docentes = [], { anio, periodo } = {}) {
             if (data.section !== 'body') return
 
             const raw = data.row.raw
-            const isDataRow = Array.isArray(raw) && raw.length === 10
+            const isDataRow = Array.isArray(raw) && raw.length === 11
             if (!isDataRow) return
 
             const firstCell = raw[0]
@@ -247,7 +255,7 @@ export function generarPDFCargaHoraria(docentes = [], { anio, periodo } = {}) {
 
             const col = data.column.index
 
-            if (col <= 2) {
+            if (col <= 3) {
                 data.cell.styles.lineWidth = { top: 0, right: 0, bottom: 0, left: 0 }
             } else {
                 data.cell.styles.lineWidth = { top: 0, right: 0, bottom: 0.2, left: 0 }
@@ -258,7 +266,7 @@ export function generarPDFCargaHoraria(docentes = [], { anio, periodo } = {}) {
                 data.cell.styles.fontSize = 6.5
             }
 
-            if (col === 9 && data.cell.raw) {
+            if (col === 10 && data.cell.raw) {
                 data.cell.styles.textColor = C_BLACK
                 data.cell.styles.fontStyle = 'normal'
                 data.cell.styles.fontSize = 6.5

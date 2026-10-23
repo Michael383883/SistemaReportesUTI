@@ -32,6 +32,9 @@
             <th class="px-2 py-2 text-left text-[11px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 min-w-[160px]">
               Materia
             </th>
+            <th class="px-2 py-2 text-center text-[11px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 whitespace-nowrap">
+              Tipo
+            </th>
             <th class="px-2 py-2 text-center text-[11px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400">
               Grp
             </th>
@@ -76,6 +79,18 @@
               <span class="text-slate-800 dark:text-slate-100 font-medium truncate">
                {{ mat.MATERIA }} - {{ mat.NOMBRE }}
               </span>
+            </td>
+
+            <!-- Tipo (de ingreso, viene de GRUPOS.TIPO_INGRESO) -->
+            <td class="text-center px-2 py-1.5">
+              <span
+                v-if="norm(mat.TIPO_INGRESO)"
+                class="inline-block px-2 py-0.5 text-[10px] font-semibold rounded bg-amber-50 text-amber-800 border border-amber-200 whitespace-nowrap"
+                :title="norm(mat.TIPO_INGRESO)"
+              >
+                {{ abreviarTipo(mat.TIPO_INGRESO) }}
+              </span>
+              <span v-else class="text-slate-300 dark:text-slate-600">—</span>
             </td>
 
             <!-- Grupo -->
@@ -130,7 +145,7 @@
         <tfoot>
           <tr class="bg-slate-100 dark:bg-slate-800 border-t-2 border-slate-200 dark:border-slate-700">
             <td
-              colspan="3"
+              colspan="4"
               class="text-right px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300"
             >
               Total
@@ -172,6 +187,22 @@ const props = defineProps({
 function norm(v) {
   if (v === null || v === undefined) return ''
   return String(v).trim()
+}
+
+// Columna TIPO: abreviatura corta del tipo de ingreso.
+// Completa el mapa con tus categorías reales si quieres siglas fijas.
+const ABREV_TIPO = {
+  // 'TITULAR': 'TIT',
+  // 'INVITADO': 'INV',
+  // 'INTERINO': 'INT',
+}
+
+function abreviarTipo(texto) {
+  const t = norm(texto)
+  if (!t) return ''
+  const exacto = ABREV_TIPO[t.toUpperCase()]
+  if (exacto) return exacto
+  return t.length > 10 ? t.slice(0, 9) + '…' : t
 }
 
 function esCompartido(mat) {

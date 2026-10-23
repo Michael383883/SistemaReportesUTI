@@ -28,6 +28,13 @@ function chMostrada(mat) {
     return Number(mat.carga) || 0
 }
 
+// ── Columna TIPO (tipo de ingreso, viene de GRUPOS.TIPO_INGRESO) ──
+function abreviarTipo(texto) {
+    const t = String(texto ?? '').trim()
+    if (!t) return ''
+    return t.length > 10 ? t.slice(0, 9) + '.' : t
+}
+
 export function generarPDFResumenDos(docentes = [], { anio, periodo } = {}) {
     const { agruparPorMateriaGrupo, DIAS_ORDEN, DIAS_LABEL } = useHorarioAdmin()
 
@@ -94,15 +101,15 @@ export function generarPDFResumenDos(docentes = [], { anio, periodo } = {}) {
         }
     }
 
-    // 6 columnas fijas + días
-    const nCols = 6 + dias.length
-    const idxCH = 3 + dias.length          // columna de CH
+    // 7 columnas fijas (PLAN-NIV, MATERIA, TIPO, GRP, CH, INS., C) + días
+    const nCols = 7 + dias.length
+    const idxCH = 4 + dias.length          // columna de CH
     const idxIns = idxCH + 1               // INS.
     const idxComp = idxIns + 1             // COMP.
 
     function makeSubHead() {
         return [
-            'PLAN-NIV', 'MATERIA', 'GRP',
+            'PLAN-NIV', 'MATERIA', 'TIPO', 'GRP',
             ...dias.map(abrevDia),
             'CH', 'INS.', 'C'
         ].map(label => ({
@@ -152,7 +159,7 @@ export function generarPDFResumenDos(docentes = [], { anio, periodo } = {}) {
             const planNiv = [mat.carrera, mat.nivel].filter(Boolean).join(' - ')
             const materiaTexto = [mat.nombre, mat.materia].filter(Boolean).join('\n')
 
-            const fila = [planNiv, materiaTexto, mat.grupo ?? '']
+            const fila = [planNiv, materiaTexto, abreviarTipo(mat.tipoIngreso), mat.grupo ?? '']
 
             for (const dia of dias) {
                 const sesionesDia = mat.sesiones.filter(s => s.dia === dia)
@@ -207,24 +214,26 @@ export function generarPDFResumenDos(docentes = [], { anio, periodo } = {}) {
 
     const PLAN_W = 12
     const MATERIA_W = 44
+    const TIPO_W = 11
     const GRUPO_W = 7
     const CH_W = 14
     const INS_W = 9
     const COMP_W = 5
-    const fixedW = PLAN_W + MATERIA_W + GRUPO_W + CH_W + INS_W + COMP_W
+    const fixedW = PLAN_W + MATERIA_W + TIPO_W + GRUPO_W + CH_W + INS_W + COMP_W
     const diaW = Math.max(14, (CW - fixedW) / dias.length)
 
     const columnStyles = {
         0: { cellWidth: PLAN_W, halign: 'left', cellPadding: { top: 0.3, bottom: 0.3, left: 0.3, right: 0.3 } },
         1: { cellWidth: MATERIA_W, halign: 'left', cellPadding: { top: 0.3, bottom: 0.3, left: 0.3, right: 0.3 } },
-        2: { cellWidth: GRUPO_W, halign: 'center' },
+        2: { cellWidth: TIPO_W, halign: 'center', fontSize: 5.5 },
+        3: { cellWidth: GRUPO_W, halign: 'center' },
         [idxCH]: { cellWidth: CH_W, halign: 'center' },
         [idxIns]: { cellWidth: INS_W, halign: 'center' },
         [idxComp]: { cellWidth: COMP_W, halign: 'center' },
     }
 
     dias.forEach((_, i) => {
-        const colIndex = 3 + i
+        const colIndex = 4 + i
         const isLastDay = i === dias.length - 1
         columnStyles[colIndex] = {
             cellWidth: diaW,
@@ -263,6 +272,7 @@ export function generarPDFResumenDos(docentes = [], { anio, periodo } = {}) {
             data.cell.styles.lineWidth = { top: 0, right: 0, bottom: 0.2, left: 0 }
             if (col === 1) data.cell.styles.fontStyle = 'normal'
             if (col === 0) data.cell.styles.fontSize = 5.5
+            if (col === 2) data.cell.styles.fontSize = 5.5
 
             // Materia hija: sangría para dejar espacio a la flechita
             if (col === 1 && anidadoRowIndices.has(data.row.index)) {
@@ -299,8 +309,8 @@ export function generarPDFResumenDos(docentes = [], { anio, periodo } = {}) {
                 )
             }
 
-            const dayStartCol = 3;
-            const dayEndCol = 3 + dias.length - 1;
+            const dayStartCol = 4;
+            const dayEndCol = 4 + dias.length - 1;
             const isNameRow = typeof raw === 'object' && raw !== null && raw.colSpan;
 
             // Líneas en filas de materias
@@ -318,7 +328,7 @@ export function generarPDFResumenDos(docentes = [], { anio, periodo } = {}) {
                 const startX = data.cell.x;
                 const y1 = data.cell.y;
                 const y2 = data.cell.y + data.cell.height;
-                const fixedWidth = PLAN_W + MATERIA_W + GRUPO_W;
+                const fixedWidth = PLAN_W + MATERIA_W + TIPO_W + GRUPO_W;
                 for (let d = 0; d < dias.length - 1; d++) {
                     const x = startX + fixedWidth + (d + 1) * diaW;
                     doc.setDrawColor(...C_DAY_SEPARATOR);
