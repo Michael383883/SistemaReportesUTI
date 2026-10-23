@@ -99,11 +99,21 @@ export function useAgrupacionCompartidos(materiasRef) {
         return { materias, hermanasDe, usadaComoHermana }
     })
 
-    // Modo plano (ReporteTabla): solo interesa saber qué índices son hijas
+        // Modo plano (ReporteTabla): índices que son hijas.
+    // Incluye:
+    //  a) hijas emparejadas con su padre en la lista (PASO 1 y PASO 2)
+    //  b) cualquier fila con comp = '1' en GRUPOS_COMPARTIDOS, aunque su padre
+    //     sea de otro docente o no esté en la lista (mismo criterio que el
+    //     reporte de horarios).
+    // Se mantiene separado de usadaComoHermana para no romper el modo agrupado:
+    // una hija sin padre en la lista sigue mostrándose como fila normal allí.
     const hijasIndices = computed(() => {
-        const { usadaComoHermana } = base.value
+        const { materias, usadaComoHermana } = base.value
         const set = new Set()
         usadaComoHermana.forEach((esHermana, idx) => { if (esHermana) set.add(idx) })
+        materias.forEach((m, idx) => {
+            if (norm(m.comp) === '1') set.add(idx)
+        })
         return set
     })
 

@@ -12,20 +12,162 @@ function serializarLista(valor) {
     return valor || undefined
 }
 
-// Normaliza el nombre de una materia para comparar "igualito":
-// quita espacios extra al inicio/fin, colapsa espacios múltiples y pasa a mayúsculas.
+// ─── Normalización de nombres de materia ───
+// Más tolerante que antes: además de espacios y mayúsculas,
+//  - quita tildes (ÁLGEBRA == ALGEBRA)
+//  - quita signos de puntuación (CONTABILIDAD I. == CONTABILIDAD I)
+//  - convierte números romanos sueltos a arábigos (CONTABILIDAD II == CONTABILIDAD 2)
+const ROMANOS = { I: '1', II: '2', III: '3', IV: '4', V: '5', VI: '6', VII: '7', VIII: '8', IX: '9', X: '10' }
+const STOPWORDS = new Set(['DE', 'DEL', 'LA', 'LAS', 'LOS', 'EL', 'Y', 'E', 'EN', 'A', 'AL'])
+
 function normalizarNombreMateria(nombre) {
-    return (nombre || '')
-        .toString()
-        .trim()
+    const original = (nombre || '').toString().trim()
+    if (original === '-') return '-'
+
+    const limpio = original
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
         .toUpperCase()
+        .replace(/[^A-Z0-9\s]/g, ' ')
         .replace(/\s+/g, ' ')
+        .trim()
+
+    return limpio
+        .split(' ')
+        .map(t => ROMANOS[t] ?? t)
+        .join(' ')
+}
+
+function tokensMateria(key) {
+    return key.split(' ').filter(t => t && !STOPWORDS.has(t))
+}
+
+function numerosDe(key) {
+    return key.split(' ').filter(t => /^\d+$/.test(t)).join(',')
+}
+
+// Similitud de Jaccard entre las palabras (sin conectores) de dos nombres
+function similitudMateria(a, b) {
+    const A = new Set(tokensMateria(a))
+    const B = new Set(tokensMateria(b))
+    if (!A.size || !B.size) return 0
+    let inter = 0
+    A.forEach(t => { if (B.has(t)) inter++ })
+    return inter / (A.size + B.size - inter)
+}
+
+// Busca en el mapa de materias de UN docente la que corresponde a "key":
+// 1) coincidencia exacta (ya normalizada)
+// 2) si no hay, la más parecida, pero SOLO si los números coinciden
+//    (así "CONTABILIDAD 1" nunca se confunde con "CONTABILIDAD 2")
+//    y las palabras se parecen al menos en un 75%.
+// Devuelve la clave del mapa o null.
+function buscarClaveMateria(key, mapa) {
+    if (!key || !mapa || !mapa.size) return null
+    if (mapa.has(key)) return key
+
+    const nums = numerosDe(key)
+    let mejor = null
+    let mejorScore = 0
+    for (const cand of mapa.keys()) {
+        if (numerosDe(cand) !== nums) continue
+        const s = similitudMateria(key, cand)
+        if (s > mejorScore) {
+            mejorScore = s
+            mejor = cand
+        }
+    }
+    return mejorScore >= 0.75 ? mejor : null
 }
 
 const PLACEHOLDER_SIN_MATERIA = 'NO REGENTA MATERIA EN LA FCE'
 
 // Marcas de agrupación que se recalculan cada vez que se arman los bloques
 const MARCAS_GRUPO = ['N', 'NOMBRE_DOCENTE', 'INICIO_GRUPO', 'FILAS_GRUPO', 'FIN_GRUPO', 'INICIO_MATERIA', 'FILAS_MATERIA']
+
+// ─── Acéfala + compartido: no se muestran ───
+// Si la categoría es ACEFALA y en alguna de estas columnas aparece
+// "compartido", esa fila se excluye del reporte.
+// Si la palabra vive en otra columna, agrégala a CAMPOS_COMPARTIDO.
+const CAMPOS_COMPARTIDO = ['COMPARTIDO', 'OBS2', 'OBS3', 'FOTOCOPIA_TITULAR', 'DETALLE']
+
+const textoPlano = (s) => String(s ?? '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+
+function esAcefalaCompartida(fila) {
+    if (!textoPlano(fila.CATEGORIA).includes('ACEFALA')) return false
+    return CAMPOS_COMPARTIDO.some(campo => textoPlano(fila[campo]).includes('COMPARTID'))
+}
+
+// Quita las filas acéfalas compartidas y recalcula las marcas de grupo
+// (Nº, rowspan del docente, etc.). Si un docente se queda sin filas, desaparece.
+function excluirAcefalasCompartidas(filas) {
+    // 1) separar en bloques por docente
+    const bloques = []
+    let i = 0
+    while (i < filas.length) {
+        const f = filas[i]
+        const n = f.INICIO_GRUPO ? (f.FILAS_GRUPO || 1) : 1
+        bloques.push(filas.slice(i, i + n))
+        i += n
+    }
+
+    const ocultas = filas.filter(esAcefalaCompartida).length
+    if (!ocultas) return { filas, ocultas: 0 }
+
+    // 2) reconstruir
+    const resultado = []
+    let numero = 0
+    for (const bloque of bloques) {
+        const restantes = bloque.filter(f => !esAcefalaCompartida(f))
+        if (!restantes.length) continue
+
+        const perdioFilas = restantes.length !== bloque.length
+        const copia = restantes.map(f => ({ ...f }))
+
+        if (bloque[0].INICIO_GRUPO) {
+            copia.forEach((f, k) => {
+                delete f.FIN_GRUPO
+                if (perdioFilas) {
+                    delete f.INICIO_MATERIA
+                    delete f.FILAS_MATERIA
+                }
+                if (k === 0) {
+                    f.N = ++numero
+                    f.NOMBRE_DOCENTE = bloque[0].NOMBRE_DOCENTE
+                    f.INICIO_GRUPO = true
+                    f.FILAS_GRUPO = copia.length
+                } else {
+                    f.N = null
+                    f.NOMBRE_DOCENTE = ''
+                    delete f.INICIO_GRUPO
+                    delete f.FILAS_GRUPO
+                }
+            })
+            copia[copia.length - 1].FIN_GRUPO = true
+        }
+        resultado.push(...copia)
+    }
+    return { filas: resultado, ocultas }
+}
+
+// Suma la CH de un bloque (docente). Si una misma materia aparece en varias
+// filas, su CH se cuenta una sola vez.
+function totalChBloque(bloque) {
+    const vistos = new Set()
+    let total = 0
+    for (const f of bloque) {
+        const ch = Number(f.CH)
+        if (!ch || Number.isNaN(ch)) continue
+        const key = normalizarNombreMateria(f.NOMBRE_MATERIA)
+        if (key && key !== '-' && key !== PLACEHOLDER_SIN_MATERIA) {
+            if (vistos.has(key)) continue
+            vistos.add(key)
+        }
+        total += ch
+    }
+    return total
+}
 
 export function useReporteExcel() {
     const loading = ref(false)
@@ -34,6 +176,9 @@ export function useReporteExcel() {
     const gestionEtiqueta = ref('')
     const versionEtiqueta = ref('')
     const totalFilas = ref(0)
+
+    // Cantidad de filas ACEFALA + compartido que se ocultaron del preview
+    const filasOcultasCompartidas = ref(0)
 
     // ── Docentes activos (para el botón "Solo Activos") ──
     const cargandoActivos = ref(false)
@@ -107,11 +252,16 @@ export function useReporteExcel() {
                 error.value = data.error || 'No se pudo obtener la vista previa'
                 preview.value = []
                 previewSinCompletar = null
+                filasOcultasCompartidas.value = 0
                 return
             }
 
-            preview.value = data.data
-            previewSinCompletar = data.data
+            // Se excluyen las filas ACEFALA que figuran como "compartido"
+            const { filas, ocultas } = excluirAcefalasCompartidas(data.data)
+
+            preview.value = filas
+            previewSinCompletar = filas
+            filasOcultasCompartidas.value = ocultas
             gestionEtiqueta.value = data.gestion
             versionEtiqueta.value = data.version
             totalFilas.value = data.total_filas
@@ -127,6 +277,7 @@ export function useReporteExcel() {
             error.value = e?.response?.data?.error || 'No se pudo obtener la vista previa'
             preview.value = []
             previewSinCompletar = null
+            filasOcultasCompartidas.value = 0
             throw e
         } finally {
             loading.value = false
@@ -188,10 +339,11 @@ export function useReporteExcel() {
 
     // ── Completar el preview con TODOS los docentes activos ──
     // - Docente activo sin ningún documento: se agrega con todas sus materias
-    //   y CH; el resto de columnas queda vacío y la categoría es "SIN DOCUMENTO".
+    //   y CH; el resto de columnas queda vacío y la categoría es "-".
     // - Docente con documentos de solo algunas materias: conserva sus filas
-    //   y se le agregan las materias que faltan (también "SIN DOCUMENTO").
-    // - La CH se asigna a toda fila cuya materia coincide con la carga real.
+    //   y se le agregan las materias que faltan (también sin documento).
+    // - La CH se asigna a toda fila cuya materia coincide con la carga real
+    //   (coincidencia exacta normalizada o, si no hay, la más parecida).
     function completarConActivos(filasBase) {
         // 1) Agrupar el preview actual por docente (bloques)
         const bloquesPorDocente = new Map()
@@ -223,12 +375,15 @@ export function useReporteExcel() {
             cargaPorDocente.set(String(d.codigo), m)
         }
 
+        // Fila de un docente activo que no tiene documento: la categoría
+        // se muestra directamente como "-" (ya no dice "SIN DOCUMENTO").
+        // La marca interna SIN_DOCUMENTO se mantiene para los totales.
         const filaSinDocumento = (cod, nombreMateria, ch) => ({
             COD_DOCENTE: cod,
             NOMBRE_MATERIA: nombreMateria,
             CH: ch,
             DETALLE: '',
-            CATEGORIA: 'SIN DOCUMENTO',
+            CATEGORIA: '-',
             NIVEL: '',
             FOTOCOPIA_TITULAR: '',
             OBS2: '',
@@ -254,9 +409,10 @@ export function useReporteExcel() {
             filas.forEach(f => {
                 MARCAS_GRUPO.forEach(k => delete f[k])
                 const key = normalizarNombreMateria(f.NOMBRE_MATERIA)
-                if (carga.has(key)) {
-                    f.CH = carga.get(key).ch
-                    cubiertas.add(key)
+                const claveCarga = buscarClaveMateria(key, carga)
+                if (claveCarga) {
+                    f.CH = carga.get(claveCarga).ch
+                    cubiertas.add(claveCarga)
                 }
             })
 
@@ -371,17 +527,38 @@ export function useReporteExcel() {
     // Lista que debe mostrarse en la tabla: si "Solo Activos" está apagado,
     // es el preview completo; si está prendido, solo las filas cuyo
     // COD_DOCENTE está en la lista de activos (con N° renumerado sin huecos).
+    // Además, en la primera fila de cada docente se agrega TOTAL_CH: la suma
+    // de la columna CH de ese docente (cada materia se cuenta una sola vez).
     const previewMostrado = computed(() => {
-        if (!soloActivos.value) return preview.value
+        const base = soloActivos.value
+            ? preview.value.filter(item => codigosActivos.value.has(String(item.COD_DOCENTE)))
+            : preview.value
+
+        const resultado = []
         let n = 0
-        return preview.value
-            .filter(item => codigosActivos.value.has(String(item.COD_DOCENTE)))
-            .map(item => (item.INICIO_GRUPO ? { ...item, N: ++n } : item))
+        let i = 0
+        while (i < base.length) {
+            const f = base[i]
+            const nFilas = f.INICIO_GRUPO ? (f.FILAS_GRUPO || 1) : 1
+            const bloque = base.slice(i, i + nFilas)
+            const total = totalChBloque(bloque)
+
+            bloque.forEach((fila, k) => {
+                const copia = { ...fila }
+                if (k === 0) {
+                    copia.TOTAL_CH = total
+                    if (soloActivos.value && copia.INICIO_GRUPO) copia.N = ++n
+                }
+                resultado.push(copia)
+            })
+            i += nFilas
+        }
+        return resultado
     })
 
     // ── Totales de docentes (sobre lo que se está mostrando) ──
     // totalDocentes: cantidad de docentes distintos (bloques) visibles.
-    // docentesSinDocumento: docentes cuyas filas son TODAS "SIN DOCUMENTO".
+    // docentesSinDocumento: docentes cuyas filas son TODAS sin documento.
     const resumenDocentes = computed(() => {
         const filas = previewMostrado.value
         let total = 0
@@ -404,20 +581,25 @@ export function useReporteExcel() {
 
     // Función "experimental": compara cada fila del preview (docente + nombre de
     // materia) contra la carga horaria real obtenida de /carga-horaria-docentes.
-    // Si el nombre de la materia coincide EXACTO (normalizado) para ese mismo
-    // docente, asigna la CH a esa fila. Si no hay coincidencia, la deja como está
-    // (vacía). No modifica filas sin materia real (placeholder "NO REGENTA...").
+    // Busca primero coincidencia exacta (normalizada: sin tildes, sin puntuación,
+    // romanos = arábigos) y, si no hay, la materia más parecida de ESE docente
+    // (mismos números y ≥ 75% de palabras en común). Si hay coincidencia asigna
+    // la CH; si no, deja la fila como está. No toca filas sin materia real
+    // (placeholder "NO REGENTA...").
     async function asignarCargaHoraria({ anio, periodo } = {}) {
         const cargaDocentes = await obtenerCargaHorariaDocentes({ anio, periodo })
 
-        // Mapa "codigoDocente|NOMBRE MATERIA NORMALIZADO" -> CH (sumada si se repite,
-        // por ejemplo por grupos compartidos de la misma materia).
-        const mapa = new Map()
+        // Mapa codigoDocente -> Map(materiaNormalizada -> CH). La CH se suma si
+        // la materia se repite (por ejemplo por grupos de la misma materia).
+        const mapaPorDocente = new Map()
         for (const docente of cargaDocentes) {
+            const m = new Map()
             for (const materia of (docente.materias || [])) {
-                const clave = `${docente.codigo}|${normalizarNombreMateria(materia.nom_materia)}`
-                mapa.set(clave, (mapa.get(clave) || 0) + Number(materia.carga_horaria || 0))
+                const key = normalizarNombreMateria(materia.nom_materia)
+                if (!key) continue
+                m.set(key, (m.get(key) || 0) + Number(materia.carga_horaria || 0))
             }
+            mapaPorDocente.set(String(docente.codigo), m)
         }
 
         let asignadas = 0
@@ -426,14 +608,15 @@ export function useReporteExcel() {
         preview.value = preview.value.map(item => {
             const nombreMateria = normalizarNombreMateria(item.NOMBRE_MATERIA)
 
-            if (!item.COD_DOCENTE || !nombreMateria || nombreMateria === PLACEHOLDER_SIN_MATERIA) {
+            if (!item.COD_DOCENTE || !nombreMateria || nombreMateria === '-' || nombreMateria === PLACEHOLDER_SIN_MATERIA) {
                 return item
             }
 
-            const clave = `${item.COD_DOCENTE}|${nombreMateria}`
-            if (mapa.has(clave)) {
+            const materiasDocente = mapaPorDocente.get(String(item.COD_DOCENTE))
+            const clave = buscarClaveMateria(nombreMateria, materiasDocente)
+            if (clave) {
                 asignadas++
-                return { ...item, CH: mapa.get(clave) }
+                return { ...item, CH: materiasDocente.get(clave) }
             }
 
             sinCoincidencia++
@@ -701,11 +884,12 @@ export function useReporteExcel() {
 
     // POST /api/reportes/docentes-clasificados/excel-personalizado
     // Se usa cuando ya se asignó carga horaria automática, se combinaron
-    // materias o está activo "Solo Activos": manda las filas tal cual se ven
-    // en pantalla (previewMostrado) para que el backend genere el Excel
-    // exactamente con esos datos, en vez de reconstruirlos desde cero y
-    // perder los cambios hechos en el navegador. El estado de "Mostrar
-    // Referencias" ya viene implícito en el texto de DETALLE de cada fila.
+    // materias, está activo "Solo Activos" o se ocultaron filas acéfalas
+    // compartidas: manda las filas tal cual se ven en pantalla
+    // (previewMostrado, que incluye TOTAL_CH en la primera fila de cada
+    // docente) para que el backend genere el Excel exactamente con esos
+    // datos. El estado de "Mostrar Referencias" ya viene implícito en el
+    // texto de DETALLE de cada fila.
     async function descargarExcelPersonalizado({ gestion, version } = {}) {
         try {
             const response = await axios.post(
@@ -754,6 +938,7 @@ export function useReporteExcel() {
         materiasCombinadas.value = false
         previewSinCombinar = null
         mostrarReferencias.value = false
+        filasOcultasCompartidas.value = 0
     }
 
     return {
@@ -766,6 +951,9 @@ export function useReporteExcel() {
         previsualizar,
         urlDescarga,
         reset,
+
+        // Acéfalas compartidas ocultadas
+        filasOcultasCompartidas,
 
         // Solo Activos
         cargandoActivos,

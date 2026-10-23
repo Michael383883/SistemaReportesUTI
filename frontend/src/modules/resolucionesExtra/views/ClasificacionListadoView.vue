@@ -701,6 +701,9 @@
               </span>
               · {{ reporteExcel.previewMostrado.value.length }} fila(s)
               · {{ reporteExcel.gestionEtiqueta.value }}
+              <span v-if="reporteExcel.filasOcultasCompartidas.value" class="block text-amber-600">
+                {{ reporteExcel.filasOcultasCompartidas.value }} fila(s) acéfala(s) compartida(s) ocultada(s)
+              </span>
             </span>
           </div>
 
@@ -735,6 +738,8 @@
                   <th class="text-center font-medium text-gray-500 px-2 py-2 uppercase tracking-wider">CH</th>
                   <th class="text-left font-medium text-gray-500 px-2 py-2 uppercase tracking-wider">Detalle</th>
                   <th class="text-left font-medium text-gray-500 px-2 py-2 uppercase tracking-wider">Categoria</th>
+                  <!-- NUEVO: total de CH por docente -->
+                  <th class="text-center font-medium text-gray-500 px-2 py-2 uppercase tracking-wider" title="Total de carga horaria del docente">T. CH</th>
                   <th class="text-left font-medium text-gray-500 px-2 py-2 uppercase tracking-wider">Nivel</th>
                   <th class="text-left font-medium text-gray-500 px-2 py-2 uppercase tracking-wider">Fotocopia</th>
                   <th class="text-left font-medium text-gray-500 px-2 py-2 uppercase tracking-wider">Obs 2</th>
@@ -785,6 +790,16 @@
                     </td>
                     <td class="px-2 py-2 text-gray-600">{{ item.DETALLE || '—' }}</td>
                     <td class="px-2 py-2 text-gray-600">{{ item.CATEGORIA || '—' }}</td>
+
+                    <!-- NUEVO: T. CH (suma de la columna CH del docente), fusionado por docente -->
+                    <td
+                      v-if="item.INICIO_GRUPO"
+                      :rowspan="item.FILAS_GRUPO"
+                      class="px-2 py-2 text-center align-middle border-x border-gray-100 font-semibold text-gray-800 tabular-nums"
+                    >
+                      {{ item.TOTAL_CH || '—' }}
+                    </td>
+
                     <td class="px-2 py-2 text-gray-600">{{ item.NIVEL || '—' }}</td>
                     <td class="px-2 py-2 text-gray-600">{{ item.FOTOCOPIA_TITULAR || '—' }}</td>
                     <td class="px-2 py-2 text-gray-600">{{ item.OBS2 || '—' }}</td>
@@ -850,8 +865,9 @@
           <p class="text-center text-sm text-gray-500 mb-6">
             Se compara cada docente activo y el nombre de su materia contra la carga horaria real
             de {{ reporteExcel.anioActivos.value }} / periodo {{ reporteExcel.periodoActivos.value }}.
-            Si el nombre de la materia coincide exactamente, se asigna la CH. Si no hay coincidencia,
-            la columna CH queda vacía. Revisa el resultado con cuidado antes de descargar el Excel.
+            Si el nombre de la materia coincide (ignorando tildes, puntuación y números romanos) o es
+            muy parecido, se asigna la CH. Si no hay coincidencia, la columna CH queda vacía.
+            Revisa el resultado con cuidado antes de descargar el Excel.
           </p>
           <div class="flex gap-3">
             <button
@@ -1313,15 +1329,17 @@ async function ejecutarAsignarCargaHoraria() {
 }
 
 async function descargarExcelConfirmado() {
-  // Si ya se asignó carga horaria, se combinaron materias o está activo
-  // "Solo Activos" (que completa docentes/materias en pantalla), se descarga
-  // con esos datos exactos (vía POST) para no perder los cambios hechos en
-  // el navegador. El estado de "Mostrar Referencias" ya viene incluido en el
-  // DETALLE de cada fila del preview, así que no hace falta reenviarlo aparte.
+  // Si ya se asignó carga horaria, se combinaron materias, está activo
+  // "Solo Activos" (que completa docentes/materias en pantalla) o se ocultaron
+  // filas acéfalas compartidas, se descarga con esos datos exactos (vía POST)
+  // para no perder los cambios hechos en el navegador. El estado de
+  // "Mostrar Referencias" ya viene incluido en el DETALLE de cada fila del
+  // preview, así que no hace falta reenviarlo aparte.
   const usarDatosPersonalizados =
     reporteExcel.cargaHorariaAsignada.value ||
     reporteExcel.materiasCombinadas.value ||
-    reporteExcel.soloActivos.value
+    reporteExcel.soloActivos.value ||
+    reporteExcel.filasOcultasCompartidas.value > 0
 
   if (usarDatosPersonalizados) {
     try {

@@ -83,9 +83,9 @@
 
             <!-- Compartido (modo plano) -->
             <td v-if="!agruparCompartidos" class="px-4 py-3">
-              <span v-if="fila.esHija" class="inline-flex items-center px-2 py-0.5 rounded text-[0.68rem] font-semibold bg-violet-50 text-violet-600 dark:bg-violet-500/15 dark:text-violet-300">
-                Compartido
-              </span>
+              <span v-if="fila.esHija" :title="fila.principal.comparte || 'Compartido'" class="inline-flex items-center px-2 py-0.5 rounded text-[0.68rem] font-semibold bg-violet-50 text-violet-600 dark:bg-violet-500/15 dark:text-violet-300">
+  Compartido
+</span>
               <span v-else class="text-slate-400 dark:text-slate-600 text-xs">—</span>
             </td>
 

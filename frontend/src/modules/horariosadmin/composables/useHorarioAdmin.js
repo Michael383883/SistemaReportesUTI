@@ -75,7 +75,7 @@ export function useHorarioAdmin() {
             } else {
                 docenteSeleccionado.value = null
                 docentes.value = []
-                error.value = `No se encontraron horariospara el docente en la gestión ${anio} período ${periodo}`
+                error.value = `No se encontraron horarios para el docente en la gestión ${anio} período ${periodo}`
             }
 
         } catch (e) {
@@ -226,6 +226,7 @@ export function useHorarioAdmin() {
                     plan: h.PLAN,
                     nivel: h.NIVEL,
                     compartido: h.COMPARTIDO,
+                    comp: h.COMP,   // ← restaurado: lo usan filasOrdenadas, chMostrada y la columna Comp.
                     tipoIngreso: String(h.TIPO_INGRESO ?? '').trim(),
                     sesiones: [],
                     inscritos: h.TOTAL_NORMAL ?? 0,
