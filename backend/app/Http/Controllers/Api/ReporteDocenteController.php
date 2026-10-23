@@ -314,10 +314,20 @@ class ReporteDocenteController extends Controller
     }
 
 
+    /**
+     * Kardex del docente (versión normal) o de una materia+grupo (modo materia).
+     *
+     * FIX compartidos: ahora lee GRUPOS_COMPARTIDOS (igual que HorarioAdminController
+     * y materiasDictadasCompartidas) y devuelve comp, comparte y orden_comparte.
+     * - compartido = 'COMPARTIDO' si COMP = 1 (hija), o por la regla vieja de
+     *   verano/invierno (periodos 3 y 4, grupo que no empieza con 0).
+     * - Se usa OUTER APPLY ... TOP 1 para que si GRUPOS_COMPARTIDOS tiene más de una
+     *   fila por grupo no se dupliquen materias ni se descuadre el ROW_NUMBER.
+     */
     public function materiasDictadas(Request $request)
     {
         $request->validate([
-            'docente' => 'nullable|numeric',          // ← antes era required
+            'docente' => 'nullable|numeric',
             'anio' => 'nullable|numeric',
             'periodo' => 'nullable|string|in:1,2,3,4',
             'anio_hasta' => 'nullable|numeric',
@@ -414,7 +424,7 @@ class ReporteDocenteController extends Controller
         // ── Filtro de docente (solo si NO es modo materia) ──
         $filtroDocente = $modoMateria ? "" : "AND DOCENTES.CODIGO = :docente";
 
-        // ── Modo materia: igual que tu consulta, sin verano/invierno ──
+        // ── Modo materia: sin verano/invierno ──
         $filtroSinVeranoInvierno = $modoMateria ? "AND GRUPOS.PERIODO NOT IN ('3','4')" : "";
 
         $bindings = [];
@@ -512,11 +522,17 @@ class ReporteDocenteController extends Controller
             GRUPOS.MATERIA AS materia_codigo,
 
             CASE
+                WHEN CAST(GC.COMP AS VARCHAR(10)) = '1'
+                THEN 'COMPARTIDO'
                 WHEN GRUPOS.PERIODO IN ('3','4')
                      AND LEFT(LTRIM(RTRIM(GRUPOS.GRUPO)), 1) <> '0'
                 THEN 'COMPARTIDO'
                 ELSE ''
             END AS compartido,
+
+            ISNULL(CAST(GC.COMP AS VARCHAR(10)), '') AS comp,
+            ISNULL(GC.COMPARTIDO, '')                AS comparte,
+            GC.ORDEN                                 AS orden_comparte,
 
             CASE
                 WHEN GRUPOS.PERIODO IN ('3','4')
@@ -557,6 +573,16 @@ class ReporteDocenteController extends Controller
         LEFT JOIN [PLANES]
             ON [PLANES].CODIGO = GRUPOS.[PLAN]
             AND [PLANES].ANIO = GRUPOS.ANIO
+
+        OUTER APPLY (
+            SELECT TOP 1 GC2.COMP, GC2.COMPARTIDO, GC2.ORDEN
+            FROM GRUPOS_COMPARTIDOS AS GC2
+            WHERE GC2.[PLAN]   = GRUPOS.[PLAN]
+              AND GC2.MATERIA  = GRUPOS.MATERIA
+              AND GC2.GRUPO    = GRUPOS.GRUPO
+              AND GC2.PRIMARIO = GRUPOS.PRIMARIO
+            ORDER BY GC2.ORDEN
+        ) AS GC
 
         WHERE GRUPOS.PRIMARIO = 'Y'
           AND GRUPOS.TIPO = 'N'
@@ -619,7 +645,7 @@ class ReporteDocenteController extends Controller
             'materias' => $materias,
         ]);
     }
-
+    
     public function horario(Request $request): JsonResponse
     {
         $anio = 2026;

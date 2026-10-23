@@ -63,11 +63,11 @@ use App\Http\Controllers\Api\DatabaseIndexController;
 
 /*
 |--------------------------------------------------------------------------
-| API PÚBLICA (sin token, con throttle)
+| API PÚBLICA (con token, y seguridad con throttle)
 | Consume SCIA / SCIA-TEST por CI. No expone FECHA_NOMBRAMIENTO.
 |--------------------------------------------------------------------------
 */
-Route::middleware('throttle:60,1')->group(function () {
+Route::middleware(['api.token', 'throttle:60,1'])->group(function () {
     Route::get('/docentes/by-ci/{ci}', [DocentePublicController::class, 'showByCi']);
     Route::get('/docentes/por-materia', [DocentePublicController::class, 'porMateria']);
 });
