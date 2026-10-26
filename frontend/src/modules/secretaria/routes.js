@@ -21,4 +21,9 @@ export const secretariaRoutes = [
         component: DocentesPage,
         meta: { roles: ['secretaria', 'uti'], requiresAuth: true },
     },
+    {
+        path: 'secretaria/kardex',
+        name: 'secretaria-kardex',
+        component: () => import('./views/KardexPage.vue'),
+    },
 ]
