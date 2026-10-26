@@ -137,6 +137,9 @@
       </div>
     </div>
 
+    <!-- Permisos de módulos -->
+    <ModulePermissions class="mt-8" />
+
     <!-- Modales -->
     <UserFormModal
       v-model="showForm"
@@ -157,10 +160,11 @@
 import { ref, onMounted } from 'vue'
 import { Plus, AlertCircle, X, Pencil, Trash2, Loader2 } from 'lucide-vue-next'
 import { useUsersStore } from '../store/usersStore'
-import { getRoleLabel, getRoleBadgeClass } from '@/shared/utils/helpers'
+import { getRoleLabel } from '@/shared/utils/helpers'
 import { useNotify } from '@/shared/composables/useNotify'
 import UserFormModal      from '../components/UserFormModal.vue'
 import DeleteConfirmModal from '../components/DeleteConfirmModal.vue'
+import ModulePermissions  from '../components/ModulePermissions.vue'
 
 const usersStore   = useUsersStore()
 const notify       = useNotify()
@@ -198,22 +202,19 @@ async function handleDelete() {
     deletingUser.value = null
   } catch { notify.error('Error al eliminar el usuario') }
 }
+
 const getRoleClass = (role) => {
   switch (role) {
     case 'admin':
-      return 'bg-red-100 text-red-800 border-red-200';
-
+      return 'bg-red-100 text-red-800 border-red-200'
     case 'secretaria':
-      return 'bg-blue-100 text-blue-800 border-blue-200';
-
+      return 'bg-blue-100 text-blue-800 border-blue-200'
     case 'secretaria_talleres':
-      return 'bg-violet-100 text-violet-800 border-violet-200';
-
+      return 'bg-violet-100 text-violet-800 border-violet-200'
     case 'uti':
-      return 'bg-emerald-100 text-emerald-800 border-emerald-200';
-
+      return 'bg-emerald-100 text-emerald-800 border-emerald-200'
     default:
-      return 'bg-slate-100 text-slate-700 border-slate-200';
+      return 'bg-slate-100 text-slate-700 border-slate-200'
   }
-};
+}
 </script>

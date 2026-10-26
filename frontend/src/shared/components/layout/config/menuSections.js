@@ -88,6 +88,7 @@ export const menuSections = [
             { to: '/secretaria/dashboard', label: 'Dashboard', icon: LayoutDashboard },
             { to: '/secretaria/estudiantes', label: 'Estudiantes', icon: GraduationCap },
             { to: '/secretaria/docentes', label: 'Docentes', icon: BookOpen },
+            { to: '/secretaria/kardex', label: 'Kardex', icon: FileText },
         ],
     },
 
