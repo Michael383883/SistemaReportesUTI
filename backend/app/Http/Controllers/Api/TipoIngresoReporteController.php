@@ -11,8 +11,16 @@ use Illuminate\Support\Facades\Log;
 /**
  * Reporte "Tipo de ingreso".
  *
- * Docente "activo" = al menos un grupo TIPO='N' en ese ANIO + PERIODO.
- * Una fila por docente + plan + materia + grupo + tipo de ingreso.
+ * El reporte junta DOS fuentes, para que nunca quede vacío si existe información:
+ *
+ *  A) GRUPOS (TIPO='N') del año + periodo  -> origen = 'GRUPO'
+ *     Docente "activo" = tiene al menos un grupo TIPO='N' en ese ANIO + PERIODO.
+ *     Categoría efectiva = GRUPOS.TIPO_INGRESO; si está vacío, la CATEGORIA del
+ *     documento vinculado a esa materia/grupo.
+ *
+ *  B) Documentos (CLASIFICACION_DOCUMENTO) de esa gestión + periodo que tienen
+ *     materia asignada pero NO coinciden con ningún grupo de A -> origen = 'DOCUMENTO'
+ *     (así el documento se ve aunque GRUPOS no tenga el tipo de ingreso cargado).
  *
  * Compatible con SQL Server 2008 (sin TRY_CAST, sin FORMAT, sin CONCAT).
  */
@@ -28,8 +36,8 @@ class TipoIngresoReporteController extends Controller
     private const CATEGORIA_DEFECTO = 'ACÉFALA';
 
     // GRUPOS.TIPO_INGRESO usa SQL_Latin1_General y el resto Modern_Spanish:
-    // se fuerza una collation explícita en TODAS las comparaciones de texto.
-    private const COLL_AI = 'COLLATE Modern_Spanish_CI_AI'; // sin mayúsculas ni tildes
+    // se fuerza una collation explícita en TODAS las comparaciones y columnas del UNION.
+    private const COLL_AI = 'COLLATE Modern_Spanish_CI_AI';
 
     /** Texto limpio: sin espacios laterales y en mayúsculas. */
     private function t(string $col, int $len = 50): string
@@ -38,16 +46,15 @@ class TipoIngresoReporteController extends Controller
     }
 
     /**
-     * Grupo normalizado: '01', '1', ' 1 ' => '1'.
+     * Grupo normalizado: '01', '1', ' 1 ' => '1'. Vacío/NULL => ''.
      * Si no es numérico queda como texto en mayúsculas.
-     * (Sin TRY_CAST: se valida con LIKE antes de castear.)
      */
     private function grupo(string $col): string
     {
         $x = $this->t($col, 20);
-        return "(CASE WHEN LEN({$x}) BETWEEN 1 AND 9 AND {$x} NOT LIKE '%[^0-9]%'
+        return "COALESCE((CASE WHEN LEN({$x}) BETWEEN 1 AND 9 AND {$x} NOT LIKE '%[^0-9]%'
                       THEN CAST(CAST({$x} AS INT) AS VARCHAR(20))
-                      ELSE {$x} END)";
+                      ELSE {$x} END), '')";
     }
 
     /** Equivalencias del periodo para comparar con CLASIFICACION_DOCUMENTO.PERIODO */
@@ -63,17 +70,20 @@ class TipoIngresoReporteController extends Controller
 
     /**
      * GET /api/reportes/tipo-ingreso/categorias
+     * Categorías de los documentos (CLASIFICACION_DOCUMENTO) + la categoría por defecto.
      */
     public function categorias()
     {
         try {
-            $usadas = DB::table('CLASIFICACION_DOCUMENTO')
+            $docs = DB::table('CLASIFICACION_DOCUMENTO')
                 ->whereNotNull('CATEGORIA')
                 ->where('CATEGORIA', '<>', '')
                 ->distinct()
                 ->pluck('CATEGORIA');
 
-            $lista = $usadas
+            // Solo categorías oficiales: las de los documentos + la categoría por defecto.
+            // Los valores sueltos de GRUPOS.TIPO_INGRESO NO crean categorías nuevas.
+            $lista = $docs
                 ->push(self::CATEGORIA_DEFECTO)
                 ->map(fn($n) => trim((string) $n))
                 ->filter()
@@ -92,7 +102,7 @@ class TipoIngresoReporteController extends Controller
      * GET /api/reportes/tipo-ingreso?anio=2026&periodo=1&categorias[]=ACÉFALA&categorias[]=__SIN__
      *
      * categorias vacío => todas
-     * incluye __SIN__  => también grupos sin tipo de ingreso
+     * incluye __SIN__  => también filas sin tipo de ingreso
      */
     public function index(Request $request)
     {
@@ -123,11 +133,22 @@ class TipoIngresoReporteController extends Controller
         // ── Parámetros en el MISMO orden en que aparecen los ? en el SQL ──
         $params = [];
 
-        // 1) Filtro de GRUPOS: año + periodo
+        // 0) CTE cats_validas: categoría por defecto
+        $params[] = self::CATEGORIA_DEFECTO;
+
+        // 1) CTE grupos_norm: año + periodo
         $params[] = $anio;
         $params[] = mb_strtoupper($periodo);
 
-        // 2) Filtro de categorías
+        // 2) CTE docs: gestión + equivalencias de periodo
+        $params[] = (string) $anio;
+        $equiv = $this->equivalenciasPeriodo($periodo);
+        $phPeriodoDoc = implode(', ', array_fill(0, count($equiv), '?'));
+        foreach ($equiv as $e) {
+            $params[] = $e;
+        }
+
+        // 3) Filtro final de categoría (sobre la categoría efectiva)
         $filtroCategoria = '';
         if ($cats->isNotEmpty()) {
             $incluirSin = $cats->contains(self::SIN_CATEGORIA);
@@ -136,27 +157,37 @@ class TipoIngresoReporteController extends Controller
             $partes = [];
             if ($reales->isNotEmpty()) {
                 $ph = $reales->map(fn() => "UPPER(LTRIM(RTRIM(CAST(? AS VARCHAR(60))))) {$ai}")->implode(', ');
-                $partes[] = "x.TIPO_INGRESO {$ai} IN ({$ph})";
+                $partes[] = "r.categoria_efectiva {$ai} IN ({$ph})";
                 foreach ($reales as $r) {
                     $params[] = $r;
                 }
             }
             if ($incluirSin) {
-                $partes[] = "x.TIPO_INGRESO = ''";
+                $partes[] = "r.categoria_efectiva = ''";
             }
             $filtroCategoria = 'WHERE (' . implode(' OR ', $partes) . ')';
         }
 
-        // 3) Equivalencias de periodo para el documento
-        $equiv = $this->equivalenciasPeriodo($periodo);
-        $phPeriodoDoc = implode(', ', array_fill(0, count($equiv), '?'));
-        foreach ($equiv as $e) {
-            $params[] = $e;
-        }
+        // Fragmentos reutilizados
+        $nombreMateria = fn(string $plan, string $mat) => "
+            OUTER APPLY (
+                SELECT TOP 1 m.[{$mN}] AS nombre
+                FROM [{$tbl}] m
+                WHERE " . $this->t("m.[{$mP}]") . " {$ai} = {$plan} {$ai}
+                  AND " . $this->t("m.[{$mC}]") . " {$ai} = {$mat}  {$ai}
+            ) mat";
 
         $sql = "
-            WITH grupos_norm AS (
-                -- GRUPOS ya limpio (sin NULLs en TIPO_INGRESO)
+            WITH cats_validas AS (
+                -- Únicas categorías oficiales: las de los documentos + la categoría por defecto
+                SELECT UPPER(LTRIM(RTRIM(CAST(? AS VARCHAR(60))))) {$ai} AS cat
+                UNION
+                SELECT UPPER(LTRIM(RTRIM(CAST(c.CATEGORIA AS VARCHAR(60))))) {$ai}
+                FROM CLASIFICACION_DOCUMENTO c
+                WHERE c.CATEGORIA IS NOT NULL
+                  AND LTRIM(RTRIM(c.CATEGORIA)) <> ''
+            ),
+            grupos_norm AS (
                 SELECT
                     g.DOCENTE,
                     LTRIM(RTRIM(g.[PLAN]))      AS plan_,
@@ -180,69 +211,120 @@ class TipoIngresoReporteController extends Controller
                     MAX(x.resolucion) AS resolucion,
                     MAX(x.detalle)    AS detalle
                 FROM grupos_norm x
-                {$filtroCategoria}
                 GROUP BY x.DOCENTE, x.plan_, x.materia_, x.grupo_, x.anio_,
                          x.periodo_, x.TIPO_INGRESO
-            )
-            SELECT
-                b.DOCENTE                           AS cod_docente,
-                d.APELLIDOS                         AS apellidos,
-                d.NOMBRES                           AS nombres,
-                b.plan_                             AS [plan],
-                b.materia_                          AS materia_codigo,
-                COALESCE(mat.nombre, b.materia_)    AS materia,
-                b.grupo_                            AS grp,
-                NULLIF(b.TIPO_INGRESO, '')          AS categoria,
-                b.resolucion,
-                b.detalle,
-                doc.ID_DOCUMENTO                    AS id,
-                CASE WHEN doc.ID_DOCUMENTO IS NOT NULL
-                      AND doc.RUTA_ARCHIVO IS NOT NULL
-                      AND LTRIM(RTRIM(doc.RUTA_ARCHIVO)) <> ''
-                     THEN 1 ELSE 0 END              AS tiene_archivo
-            FROM base b
-            JOIN DOCENTES d
-                ON d.CODIGO = b.DOCENTE
-
-            -- Nombre de materia (TOP 1: evita duplicar filas si el catálogo repite)
-            OUTER APPLY (
-                SELECT TOP 1 m.[{$mN}] AS nombre
-                FROM [{$tbl}] m
-                WHERE " . $this->t("m.[{$mP}]") . " {$ai} = UPPER(b.plan_)     {$ai}
-                  AND " . $this->t("m.[{$mC}]") . " {$ai} = UPPER(b.materia_)  {$ai}
-            ) mat
-
-            -- Un único documento por grupo.
-            -- Prioridad: con archivo > categoría coincide > grupo exacto > más reciente
-            OUTER APPLY (
-                SELECT TOP 1 cdoc.ID_DOCUMENTO, cdoc.RUTA_ARCHIVO
+            ),
+            docs AS (
+                -- Documentos con materia asignada, de la gestión + periodo pedidos
+                SELECT
+                    ccd.COD_DOCENTE                                  AS docente,
+                    " . $this->t('cm.COD_PLAN', 10) . "              AS plan_,
+                    " . $this->t('cm.COD_MATERIA', 10) . "           AS materia_,
+                    " . $this->grupo('cm.[GRUPO]') . "               AS grupo_norm,
+                    cdoc.ID_DOCUMENTO,
+                    cdoc.RUTA_ARCHIVO,
+                    " . $this->t('cdoc.CATEGORIA', 50) . "           AS CATEGORIA
                 FROM CLASIFICACION_MATERIA cm
                 JOIN CLASIFICACION_DOCENTE ccd
                     ON ccd.ID_CLASIFICACION_DOCENTE = cm.ID_CLASIFICACION_DOCENTE
                 JOIN CLASIFICACION_DOCUMENTO cdoc
                     ON cdoc.ID_DOCUMENTO = ccd.ID_DOCUMENTO
-                WHERE " . $this->t('cm.COD_PLAN', 10) . "    {$ai} = UPPER(b.plan_)    {$ai}
-                  AND " . $this->t('cm.COD_MATERIA', 10) . " {$ai} = UPPER(b.materia_) {$ai}
-                  AND ccd.COD_DOCENTE = b.DOCENTE
-                  AND " . $this->t('cdoc.GESTION', 10) . "   {$ai} = CAST(b.anio_ AS VARCHAR(10)) {$ai}
-                  AND " . $this->t('cdoc.PERIODO', 30) . "   {$ai} IN ({$phPeriodoDoc})
-                  -- mismo grupo (01 = 1) o materia asignada sin grupo específico
-                  AND (
-                        " . $this->grupo('cm.[GRUPO]') . " {$ai} = " . $this->grupo('b.grupo_') . " {$ai}
-                     OR cm.[GRUPO] IS NULL
-                     OR LTRIM(RTRIM(cm.[GRUPO])) = ''
-                  )
-                ORDER BY
-                    CASE WHEN cdoc.RUTA_ARCHIVO IS NULL
-                           OR LTRIM(RTRIM(cdoc.RUTA_ARCHIVO)) = '' THEN 1 ELSE 0 END,
-                    CASE WHEN " . $this->t('cdoc.CATEGORIA', 50) . " {$ai} = b.TIPO_INGRESO {$ai}
-                         THEN 0 ELSE 1 END,
-                    CASE WHEN cm.[GRUPO] IS NULL OR LTRIM(RTRIM(cm.[GRUPO])) = ''
-                         THEN 1 ELSE 0 END,
-                    cdoc.ID_DOCUMENTO DESC
-            ) doc
+                WHERE " . $this->t('cdoc.GESTION', 10) . " {$ai} = CAST(? AS VARCHAR(10)) {$ai}
+                  AND " . $this->t('cdoc.PERIODO', 30) . " {$ai} IN ({$phPeriodoDoc})
+            )
+            SELECT
+                r.cod_docente, r.apellidos, r.nombres, r.[plan],
+                r.materia_codigo, r.materia, r.grp,
+                NULLIF(r.categoria_efectiva, '') AS categoria,
+                r.resolucion, r.detalle, r.id, r.tiene_archivo, r.origen
+            FROM (
+                -- ═══ A) Grupos del periodo ═══
+                SELECT
+                    (LTRIM(RTRIM(CAST(b.DOCENTE AS VARCHAR(30)))) {$ai})        AS cod_docente,
+                    (d.APELLIDOS {$ai})                                         AS apellidos,
+                    (d.NOMBRES {$ai})                                           AS nombres,
+                    (b.plan_ {$ai})                                             AS [plan],
+                    (b.materia_ {$ai})                                          AS materia_codigo,
+                    (COALESCE(mat.nombre {$ai}, b.materia_ {$ai}))              AS materia,
+                    (b.grupo_ {$ai})                                            AS grp,
+                    (UPPER(LTRIM(RTRIM(COALESCE(
+                        -- tipo del grupo SOLO si es una categoría oficial; valores sueltos se ignoran
+                        CASE WHEN b.TIPO_INGRESO {$ai} IN (SELECT cv.cat FROM cats_validas cv)
+                             THEN b.TIPO_INGRESO {$ai} END,
+                        doc.CATEGORIA {$ai},
+                        ''
+                    )))) {$ai})                                                 AS categoria_efectiva,
+                    (b.resolucion {$ai})                                        AS resolucion,
+                    (b.detalle {$ai})                                           AS detalle,
+                    doc.ID_DOCUMENTO                                            AS id,
+                    CASE WHEN doc.ID_DOCUMENTO IS NOT NULL
+                          AND doc.RUTA_ARCHIVO IS NOT NULL
+                          AND LTRIM(RTRIM(doc.RUTA_ARCHIVO)) <> ''
+                         THEN 1 ELSE 0 END                                      AS tiene_archivo,
+                    ('GRUPO' {$ai})                                             AS origen
+                FROM base b
+                JOIN DOCENTES d
+                    ON d.CODIGO = b.DOCENTE
+                " . $nombreMateria('UPPER(b.plan_)', 'UPPER(b.materia_)') . "
 
-            ORDER BY d.APELLIDOS, d.NOMBRES, b.plan_, b.materia_, b.grupo_
+                -- Un único documento por grupo.
+                -- Prioridad: con archivo > categoría coincide > grupo exacto > más reciente
+                OUTER APPLY (
+                    SELECT TOP 1 dd.ID_DOCUMENTO, dd.RUTA_ARCHIVO, dd.CATEGORIA
+                    FROM docs dd
+                    WHERE dd.docente = b.DOCENTE
+                      AND dd.plan_ {$ai}    = UPPER(b.plan_)    {$ai}
+                      AND dd.materia_ {$ai} = UPPER(b.materia_) {$ai}
+                      AND (
+                            dd.grupo_norm {$ai} = " . $this->grupo('b.grupo_') . " {$ai}
+                         OR dd.grupo_norm = ''
+                      )
+                    ORDER BY
+                        CASE WHEN dd.RUTA_ARCHIVO IS NULL
+                               OR LTRIM(RTRIM(dd.RUTA_ARCHIVO)) = '' THEN 1 ELSE 0 END,
+                        CASE WHEN dd.CATEGORIA {$ai} = b.TIPO_INGRESO {$ai}
+                             THEN 0 ELSE 1 END,
+                        CASE WHEN dd.grupo_norm = '' THEN 1 ELSE 0 END,
+                        dd.ID_DOCUMENTO DESC
+                ) doc
+
+                UNION ALL
+
+                -- ═══ B) Documentos del periodo que no coinciden con ningún grupo ═══
+                SELECT
+                    (LTRIM(RTRIM(CAST(dd.docente AS VARCHAR(30)))) {$ai})       AS cod_docente,
+                    (d.APELLIDOS {$ai})                                         AS apellidos,
+                    (d.NOMBRES {$ai})                                           AS nombres,
+                    (dd.plan_ {$ai})                                            AS [plan],
+                    (dd.materia_ {$ai})                                         AS materia_codigo,
+                    (COALESCE(mat.nombre {$ai}, dd.materia_ {$ai}))             AS materia,
+                    (dd.grupo_norm {$ai})                                       AS grp,
+                    (UPPER(LTRIM(RTRIM(COALESCE(dd.CATEGORIA {$ai}, '')))) {$ai}) AS categoria_efectiva,
+                    (CAST(NULL AS NVARCHAR(500)) {$ai})                         AS resolucion,
+                    (CAST(NULL AS NVARCHAR(500)) {$ai})                         AS detalle,
+                    dd.ID_DOCUMENTO                                             AS id,
+                    CASE WHEN dd.RUTA_ARCHIVO IS NOT NULL
+                          AND LTRIM(RTRIM(dd.RUTA_ARCHIVO)) <> ''
+                         THEN 1 ELSE 0 END                                      AS tiene_archivo,
+                    ('DOCUMENTO' {$ai})                                         AS origen
+                FROM docs dd
+                JOIN DOCENTES d
+                    ON d.CODIGO = dd.docente
+                " . $nombreMateria('dd.plan_', 'dd.materia_') . "
+                WHERE NOT EXISTS (
+                    SELECT 1
+                    FROM base b2
+                    WHERE b2.DOCENTE = dd.docente
+                      AND UPPER(b2.plan_)    {$ai} = dd.plan_    {$ai}
+                      AND UPPER(b2.materia_) {$ai} = dd.materia_ {$ai}
+                      AND (
+                            dd.grupo_norm = ''
+                         OR " . $this->grupo('b2.grupo_') . " {$ai} = dd.grupo_norm {$ai}
+                      )
+                )
+            ) r
+            {$filtroCategoria}
+            ORDER BY r.apellidos, r.nombres, r.[plan], r.materia_codigo, r.grp
         ";
 
         try {

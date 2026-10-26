@@ -12,7 +12,6 @@ class ClasificacionDocenteController extends Controller
 {
     // GRUPOS.TIPO_INGRESO es varchar(30): la categoría no puede pasar de 30.
     private const MAX_CATEGORIA = 30;
-
     // GET /clasificaciones
     //
     // Filtros multi-selección (categoria[] y tipo_titulo[]):
@@ -35,6 +34,8 @@ class ClasificacionDocenteController extends Controller
                 'cdoc.CATEGORIA',
                 'cdoc.NIVEL',
                 'cdoc.TIPO_DOCUMENTO',
+                'cdoc.DETALLE_GENERAL',   // ← NUEVA
+                'cdoc.OBSERVACION',       // ← NUEVA (la usa el filtro "Observación")
                 'cdoc.GESTION',
                 'cdoc.PERIODO',
                 'cdoc.FOTOCOPIA_TITULAR',

@@ -61,6 +61,11 @@ use App\Http\Controllers\Api\CategoriaClasificacionController;
 // Índices de base de datos
 use App\Http\Controllers\Api\DatabaseIndexController;
 
+// Kardex secretaría y permisos por módulo
+use App\Http\Controllers\Api\KardexSecretariaController;
+use App\Http\Controllers\Api\ModulePermissionController;
+use App\Http\Middleware\CheckModulePermission;
+
 /*
 |--------------------------------------------------------------------------
 | API PÚBLICA (con token, y seguridad con throttle)
@@ -120,6 +125,12 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/kpis', [DashboardAdminController::class, 'kpis']);
         Route::post('/refresh', [DashboardAdminController::class, 'refreshKpis']);
     });
+
+    /* ----------------------------------------------------------------
+     | PERMISOS POR MÓDULO (admin)
+     * ---------------------------------------------------------------- */
+    Route::get('/admin/module-permissions', [ModulePermissionController::class, 'index']);
+    Route::put('/admin/module-permissions', [ModulePermissionController::class, 'update']);
 
     /* ----------------------------------------------------------------
      | PERIODOS ACADÉMICOS
@@ -219,6 +230,20 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/docentes/{codigo}/horario', [SecretariaController::class, 'getHorarioDocente']);
         Route::get('/dashboard/kpis', [SecretariaController::class, 'getDashboardKPIs']);
     });
+
+    /* ----------------------------------------------------------------
+     | KARDEX SECRETARÍA
+     | - /estado: accesible para cualquier usuario autenticado
+     | - resto: requiere permiso del módulo "kardex"
+     * ---------------------------------------------------------------- */
+    Route::get('/kardex-secretaria/estado', [KardexSecretariaController::class, 'estado']);
+
+    Route::middleware(CheckModulePermission::class . ':kardex')
+        ->prefix('kardex-secretaria')
+        ->group(function () {
+            Route::get('/docentes', [KardexSecretariaController::class, 'docentes']);
+            Route::get('/docentes/{codigo}/reporte', [KardexSecretariaController::class, 'reporte']);
+        });
 
     /* ----------------------------------------------------------------
      | TALLERES Y ESTUDIANTES
