@@ -24,23 +24,19 @@
     <!-- ── Tabla de materias ──────────────────────────────── -->
     <table class="w-full text-sm table-fixed">
       <colgroup>
-        <col class="w-[40%]" />
-        <col class="w-[9%]" />
-        <col class="w-[8%]" />
-        <col class="w-[8%]" />
-        <col class="w-[12%]" />
-        <col class="w-[12%]" />
-        <col class="w-[11%]" />
+        <col v-for="c in colsVisibles" :key="c.id" :style="{ width: c.pct + '%' }" />
       </colgroup>
       <thead>
         <tr class="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
           <th class="text-left font-medium text-slate-800 dark:text-slate-400 text-xs px-4 py-2">Materia</th>
+          <th v-if="showComp" class="text-left font-medium text-slate-800 dark:text-slate-400 text-xs px-2 py-2">Comparte</th>
           <th class="text-center font-medium text-slate-800 dark:text-slate-400 text-xs px-2 py-2">Tipo</th>
           <th class="text-left font-medium text-slate-800 dark:text-slate-400 text-xs px-2 py-2">Plan</th>
-          <th class="text-center font-medium text-slate-800 dark:text-slate-400 text-xs px-2 py-2" title="Compartido (0 / 1). Si el número es clicable, tiene descripción.">C</th>
+          <th class="text-center font-medium text-slate-800 dark:text-slate-400 text-xs px-2 py-2" title="Compartido (0 / 1). Si el número es clicable, haz clic para ver el detalle en la columna Comparte.">C</th>
           <th class="text-right font-medium text-slate-800 dark:text-slate-400 text-xs px-2 py-2">Regular</th>
           <th class="text-right font-medium text-slate-800 dark:text-slate-400 text-xs px-2 py-2">Mesa</th>
           <th class="text-right font-medium text-slate-800 dark:text-slate-400 text-xs px-4 py-2">Total</th>
+          <th v-if="showTotalC" class="text-right font-medium text-slate-800 dark:text-slate-400 text-xs px-4 py-2" title="Suma de padre + hijo en materias compartidas">Total C</th>
         </tr>
       </thead>
       <tbody>
@@ -77,19 +73,38 @@
                   <p class="font-medium text-slate-700 dark:text-slate-200 truncate leading-tight text-[13px]">
                     {{ item.materia.cod_materia }} - {{ item.materia.nom_materia }} - GRP {{ item.materia.grupo }}
                   </p>
-                  <p
-                    v-if="item.comparte?.length"
-                    class="text-[11px] leading-tight mt-0.5 truncate text-indigo-600 dark:text-indigo-300"
-                    :title="'Comparte con: ' + textoComparte(item.comparte)"
-                  >
-                    Comparte con: {{ textoComparte(item.comparte) }}
-                  </p>
                 </div>
               </div>
             </td>
 
+            <!-- Comparte: la columna existe solo si el docente tiene materias compartidas -->
+            <td v-if="showComp" class="px-2 py-2.5 align-middle">
+              <div v-if="tieneDetalleComp(item)" class="flex flex-col gap-0.5">
+                <div
+                  v-for="r in (item.comparte ?? [])"
+                  :key="r.carrera + '-' + r.cod_materia + '-' + r.grupo"
+                  class="flex items-center gap-1.5 min-w-0"
+                  :title="(item.materia.descripcion_comp ? item.materia.descripcion_comp + ' · ' : '') + r.cod_materia + ' - ' + r.nom_materia + ' - GRP ' + r.grupo"
+                >
+                  <span
+                    class="text-[10px] font-semibold px-1.5 py-0.5 rounded shrink-0"
+                    :class="colorClasses[r.carrera.toLowerCase()]?.badge ?? 'bg-slate-100 text-slate-600'"
+                  >{{ r.carrera }}</span>
+                  <span class="min-w-0 truncate text-[11px] text-slate-600 dark:text-slate-300 leading-tight">
+                    {{ r.cod_materia }} - {{ r.nom_materia }} - GRP {{ r.grupo }}
+                  </span>
+                </div>
+                <span
+                  v-if="!item.comparte?.length && item.materia.descripcion_comp"
+                  class="truncate text-[11px] text-slate-600 dark:text-slate-300"
+                  :title="item.materia.descripcion_comp"
+                >{{ item.materia.descripcion_comp }}</span>
+              </div>
+              <span v-else class="text-slate-300 dark:text-slate-600">—</span>
+            </td>
+
             <!-- Tipo (de ingreso, viene de GRUPOS.TIPO_INGRESO) -->
-            <td class="text-center px-2 py-2.5">
+            <td class="text-center px-2 py-2.5 align-top">
               <span
                 v-if="norm(item.materia.tipo_ingreso)"
                 class="inline-block max-w-full truncate px-1.5 py-0.5 text-[10px] font-semibold rounded bg-amber-50 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-700 whitespace-nowrap"
@@ -100,7 +115,7 @@
               <span v-else class="text-slate-300 dark:text-slate-600">—</span>
             </td>
 
-            <td class="px-2 py-2.5">
+            <td class="px-2 py-2.5 align-top">
               <span
                 class="text-[11px] font-semibold px-2 py-0.5 rounded-md"
                 :class="colorClasses[item.carrera.carrera.toLowerCase()]?.badge ?? 'bg-slate-100 text-slate-600'"
@@ -110,21 +125,8 @@
             </td>
 
             <!-- Columna C -->
-            <td class="text-center px-2 py-2.5">
-              <button
-                v-if="tieneDetalleComp(item)"
-                type="button"
-                class="text-[11px] font-bold px-2.5 py-0.5 rounded-md transition-colors cursor-pointer outline-none"
-                :class="item.materia.comp
-                  ? 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-200 dark:hover:bg-indigo-900/70'
-                  : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-600'"
-                title="Ver detalle del compartido"
-                @click.stop="abrirComp(item)"
-              >
-                {{ item.materia.comp ? 1 : 0 }}
-              </button>
+            <td class="text-center px-2 py-2.5 align-top">
               <span
-                v-else
                 class="text-[11px] font-semibold"
                 :class="item.materia.comp ? 'text-indigo-600 dark:text-indigo-300' : 'text-slate-300 dark:text-slate-600'"
               >
@@ -132,20 +134,30 @@
               </span>
             </td>
 
-            <td class="text-right px-2 py-2.5 tabular-nums text-slate-700 dark:text-slate-200">
+            <td class="text-right px-2 py-2.5 tabular-nums text-slate-700 dark:text-slate-200 align-top">
               {{ item.materia.subtotal }}
             </td>
-            <td class="text-right px-2 py-2.5 tabular-nums text-slate-500 dark:text-slate-400">
+            <td class="text-right px-2 py-2.5 tabular-nums text-slate-500 dark:text-slate-400 align-top">
               {{ item.materia.subtotal_examen_mesa || 0 }}
             </td>
-            <td class="text-right px-4 py-2.5 tabular-nums font-semibold text-slate-800 dark:text-slate-100">
+            <td class="text-right px-4 py-2.5 tabular-nums font-semibold text-slate-800 dark:text-slate-100 align-top">
               {{ item.materia.subtotal + (item.materia.subtotal_examen_mesa || 0) }}
+            </td>
+            <td
+              v-if="showTotalC && item.mostrarTotalC"
+              :rowspan="item.enCluster ? rowspanC(item) : 1"
+              class="text-right px-4 py-2.5 tabular-nums font-bold"
+              :class="item.enCluster
+                ? 'align-middle bg-slate-50 dark:bg-slate-800/60 border-l border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100'
+                : 'align-top text-slate-800 dark:text-slate-100'"
+            >
+              {{ item.totalC }}
             </td>
           </tr>
 
           <!-- Fila expandida: acciones PDF/Excel + lista de estudiantes -->
           <tr v-if="abiertos.has(item.key)" class="border-b border-slate-200 dark:border-slate-700">
-            <td colspan="7" class="p-0 bg-slate-100 dark:bg-slate-800">
+            <td :colspan="colspanExpandida(item)" class="p-0 bg-slate-100 dark:bg-slate-800">
 
               <div class="px-4 pl-10 py-2 max-h-72 overflow-y-auto">
 
@@ -263,7 +275,7 @@
       <!-- ── Fila de totales ────────────────────────────────── -->
       <tfoot>
         <tr class="bg-slate-100 dark:bg-slate-950 border-t-2 border-slate-200 dark:border-slate-700">
-          <td class="px-4 py-2.5 font-semibold text-slate-700 dark:text-slate-200 text-xs" colspan="4">Total</td>
+          <td class="px-4 py-2.5 font-semibold text-slate-700 dark:text-slate-200 text-xs" :colspan="showComp ? 5 : 4">Total</td>
           <td class="text-right px-2 py-2.5 font-semibold tabular-nums text-slate-700 dark:text-slate-200">
             {{ docente.total_inscritos }}
           </td>
@@ -273,93 +285,18 @@
           <td class="text-right px-4 py-2.5 font-bold tabular-nums text-slate-900 dark:text-white">
             {{ docente.total_inscritos + (docente.total_examen_mesa || 0) }}
           </td>
+          <td v-if="showTotalC" class="text-right px-4 py-2.5 font-bold tabular-nums text-slate-900 dark:text-white">
+            {{ totalCGlobal }}
+          </td>
         </tr>
       </tfoot>
     </table>
-
-    <!-- ── Modal: detalle del compartido ────────────────────── -->
-    <Teleport to="body">
-      <Transition
-        enter-active-class="transition-opacity duration-150 ease-out"
-        enter-from-class="opacity-0"
-        enter-to-class="opacity-100"
-        leave-active-class="transition-opacity duration-100 ease-in"
-        leave-from-class="opacity-100"
-        leave-to-class="opacity-0"
-      >
-        <div
-          v-if="compSeleccionado"
-          class="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4"
-          @click.self="cerrarComp"
-        >
-          <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl w-full max-w-sm p-5">
-            <div class="flex items-center justify-between mb-3">
-              <h3 class="text-sm font-semibold text-slate-800 dark:text-slate-100">
-                Compartido: {{ compSeleccionado.materia.comp ? 1 : 0 }}
-                <span v-if="compSeleccionado.rol" class="font-normal text-slate-500 dark:text-slate-400">
-                  · {{ compSeleccionado.rol === 'padre' ? 'Padre' : 'Hijo' }}
-                </span>
-              </h3>
-              <button
-                type="button"
-                class="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 cursor-pointer outline-none"
-                aria-label="Cerrar"
-                @click="cerrarComp"
-              >✕</button>
-            </div>
-
-            <p class="text-xs text-slate-500 dark:text-slate-400 mb-2">
-              {{ compSeleccionado.materia.cod_materia }} - {{ compSeleccionado.materia.nom_materia }}
-              · GRP {{ compSeleccionado.materia.grupo }}
-              · {{ compSeleccionado.carrera.carrera }}
-            </p>
-
-            <p
-              v-if="compSeleccionado.materia.descripcion_comp"
-              class="text-sm text-slate-700 dark:text-slate-200 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-lg px-3 py-2"
-            >
-              {{ compSeleccionado.materia.descripcion_comp }}
-            </p>
-            <p
-              v-else-if="!compSeleccionado.comparte?.length"
-              class="text-sm text-slate-400 dark:text-slate-500 italic"
-            >Sin descripción.</p>
-
-            <div v-if="compSeleccionado.comparte?.length" class="mt-3">
-              <p class="text-[0.65rem] font-semibold tracking-widest uppercase text-slate-400 mb-1.5">
-                Comparte con
-              </p>
-              <ul class="flex flex-col gap-2">
-                <li
-                  v-for="r in compSeleccionado.comparte"
-                  :key="r.carrera + '-' + r.cod_materia + '-' + r.grupo"
-                  class="flex items-start gap-2"
-                >
-                  <span
-                    class="text-[11px] font-semibold px-2 py-0.5 rounded-md shrink-0"
-                    :class="colorClasses[r.carrera.toLowerCase()]?.badge ?? 'bg-slate-100 text-slate-600'"
-                  >{{ r.carrera }}</span>
-                  <div class="min-w-0">
-                    <p class="text-sm font-medium text-slate-700 dark:text-slate-200 leading-tight">
-                      {{ r.cod_materia }} - {{ r.nom_materia }}
-                    </p>
-                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                      GRP {{ r.grupo }} · {{ r.rol === 'padre' ? 'Padre' : 'Hijo' }}<template v-if="r.inscritos != null"> · Ins: {{ r.inscritos }}</template>
-                    </p>
-                  </div>
-                </li>
-              </ul>
-            </div>
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
 
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed } from 'vue'
 import { useReporteInscritosLista } from '../composables/useReporteInscritosLista'
 import { useExcelReportes } from '../composables/useExcelReportes'
 import { mostrarLoaderPdf } from '../utils/pdfLoader'
@@ -378,22 +315,45 @@ const { generandoExcel, exportarExcelLista } = useExcelReportes()
 
 const abiertos = ref(new Set())
 
-// ─── Modal del compartido ────────────────────────────────────────────────
-const compSeleccionado = ref(null)
+// La columna "Comparte" aparece directamente si el docente tiene materias compartidas
+const showComp = computed(() => materiasFlat.value.some((i) => tieneDetalleComp(i)))
 
-function abrirComp(item) {
-  compSeleccionado.value = item
+// "Total C" solo aparece si el docente tiene materias padre/hijo
+const showTotalC = computed(() => materiasFlat.value.some((i) => i.enCluster))
+
+// Total C general: cada grupo padre+hijo cuenta una sola vez; el resto, su total normal
+const totalCGlobal = computed(() =>
+  materiasFlat.value.reduce((s, i) => s + (i.mostrarTotalC ? i.totalC : 0), 0)
+)
+
+// Filas que ocupa la celda unida: cada miembro del grupo + su fila expandida si está abierta
+function rowspanC(item) {
+  return (item.miembros ?? []).reduce((s, k) => s + 1 + (abiertos.value.has(k) ? 1 : 0), 0)
 }
 
-function cerrarComp() {
-  compSeleccionado.value = null
+// La fila expandida de un miembro del grupo deja libre la columna Total C unida
+function colspanExpandida(item) {
+  return showTotalC.value && item.enCluster ? nCols.value - 1 : nCols.value
 }
 
-function onKeydown(e) {
-  if (e.key === 'Escape' && compSeleccionado.value) cerrarComp()
-}
-onMounted(() => document.addEventListener('keydown', onKeydown))
-onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
+// Columnas visibles con su ancho (normalizado a 100%)
+const colsVisibles = computed(() => {
+  const todas = [
+    { id: 'materia',  peso: 34, on: true },
+    { id: 'comparte', peso: 24, on: showComp.value },
+    { id: 'tipo',     peso: 8,  on: true },
+    { id: 'plan',     peso: 7,  on: true },
+    { id: 'c',        peso: 5,  on: true },
+    { id: 'regular',  peso: 8,  on: true },
+    { id: 'mesa',     peso: 7,  on: true },
+    { id: 'total',    peso: 8,  on: true },
+    { id: 'totalc',   peso: 8,  on: showTotalC.value },
+  ].filter((c) => c.on)
+  const suma = todas.reduce((s, c) => s + c.peso, 0)
+  return todas.map((c) => ({ id: c.id, pct: (c.peso / suma) * 100 }))
+})
+
+const nCols = computed(() => colsVisibles.value.length)
 
 function materiaKey(carrera, materia) {
   return `${carrera.plan}-${materia.cod_materia}-${materia.grupo}`
@@ -494,16 +454,25 @@ const materiasFlat = computed(() => {
     if (padre) vincular(padre, i)
   })
 
+  const totalMateria = (x) => (x.materia.subtotal ?? 0) + (x.materia.subtotal_examen_mesa || 0)
+
   const salida = []
   base.forEach((i) => {
     if (hijoDe.has(i.key)) return
 
     const cl = clusters.get(i.key)
     if (cl) {
+      // Total C = padre + todos sus hijos (regular + mesa)
+      const totalC = totalMateria(i) + cl.hijos.reduce((s, h) => s + totalMateria(h), 0)
+      const miembros = [i.key, ...cl.hijos.map((h) => h.key)]
       salida.push({
         ...i,
         anidado: false,
         rol: 'padre',
+        enCluster: true,
+        mostrarTotalC: true,
+        miembros,
+        totalC,
         comparte: cl.hijos.map((h) => infoRelacion(h, 'hijo')),
       })
       cl.hijos.forEach((h) => {
@@ -511,6 +480,9 @@ const materiasFlat = computed(() => {
           ...h,
           anidado: true,
           rol: 'hijo',
+          enCluster: true,
+          mostrarTotalC: false,
+          totalC,
           comparte: [infoRelacion(i, 'padre')],
         })
       })
@@ -519,21 +491,15 @@ const materiasFlat = computed(() => {
         ...i,
         anidado: false,
         rol: i.materia.rol_comp ?? null,
+        enCluster: false,
+        mostrarTotalC: true,
+        totalC: totalMateria(i),
         comparte: i.materia.comparte_con ?? [],
       })
     }
   })
   return salida
 })
-
-function textoComparte(lista) {
-  return (lista ?? [])
-    .map((r) => {
-      const ins = r.inscritos != null ? ` · Ins: ${r.inscritos}` : ''
-      return `${r.carrera} · ${r.cod_materia} - ${r.nom_materia} (GRP ${r.grupo})${ins}`
-    })
-    .join('  |  ')
-}
 
 function tieneDetalleComp(item) {
   return !!item.materia.descripcion_comp || !!item.comparte?.length

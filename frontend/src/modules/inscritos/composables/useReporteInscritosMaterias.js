@@ -1,9 +1,11 @@
 // composables/useReporteInscritosMaterias.js
 // PDF de TOTAL DE INSCRITOS POR DOCENTE / MATERIA
-// Columnas: PLAN | MATERIA | TIPO | GRP | C | REGULAR | MESA | TOTAL
+// Columnas: PLAN | MATERIA | TIPO | GRP | C | REGULAR | MESA | TOTAL | TOTAL C
 // Mismo estilo académico que el PDF de Carga Horaria (una sola tabla,
 // docente en línea simple, negrilla solo en cabecera y totales).
 // Usa los datos ya cargados en pantalla (dataFiltrada), sin fetch.
+//
+// TOTAL C = suma del grupo padre + sus hijos compartidos (celda combinada).
 
 import { ref } from 'vue'
 import { jsPDF } from 'jspdf'
@@ -160,6 +162,8 @@ function abreviarTipo(texto) {
 // ────────────────────────────────────────────────────────────────────────────
 // Orden padre / hijo (misma lógica que DocenteInscritosCard.vue):
 // el padre queda arriba y sus hijos justo debajo.
+// Cada elemento devuelto trae `cid`: id del grupo (padre + hijos) para
+// poder calcular y combinar la columna TOTAL C.
 // ────────────────────────────────────────────────────────────────────────────
 function ordenarMaterias(docente) {
     const base = docente.carreras.flatMap(carrera =>
@@ -221,18 +225,41 @@ function ordenarMaterias(docente) {
     })
 
     const salida = []
+    let cid = 0
     base.forEach(i => {
         if (hijoDe.has(i.key)) return
-        salida.push(i)
+        salida.push({ ...i, cid })
         const cl = clusters.get(i.key)
-        if (cl) cl.hijos.forEach(h => salida.push(h))
+        if (cl) cl.hijos.forEach(h => salida.push({ ...h, cid }))
+        cid++
     })
     return salida
 }
 
+// Agrupa las materias ya ordenadas por `cid` y calcula el TOTAL C de cada grupo
+// (regular + mesa de todas las materias del grupo).
+function agruparPorCluster(materiasOrdenadas) {
+    const grupos = []
+    materiasOrdenadas.forEach(item => {
+        const ultimo = grupos[grupos.length - 1]
+        if (ultimo && ultimo.cid === item.cid) {
+            ultimo.items.push(item)
+        } else {
+            grupos.push({ cid: item.cid, items: [item], totalC: 0 })
+        }
+    })
+    grupos.forEach(g => {
+        g.totalC = g.items.reduce(
+            (s, { materia: m }) => s + (m.subtotal ?? 0) + (m.subtotal_examen_mesa ?? 0),
+            0
+        )
+    })
+    return grupos
+}
+
 // ────────────────────────────────────────────────────────────────────────────
 // TOTAL DE INSCRITOS POR MATERIA
-// Columnas (índices): 0 PLAN | 1 MATERIA | 2 TIPO | 3 GRP | 4 C | 5 REGULAR | 6 MESA | 7 TOTAL
+// Columnas (índices): 0 PLAN | 1 MATERIA | 2 TIPO | 3 GRP | 4 C | 5 REGULAR | 6 MESA | 7 TOTAL | 8 TOTAL C
 // ────────────────────────────────────────────────────────────────────────────
 function generarTotalesPorMateria(data, anio, periodo, modo = 'descargar', ventanaPreabierta = null, opciones = {}) {
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' })
@@ -241,7 +268,6 @@ function generarTotalesPorMateria(data, anio, periodo, modo = 'descargar', venta
     const MR = 8
     const CW = PAGE_W - ML - MR
     const HEADER_H = 24
-    const NCOLS = 8
     const fechaActual = fechaFormateada()
     const TITULO = opciones.titulo ?? 'TOTAL DE INSCRITOS POR MATERIA'
     const NOTA = 'Incluye alumnos regulares y de examen de mesa.'
@@ -271,25 +297,38 @@ function generarTotalesPorMateria(data, anio, periodo, modo = 'descargar', venta
             },
             {
                 content: totalesPlan,
-                colSpan: 3,
+                colSpan: 4,
                 styles: { ...estiloDoc, fontSize: 8, halign: 'right' },
             },
         ])
 
-        // ── Materias ────────────────────────────────────────────────────
-        ordenarMaterias(docente).forEach(({ carrera, materia: m }) => {
-            const regular = m.subtotal ?? 0
-            const mesa = m.subtotal_examen_mesa ?? 0
-            body.push([
-                carrera.carrera,
-                `${m.cod_materia} ${m.nom_materia}`,
-                abreviarTipo(m.tipo_ingreso) || '—',
-                String(m.grupo ?? ''),
-                m.comp ? '1' : '0',
-                numTxt(regular),
-                numTxt(mesa),
-                numTxt(regular + mesa),
-            ])
+        // ── Materias (agrupadas: padre + hijos comparten TOTAL C) ───────
+        const clusters = agruparPorCluster(ordenarMaterias(docente))
+        clusters.forEach(cl => {
+            cl.items.forEach(({ carrera, materia: m }, idx) => {
+                const regular = m.subtotal ?? 0
+                const mesa = m.subtotal_examen_mesa ?? 0
+                const fila = [
+                    carrera.carrera,
+                    `${m.cod_materia} ${m.nom_materia}`,
+                    abreviarTipo(m.tipo_ingreso) || '—',
+                    String(m.grupo ?? ''),
+                    m.comp ? '1' : '0',
+                    numTxt(regular),
+                    numTxt(mesa),
+                    numTxt(regular + mesa),
+                ]
+                // La celda TOTAL C solo se agrega en la primera fila del grupo
+                // y abarca todas las filas del mismo (rowSpan).
+                if (idx === 0) {
+                    fila.push({
+                        content: numTxt(cl.totalC),
+                        rowSpan: cl.items.length,
+                        styles: { fontStyle: 'bold', halign: 'center', valign: 'middle' },
+                    })
+                }
+                body.push(fila)
+            })
         })
 
         // ── Total del docente ───────────────────────────────────────────
@@ -306,6 +345,7 @@ function generarTotalesPorMateria(data, anio, periodo, modo = 'descargar', venta
             { content: numTxt(totReg), styles: num },
             { content: numTxt(totMesa), styles: num },
             { content: numTxt(totReg + totMesa), styles: num },
+            { content: numTxt(totReg + totMesa), styles: num },
         ])
     })
 
@@ -320,6 +360,7 @@ function generarTotalesPorMateria(data, anio, periodo, modo = 'descargar', venta
         { content: numTxt(granRegular), styles: { ...baseG, halign: 'center' } },
         { content: numTxt(granMesa), styles: { ...baseG, halign: 'center' } },
         { content: numTxt(granRegular + granMesa), styles: { ...baseG, halign: 'center' } },
+        { content: numTxt(granRegular + granMesa), styles: { ...baseG, halign: 'center' } },
     ])
 
     drawPageHeader(doc, hdr)
@@ -328,7 +369,7 @@ function generarTotalesPorMateria(data, anio, periodo, modo = 'descargar', venta
         startY: HEADER_H,
         margin: { left: ML, right: MR, top: HEADER_H, bottom: 12 },
         tableWidth: CW,
-        head: [['PLAN', 'MATERIA', 'TIPO', 'GRP', 'C', 'REGULAR', 'MESA', 'TOTAL']],
+        head: [['PLAN', 'MATERIA', 'TIPO', 'GRP', 'C', 'REGULAR', 'MESA', 'TOTAL', 'TOTAL C']],
         body,
         alternateRowStyles: { fillColor: C_WHITE },
         styles: {
@@ -349,9 +390,10 @@ function generarTotalesPorMateria(data, anio, periodo, modo = 'descargar', venta
             2: { cellWidth: 16, halign: 'center' },
             3: { cellWidth: 12, halign: 'center' },
             4: { cellWidth: 8, halign: 'center' },
-            5: { cellWidth: 18, halign: 'center' },
-            6: { cellWidth: 18, halign: 'center' },
-            7: { cellWidth: 18, halign: 'center' },
+            5: { cellWidth: 16, halign: 'center' },
+            6: { cellWidth: 14, halign: 'center' },
+            7: { cellWidth: 14, halign: 'center' },
+            8: { cellWidth: 16, halign: 'center' },
         },
         didParseCell(cell) {
             if (cell.section === 'head') {
@@ -360,9 +402,10 @@ function generarTotalesPorMateria(data, anio, periodo, modo = 'descargar', venta
             }
             if (cell.section !== 'body') return
 
-            // Solo filas de datos (todas las celdas son texto simple)
+            // Solo filas de datos: la primera celda es texto simple
+            // (docente / total / total general empiezan con objeto).
             const raw = cell.row.raw
-            const esDato = Array.isArray(raw) && raw.length === NCOLS && typeof raw[0] === 'string'
+            const esDato = Array.isArray(raw) && typeof raw[0] === 'string'
             if (!esDato) return
 
             const col = cell.column.index
@@ -422,6 +465,7 @@ async function generarExcelTotalesPorMateria(data, anio, periodo, opciones = {})
         { width: 11 },  // F REGULAR
         { width: 11 },  // G MESA
         { width: 11 },  // H TOTAL
+        { width: 11 },  // I TOTAL C
     ]
 
     const GRIS_LINEA = 'FF8C8C8C'
@@ -430,16 +474,16 @@ async function generarExcelTotalesPorMateria(data, anio, periodo, opciones = {})
     const lineaFina = { style: 'thin', color: { argb: GRIS_LINEA } }
 
     // ── Encabezado institucional ────────────────────────────────────────
-    ws.mergeCells('A1:H1')
+    ws.mergeCells('A1:I1')
     ws.getCell('A1').value = 'UNIVERSIDAD MAYOR DE SAN SIMÓN - FACULTAD DE CIENCIAS ECONÓMICAS'
     ws.getCell('A1').font = { name: FONT, size: 8, bold: true }
 
-    ws.mergeCells('A2:H2')
+    ws.mergeCells('A2:I2')
     ws.getCell('A2').value = opciones.titulo ?? 'TOTAL DE INSCRITOS POR MATERIA'
     ws.getCell('A2').font = { name: FONT, size: 14, bold: true }
     ws.getCell('A2').alignment = { horizontal: 'center' }
 
-    ws.mergeCells('A3:H3')
+    ws.mergeCells('A3:I3')
     ws.getCell('A3').value = `Gestión Académica ${periodo}/${anio}`
     ws.getCell('A3').font = { name: FONT, size: 10, bold: true }
     ws.getCell('A3').alignment = { horizontal: 'center' }
@@ -447,14 +491,14 @@ async function generarExcelTotalesPorMateria(data, anio, periodo, opciones = {})
     ws.mergeCells('A4:E4')
     ws.getCell('A4').value = 'Incluye alumnos regulares y de examen de mesa.'
     ws.getCell('A4').font = { name: FONT, size: 8 }
-    ws.mergeCells('F4:H4')
+    ws.mergeCells('F4:I4')
     ws.getCell('F4').value = fechaFormateada()
     ws.getCell('F4').font = { name: FONT, size: 8 }
     ws.getCell('F4').alignment = { horizontal: 'right' }
 
     // ── Cabecera de columnas ────────────────────────────────────────────
     const head = ws.getRow(HEAD_ROW)
-    head.values = ['PLAN', 'MATERIA', 'TIPO', 'GRP', 'C', 'REGULAR', 'MESA', 'TOTAL']
+    head.values = ['PLAN', 'MATERIA', 'TIPO', 'GRP', 'C', 'REGULAR', 'MESA', 'TOTAL', 'TOTAL C']
     head.eachCell((cell, col) => {
         cell.font = { name: FONT, size: 9, bold: true }
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF0F0F0' } }
@@ -472,36 +516,52 @@ async function generarExcelTotalesPorMateria(data, anio, periodo, opciones = {})
         const rDoc = ws.addRow([])
         const nDoc = rDoc.number
         ws.mergeCells(nDoc, 1, nDoc, 5)
-        ws.mergeCells(nDoc, 6, nDoc, 8)
+        ws.mergeCells(nDoc, 6, nDoc, 9)
         rDoc.getCell(1).value = `${docente.cod_docente}  ${(docente.apellidos ?? '').toUpperCase()} ${(docente.nombres ?? '').toUpperCase()}`
         rDoc.getCell(1).font = { name: FONT, size: 10 }
         rDoc.getCell(6).value = docente.carreras.map(c => `${c.carrera} ${c.subtotal ?? 0}`).join('     ')
         rDoc.getCell(6).font = { name: FONT, size: 10 }
         rDoc.getCell(6).alignment = { horizontal: 'right' }
 
-        // Materias (padre arriba, hijos debajo)
-        ordenarMaterias(docente).forEach(({ carrera, materia: m }) => {
-            const regular = m.subtotal ?? 0
-            const mesa = m.subtotal_examen_mesa ?? 0
-            const r = ws.addRow([
-                carrera.carrera,
-                `${m.cod_materia} ${m.nom_materia}`,
-                abreviarTipo(m.tipo_ingreso) || '—',
-                m.grupo ?? '',
-                m.comp ? 1 : 0,
-                regular,
-                mesa,
-                regular + mesa,
-            ])
-            r.eachCell({ includeEmpty: true }, (cell, col) => {
-                if (col > 8) return
-                cell.font = { name: FONT, size: 9 }
-                cell.alignment = { horizontal: col <= 2 ? 'left' : 'center', vertical: 'middle' }
-                if (col >= 3) cell.border = { bottom: lineaFina }
-                if (col >= 5 && col <= 7 && cell.value === 0) {
-                    cell.font = { name: FONT, size: 9, color: { argb: GRIS_CERO } }
-                }
+        // Materias (padre arriba, hijos debajo) con TOTAL C combinado por grupo
+        const clusters = agruparPorCluster(ordenarMaterias(docente))
+        clusters.forEach(cl => {
+            let filaInicio = null
+
+            cl.items.forEach(({ carrera, materia: m }, idx) => {
+                const regular = m.subtotal ?? 0
+                const mesa = m.subtotal_examen_mesa ?? 0
+                const r = ws.addRow([
+                    carrera.carrera,
+                    `${m.cod_materia} ${m.nom_materia}`,
+                    abreviarTipo(m.tipo_ingreso) || '—',
+                    m.grupo ?? '',
+                    m.comp ? 1 : 0,
+                    regular,
+                    mesa,
+                    regular + mesa,
+                    idx === 0 ? cl.totalC : null,
+                ])
+                if (idx === 0) filaInicio = r.number
+
+                r.eachCell({ includeEmpty: true }, (cell, col) => {
+                    if (col > 9) return
+                    cell.font = { name: FONT, size: 9 }
+                    cell.alignment = { horizontal: col <= 2 ? 'left' : 'center', vertical: 'middle' }
+                    if (col >= 3) cell.border = { bottom: lineaFina }
+                    if (col >= 5 && col <= 7 && cell.value === 0) {
+                        cell.font = { name: FONT, size: 9, color: { argb: GRIS_CERO } }
+                    }
+                })
             })
+
+            // Combina la celda TOTAL C (col. I) a lo largo del grupo
+            const filaFin = filaInicio + cl.items.length - 1
+            if (cl.items.length > 1) ws.mergeCells(filaInicio, 9, filaFin, 9)
+            const celdaTC = ws.getCell(filaInicio, 9)
+            celdaTC.font = { name: FONT, size: 9, bold: true }
+            celdaTC.alignment = { horizontal: 'center', vertical: 'middle' }
+            celdaTC.border = { bottom: lineaFina }
         })
 
         // Total del docente
@@ -518,7 +578,8 @@ async function generarExcelTotalesPorMateria(data, anio, periodo, opciones = {})
         rTot.getCell(6).value = totReg
         rTot.getCell(7).value = totMesa
         rTot.getCell(8).value = totReg + totMesa
-        for (let col = 2; col <= 8; col++) {
+        rTot.getCell(9).value = totReg + totMesa
+        for (let col = 2; col <= 9; col++) {
             const cell = rTot.getCell(col)
             cell.font = { name: FONT, size: 9, bold: true }
             if (col >= 6) cell.alignment = { horizontal: 'center' }
@@ -535,7 +596,8 @@ async function generarExcelTotalesPorMateria(data, anio, periodo, opciones = {})
     rG.getCell(6).value = granRegular
     rG.getCell(7).value = granMesa
     rG.getCell(8).value = granRegular + granMesa
-    for (let col = 1; col <= 8; col++) {
+    rG.getCell(9).value = granRegular + granMesa
+    for (let col = 1; col <= 9; col++) {
         const cell = rG.getCell(col)
         cell.font = { name: FONT, size: 10, bold: true }
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF0F0F0' } }

@@ -13,7 +13,7 @@
         <span class="text-[13px] font-bold text-white">Filtros</span>
       </div>
 
-      <div class="p-4 grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div class="p-4 grid grid-cols-1 md:grid-cols-4 gap-4" @keydown.enter="onEnter">
         <div>
           <label class="text-[12px] font-semibold text-gray-700 dark:text-slate-300">Gestión (año) *</label>
           <input v-model.number="filtros.anio" type="number"
@@ -111,6 +111,11 @@
           <span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-blue-50 text-blue-800 border border-blue-300 dark:bg-blue-500/15 dark:text-blue-300 dark:border-blue-500/40">
             {{ totalDocentes }} docente{{ totalDocentes === 1 ? '' : 's' }}
           </span>
+          <span v-if="totalSoloDocumento"
+            class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-300 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/40"
+            title="Filas que vienen del documento y no tienen un grupo cargado en el periodo">
+            {{ totalSoloDocumento }} solo por documento
+          </span>
         </div>
 
         <div class="relative w-full sm:w-72">
@@ -137,7 +142,7 @@
             </thead>
             <tbody>
               <tr v-for="(row, i) in datosFiltrados"
-                :key="`${row.cod_docente}-${row.plan}-${row.materia_codigo}-${row.grp}-${row.categoria}-${i}`"
+                :key="`${row.cod_docente}-${row.plan}-${row.materia_codigo}-${row.grp}-${row.categoria}-${row.id ?? 'x'}-${i}`"
                 class="border-t border-gray-200 dark:border-slate-700 text-gray-800 dark:text-slate-200 align-top transition-colors hover:bg-sky-100/70 dark:hover:bg-sky-500/10"
                 :class="i % 2 === 1 ? 'bg-sky-50 dark:bg-slate-700/40' : 'bg-white dark:bg-slate-800'">
                 <td class="px-3 py-2">{{ i + 1 }}</td>
@@ -155,10 +160,15 @@
                   <span class="text-gray-500 dark:text-slate-400">{{ row.materia_codigo }}</span>
                   {{ row.materia }}
                 </td>
-                <td class="px-3 py-2 text-center">{{ row.grp }}</td>
+                <td class="px-3 py-2 text-center">{{ row.grp || '—' }}</td>
                 <td class="px-3 py-2">
                   <span class="inline-block px-2 py-0.5 rounded-full border border-indigo-200 bg-indigo-50 text-indigo-800 dark:bg-indigo-500/15 dark:border-indigo-500/40 dark:text-indigo-300 text-[11px] font-bold uppercase">
                     {{ row.categoria || 'Sin categoría' }}
+                  </span>
+                  <span v-if="row.origen === 'DOCUMENTO'"
+                    class="ml-1 inline-block px-2 py-0.5 rounded-full border border-amber-300 bg-amber-50 text-amber-800 dark:bg-amber-500/15 dark:border-amber-500/40 dark:text-amber-300 text-[10px] font-bold"
+                    title="Este dato viene del documento; el grupo no tiene tipo de ingreso cargado en el periodo">
+                    Solo documento
                   </span>
                   <p v-if="row.resolucion || row.detalle" class="mt-1 text-gray-500 dark:text-slate-400">
                     <span v-if="row.resolucion" class="font-semibold">{{ row.resolucion }}</span>
@@ -187,9 +197,15 @@
       </div>
     </div>
 
-    <div v-else-if="buscoAlMenosUnaVez && !loading"
+    <div v-else-if="buscoAlMenosUnaVez && !loading && !error"
       class="text-center py-10 text-[13px] text-gray-800 dark:text-slate-300">
-      No se encontraron docentes activos con ese tipo de ingreso en el periodo.
+      <p>No se encontraron docentes con ese tipo de ingreso en {{ filtros.anio }} - {{ nombrePeriodo }}.</p>
+      <p v-if="filtros.categorias.length" class="mt-2 text-gray-500 dark:text-slate-400">
+        Prueba con otro tipo de ingreso o pulsa
+        <button type="button" class="text-blue-700 dark:text-blue-300 font-semibold hover:underline" @click="verTodas">
+          Ver todas las categorías
+        </button>.
+      </p>
     </div>
 
     <!-- ═════ Menú de acciones del docente (abre en pestaña nueva) ═════ -->
@@ -307,6 +323,12 @@ function cerrarAlClickFuera(e) {
   if (dropRef.value && !dropRef.value.contains(e.target)) abierto.value = false
 }
 
+// Atajo del mensaje "sin resultados": quita el filtro de categoría y vuelve a buscar
+function verTodas() {
+  filtros.categorias = []
+  onBuscar()
+}
+
 // ── Menú de acciones por docente (solo inscritos y horario) ─────────────────
 const docenteMenu = ref(null)
 
@@ -351,6 +373,16 @@ function irA(destino) {
   docenteMenu.value = null
 }
 
+// ── Enter en los filtros = "Generar lista" ──
+// Funciona al escribir el año, al elegir el periodo o al marcar tipos de ingreso.
+// Si el foco está en un botón (p. ej. el desplegable), Enter conserva su acción normal.
+function onEnter(e) {
+  if (e.target?.tagName === 'BUTTON') return
+  e.preventDefault()
+  if (loading.value || !filtros.anio || !filtros.periodo) return
+  onBuscar()
+}
+
 // ── Buscar ──
 async function onBuscar() {
   abierto.value = false
@@ -374,6 +406,10 @@ const datosFiltrados = computed(() => {
 })
 
 const totalDocentes = computed(() => new Set(datosFiltrados.value.map((r) => r.cod_docente)).size)
+
+const totalSoloDocumento = computed(
+  () => datosFiltrados.value.filter((r) => r.origen === 'DOCUMENTO').length,
+)
 
 const resumenCategorias = computed(() => {
   const mapa = new Map()
@@ -417,7 +453,7 @@ function onPdf(action) {
     ocultarCompartido: true,
     tituloPersonalizado: 'REPORTE DE TIPO DE INGRESO DE DOCENTES',
     descripcionPersonalizada:
-      'Docentes activos en el periodo seleccionado, con su materia y la categoría de ingreso registrada en el SISS.',
+      'Docentes en el periodo seleccionado, con su materia y la categoría de ingreso registrada en el SISS.',
     sujetoPersonalizado: `PERIODO : ${gestion}   ·   TIPO DE INGRESO : ${etiquetaCat}`,
     nombreArchivo: `reporte_tipo_ingreso_${filtros.anio}-${filtros.periodo}.pdf`,
   })
@@ -428,7 +464,7 @@ function onExcel() {
   const encabezados = [
     'Nº', 'Código', 'Apellidos', 'Nombres',
     'Código materia', 'Materia', 'Grp',
-    'Tipo de ingreso', 'Resolución', 'Detalle', 'Documento',
+    'Tipo de ingreso', 'Resolución', 'Detalle', 'Documento', 'Origen',
   ]
 
   const filas = datosFiltrados.value.map((r, i) => [
@@ -443,6 +479,7 @@ function onExcel() {
     r.resolucion || '',
     r.detalle || '',
     r.tiene_archivo && r.id ? 'Con PDF' : 'Sin PDF',
+    r.origen === 'DOCUMENTO' ? 'Solo documento' : 'Grupo',
   ])
 
   exportarReporteTitulos({
@@ -452,7 +489,7 @@ function onExcel() {
     periodo: filtros.periodo,
     encabezados,
     filas,
-    columnasCentradas: [0, 1, 4, 6, 10],
+    columnasCentradas: [0, 1, 4, 6, 10, 11],
   })
 }
 
