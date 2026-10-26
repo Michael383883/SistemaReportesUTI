@@ -85,36 +85,66 @@ const PLACEHOLDER_SIN_MATERIA = 'NO REGENTA MATERIA EN LA FCE'
 const MARCAS_GRUPO = ['N', 'NOMBRE_DOCENTE', 'INICIO_GRUPO', 'FILAS_GRUPO', 'FIN_GRUPO', 'INICIO_MATERIA', 'FILAS_MATERIA']
 
 // ─── Acéfala + compartido ───
-// Si la categoría es ACEFALA y en alguna de estas columnas aparece
-// "compartido", la fila se considera "acéfala compartida".
+// Una materia es "compartida" SOLO si en la carga horaria real la columna
+// COMP. es mayor a 0 (campo `compartida` o `comp` de cada materia que
+// devuelve /api/reportes/carga-horaria-docentes).
+//
+// Una fila del reporte es "acéfala compartida" si:
+//   - su categoría es ACEFALA, y
+//   - esa materia (para ese docente) tiene COMP > 0.
+//
 // Según el botón "Compartido":
-//   - desactivado (por defecto): esa fila se excluye del reporte.
-//   - activado: esa fila se muestra tal cual, con CH = '-'.
-// Si la palabra vive en otra columna, agrégala a CAMPOS_COMPARTIDO.
-const CAMPOS_COMPARTIDO = ['COMPARTIDO', 'OBS2', 'OBS3', 'FOTOCOPIA_TITULAR', 'DETALLE']
+//   - desactivado (por defecto): esas filas se excluyen del reporte.
+//   - activado: esas filas se muestran, con CH = '-'.
+// Las demás materias acéfalas (COMP = 0) se muestran SIEMPRE con normalidad.
 
 const textoPlano = (s) => String(s ?? '')
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     .toUpperCase()
 
-function esAcefalaCompartida(fila) {
-    if (!textoPlano(fila.CATEGORIA).includes('ACEFALA')) return false
-    return CAMPOS_COMPARTIDO.some(campo => textoPlano(fila[campo]).includes('COMPARTID'))
+const esMateriaCompartida = (mat) => Number(mat?.compartida ?? mat?.comp ?? 0) > 0
+
+// Construye: cod_docente -> Map(materiaNormalizada -> true), solo con compartidas
+function construirMapaCompartidas(carga) {
+    const mapa = new Map()
+    for (const d of carga || []) {
+        // materia -> true solo si TODOS sus grupos son compartidos
+        const porMateria = new Map()
+        for (const mat of (d.materias || [])) {
+            const key = normalizarNombreMateria(mat.nom_materia)
+            if (!key) continue
+            const comp = esMateriaCompartida(mat)
+            porMateria.set(key, porMateria.has(key) ? (porMateria.get(key) && comp) : comp)
+        }
+        const m = new Map()
+        porMateria.forEach((esComp, key) => { if (esComp) m.set(key, true) })
+        if (m.size) mapa.set(String(d.codigo), m)
+    }
+    return mapa
 }
 
-// Si mostrar === false: quita las filas ACEFALA + compartido y recalcula
+function esAcefalaCompartida(fila, mapaCompartidas) {
+    if (!textoPlano(fila.CATEGORIA).includes('ACEFALA')) return false
+    const m = mapaCompartidas?.get(String(fila.COD_DOCENTE))
+    if (!m) return false
+    return !!buscarClaveMateria(normalizarNombreMateria(fila.NOMBRE_MATERIA), m)
+}
+
+// Si mostrar === false: quita las filas ACEFALA + compartida y recalcula
 // las marcas de grupo (Nº, rowspan del docente, etc.). Si un docente se
 // queda sin filas, desaparece.
 // Si mostrar === true: las deja, con CH = '-' y la marca COMPARTIDA: true.
-function procesarCompartidas(filas, mostrar = false) {
+function procesarCompartidas(filas, mostrar = false, mapaCompartidas = new Map()) {
+    const esComp = (f) => esAcefalaCompartida(f, mapaCompartidas)
+
     if (mostrar) {
         const resultado = filas.map(f =>
-            esAcefalaCompartida(f) ? { ...f, CH: '-', COMPARTIDA: true } : { ...f }
+            esComp(f) ? { ...f, CH: '-', COMPARTIDA: true } : { ...f }
         )
         return { filas: resultado, ocultas: 0 }
     }
 
-    const ocultas = filas.filter(esAcefalaCompartida).length
+    const ocultas = filas.filter(esComp).length
     if (!ocultas) return { filas, ocultas: 0 }
 
     // 1) separar en bloques por docente
@@ -131,7 +161,7 @@ function procesarCompartidas(filas, mostrar = false) {
     const resultado = []
     let numero = 0
     for (const bloque of bloques) {
-        const restantes = bloque.filter(f => !esAcefalaCompartida(f))
+        const restantes = bloque.filter(f => !esComp(f))
         if (!restantes.length) continue
 
         const perdioFilas = restantes.length !== bloque.length
@@ -189,7 +219,7 @@ export function useReporteExcel() {
     const versionEtiqueta = ref('')
     const totalFilas = ref(0)
 
-    // Cantidad de filas ACEFALA + compartido que se ocultaron del preview
+    // Cantidad de filas ACEFALA + compartida que se ocultaron del preview
     const filasOcultasCompartidas = ref(0)
 
     // ── Docentes activos (para el botón "Solo Activos") ──
@@ -204,6 +234,9 @@ export function useReporteExcel() {
     const cargaActivos = ref([])
     // Preview original (sin completar con activos), para poder deshacer
     let previewSinCompletar = null
+
+    // Materias compartidas reales (COMP. > 0): cod_docente -> Map(materia -> true)
+    let compartidasMap = new Map()
 
     // ── Asignar Carga Horaria (experimental) ──
     const cargandoCargaHoraria = ref(false)
@@ -221,21 +254,25 @@ export function useReporteExcel() {
     const mostrarReferencias = ref(false)
 
     // ── Botón "Compartido" (por defecto desactivado) ──
-    // false: se ocultan las filas acéfalas compartidas.
-    // true: se muestran tal cual, con CH = '-'.
+    // false: se ocultan las filas acéfalas compartidas (COMP. > 0).
+    // true: se muestran, con CH = '-'.
     const mostrarCompartidas = ref(false)
     let datosCrudos = null // filas tal cual llegaron del backend
 
     // Aplica el filtro de compartidas sobre los datos crudos
-    function procesarCrudos() {
+    function recalcularBase() {
         if (!datosCrudos) return
-        const { filas, ocultas } = procesarCompartidas(datosCrudos, mostrarCompartidas.value)
+        const { filas, ocultas } = procesarCompartidas(datosCrudos, mostrarCompartidas.value, compartidasMap)
         preview.value = filas
         previewSinCompletar = filas
         filasOcultasCompartidas.value = ocultas
         cargaHorariaAsignada.value = false
         materiasCombinadas.value = false
         previewSinCombinar = null
+    }
+
+    function procesarCrudos() {
+        recalcularBase()
 
         // Si "Solo Activos" sigue encendido, se vuelve a completar
         if (soloActivos.value && cargaActivos.value.length) {
@@ -349,6 +386,7 @@ export function useReporteExcel() {
     // GET /api/reportes/carga-horaria-docentes?anio=X&periodo=Y
     // Trae, por docente, la carga horaria real (CH) de cada materia que dicta
     // en esa gestión/periodo (según HORARIOS2/GRUPOS/MATERIAS).
+    // Cada materia debe traer también `compartida` (columna COMP., 0 o 1).
     async function obtenerCargaHorariaDocentes({ anio, periodo } = {}) {
         cargandoCargaHoraria.value = true
         errorCargaHoraria.value = null
@@ -380,6 +418,8 @@ export function useReporteExcel() {
     // - La CH se asigna a toda fila cuya materia coincide con la carga real
     //   (coincidencia exacta normalizada o, si no hay, la más parecida).
     // - Las filas COMPARTIDA conservan CH = '-' y cuentan como materia cubierta.
+    // - Las materias compartidas (COMP. > 0) que no están en ningún documento
+    //   solo se agregan si "Compartido" está activo (con CH '-').
     function completarConActivos(filasBase) {
         // 1) Agrupar el preview actual por docente (bloques)
         const bloquesPorDocente = new Map()
@@ -395,7 +435,7 @@ export function useReporteExcel() {
             i += n
         }
 
-        // 2) Materias reales por docente: cod -> Map(materiaNormalizada -> {nombre, ch})
+        // 2) Materias reales por docente: cod -> Map(materiaNormalizada -> {nombre, ch, compartida})
         const cargaPorDocente = new Map()
         for (const d of cargaActivos.value) {
             const m = new Map()
@@ -406,6 +446,9 @@ export function useReporteExcel() {
                 m.set(key, {
                     nombre: mat.nom_materia,
                     ch: (prev?.ch || 0) + Number(mat.carga_horaria || 0),
+                    compartida: prev
+                        ? (prev.compartida && esMateriaCompartida(mat))
+                        : esMateriaCompartida(mat),
                 })
             }
             cargaPorDocente.set(String(d.codigo), m)
@@ -457,7 +500,16 @@ export function useReporteExcel() {
 
             // materias que dicta pero no están en ningún documento
             for (const [key, mat] of carga) {
-                if (!cubiertas.has(key)) filas.push(filaSinDocumento(cod, mat.nombre, mat.ch))
+                if (cubiertas.has(key)) continue
+
+                if (mat.compartida) {
+                    // Compartida (COMP. > 0): solo se muestra si el botón está activo
+                    if (!mostrarCompartidas.value) continue
+                    filas.push({ ...filaSinDocumento(cod, mat.nombre, '-'), COMPARTIDA: true })
+                    continue
+                }
+
+                filas.push(filaSinDocumento(cod, mat.nombre, mat.ch))
             }
 
             // activo sin documentos ni materias
@@ -520,6 +572,12 @@ export function useReporteExcel() {
                 anio: anioActivos.value,
                 periodo: periodoActivos.value,
             })
+
+            // Ahora que se conoce la columna COMP. real, se guardan las
+            // materias compartidas y se recalcula la base (oculta/marca
+            // solo las acéfalas con COMP. > 0) antes de completar.
+            compartidasMap = construirMapaCompartidas(cargaActivos.value)
+            recalcularBase()
             aplicarCompletado()
         } catch (e) {
             cargaActivos.value = [] // se activa el filtro, pero sin completar
@@ -985,6 +1043,7 @@ export function useReporteExcel() {
         mostrarReferencias.value = false
         mostrarCompartidas.value = false
         datosCrudos = null
+        compartidasMap = new Map()
         filasOcultasCompartidas.value = 0
     }
 
