@@ -503,7 +503,7 @@ const areaDropdownRef = ref(null)
 // Ajustes de impresión: por defecto se muestran alumnos normales + mesa
 const modoAlumnos = ref('todos')
 // Ajuste de pantalla: la columna "Comparte" está habilitada por defecto
-const mostrarComparte = ref(true)
+const mostrarComparte = ref(false)
 const mostrarMenuConfig = ref(false)
 const configDropdownRef = ref(null)
 
