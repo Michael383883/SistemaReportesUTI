@@ -28,10 +28,10 @@
       </colgroup>
       <thead>
         <tr class="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
-          <th class="text-left font-medium text-slate-800 dark:text-slate-400 text-xs px-4 py-2">Materia</th>
+          <th class="text-left font-medium text-slate-800 dark:text-slate-400 text-xs pl-4 pr-2 py-2">Plan</th>
+          <th class="text-left font-medium text-slate-800 dark:text-slate-400 text-xs px-2 py-2">Materia</th>
           <th v-if="showComp" class="text-left font-medium text-slate-800 dark:text-slate-400 text-xs px-2 py-2">Comparte</th>
           <th class="text-center font-medium text-slate-800 dark:text-slate-400 text-xs px-2 py-2">Tipo</th>
-          <th class="text-left font-medium text-slate-800 dark:text-slate-400 text-xs px-2 py-2">Plan</th>
           <th class="text-center font-medium text-slate-800 dark:text-slate-400 text-xs px-2 py-2" title="Compartido (0 / 1). Si el número es clicable, haz clic para ver el detalle en la columna Comparte.">C</th>
           <th class="text-right font-medium text-slate-800 dark:text-slate-400 text-xs px-2 py-2">Regular</th>
           <th class="text-right font-medium text-slate-800 dark:text-slate-400 text-xs px-2 py-2">Mesa</th>
@@ -55,7 +55,18 @@
             ]"
             @click="toggleMateria(item.key)"
           >
-            <td class="py-2.5 pr-4" :class="item.anidado ? 'pl-9' : 'pl-4'">
+            <!-- Plan (ahora va primero) -->
+            <td class="pl-4 pr-2 py-2.5 align-top">
+              <span
+                class="text-[11px] font-semibold px-2 py-0.5 rounded-md"
+                :class="colorClasses[item.carrera.carrera.toLowerCase()]?.badge ?? 'bg-slate-100 text-slate-600'"
+              >
+                {{ item.carrera.carrera }}
+              </span>
+            </td>
+
+            <!-- Materia -->
+            <td class="py-2.5 pr-4" :class="item.anidado ? 'pl-7' : 'pl-2'">
               <div class="flex items-center gap-1.5 min-w-0">
                 <span
                   v-if="item.anidado"
@@ -77,29 +88,13 @@
               </div>
             </td>
 
-            <!-- Comparte: la columna existe solo si el docente tiene materias compartidas -->
+            <!-- Comparte: solo el texto que viene de la base (descripcion_comp) -->
             <td v-if="showComp" class="px-2 py-2.5 align-middle">
-              <div v-if="tieneDetalleComp(item)" class="flex flex-col gap-0.5">
-                <div
-                  v-for="r in (item.comparte ?? [])"
-                  :key="r.carrera + '-' + r.cod_materia + '-' + r.grupo"
-                  class="flex items-center gap-1.5 min-w-0"
-                  :title="(item.materia.descripcion_comp ? item.materia.descripcion_comp + ' · ' : '') + r.cod_materia + ' - ' + r.nom_materia + ' - GRP ' + r.grupo"
-                >
-                  <span
-                    class="text-[10px] font-semibold px-1.5 py-0.5 rounded shrink-0"
-                    :class="colorClasses[r.carrera.toLowerCase()]?.badge ?? 'bg-slate-100 text-slate-600'"
-                  >{{ r.carrera }}</span>
-                  <span class="min-w-0 truncate text-[11px] text-slate-600 dark:text-slate-300 leading-tight">
-                    {{ r.cod_materia }} - {{ r.nom_materia }} - GRP {{ r.grupo }}
-                  </span>
-                </div>
-                <span
-                  v-if="!item.comparte?.length && item.materia.descripcion_comp"
-                  class="truncate text-[11px] text-slate-600 dark:text-slate-300"
-                  :title="item.materia.descripcion_comp"
-                >{{ item.materia.descripcion_comp }}</span>
-              </div>
+              <span
+                v-if="tieneDetalleComp(item)"
+                class="block truncate text-[11px] text-slate-600 dark:text-slate-300 leading-tight"
+                :title="item.materia.descripcion_comp"
+              >{{ item.materia.descripcion_comp }}</span>
               <span v-else class="text-slate-300 dark:text-slate-600">—</span>
             </td>
 
@@ -113,15 +108,6 @@
                 {{ abreviarTipo(item.materia.tipo_ingreso) }}
               </span>
               <span v-else class="text-slate-300 dark:text-slate-600">—</span>
-            </td>
-
-            <td class="px-2 py-2.5 align-top">
-              <span
-                class="text-[11px] font-semibold px-2 py-0.5 rounded-md"
-                :class="colorClasses[item.carrera.carrera.toLowerCase()]?.badge ?? 'bg-slate-100 text-slate-600'"
-              >
-                {{ item.carrera.carrera }}
-              </span>
             </td>
 
             <!-- Columna C -->
@@ -307,6 +293,8 @@ const props = defineProps({
   periodo: { type: Number, default: null },
   // 'todos' | 'regulares' | 'mesa'
   modo: { type: String, default: 'todos' },
+  // Mostrar u ocultar la columna "Comparte" (viene de Ajustes)
+  mostrarComparte: { type: Boolean, default: true },
 })
 
 const { generandoLista, exportarListaCompleta } = useReporteInscritosLista()
@@ -315,8 +303,11 @@ const { generandoExcel, exportarExcelLista } = useExcelReportes()
 
 const abiertos = ref(new Set())
 
-// La columna "Comparte" aparece directamente si el docente tiene materias compartidas
-const showComp = computed(() => materiasFlat.value.some((i) => tieneDetalleComp(i)))
+// La columna "Comparte" aparece si está habilitada en Ajustes
+// y alguna materia del docente trae descripción desde la base
+const showComp = computed(() =>
+  props.mostrarComparte && materiasFlat.value.some((i) => tieneDetalleComp(i))
+)
 
 // "Total C" solo aparece si el docente tiene materias padre/hijo
 const showTotalC = computed(() => materiasFlat.value.some((i) => i.enCluster))
@@ -339,10 +330,10 @@ function colspanExpandida(item) {
 // Columnas visibles con su ancho (normalizado a 100%)
 const colsVisibles = computed(() => {
   const todas = [
-    { id: 'materia',  peso: 34, on: true },
-    { id: 'comparte', peso: 24, on: showComp.value },
-    { id: 'tipo',     peso: 8,  on: true },
     { id: 'plan',     peso: 7,  on: true },
+    { id: 'materia',  peso: 33, on: true },
+    { id: 'comparte', peso: 22, on: showComp.value },
+    { id: 'tipo',     peso: 8,  on: true },
     { id: 'c',        peso: 5,  on: true },
     { id: 'regular',  peso: 8,  on: true },
     { id: 'mesa',     peso: 7,  on: true },
@@ -501,8 +492,9 @@ const materiasFlat = computed(() => {
   return salida
 })
 
+// Solo se considera el texto que ya viene de la base (descripcion_comp)
 function tieneDetalleComp(item) {
-  return !!item.materia.descripcion_comp || !!item.comparte?.length
+  return !!norm(item.materia.descripcion_comp)
 }
 
 function toggleMateria(key) {

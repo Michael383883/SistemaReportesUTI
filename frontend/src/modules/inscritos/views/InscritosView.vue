@@ -268,7 +268,7 @@
         </div>
       </div>
 
-      <!-- Ajustes de impresión (tipo de alumnos) -->
+      <!-- Ajustes de impresión (tipo de alumnos + columnas) -->
       <div class="flex flex-col" ref="configDropdownRef">
         <label class="text-[0.68rem] invisible">Config</label>
 
@@ -276,7 +276,7 @@
           <button
             type="button"
             @click.stop="mostrarMenuConfig = !mostrarMenuConfig"
-            title="Configuración de alumnos a mostrar / imprimir"
+            title="Ajustes de visualización e impresión"
             class="relative inline-flex items-center justify-center w-[38px] h-[38px] rounded-full
                    bg-slate-800 hover:bg-slate-700 active:bg-slate-900 text-slate-100
                    border border-slate-700 shadow-lg transition-all duration-150"
@@ -286,8 +286,8 @@
               <circle cx="12" cy="12" r="3" />
               <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
             </svg>
-            <!-- punto indicador cuando NO es "todos" -->
-            <span v-if="modoAlumnos !== 'todos'"
+            <!-- punto indicador cuando algún ajuste NO está en su valor por defecto -->
+            <span v-if="modoAlumnos !== 'todos' || !mostrarComparte"
                   class="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-amber-500 ring-2 ring-slate-100" />
           </button>
 
@@ -327,6 +327,27 @@
                   class="w-4 h-4 border-slate-300 text-amber-500 focus:ring-amber-500/40 focus:ring-offset-0 cursor-pointer"
                 />
                 <span class="font-medium leading-tight">{{ m.label }}</span>
+              </label>
+
+              <!-- Columnas visibles en pantalla -->
+              <div class="border-t border-slate-100 mx-4 mt-1"></div>
+
+              <div class="px-4 pt-3 pb-1">
+                <p class="text-[0.65rem] font-semibold tracking-widest uppercase text-slate-400">
+                  Columnas
+                </p>
+              </div>
+
+              <label
+                class="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50
+                       transition-colors cursor-pointer select-none"
+              >
+                <input
+                  type="checkbox"
+                  v-model="mostrarComparte"
+                  class="w-4 h-4 rounded border-slate-300 text-amber-500 focus:ring-amber-500/40 focus:ring-offset-0 cursor-pointer"
+                />
+                <span class="font-medium leading-tight">Mostrar columna Comparte</span>
               </label>
               <div class="h-1.5" />
             </div>
@@ -395,6 +416,7 @@
         :anio="filtros.anio"
         :periodo="filtros.periodo"
         :modo="modoAlumnos"
+        :mostrar-comparte="mostrarComparte"
       />
 
       <div class="text-center text-slate-400 text-xs mt-8 pt-4 border-t border-slate-200">
@@ -480,6 +502,8 @@ const areaDropdownRef = ref(null)
 
 // Ajustes de impresión: por defecto se muestran alumnos normales + mesa
 const modoAlumnos = ref('todos')
+// Ajuste de pantalla: la columna "Comparte" está habilitada por defecto
+const mostrarComparte = ref(true)
 const mostrarMenuConfig = ref(false)
 const configDropdownRef = ref(null)
 
