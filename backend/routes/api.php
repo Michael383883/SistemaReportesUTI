@@ -49,6 +49,9 @@ use App\Http\Controllers\Api\ReferenciaController;
 // Reportes Excel
 use App\Http\Controllers\Api\ReporteExcelController;
 
+// Reporte Prelación por materia
+use App\Http\Controllers\Api\ReportePrelacionMateriaController;
+
 // Reporte Tipo de ingreso (NUEVO)
 use App\Http\Controllers\Api\TipoIngresoReporteController;
 
@@ -322,6 +325,16 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/reportes/docentes-activos', [ReporteExcelController::class, 'obtenerDocentesActivos']);
     Route::get('/reportes/carga-horaria-docentes', [ReporteExcelController::class, 'obtenerCargaHorariaDocentes']);
     Route::post('/reportes/docentes-clasificados/excel-personalizado', [ReporteExcelController::class, 'generarListadoDocentesDesdeDatos']);
+
+    /* ----------------------------------------------------------------
+     | REPORTE PRELACIÓN POR MATERIA
+     | GET /api/reportes/prelacion-materias/preview
+     | GET /api/reportes/prelacion-materias/excel
+     * ---------------------------------------------------------------- */
+    Route::prefix('reportes/prelacion-materias')->group(function () {
+        Route::get('/preview', [ReportePrelacionMateriaController::class, 'previsualizar']);
+        Route::get('/excel', [ReportePrelacionMateriaController::class, 'generarExcelPrelacion']);
+    });
 
     /* ----------------------------------------------------------------
      | REPORTE TIPO DE INGRESO (NUEVO)
