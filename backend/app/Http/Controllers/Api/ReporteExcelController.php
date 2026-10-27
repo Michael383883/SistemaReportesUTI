@@ -369,6 +369,11 @@ class ReporteExcelController extends Controller
                         'OBS2' => $obs2,
                         'OBS3' => $obs3,
                         'NEGRITA' => $primeraFilaClasificacion && $esGeneral,
+                        // ── NUEVO: para el botón "PDF" de la vista previa ──
+                        'ID_DOCUMENTO' => $documento->ID_DOCUMENTO,
+                        'NOMBRE_ARCHIVO' => $documento->NOMBRE_ARCHIVO,
+                        'GESTION' => $documento->GESTION,
+                        'PERIODO' => $documento->PERIODO,
                     ];
 
                     $primeraFilaDocente = false;
@@ -470,20 +475,19 @@ class ReporteExcelController extends Controller
         $sheet->setTitle('Escalafon');
         $sheet->setShowGridlines(false);
 
-        $fechaHoy = now()->format('d/m/Y');
-
         // === ENCABEZADO ===
         $sheet->setCellValue('B1', 'Universidad Mayor de San Simón');
         $sheet->setCellValue('B2', 'Facultad de Ciencias Económicas');
 
-        $sheet->setCellValue('B3', "LISTA DE DOCENTES CLASIFICADOS EN PRIMER NIVEL, SEGUNDO NIVEL Y TERCER NIVEL - {$gestion} ({$version}) {$fechaHoy}");
+        $sheet->setCellValue('B3', 'LISTA DE DOCENTES Y LAS MATERIAS QUE IMPARTEN - PRELACIÓN');
         $sheet->mergeCells('B3:I3');
         $sheet->getStyle('B3')->getFont()->setBold(true)->setSize(14);
         $sheet->getStyle('B3')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
-        $sheet->setCellValue('B4', 'Nota: Este es un documento preliminar el mismo puede ser modificado de acuerdo a la solicitud debidamente documentado con Resolución.');
+        $sheet->setCellValue('B4', 'Nota: Este es un documento preliminar aún no aprobado por la comisión revisora, el mismo puede ser modificado de acuerdo a la solicitud debidamente documentada con Resolución.');
         $sheet->mergeCells('B4:I4');
         $sheet->getStyle('B4')->getAlignment()->setWrapText(true)->setVertical(Alignment::VERTICAL_CENTER);
+        $sheet->getRowDimension(4)->setRowHeight(32);
 
         // === CABECERA DE TABLA (fila 5) ===
         $headers = [
@@ -519,10 +523,15 @@ class ReporteExcelController extends Controller
         $fila = 6;
 
         foreach ($data as $item) {
-            // T. CH solo en la primera fila de cada docente; 0 se deja vacío
-            $totalCh = (!empty($item['INICIO_GRUPO']) && !empty($item['TOTAL_CH']))
-                ? $item['TOTAL_CH']
-                : null;
+            // T. CH solo en la primera fila de cada docente; 0 se deja vacío.
+// Si viene TOTAL_CH_MES (x 4), se agrega debajo: "24" / "Mes 96".
+            $totalCh = null;
+            if (!empty($item['INICIO_GRUPO']) && !empty($item['TOTAL_CH'])) {
+                $totalCh = $item['TOTAL_CH'];
+                if (!empty($item['TOTAL_CH_MES'])) {
+                    $totalCh = $item['TOTAL_CH'] . "\nMes " . $item['TOTAL_CH_MES'];
+                }
+            }
 
             $sheet->setCellValue('B' . $fila, $item['N']);
             $sheet->setCellValue('C' . $fila, $item['NOMBRE_DOCENTE']);
@@ -628,7 +637,7 @@ class ReporteExcelController extends Controller
         $sheet->freezePane('B6');
 
         $writer = new Xlsx($spreadsheet);
-        $filename = "LISTA_DOCENTES_CLASIFICADOS_" . str_replace('/', '-', $gestion) . ".xlsx";
+        $filename = "LISTA_DOCENTES_Y_MATERIAS_PRELACION_" . str_replace('/', '-', $gestion) . ".xlsx";
 
         // Guardar a un archivo temporal en vez de php://output
         $tempPath = tempnam(sys_get_temp_dir(), 'xlsx_') . '.xlsx';
