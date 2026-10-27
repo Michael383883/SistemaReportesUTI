@@ -32,7 +32,7 @@ export const menuSections = [
 
                     { to: '/reportes/edicion-tipo-ingreso', label: 'Asignar Modalidad' },
                     { to: '/reportes/docentes-titulo', label: 'Docentes con Título' },
-                    { to: '/reporte-tipo-ingreso', label: 'Reporte tipo Ingreso'}
+                    { to: '/reporte-tipo-ingreso', label: 'Reporte tipo Ingreso' }
                 ],
             },
 
@@ -45,8 +45,10 @@ export const menuSections = [
                 icon: FileText,
                 children: [
                     { to: '/clasificaciones/nueva', label: 'Subir Documento' },
-                    { to: '/clasificaciones', label: 'Listado de Documentos' },
+                    { to: '/clasificaciones', label: 'Listado de Documentos de Docente' },
                     { to: '/clasificaciones/listar-por-documento', label: 'Listado de Archivos' },
+                    { to: '/reporte-excel', label: 'Prelacion' },
+                    { to: '/reporte-prelacion-materia', label: 'Prelacion Materia' },
                     { to: '/resoluciones/subir', label: 'Subir Referencia' },
                     { to: '/resoluciones/listado', label: 'Lista de Referencias' },
                     { to: '/resoluciones/asignar', label: 'Asignar Solo a Kardex' },

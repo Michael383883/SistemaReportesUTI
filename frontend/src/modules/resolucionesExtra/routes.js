@@ -29,4 +29,10 @@ export const resolucionesExtraRoutes = [
         name: 'subir-titulo',
         component: () => import('./views/SubirTituloView.vue'),
     },
+    { path: '/reporte-excel', name: 'reporte-excel', component: () => import('./views/ReporteExcelView.vue') },
+    {
+        path: '/reporte-prelacion-materia',
+        name: 'reporte-prelacion-materia',
+        component: () => import('./views/ReportePrelacionMateriaView.vue'),
+    },
 ]
