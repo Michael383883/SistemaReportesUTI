@@ -104,6 +104,9 @@ const textoPlano = (s) => String(s ?? '')
 
 const esMateriaCompartida = (mat) => Number(mat?.compartida ?? mat?.comp ?? 0) > 0
 
+// ¿La fila pertenece a la categoría ACÉFALA?
+const esFilaAcefala = (f) => textoPlano(f.CATEGORIA).includes('ACEFALA')
+
 // Construye: cod_docente -> Map(materiaNormalizada -> true), solo con compartidas
 function construirMapaCompartidas(carga) {
     const mapa = new Map()
@@ -124,7 +127,7 @@ function construirMapaCompartidas(carga) {
 }
 
 function esAcefalaCompartida(fila, mapaCompartidas) {
-    if (!textoPlano(fila.CATEGORIA).includes('ACEFALA')) return false
+    if (!esFilaAcefala(fila)) return false
     const m = mapaCompartidas?.get(String(fila.COD_DOCENTE))
     if (!m) return false
     return !!buscarClaveMateria(normalizarNombreMateria(fila.NOMBRE_MATERIA), m)
@@ -209,6 +212,14 @@ function totalChBloque(bloque) {
         total += ch
     }
     return total
+}
+
+// T. CH x 4 (equivalente mensual). Devuelve null si el total no es un
+// número válido (vacío, 0, '-', etc.).
+function totalMesDe(totalCh) {
+    const n = Number(totalCh)
+    if (!Number.isFinite(n) || n <= 0) return null
+    return Math.round(n * 4 * 100) / 100
 }
 
 export function useReporteExcel() {
@@ -415,6 +426,9 @@ export function useReporteExcel() {
     //   y CH; el resto de columnas queda vacío y la categoría es "-".
     // - Docente con documentos de solo algunas materias: conserva sus filas
     //   y se le agregan las materias que faltan (también sin documento).
+    // - Las filas ACÉFALA solo se conservan si su materia se dicta en el
+    //   año/periodo seleccionado (según la carga horaria real). Las demás
+    //   categorías no se filtran.
     // - La CH se asigna a toda fila cuya materia coincide con la carga real
     //   (coincidencia exacta normalizada o, si no hay, la más parecida).
     // - Las filas COMPARTIDA conservan CH = '-' y cuentan como materia cubierta.
@@ -482,7 +496,27 @@ export function useReporteExcel() {
             const existente = bloquesPorDocente.get(cod)
             const carga = cargaPorDocente.get(cod) || new Map()
             const nombre = existente?.nombre || `${a.apellidos || ''} ${a.nombres || ''}`.trim()
-            const filas = existente ? existente.filas : []
+
+            // Las filas ACÉFALA solo se conservan si la materia se dicta en el
+            // año/periodo seleccionado (según la carga horaria real de ese
+            // docente). Las demás categorías no se tocan.
+            // Las filas ACÉFALA solo se conservan si el documento es del año/periodo
+            // seleccionado. Las demás categorías no se tocan.
+            const esDelPeriodo = (f) =>
+                String(f.GESTION ?? '').trim() === String(anioActivos.value) &&
+                String(f.PERIODO ?? '').trim() === String(periodoActivos.value)
+
+            const filas = existente
+                ? existente.filas.filter(f => {
+                    if (!esFilaAcefala(f)) return true
+                    // Respaldo: si el backend aún no envía GESTION/PERIODO, filtra por materia
+                    if (f.GESTION === undefined || f.GESTION === null) {
+                        return !!buscarClaveMateria(normalizarNombreMateria(f.NOMBRE_MATERIA), carga)
+                    }
+                    return esDelPeriodo(f)
+                })
+                : []
+                
             const cubiertas = new Set()
 
             filas.forEach(f => {
@@ -624,8 +658,10 @@ export function useReporteExcel() {
     // Lista que debe mostrarse en la tabla: si "Solo Activos" está apagado,
     // es el preview completo; si está prendido, solo las filas cuyo
     // COD_DOCENTE está en la lista de activos (con N° renumerado sin huecos).
-    // Además, en la primera fila de cada docente se agrega TOTAL_CH: la suma
-    // de la columna CH de ese docente (cada materia se cuenta una sola vez).
+    // Además, en la primera fila de cada docente se agrega:
+    //   - TOTAL_CH:     suma de la columna CH del docente (cada materia una vez).
+    //   - TOTAL_CH_MES: TOTAL_CH x 4 (equivalente mensual), o null si no aplica.
+    // Estos dos campos viajan al backend en descargarExcelPersonalizado().
     const previewMostrado = computed(() => {
         const base = soloActivos.value
             ? preview.value.filter(item => codigosActivos.value.has(String(item.COD_DOCENTE)))
@@ -644,6 +680,7 @@ export function useReporteExcel() {
                 const copia = { ...fila }
                 if (k === 0) {
                     copia.TOTAL_CH = total
+                    copia.TOTAL_CH_MES = totalMesDe(total)
                     if (soloActivos.value && copia.INICIO_GRUPO) copia.N = ++n
                 }
                 resultado.push(copia)
@@ -903,11 +940,8 @@ export function useReporteExcel() {
     }
 
     // Construye la URL de descarga real del Excel (mismo endpoint que ya existe,
-    // vía GET). Se usa cuando NO se asignó carga horaria automática ni se
-    // combinaron materias en el preview.
-    // Si "Solo Activos" está activo, manda también anio/periodo y el flag
-    // solo_activos=1 para que el backend aplique el mismo filtro al generar
-    // el archivo (requiere el soporte correspondiente en el controller).
+    // vía GET). OJO: este endpoint NO incluye "Mes" (T. CH x 4); para eso usa
+    // descargarExcelPersonalizado().
     function urlDescarga({ gestion_desde, gestion_hasta, periodo, version, categoria, tipo_titulo, mostrar_referencias } = {}) {
         const params = new URLSearchParams()
         if (gestion_desde) params.set('gestion_desde', gestion_desde)
@@ -937,8 +971,7 @@ export function useReporteExcel() {
     }
 
     // GET /api/reportes/docentes-clasificados/excel — con token, vía blob
-    // Reemplaza a urlDescarga() + window.open(), que no puede llevar
-    // el header Authorization y se rompe si la ruta queda protegida.
+    // (versión sin "Mes"; se conserva por compatibilidad).
     async function descargarExcel({ gestion_desde, gestion_hasta, periodo, version, categoria, tipo_titulo, mostrar_referencias } = {}) {
         const params = new URLSearchParams()
         if (gestion_desde) params.set('gestion_desde', gestion_desde)
@@ -986,13 +1019,11 @@ export function useReporteExcel() {
 
 
     // POST /api/reportes/docentes-clasificados/excel-personalizado
-    // Se usa cuando ya se asignó carga horaria automática, se combinaron
-    // materias, está activo "Solo Activos", está activo "Compartido" o se
-    // ocultaron filas acéfalas compartidas: manda las filas tal cual se ven
-    // en pantalla (previewMostrado, que incluye TOTAL_CH en la primera fila
-    // de cada docente) para que el backend genere el Excel exactamente con
-    // esos datos. El estado de "Mostrar Referencias" ya viene implícito en
-    // el texto de DETALLE de cada fila.
+    // Manda las filas tal cual se ven en pantalla (previewMostrado), que
+    // incluye TOTAL_CH y TOTAL_CH_MES en la primera fila de cada docente,
+    // para que el backend genere el Excel exactamente con esos datos.
+    // El estado de "Mostrar Referencias" ya viene implícito en el texto de
+    // DETALLE de cada fila.
     async function descargarExcelPersonalizado({ gestion, version } = {}) {
         try {
             const response = await axios.post(
