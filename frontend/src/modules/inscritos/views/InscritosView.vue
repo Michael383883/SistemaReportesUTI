@@ -44,9 +44,9 @@
         </select>
       </div>
 
-      <!-- Área (multi-selección) -->
+      <!-- Plan (multi-selección) -->
       <div class="flex flex-col gap-1.5 relative" ref="areaDropdownRef">
-        <label class="text-[0.68rem] font-semibold tracking-widest uppercase text-slate-400">Área</label>
+        <label class="text-[0.68rem] font-semibold tracking-widest uppercase text-slate-400">Plan</label>
 
         <button
           type="button"
@@ -65,7 +65,6 @@
           </svg>
         </button>
 
-        <!-- Backdrop -->
         <div v-if="mostrarMenuArea" class="fixed inset-0 z-40" @click="mostrarMenuArea = false" />
 
         <Transition
@@ -83,7 +82,7 @@
           >
             <div class="px-4 pt-3 pb-1 flex items-center justify-between sticky top-0 bg-white">
               <p class="text-[0.65rem] font-semibold tracking-widest uppercase text-slate-400">
-                Áreas
+                Planes
               </p>
               <button
                 v-if="filtros.area.length > 0"
@@ -167,12 +166,10 @@
 
         <div class="relative">
 
-          <!-- Botón partido: ambos abren el menú -->
           <div
             class="inline-flex rounded-full overflow-visible border border-red-700/40 shadow-lg shadow-red-900/20"
             :class="(loadingPdf || dataFiltrada.length === 0) ? 'opacity-40 pointer-events-none' : ''"
           >
-            <!-- Botón principal -->
             <button
               @click.stop="mostrarMenuPdf = !mostrarMenuPdf"
               class="inline-flex items-center gap-2 pl-5 pr-4 py-2 text-sm font-semibold
@@ -181,12 +178,7 @@
             >
               <svg
                 :class="loadingPdf ? 'animate-spin' : ''"
-                width="15"
-                height="15"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
+                width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
               >
                 <template v-if="loadingPdf">
                   <circle cx="12" cy="12" r="9" />
@@ -201,7 +193,6 @@
               Generar PDF
             </button>
 
-            <!-- Flecha -->
             <button
               @click.stop="mostrarMenuPdf = !mostrarMenuPdf"
               class="px-3 py-2 bg-red-700 hover:bg-red-600 active:bg-red-800 text-white
@@ -209,12 +200,7 @@
               aria-label="Más opciones de PDF"
             >
               <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2.5"
+                width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
                 :style="mostrarMenuPdf ? 'transform: rotate(180deg);' : ''"
                 style="transition: transform 0.15s"
               >
@@ -223,14 +209,13 @@
             </button>
           </div>
 
-          <!-- Backdrop -->
           <div
             v-if="mostrarMenuPdf"
             class="fixed inset-0 z-40"
             @click="mostrarMenuPdf = false"
           />
 
-          <!-- Menú desplegable: cada sección con encabezado + fila de 3 íconos (Ver/Imprimir/Descargar) -->
+          <!-- Menú: cada sección con encabezado + fila de 4 íconos (Ver / Imprimir / Descargar / Excel) -->
           <Transition
             enter-active-class="transition-all duration-150 ease-out"
             enter-from-class="opacity-0 scale-95 -translate-y-1"
@@ -245,156 +230,128 @@
                      bg-white border border-slate-200 rounded-xl
                      shadow-xl overflow-hidden w-64 max-h-[30rem] overflow-y-auto"
             >
-              <!-- Lista completa -->
-              <div class="px-4 pt-3 pb-1.5">
-                <p class="text-[0.7rem] font-semibold text-slate-800">Lista completa</p>
-              </div>
-              <div class="px-4 pb-3 flex items-center gap-2">
-                <button
-                  class="flex-1 flex items-center justify-center h-9 rounded-lg text-slate-600 bg-slate-100 border border-slate-200 hover:bg-slate-200 hover:text-slate-800 active:bg-slate-300 transition-colors duration-100 cursor-pointer outline-none"
-                  title="Ver PDF"
-                  @click="generarPDFLista('ver'); mostrarMenuPdf = false"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" class="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/>
-                  </svg>
-                </button>
-                <button
-                  class="flex-1 flex items-center justify-center h-9 rounded-lg text-slate-600 bg-slate-100 border border-slate-200 hover:bg-slate-200 hover:text-slate-800 active:bg-slate-300 transition-colors duration-100 cursor-pointer outline-none"
-                  title="Imprimir"
-                  @click="generarPDFLista('imprimir'); mostrarMenuPdf = false"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" class="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>
-                  </svg>
-                </button>
-                <button
-                  class="flex-1 flex items-center justify-center h-9 rounded-lg text-amber-700 bg-amber-100 border border-amber-300 hover:bg-amber-200 hover:text-amber-800 active:bg-amber-300 transition-colors duration-100 cursor-pointer outline-none"
-                  title="Descargar PDF"
-                  @click="generarPDFLista('descargar'); mostrarMenuPdf = false"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" class="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
-                  </svg>
-                </button>
-              </div>
+              <div v-for="(sec, idx) in seccionesPdf" :key="sec.titulo">
+                <div v-if="idx > 0" class="border-t border-slate-100 mx-4"></div>
 
-              <div class="border-t border-slate-100 mx-4"></div>
+                <div class="px-4 pt-3 pb-1.5">
+                  <p class="text-[0.7rem] font-semibold text-slate-800">{{ sec.titulo }}</p>
+                </div>
 
-              <!-- Aprobados/reprobados completo -->
-              <div class="px-4 pt-3 pb-1.5">
-                <p class="text-[0.7rem] font-semibold text-slate-800">Aprobados/reprobados completo</p>
-              </div>
-              <div class="px-4 pb-3 flex items-center gap-2">
-                <button
-                  :disabled="generandoAprobadosResumido"
-                  class="flex-1 flex items-center justify-center h-9 rounded-lg text-slate-600 bg-slate-100 border border-slate-200 hover:bg-slate-200 hover:text-slate-800 active:bg-slate-300 transition-colors duration-100 cursor-pointer outline-none disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Ver PDF"
-                  @click="generarPDFAprobadosResumido('ver'); mostrarMenuPdf = false"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" class="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/>
-                  </svg>
-                </button>
-                <button
-                  :disabled="generandoAprobadosResumido"
-                  class="flex-1 flex items-center justify-center h-9 rounded-lg text-slate-600 bg-slate-100 border border-slate-200 hover:bg-slate-200 hover:text-slate-800 active:bg-slate-300 transition-colors duration-100 cursor-pointer outline-none disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Imprimir"
-                  @click="generarPDFAprobadosResumido('imprimir'); mostrarMenuPdf = false"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" class="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>
-                  </svg>
-                </button>
-                <button
-                  :disabled="generandoAprobadosResumido"
-                  class="flex-1 flex items-center justify-center h-9 rounded-lg text-amber-700 bg-amber-100 border border-amber-300 hover:bg-amber-200 hover:text-amber-800 active:bg-amber-300 transition-colors duration-100 cursor-pointer outline-none disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Descargar PDF"
-                  @click="generarPDFAprobadosResumido('descargar'); mostrarMenuPdf = false"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" class="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
-                  </svg>
-                </button>
-              </div>
-
-              <div class="border-t border-slate-100 mx-4"></div>
-
-              <!-- Totales por docente -->
-              <div class="px-4 pt-3 pb-1.5">
-                <p class="text-[0.7rem] font-semibold text-slate-800">Totales por docente</p>
-              </div>
-              <div class="px-4 pb-3 flex items-center gap-2">
-                <button
-                  class="flex-1 flex items-center justify-center h-9 rounded-lg text-slate-600 bg-slate-100 border border-slate-200 hover:bg-slate-200 hover:text-slate-800 active:bg-slate-300 transition-colors duration-100 cursor-pointer outline-none"
-                  title="Ver PDF"
-                  @click="generarPDFTotales('ver'); mostrarMenuPdf = false"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" class="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/>
-                  </svg>
-                </button>
-                <button
-                  class="flex-1 flex items-center justify-center h-9 rounded-lg text-slate-600 bg-slate-100 border border-slate-200 hover:bg-slate-200 hover:text-slate-800 active:bg-slate-300 transition-colors duration-100 cursor-pointer outline-none"
-                  title="Imprimir"
-                  @click="generarPDFTotales('imprimir'); mostrarMenuPdf = false"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" class="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>
-                  </svg>
-                </button>
-                <button
-                  class="flex-1 flex items-center justify-center h-9 rounded-lg text-amber-700 bg-amber-100 border border-amber-300 hover:bg-amber-200 hover:text-amber-800 active:bg-amber-300 transition-colors duration-100 cursor-pointer outline-none"
-                  title="Descargar PDF"
-                  @click="generarPDFTotales('descargar'); mostrarMenuPdf = false"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" class="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
-                  </svg>
-                </button>
-              </div>
-
-              <div class="border-t border-slate-100 mx-4"></div>
-
-              <!-- Aprobados/reprobados resumido -->
-              <div class="px-4 pt-3 pb-1.5">
-                <p class="text-[0.7rem] font-semibold text-slate-800">Aprobados/reprobados resumido</p>
-              </div>
-              <div class="px-4 pb-3 flex items-center gap-2">
-                <button
-                  :disabled="generandoAprobados"
-                  class="flex-1 flex items-center justify-center h-9 rounded-lg text-slate-600 bg-slate-100 border border-slate-200 hover:bg-slate-200 hover:text-slate-800 active:bg-slate-300 transition-colors duration-100 cursor-pointer outline-none disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Ver PDF"
-                  @click="generarPDFAprobados('ver'); mostrarMenuPdf = false"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" class="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/>
-                  </svg>
-                </button>
-                <button
-                  :disabled="generandoAprobados"
-                  class="flex-1 flex items-center justify-center h-9 rounded-lg text-slate-600 bg-slate-100 border border-slate-200 hover:bg-slate-200 hover:text-slate-800 active:bg-slate-300 transition-colors duration-100 cursor-pointer outline-none disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Imprimir"
-                  @click="generarPDFAprobados('imprimir'); mostrarMenuPdf = false"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" class="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>
-                  </svg>
-                </button>
-                <button
-                  :disabled="generandoAprobados"
-                  class="flex-1 flex items-center justify-center h-9 rounded-lg text-amber-700 bg-amber-100 border border-amber-300 hover:bg-amber-200 hover:text-amber-800 active:bg-amber-300 transition-colors duration-100 cursor-pointer outline-none disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Descargar PDF"
-                  @click="generarPDFAprobados('descargar'); mostrarMenuPdf = false"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" class="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
-                  </svg>
-                </button>
+                <div class="px-4 pb-3 flex items-center gap-2">
+                  <button
+                    v-for="b in botonesMenu"
+                    :key="b.accion"
+                    :disabled="b.accion === 'excel' ? sec.excelDisabled : sec.pdfDisabled"
+                    class="flex-1 flex items-center justify-center h-9 rounded-lg border transition-colors duration-100 cursor-pointer outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                    :class="b.clase"
+                    :title="b.title"
+                    @click="ejecutarSeccion(sec, b.accion)"
+                  >
+                    <svg v-if="b.accion === 'ver'" xmlns="http://www.w3.org/2000/svg" class="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/>
+                    </svg>
+                    <svg v-else-if="b.accion === 'imprimir'" xmlns="http://www.w3.org/2000/svg" class="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>
+                    </svg>
+                    <svg v-else-if="b.accion === 'descargar'" xmlns="http://www.w3.org/2000/svg" class="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                    </svg>
+                    <svg v-else xmlns="http://www.w3.org/2000/svg" class="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/>
+                    </svg>
+                  </button>
+                </div>
               </div>
             </div>
           </Transition>
 
+        </div>
+      </div>
+
+      <!-- Ajustes de impresión (tipo de alumnos + columnas) -->
+      <div class="flex flex-col" ref="configDropdownRef">
+        <label class="text-[0.68rem] invisible">Config</label>
+
+        <div class="relative">
+          <button
+            type="button"
+            @click.stop="mostrarMenuConfig = !mostrarMenuConfig"
+            title="Ajustes de visualización e impresión"
+            class="relative inline-flex items-center justify-center w-[38px] h-[38px] rounded-full
+                   bg-slate-800 hover:bg-slate-700 active:bg-slate-900 text-slate-100
+                   border border-slate-700 shadow-lg transition-all duration-150"
+          >
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="3" />
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+            </svg>
+            <!-- punto indicador cuando algún ajuste NO está en su valor por defecto -->
+            <span v-if="modoAlumnos !== 'todos' || !mostrarComparte"
+                  class="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-amber-500 ring-2 ring-slate-100" />
+          </button>
+
+          <div v-if="mostrarMenuConfig" class="fixed inset-0 z-40" @click="mostrarMenuConfig = false" />
+
+          <Transition
+            enter-active-class="transition-all duration-150 ease-out"
+            enter-from-class="opacity-0 scale-95 -translate-y-1"
+            enter-to-class="opacity-100 scale-100 translate-y-0"
+            leave-active-class="transition-all duration-100 ease-in"
+            leave-from-class="opacity-100 scale-100 translate-y-0"
+            leave-to-class="opacity-0 scale-95 -translate-y-1"
+          >
+            <div
+              v-if="mostrarMenuConfig"
+              class="absolute right-0 top-full mt-1.5 z-50 w-64 bg-white border border-slate-200
+                     rounded-xl shadow-xl overflow-hidden"
+            >
+              <div class="px-4 pt-3 pb-1">
+                <p class="text-[0.65rem] font-semibold tracking-widest uppercase text-slate-400">
+                  Alumnos a mostrar e imprimir
+                </p>
+              </div>
+
+              <label
+                v-for="m in MODOS_ALUMNOS"
+                :key="m.value"
+                class="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50
+                       transition-colors cursor-pointer select-none"
+              >
+                <input
+                  type="radio"
+                  name="modoAlumnos"
+                  :value="m.value"
+                  v-model="modoAlumnos"
+                  @change="mostrarMenuConfig = false"
+                  class="w-4 h-4 border-slate-300 text-amber-500 focus:ring-amber-500/40 focus:ring-offset-0 cursor-pointer"
+                />
+                <span class="font-medium leading-tight">{{ m.label }}</span>
+              </label>
+
+              <!-- Columnas visibles en pantalla -->
+              <div class="border-t border-slate-100 mx-4 mt-1"></div>
+
+              <div class="px-4 pt-3 pb-1">
+                <p class="text-[0.65rem] font-semibold tracking-widest uppercase text-slate-400">
+                  Columnas
+                </p>
+              </div>
+
+              <label
+                class="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50
+                       transition-colors cursor-pointer select-none"
+              >
+                <input
+                  type="checkbox"
+                  v-model="mostrarComparte"
+                  class="w-4 h-4 rounded border-slate-300 text-amber-500 focus:ring-amber-500/40 focus:ring-offset-0 cursor-pointer"
+                />
+                <span class="font-medium leading-tight">Mostrar columna Comparte</span>
+              </label>
+              <div class="h-1.5" />
+            </div>
+          </Transition>
         </div>
       </div>
 
@@ -442,7 +399,6 @@
     <!-- CONTENIDO -->
     <div v-else-if="!loading && dataFiltrada.length" id="reporte-imprimible" class="px-8 py-4">
 
-      <!-- CABECERA REPORTE -->
       <div class="bg-white border border-slate-200 rounded-lg px-5 py-2.5 flex flex-wrap justify-between items-center mb-3 text-sm text-slate-500 gap-2">
         <span>Generado: <strong class="text-slate-700">{{ fechaActual }}</strong></span>
         <span class="text-slate-300 hidden sm:block">|</span>
@@ -453,14 +409,16 @@
         </span>
       </div>
 
-      <!-- CARDS -->
       <DocenteInscritosCard
         v-for="docente in dataFiltrada"
         :key="docente.cod_docente"
         :docente="docente"
+        :anio="filtros.anio"
+        :periodo="filtros.periodo"
+        :modo="modoAlumnos"
+        :mostrar-comparte="mostrarComparte"
       />
 
-      <!-- FOOTER -->
       <div class="text-center text-slate-400 text-xs mt-8 pt-4 border-t border-slate-200">
         Procesado UTI – Facultad de Ciencias Económicas · La carga incluye todos los grupos asignados.
       </div>
@@ -471,19 +429,22 @@
 
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { useRoute } from 'vue-router'
 import DocenteInscritosCard from '../components/DocenteInscritosCard.vue'
 import { useInscritos } from '../composables/useInscritos'
 import { useReporteInscritosLista } from '../composables/useReporteInscritosLista'
 import { useReporteInscritosTotales } from '../composables/useReporteInscritosTotales'
+import { useReporteInscritosMaterias } from '../composables/useReporteInscritosMaterias'
+import { useExcelReportes } from '../composables/useExcelReportes'
 import { useInscritosAprobados } from '../composables/useInscritosAprobados'
 import { useReporteAprobadosReprobados } from '../composables/useReporteAprobadosReprobados'
 
 import { useResumenPorGrupo } from '../composables/useResumenPorGrupo'
 import { useReporteAprobadosReprobadosResumido } from '../composables/useReporteAprobadosReprobadosResumido'
 import { mostrarLoaderPdf } from '../utils/pdfLoader'
-// DESPUÉS
 import { usePeriodoAcademicoActual } from '@/modules/periodos-academicos/composables/usePeriodoAcademicoActual'
 
+const route = useRoute()
 
 // ─── Áreas disponibles (deben coincidir con el CASE de PLAN->CARRERA del backend) ───
 const AREAS = [
@@ -494,19 +455,31 @@ const AREAS = [
   { value: 'COM', label: 'Ingeniería Comercial' },
 ]
 
+// ─── Modos de alumnos a mostrar / imprimir ──────────────────────────────
+const MODOS_ALUMNOS = [
+  { value: 'todos',     label: 'Todos: normales y mesa' },
+  { value: 'regulares', label: 'Solo alumnos normales' },
+  { value: 'mesa',      label: 'Solo alumnos de mesa' },
+]
+
 const { data, loading, error, fetchInscritos } = useInscritos()
 const { generandoLista, exportarListaCompleta } = useReporteInscritosLista()
 const { generandoResumen, exportarResumenTotales } = useReporteInscritosTotales()
-//ap
+const { generandoMaterias, exportarTotalesPorMateria, exportarExcelTotalesPorMateria } = useReporteInscritosMaterias()
+const {
+  generandoExcel,
+  exportarExcelLista,
+  exportarExcelAprobadosCompleto,
+  exportarExcelTotales,
+  exportarExcelAprobadosResumen,
+} = useExcelReportes()
+
 const { data: dataResumenGrupo, fetchResumenPorGrupo } = useResumenPorGrupo()
 const { generandoAprobadosResumido, exportarAprobadosReprobadosResumido } = useReporteAprobadosReprobadosResumido()
 
-// Datos y reporte de aprobados/reprobados (fetch propio, endpoint distinto)
 const { data: dataAprobados, fetchAprobadosReprobados } = useInscritosAprobados()
 const { generandoAprobados, exportarAprobadosReprobados } = useReporteAprobadosReprobados()
 
-
-// ...junto a tus otros composables (useInscritos, etc.)
 const { anio: anioActual, periodo: periodoActual, promesa: promesaPeriodoActual } = usePeriodoAcademicoActual()
 
 const filtros = ref({
@@ -515,14 +488,10 @@ const filtros = ref({
   area: [],
 })
 
-// El valor inicial de arriba es el fallback instantáneo (por mes).
-// En cuanto se resuelve contra la BD real, corregimos los filtros
-// (por si el rango real de algún periodo no calza con el fallback).
 promesaPeriodoActual.then(() => {
   filtros.value.anio = anioActual.value
   filtros.value.periodo = periodoActual.value
 })
-
 
 const busqueda = ref('')
 
@@ -531,23 +500,74 @@ const pdfDropdownRef = ref(null)
 const mostrarMenuArea = ref(false)
 const areaDropdownRef = ref(null)
 
-// ─── Estado para distinguir los mensajes del empty state ─────────────────
+// Ajustes de impresión: por defecto se muestran alumnos normales + mesa
+const modoAlumnos = ref('todos')
+// Ajuste de pantalla: la columna "Comparte" está habilitada por defecto
+const mostrarComparte = ref(false)
+const mostrarMenuConfig = ref(false)
+const configDropdownRef = ref(null)
+
 const yaSeBusco = ref(false)
 const ultimaBusquedaFueDocente = ref(false)
 
 const loadingPdf = computed(() =>
-  generandoLista.value || generandoResumen.value || generandoAprobados.value || generandoAprobadosResumido.value
+  generandoLista.value ||
+  generandoResumen.value ||
+  generandoMaterias.value ||
+  generandoExcel.value ||
+  generandoAprobados.value ||
+  generandoAprobadosResumido.value
 )
-// Texto resumen del botón: "Todas las áreas" / "ADM" / "ADM, FIN" / "3 áreas seleccionadas"
+
 const areaLabelResumen = computed(() => {
   const sel = filtros.value.area
-  if (sel.length === 0) return 'Todas las áreas'
+  if (sel.length === 0) return 'Todas los planes'
   if (sel.length <= 2) return sel.join(', ')
-  return `${sel.length} áreas seleccionadas`
+  return `${sel.length} planes seleccionados`
 })
 
-// ─── Filtra por una o varias áreas (lista de inscritos) ──────────────────
-const dataFiltrada = computed(() => {
+// ─── Aplica el modo (todos / regulares / mesa) recalculando subtotales y totales ───
+function aplicarModoAlumnos(docentes, modo) {
+  if (modo === 'todos') return docentes
+
+  const contMesa = (m) => m.subtotal_examen_mesa ?? m.inscritos_examen_mesa?.length ?? 0
+
+  return docentes
+    .map(docente => {
+      const carreras = docente.carreras
+        .map(c => {
+          const materias = c.materias
+            .map(m => modo === 'regulares'
+              ? { ...m, inscritos_examen_mesa: [], subtotal_examen_mesa: 0 }
+              : { ...m, inscritos: [], subtotal: 0, subtotal_examen_mesa: contMesa(m) }
+            )
+            .filter(m => (modo === 'regulares' ? m.subtotal : m.subtotal_examen_mesa) > 0)
+
+          if (!materias.length) return null
+
+          return {
+            ...c,
+            materias,
+            subtotal: materias.reduce((s, m) => s + (m.subtotal ?? 0), 0),
+            subtotal_examen_mesa: materias.reduce((s, m) => s + (m.subtotal_examen_mesa ?? 0), 0),
+          }
+        })
+        .filter(Boolean)
+
+      if (!carreras.length) return null
+
+      return {
+        ...docente,
+        carreras,
+        total_inscritos: carreras.reduce((s, c) => s + c.subtotal, 0),
+        total_examen_mesa: carreras.reduce((s, c) => s + c.subtotal_examen_mesa, 0),
+      }
+    })
+    .filter(Boolean)
+}
+
+// ─── 1) Filtra por una o varias áreas (lista de inscritos) ──────────────
+const dataPorArea = computed(() => {
   if (filtros.value.area.length === 0) return data.value
 
   return data.value
@@ -569,6 +589,9 @@ const dataFiltrada = computed(() => {
     })
     .filter(Boolean)
 })
+
+// ─── 2) + modo de alumnos → lo usan la lista y TODAS las exportaciones ──
+const dataFiltrada = computed(() => aplicarModoAlumnos(dataPorArea.value, modoAlumnos.value))
 
 // ─── Filtra por una o varias áreas (aprobados/reprobados) ────────────────
 const dataAprobadosFiltrada = computed(() => {
@@ -596,8 +619,9 @@ const dataAprobadosFiltrada = computed(() => {
     .filter(Boolean)
 })
 
+// Regulares + mesa: coincide con lo que muestra cada tarjeta
 const totalGlobal = computed(() =>
-  dataFiltrada.value.reduce((s, d) => s + (d.total_inscritos ?? 0), 0)
+  dataFiltrada.value.reduce((s, d) => s + (d.total_inscritos ?? 0) + (d.total_examen_mesa ?? 0), 0)
 )
 
 const fechaActual = computed(() =>
@@ -607,7 +631,6 @@ const fechaActual = computed(() =>
   })
 )
 
-// ─── Abre la ventana del loader de forma segura (por si el navegador bloquea el popup) ───
 function abrirVentanaConLoader(mensaje) {
   const ventana = window.open('', '_blank')
   if (ventana) {
@@ -618,46 +641,7 @@ function abrirVentanaConLoader(mensaje) {
   return ventana
 }
 
-// ─── Aprobados/Reprobados Completo (detalle plano por grupo) ────────────
-// ⚠️ Reporte más pesado: trae TODOS los grupos/materias sin agrupar, puede tardar.
-async function generarPDFAprobadosResumido(modo = 'descargar') {
-  mostrarMenuPdf.value = false
-  let ventana = null
-  if (modo === 'ver') {
-    ventana = abrirVentanaConLoader('Generando reporte completo... Esto puede tardar unos segundos.')
-  }
-
-  await fetchResumenPorGrupo(filtros.value.anio, filtros.value.periodo)
-
-  let filas = dataResumenGrupo.value
-
-  // Filtro de área (client-side, porque este endpoint no lo soporta en backend)
-  if (filtros.value.area.length > 0) {
-    filas = filas.filter(f => filtros.value.area.includes(f.CARRERA))
-  }
-
-  // Filtro de búsqueda de docente
-  const q = busqueda.value.trim()
-  if (q) {
-    if (/^\d+$/.test(q)) {
-      filas = filas.filter(f => String(f.COD_DOCENTE) === q)
-    } else {
-      filas = filas.filter(f =>
-        (f.NOMBRE_DOCENTE ?? '').toLowerCase().includes(q.toLowerCase())
-      )
-    }
-  }
-
-  await exportarAprobadosReprobadosResumido(
-    filas,
-    filtros.value.anio,
-    filtros.value.periodo,
-    modo,
-    ventana
-  )
-}
-
-// Cierra ambos menús al hacer click fuera
+// Cierra los menús al hacer click fuera
 function onClickFuera(e) {
   if (pdfDropdownRef.value && !pdfDropdownRef.value.contains(e.target)) {
     mostrarMenuPdf.value = false
@@ -665,8 +649,11 @@ function onClickFuera(e) {
   if (areaDropdownRef.value && !areaDropdownRef.value.contains(e.target)) {
     mostrarMenuArea.value = false
   }
+  if (configDropdownRef.value && !configDropdownRef.value.contains(e.target)) {
+    mostrarMenuConfig.value = false
+  }
 }
-onMounted(() => document.addEventListener('click', onClickFuera))
+
 onBeforeUnmount(() => document.removeEventListener('click', onClickFuera))
 
 // ─── Botón único: si hay texto de búsqueda filtra, si está vacío trae todos ───
@@ -688,14 +675,80 @@ async function handleBuscar() {
   }
 }
 
-// ⚠️ Reporte más pesado: incluye el detalle completo de estudiantes por materia/grupo.
+// ─── Aprobados/Reprobados Completo (detalle plano por grupo) ────────────
+async function generarPDFAprobadosResumido(modo = 'descargar') {
+  mostrarMenuPdf.value = false
+  let ventana = null
+  if (modo === 'ver') {
+    ventana = abrirVentanaConLoader('Generando reporte completo... Esto puede tardar unos segundos.')
+  }
+
+  await fetchResumenPorGrupo(filtros.value.anio, filtros.value.periodo)
+
+  let filas = dataResumenGrupo.value
+
+  if (filtros.value.area.length > 0) {
+    filas = filas.filter(f => filtros.value.area.includes(f.CARRERA))
+  }
+
+  const q = busqueda.value.trim()
+  if (q) {
+    if (/^\d+$/.test(q)) {
+      filas = filas.filter(f => String(f.COD_DOCENTE) === q)
+    } else {
+      filas = filas.filter(f =>
+        (f.NOMBRE_DOCENTE ?? '').toLowerCase().includes(q.toLowerCase())
+      )
+    }
+  }
+
+  await exportarAprobadosReprobadosResumido(
+    filas,
+    filtros.value.anio,
+    filtros.value.periodo,
+    modo,
+    ventana
+  )
+}
+
 async function generarPDFLista(modo = 'descargar') {
   mostrarMenuPdf.value = false
   let ventana = null
   if (modo === 'ver') {
     ventana = abrirVentanaConLoader('Generando lista de inscritos... Esto puede tardar unos segundos.')
   }
-  await exportarListaCompleta(dataFiltrada.value, filtros.value.anio, filtros.value.periodo, modo, ventana)
+  await exportarListaCompleta(
+    dataFiltrada.value, filtros.value.anio, filtros.value.periodo, modo, ventana,
+    { modoAlumnos: modoAlumnos.value }
+  )
+}
+
+async function generarPDFInscritosMaterias(modo = 'descargar') {
+  mostrarMenuPdf.value = false
+  let ventana = null
+  if (modo === 'ver') {
+    ventana = abrirVentanaConLoader('Generando total de inscritos por materia...')
+  }
+  await exportarTotalesPorMateria(
+    dataFiltrada.value,
+    filtros.value.anio,
+    filtros.value.periodo,
+    modo,
+    ventana
+  )
+}
+
+async function generarExcelInscritosMaterias() {
+  mostrarMenuPdf.value = false
+  try {
+    await exportarExcelTotalesPorMateria(
+      dataFiltrada.value,
+      filtros.value.anio,
+      filtros.value.periodo
+    )
+  } catch (e) {
+    error.value = 'No se pudo generar el Excel. Verificá que esté instalada la librería exceljs.'
+  }
 }
 
 async function generarPDFTotales(modo = 'descargar') {
@@ -705,27 +758,32 @@ async function generarPDFTotales(modo = 'descargar') {
     ventana = abrirVentanaConLoader('Generando resumen de totales...')
   }
 
-  // Traer también aprobados/reprobados, porque fetchInscritos no los incluye
   await fetchAprobadosReprobados(filtros.value.anio, filtros.value.periodo)
 
-  // Mapa cod_docente -> totales de aprobados/reprobados
-  const mapaAprobados = new Map(
-    dataAprobados.value.map(d => [d.cod_docente, d])
-  )
+  const mapaAprobadosPorCarrera = new Map()
+  dataAprobados.value.forEach(docente => {
+    docente.carreras.forEach(c => {
+      mapaAprobadosPorCarrera.set(`${docente.cod_docente}|${c.carrera}`, c)
+    })
+  })
 
   const dataConAprobados = dataFiltrada.value.map(docente => {
-    const info = mapaAprobados.get(docente.cod_docente)
-    return {
-      ...docente,
-      total_aprobados: info?.total_aprobados ?? 0,
-      total_reprobados: info?.total_reprobados ?? 0,
-    }
+    const carrerasConAprobados = docente.carreras.map(c => {
+      const info = mapaAprobadosPorCarrera.get(`${docente.cod_docente}|${c.carrera}`)
+      return {
+        ...c,
+        subtotal_aprobados: info?.subtotal_aprobados ?? 0,
+        subtotal_reprobados: info?.subtotal_reprobados ?? 0,
+        subtotal_abandonos: info?.subtotal_abandonos ?? c.subtotal_abandonos ?? 0,
+      }
+    })
+
+    return { ...docente, carreras: carrerasConAprobados }
   })
 
   await exportarResumenTotales(dataConAprobados, filtros.value.anio, filtros.value.periodo, modo, ventana)
 }
 
-// ─── Aprobados/Reprobados resumido (matriz docente x carrera) ───────────
 async function generarPDFAprobados(modo = 'descargar') {
   mostrarMenuPdf.value = false
   let ventana = null
@@ -735,7 +793,6 @@ async function generarPDFAprobados(modo = 'descargar') {
 
   await fetchAprobadosReprobados(filtros.value.anio, filtros.value.periodo)
 
-  // Aplica el mismo filtro de búsqueda que usa handleBuscar
   const q = busqueda.value.trim()
   if (q) {
     if (/^\d+$/.test(q)) {
@@ -748,11 +805,180 @@ async function generarPDFAprobados(modo = 'descargar') {
   }
 
   await exportarAprobadosReprobados(
-    dataAprobadosFiltrada.value, // ya filtra por área
+    dataAprobadosFiltrada.value,
     filtros.value.anio,
     filtros.value.periodo,
     modo,
     ventana
   )
 }
+
+// ─── EXCEL de los demás reportes ────────────────────────────────────────
+async function ejecutarExcel(fn) {
+  mostrarMenuPdf.value = false
+  try {
+    await fn()
+  } catch (e) {
+    error.value = 'No se pudo generar el Excel. Verificá que esté instalada la librería exceljs.'
+  }
+}
+
+function generarExcelLista() {
+  return ejecutarExcel(() =>
+    exportarExcelLista(
+      dataFiltrada.value, filtros.value.anio, filtros.value.periodo,
+      { modoAlumnos: modoAlumnos.value }
+    )
+  )
+}
+
+function generarExcelAprobadosCompleto() {
+  return ejecutarExcel(async () => {
+    await fetchResumenPorGrupo(filtros.value.anio, filtros.value.periodo)
+
+    let filas = dataResumenGrupo.value
+
+    if (filtros.value.area.length > 0) {
+      filas = filas.filter(f => filtros.value.area.includes(f.CARRERA))
+    }
+
+    const q = busqueda.value.trim()
+    if (q) {
+      if (/^\d+$/.test(q)) {
+        filas = filas.filter(f => String(f.COD_DOCENTE) === q)
+      } else {
+        filas = filas.filter(f =>
+          (f.NOMBRE_DOCENTE ?? '').toLowerCase().includes(q.toLowerCase())
+        )
+      }
+    }
+
+    await exportarExcelAprobadosCompleto(filas, filtros.value.anio, filtros.value.periodo)
+  })
+}
+
+function generarExcelTotales() {
+  return ejecutarExcel(async () => {
+    await fetchAprobadosReprobados(filtros.value.anio, filtros.value.periodo)
+
+    const mapaAprobadosPorCarrera = new Map()
+    dataAprobados.value.forEach(docente => {
+      docente.carreras.forEach(c => {
+        mapaAprobadosPorCarrera.set(`${docente.cod_docente}|${c.carrera}`, c)
+      })
+    })
+
+    const dataConAprobados = dataFiltrada.value.map(docente => ({
+      ...docente,
+      carreras: docente.carreras.map(c => {
+        const info = mapaAprobadosPorCarrera.get(`${docente.cod_docente}|${c.carrera}`)
+        return {
+          ...c,
+          subtotal_aprobados: info?.subtotal_aprobados ?? 0,
+          subtotal_reprobados: info?.subtotal_reprobados ?? 0,
+          subtotal_abandonos: info?.subtotal_abandonos ?? c.subtotal_abandonos ?? 0,
+        }
+      }),
+    }))
+
+    await exportarExcelTotales(dataConAprobados, filtros.value.anio, filtros.value.periodo)
+  })
+}
+
+function generarExcelAprobados() {
+  return ejecutarExcel(async () => {
+    await fetchAprobadosReprobados(filtros.value.anio, filtros.value.periodo)
+
+    const q = busqueda.value.trim()
+    if (q) {
+      if (/^\d+$/.test(q)) {
+        dataAprobados.value = dataAprobados.value.filter(d => d.cod_docente === q)
+      } else {
+        dataAprobados.value = dataAprobados.value.filter(d =>
+          `${d.apellidos} ${d.nombres}`.toLowerCase().includes(q.toLowerCase())
+        )
+      }
+    }
+
+    await exportarExcelAprobadosResumen(
+      dataAprobadosFiltrada.value,
+      filtros.value.anio,
+      filtros.value.periodo
+    )
+  })
+}
+
+// ─── Configuración del menú PDF/Excel (reemplaza los 5 bloques repetidos) ───
+const botonesMenu = [
+  { accion: 'ver', title: 'Ver PDF',
+    clase: 'text-slate-600 bg-slate-100 border-slate-200 hover:bg-slate-200 hover:text-slate-800 active:bg-slate-300' },
+  { accion: 'imprimir', title: 'Imprimir',
+    clase: 'text-slate-600 bg-slate-100 border-slate-200 hover:bg-slate-200 hover:text-slate-800 active:bg-slate-300' },
+  { accion: 'descargar', title: 'Descargar PDF',
+    clase: 'text-amber-700 bg-amber-100 border-amber-300 hover:bg-amber-200 hover:text-amber-800 active:bg-amber-300' },
+  { accion: 'excel', title: 'Descargar Excel',
+    clase: 'text-emerald-700 bg-emerald-100 border-emerald-300 hover:bg-emerald-200 hover:text-emerald-800 active:bg-emerald-300' },
+]
+
+// pdf(modo) y excel() son las funciones de cada reporte; los *Disabled
+// replican exactamente los :disabled del menú original.
+const seccionesPdf = computed(() => [
+  {
+    titulo: 'Lista completa de inscritos',
+    pdf: generarPDFLista,
+    excel: generarExcelLista,
+    pdfDisabled: false,
+    excelDisabled: generandoExcel.value,
+  },
+  {
+    titulo: 'Aprobados/reprobados completo',
+    pdf: generarPDFAprobadosResumido,
+    excel: generarExcelAprobadosCompleto,
+    pdfDisabled: generandoAprobadosResumido.value,
+    excelDisabled: generandoExcel.value || generandoAprobadosResumido.value,
+  },
+  {
+    titulo: 'Inscritos totales por docente',
+    pdf: generarPDFTotales,
+    excel: generarExcelTotales,
+    pdfDisabled: false,
+    excelDisabled: generandoExcel.value,
+  },
+  {
+    titulo: 'Total de inscritos por materia',
+    pdf: generarPDFInscritosMaterias,
+    excel: generarExcelInscritosMaterias,
+    pdfDisabled: generandoMaterias.value,
+    excelDisabled: generandoMaterias.value,
+  },
+  {
+    titulo: 'Aprobados/reprobados resumido',
+    pdf: generarPDFAprobados,
+    excel: generarExcelAprobados,
+    pdfDisabled: generandoAprobados.value,
+    excelDisabled: generandoExcel.value || generandoAprobados.value,
+  },
+])
+
+function ejecutarSeccion(sec, accion) {
+  mostrarMenuPdf.value = false
+  if (accion === 'excel') return sec.excel()
+  return sec.pdf(accion) // 'ver' | 'imprimir' | 'descargar'
+}
+
+// ─── Al montar: listener de clic fuera + búsqueda automática desde el menú del docente ───
+onMounted(async () => {
+  document.addEventListener('click', onClickFuera)
+
+  // Llegó desde el menú del docente (?buscar=APELLIDOS NOMBRES&anio=..&periodo=..)
+  if (route.query.buscar) {
+    // Esperamos el periodo real de la BD para que no pise el que viene en la URL
+    try { await promesaPeriodoActual } catch (e) { /* seguimos con el fallback */ }
+
+    if (route.query.anio)    filtros.value.anio = Number(route.query.anio)
+    if (route.query.periodo) filtros.value.periodo = Number(route.query.periodo)
+    busqueda.value = String(route.query.buscar)
+    await handleBuscar()
+  }
+})
 </script>

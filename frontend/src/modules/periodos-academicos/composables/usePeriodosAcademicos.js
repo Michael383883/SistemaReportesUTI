@@ -69,6 +69,40 @@ export function usePeriodosAcademicos() {
         }
     }
 
+    /**
+     * Bloquea un periodo académico: deja de mostrarse en "Materias dictadas"
+     * (para la gestión/año actual) hasta que se desbloquee. No pisa el
+     * estado 'loading' general para no bloquear toda la tabla mientras
+     * se bloquea/desbloquea una sola fila.
+     */
+    async function bloquearPeriodo(id) {
+        error.value = null
+        try {
+            const { data } = await api.post(`/api/periodos-academicos/${id}/bloquear`)
+            const idx = periodos.value.findIndex((p) => p.id === id)
+            if (idx !== -1) periodos.value[idx] = { ...periodos.value[idx], ...data.periodo }
+            return { success: true, message: data.message, periodo: data.periodo }
+        } catch (e) {
+            const message = e.response?.data?.message ?? 'No se pudo bloquear el periodo.'
+            error.value = message
+            return { success: false, message }
+        }
+    }
+
+    async function desbloquearPeriodo(id) {
+        error.value = null
+        try {
+            const { data } = await api.post(`/api/periodos-academicos/${id}/desbloquear`)
+            const idx = periodos.value.findIndex((p) => p.id === id)
+            if (idx !== -1) periodos.value[idx] = { ...periodos.value[idx], ...data.periodo }
+            return { success: true, message: data.message, periodo: data.periodo }
+        } catch (e) {
+            const message = e.response?.data?.message ?? 'No se pudo desbloquear el periodo.'
+            error.value = message
+            return { success: false, message }
+        }
+    }
+
     function clearError() {
         error.value = null
     }
@@ -80,6 +114,8 @@ export function usePeriodosAcademicos() {
         fetchPeriodos,
         guardarCambios,
         restaurarPredeterminados,
+        bloquearPeriodo,
+        desbloquearPeriodo,
         clearError
     }
 }

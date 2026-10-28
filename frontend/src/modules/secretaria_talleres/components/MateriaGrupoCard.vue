@@ -3,25 +3,25 @@
     <!-- Header materia (clickable para desplegar/colapsar) -->
     <button
       @click="abierto = !abierto"
-      class="w-full flex items-center justify-between px-6 py-2.5 hover:bg-slate-50 transition-colors text-left"
+      class="w-full flex items-center justify-between px-6 py-2.5 hover:bg-slate-50 dark:hover:bg-white/[0.04] transition-colors text-left"
     >
       <div class="flex items-center gap-3 min-w-0">
         <svg
           xmlns="http://www.w3.org/2000/svg"
-          class="h-4 w-4 text-slate-400 shrink-0 transition-transform duration-200"
+          class="h-4 w-4 text-slate-400 dark:text-slate-500 shrink-0 transition-transform duration-200"
           :class="{ 'rotate-90': abierto }"
           fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"
         >
           <polyline points="9 18 15 12 9 6" />
         </svg>
-        <span class="font-semibold text-sm text-slate-700 truncate">{{ abreviarPlanCodigo(plan) }}</span>
-        <span class="font-semibold text-sm text-slate-700 truncate">{{ codigoMateria }}-{{ materia }}</span>
-        <span class="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs text-slate-600 shrink-0">
+        <span class="font-semibold text-sm text-slate-700 dark:text-slate-200 truncate">{{ abreviarPlanCodigo(plan) }}</span>
+        <span class="font-semibold text-sm text-slate-700 dark:text-slate-200 truncate">{{ codigoMateria }}-{{ materia }}</span>
+        <span class="rounded-full bg-slate-100 dark:bg-white/10 px-2.5 py-0.5 text-xs text-slate-600 dark:text-slate-300 shrink-0">
           Grupo {{ grupo }}
         </span>
       </div>
 
-      <span class="rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-700 shrink-0">
+      <span class="rounded-full bg-blue-50 dark:bg-blue-500/15 px-2.5 py-0.5 text-xs font-semibold text-blue-700 dark:text-blue-400 shrink-0">
         {{ estudiantes.length }} inscrito{{ estudiantes.length !== 1 ? 's' : '' }}
       </span>
     </button>
@@ -33,10 +33,10 @@
       enter-from-class="opacity-0"
       leave-to-class="opacity-0"
     >
-      <div v-if="abierto" class="overflow-x-auto border-t border-slate-100 bg-slate-50/40">
+      <div v-if="abierto" class="overflow-x-auto border-t border-slate-100 dark:border-white/[0.08] bg-slate-50/40 dark:bg-white/[0.02]">
         <table class="w-full text-sm">
           <thead>
-            <tr class="bg-slate-800 border-b border-slate-100">
+            <tr class="bg-slate-800 dark:bg-[#081F33] border-b border-slate-100 dark:border-white/[0.08]">
               <th class="text-left text-xs font-semibold text-slate-100 uppercase tracking-wider px-6 py-3 w-10">Nro</th>
               <th class="text-left text-xs font-semibold text-slate-100 uppercase tracking-wider px-4 py-3">Codigo</th>
               <th class="text-left text-xs font-semibold text-slate-100 uppercase tracking-wider px-4 py-3">Nombre</th>
@@ -44,16 +44,16 @@
               <th class="text-center text-xs font-semibold text-slate-100 uppercase tracking-wider px-4 py-3">Contacto</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-slate-50 bg-white">
+          <tbody class="divide-y divide-slate-50 dark:divide-white/[0.06] bg-white dark:bg-[#0f1729]">
             <tr
               v-for="(est, idx) in estudiantes"
               :key="est.cod_estudiante"
-              class="hover:bg-blue-50/40 transition-colors"
+              class="hover:bg-blue-50/40 dark:hover:bg-blue-500/[0.06] transition-colors"
             >
-              <td class="px-6 py-3 text-slate-800 text-xs">{{ idx + 1 }}</td>
-              <td class="px-6 py-3 text-slate-800 font-medium">{{ est.codigo }}</td>
+              <td class="px-6 py-3 text-slate-800 dark:text-slate-300 text-xs">{{ idx + 1 }}</td>
+              <td class="px-6 py-3 text-slate-800 dark:text-slate-300 font-medium">{{ est.codigo }}</td>
               <td class="px-4 py-3">
-                <span class="text-slate-800 font-medium">{{ est.nom_estudiante }}</span>
+                <span class="text-slate-800 dark:text-white font-medium">{{ est.nom_estudiante }}</span>
               </td>
               <td class="px-4 py-3">
                 <span

@@ -8,18 +8,6 @@
         <p class="text-sm text-gray-500">Listado de documentos registrados</p>
       </div>
       <div class="flex items-center gap-2 flex-wrap">
-        <!-- Botón para abrir vista previa del reporte Excel -->
-        <button
-          @click="abrirPreviewExcel"
-          class="inline-flex items-center justify-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors whitespace-nowrap"
-          title="Vista previa del reporte Excel"
-        >
-          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"/>
-          </svg>
-          Reporte Excel
-        </button>
-
         <!-- Botón "Nuevo" -->
         <router-link
           :to="{ name: 'clasificaciones-nueva' }"
@@ -78,16 +66,157 @@
     <!-- Panel de filtros desplegable -->
     <div
       v-if="mostrarFiltros"
-      class="bg-slate-100 rounded-xl border border-gray-200 p-3 mb-4 flex flex-wrap items-center gap-2"
+      class="bg-slate-100 rounded-xl border border-gray-200 p-3 mb-4 flex flex-wrap items-end gap-2"
     >
-     <select
-  v-model="filtros.categoria"
-  @change="cargar"
-  class="px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
->
-  <option value="">Todos</option>
-  <option v-for="cat in categorias" :key="cat" :value="cat">{{ cat }}</option>
-</select>
+      <!-- Overlay invisible para cerrar los dropdowns al hacer clic fuera -->
+      <div
+        v-if="filtroCatOpen || filtroTituloOpen || filtroObsOpen"
+        class="fixed inset-0 z-20"
+        @click="cerrarDropdownsFiltro"
+      ></div>
+
+      <!-- Categoría de documento (multi-selección) -->
+      <div class="relative flex flex-col gap-0.5" :class="{ 'z-30': filtroCatOpen }">
+        <label class="text-[10px] font-medium text-gray-400 px-0.5">Categoría de documento</label>
+        <button
+          type="button"
+          @click="filtroCatOpen = !filtroCatOpen; filtroTituloOpen = false; filtroObsOpen = false"
+          class="w-56 flex items-center justify-between gap-2 px-3 py-1.5 text-sm border border-gray-200 rounded-lg bg-white text-left"
+        >
+          <span class="truncate" :class="filtros.categoria.length ? 'text-gray-800' : 'text-gray-400'">
+            {{ filtros.categoria.length ? `${filtros.categoria.length} seleccionada(s)` : 'Todos' }}
+          </span>
+          <svg class="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+          </svg>
+        </button>
+        <div
+          v-if="filtroCatOpen"
+          class="absolute top-full left-0 mt-1 w-64 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto"
+        >
+          <label
+            v-for="cat in categorias"
+            :key="cat"
+            class="flex items-center gap-2 px-3 py-2 text-[13px] text-slate-700 hover:bg-blue-50 cursor-pointer"
+          >
+            <input type="checkbox" :value="cat" v-model="filtros.categoria" @change="cargar" class="accent-blue-600" />
+            {{ cat }}
+          </label>
+          <div v-if="!categorias.length" class="px-3 py-2 text-[12px] text-gray-400 italic">Sin categorías</div>
+          <div class="flex items-center justify-between px-3 py-2 border-t border-gray-100 bg-gray-50">
+            <button
+              type="button"
+              class="text-[11px] text-gray-500 hover:text-red-500"
+              @mousedown.prevent="filtros.categoria = []; cargar()"
+            >
+              Limpiar
+            </button>
+            <button
+              type="button"
+              class="text-[11px] font-medium text-blue-600 hover:text-blue-700"
+              @mousedown.prevent="filtroCatOpen = false"
+            >
+              Listo
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Categoría de título (multi-selección) -->
+      <div class="relative flex flex-col gap-0.5" :class="{ 'z-30': filtroTituloOpen }">
+        <label class="text-[10px] font-medium text-gray-400 px-0.5">Categoría de título</label>
+        <button
+          type="button"
+          @click="filtroTituloOpen = !filtroTituloOpen; filtroCatOpen = false; filtroObsOpen = false"
+          class="w-56 flex items-center justify-between gap-2 px-3 py-1.5 text-sm border border-gray-200 rounded-lg bg-white text-left"
+        >
+          <span class="truncate" :class="filtros.tipo_titulo.length ? 'text-gray-800' : 'text-gray-400'">
+            {{ filtros.tipo_titulo.length ? `${filtros.tipo_titulo.length} seleccionada(s)` : 'Todos' }}
+          </span>
+          <svg class="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+          </svg>
+        </button>
+        <div
+          v-if="filtroTituloOpen"
+          class="absolute top-full left-0 mt-1 w-64 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto"
+        >
+          <label
+            v-for="tipo in tiposTitulo"
+            :key="tipo"
+            class="flex items-center gap-2 px-3 py-2 text-[13px] text-slate-700 hover:bg-blue-50 cursor-pointer"
+          >
+            <input type="checkbox" :value="tipo" v-model="filtros.tipo_titulo" @change="cargar" class="accent-blue-600" />
+            {{ tipo }}
+          </label>
+          <div v-if="!tiposTitulo.length" class="px-3 py-2 text-[12px] text-gray-400 italic">Sin tipos de título</div>
+          <div class="flex items-center justify-between px-3 py-2 border-t border-gray-100 bg-gray-50">
+            <button
+              type="button"
+              class="text-[11px] text-gray-500 hover:text-red-500"
+              @mousedown.prevent="filtros.tipo_titulo = []; cargar()"
+            >
+              Limpiar
+            </button>
+            <button
+              type="button"
+              class="text-[11px] font-medium text-blue-600 hover:text-blue-700"
+              @mousedown.prevent="filtroTituloOpen = false"
+            >
+              Listo
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Observación 1 (multi-selección). Las opciones salen de las observaciones
+           que existen en los documentos; si no hay ninguna, el menú sale vacío. -->
+      <div class="relative flex flex-col gap-0.5" :class="{ 'z-30': filtroObsOpen }">
+        <label class="text-[10px] font-medium text-gray-400 px-0.5">Observación</label>
+        <button
+          type="button"
+          @click="filtroObsOpen = !filtroObsOpen; filtroCatOpen = false; filtroTituloOpen = false"
+          class="w-56 flex items-center justify-between gap-2 px-3 py-1.5 text-sm border border-gray-200 rounded-lg bg-white text-left"
+        >
+          <span class="truncate" :class="filtros.observacion.length ? 'text-gray-800' : 'text-gray-400'">
+            {{ filtros.observacion.length ? `${filtros.observacion.length} seleccionada(s)` : 'Todas' }}
+          </span>
+          <svg class="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+          </svg>
+        </button>
+        <div
+          v-if="filtroObsOpen"
+          class="absolute top-full left-0 mt-1 w-64 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto"
+        >
+          <label
+            v-for="obs in observacionesDisponibles"
+            :key="obs"
+            class="flex items-center gap-2 px-3 py-2 text-[13px] text-slate-700 hover:bg-blue-50 cursor-pointer"
+          >
+            <input type="checkbox" :value="obs" v-model="filtros.observacion" class="accent-blue-600" />
+            {{ obs }}
+          </label>
+          <div v-if="!observacionesDisponibles.length" class="px-3 py-2 text-[12px] text-gray-400 italic">Sin observaciones</div>
+          <div class="flex items-center justify-between px-3 py-2 border-t border-gray-100 bg-gray-50">
+            <button
+              type="button"
+              class="text-[11px] text-gray-500 hover:text-red-500"
+              @mousedown.prevent="filtros.observacion = []"
+            >
+              Limpiar
+            </button>
+            <button
+              type="button"
+              class="text-[11px] font-medium text-blue-600 hover:text-blue-700"
+              @mousedown.prevent="filtroObsOpen = false"
+            >
+              Listo
+            </button>
+          </div>
+        </div>
+      </div>
+
       <select
         v-model="filtros.nivel"
         @change="cargar"
@@ -112,6 +241,10 @@
         placeholder="Periodo"
         class="w-28 px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
       />
+
+      <!-- Exportar (PDF / Excel): solo visible cuando el panel de filtros está desplegado -->
+      <ExportarListado :listado="listadoFiltrado" :filtros-texto="filtrosTexto" />
+
       <button
         @click="limpiarFiltros"
         class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-400 hover:text-gray-600 rounded-lg transition-colors"
@@ -150,6 +283,7 @@
         <table class="w-full text-sm">
           <thead>
             <tr class="border-b border-gray-100 bg-slate-900">
+              <th class="text-center font-medium text-slate-100 px-3 py-3 text-xs uppercase tracking-wider w-12">N°</th>
               <th class="text-left font-medium text-slate-100 px-4 py-3 text-xs uppercase tracking-wider">Docente</th>
               <th class="text-left font-medium text-slate-100 px-4 py-3 text-xs uppercase tracking-wider">Documento</th>
               <th class="text-left font-medium text-slate-100 px-4 py-3 text-xs uppercase tracking-wider">Categoria</th>
@@ -161,9 +295,13 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="c in listadoFiltrado" :key="c.ID_CLASIFICACION_DOCENTE ?? c.COD_DOCENTE ?? c.NOMBRE_DOCENTE"
+            <tr v-for="(c, idx) in listadoFiltrado" :key="c.ID_CLASIFICACION_DOCENTE ?? c.COD_DOCENTE ?? c.NOMBRE_DOCENTE"
               class="border-b border-gray-50 last:border-0 hover:bg-gray-50/50 transition-colors"
             >
+              <td class="px-3 py-3 text-center text-sm font-semibold text-gray-400 tabular-nums">
+                {{ idx + 1 }}
+              </td>
+
               <!-- Docente -->
               <td class="px-4 py-3">
                 <div class="flex items-center gap-2">
@@ -180,7 +318,7 @@
                 </div>
               </td>
 
-              <!-- Documento: TIPO_DOCUMENTO como título, DETALLE_GENERAL como detalle -->
+              <!-- Documento -->
               <td class="px-4 py-3 max-w-[220px]">
                 <div class="flex flex-col">
                   <span class="text-sm font-medium text-gray-800 truncate">
@@ -188,6 +326,9 @@
                   </span>
                   <span v-if="c.DETALLE_GENERAL" class="text-xs text-gray-400 truncate">
                     {{ c.DETALLE_GENERAL }}
+                  </span>
+                  <span v-if="c.OBSERVACION" class="text-xs text-indigo-500 truncate" :title="c.OBSERVACION">
+                    Obs: {{ c.OBSERVACION }}
                   </span>
                 </div>
               </td>
@@ -206,31 +347,28 @@
                 </span>
               </td>
 
-              <!-- Gestión -->
               <td class="px-4 py-3 text-gray-600 text-sm font-medium">{{ c.GESTION || '—' }}</td>
-
-              <!-- Periodo -->
               <td class="px-4 py-3 text-gray-600 text-sm font-medium">{{ c.PERIODO || '—' }}</td>
 
               <!-- PDF -->
               <td class="px-4 py-3">
-
-                <a v-if="c.NOMBRE_ARCHIVO" :href="clasificacion.urlPdf(c.ID_DOCUMENTO, 'inline')"
-                  target="_blank"
-                  class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-800 hover:bg-blue-900 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors"
+                <button
+                  v-if="c.NOMBRE_ARCHIVO"
+                  @click="verPdf(c.ID_DOCUMENTO)"
+                  :disabled="abriendoPdfId === c.ID_DOCUMENTO"
+                  class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-800 hover:bg-blue-900 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors disabled:opacity-60"
                 >
                   <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h3m5-13v4a1 1 0 001 1h4m-5-5H8a2 2 0 00-2 2v14a2 2 0 002 2h8a2 2 0 002-2V8l-5-5z"/>
                   </svg>
-                  Ver PDF
-                </a>
+                  {{ abriendoPdfId === c.ID_DOCUMENTO ? 'Abriendo...' : 'Ver PDF' }}
+                </button>
                 <span v-else class="text-gray-300 text-sm">—</span>
               </td>
 
               <!-- Acciones -->
               <td class="px-4 py-3 text-right">
                 <div class="flex items-center justify-end gap-2">
-                  <!-- Link a documentos adjuntados: hereda el término de búsqueda como query "q" -->
                   <router-link
                     v-if="c.COD_DOCENTE"
                     :to="{
@@ -247,7 +385,6 @@
                     <span class="hidden sm:inline">Documentos adjuntados</span>
                   </router-link>
 
-                  <!-- Botón eliminar -->
                   <button
                     @click="confirmarEliminar(c)"
                     class="inline-flex items-center p-2 text-red-700 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
@@ -266,7 +403,10 @@
 
       <!-- Contador de registros -->
       <div class="px-4 py-2.5 bg-gray-50/80 border-t border-gray-100 text-xs text-gray-400 flex justify-between">
-        <span>Mostrando {{ listadoFiltrado.length }} docentes</span>
+        <span>
+          Mostrando {{ listadoFiltrado.length }}
+          {{ (filtroNombre.trim() || hayFiltroCategoria) ? 'documentos' : 'docentes' }}
+        </span>
         <span v-if="clasificacion.listado.value.length !== listadoFiltrado.length">
           ({{ clasificacion.listado.value.length }} clasificaciones en total)
         </span>
@@ -320,169 +460,6 @@
         </div>
       </div>
     </Teleport>
-
-    <!-- Modal de Vista Previa del Reporte Excel (se superpone sobre todo) -->
-    <Teleport to="body">
-      <div v-if="mostrarPreviewExcel" class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" @click.self="cerrarPreviewExcel">
-        <div class="bg-white rounded-xl shadow-2xl max-w-6xl w-full max-h-[90vh] flex flex-col">
-
-          <!-- Header -->
-          <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-            <div>
-              <h3 class="text-base font-semibold text-gray-900">Vista previa del reporte Excel</h3>
-              <p class="text-xs text-gray-500 mt-0.5">Datos tal como se generarán en el archivo</p>
-            </div>
-            <button @click="cerrarPreviewExcel" class="text-gray-400 hover:text-gray-600">
-              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
-              </svg>
-            </button>
-          </div>
-
-          <!-- Parámetros del reporte -->
-          <div class="px-6 py-3 border-b border-gray-100 flex flex-wrap items-end gap-3 bg-gray-50/60">
-            <div>
-              <label class="block text-[11px] font-medium text-gray-600 mb-0.5">Gestión desde</label>
-              <input
-                v-model="excelParams.gestion_desde"
-                type="text"
-                placeholder="Ej. 2001"
-                class="w-28 px-2.5 py-1.5 text-[13px] border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label class="block text-[11px] font-medium text-gray-600 mb-0.5">Gestión hasta</label>
-              <input
-                v-model="excelParams.gestion_hasta"
-                type="text"
-                placeholder="Opcional"
-                class="w-28 px-2.5 py-1.5 text-[13px] border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label class="block text-[11px] font-medium text-gray-600 mb-0.5">Periodo</label>
-              <input
-                v-model="excelParams.periodo"
-                type="text"
-                placeholder="Opcional"
-                class="w-24 px-2.5 py-1.5 text-[13px] border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label class="block text-[11px] font-medium text-gray-600 mb-0.5">Versión</label>
-              <input
-                v-model="excelParams.version"
-                type="text"
-                placeholder="Ej. 5ta Versión"
-                class="w-36 px-2.5 py-1.5 text-[13px] border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <button
-              @click="cargarPreviewExcel"
-              class="px-3 py-1.5 text-sm font-medium text-blue-600 hover:text-blue-700"
-            >
-              Actualizar vista previa
-            </button>
-            <span v-if="!reporteExcel.loading.value && !reporteExcel.error.value" class="text-xs text-gray-400 mb-1.5 ml-auto">
-              {{ reporteExcel.totalFilas.value }} fila(s) · {{ reporteExcel.gestionEtiqueta.value }}
-            </span>
-          </div>
-
-          <!-- Contenido -->
-          <div class="flex-1 overflow-auto px-6 py-3">
-            <div v-if="reporteExcel.loading.value" class="text-center py-12 text-sm text-gray-400">
-              <svg class="w-6 h-6 mx-auto animate-spin text-blue-500 mb-2" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-              </svg>
-              Cargando vista previa...
-            </div>
-
-            <div v-else-if="reporteExcel.error.value" class="text-center py-12 text-sm text-red-500">
-              {{ reporteExcel.error.value }}
-            </div>
-
-            <table v-else-if="reporteExcel.preview.value.length" class="w-full text-xs border-collapse">
-              <thead class="sticky top-0 bg-white">
-                <tr class="border-b border-gray-200">
-                  <th class="text-center font-medium text-gray-500 px-2 py-2 uppercase tracking-wider w-10">Nº</th>
-                  <th class="text-left font-medium text-gray-500 px-2 py-2 uppercase tracking-wider">Docente</th>
-                  <th class="text-left font-medium text-gray-500 px-2 py-2 uppercase tracking-wider">Materia</th>
-                  <th class="text-center font-medium text-gray-500 px-2 py-2 uppercase tracking-wider">CH</th>
-                  <th class="text-left font-medium text-gray-500 px-2 py-2 uppercase tracking-wider">Tipo Documento</th>
-                  <th class="text-left font-medium text-gray-500 px-2 py-2 uppercase tracking-wider">Detalle</th>
-                  <th class="text-left font-medium text-gray-500 px-2 py-2 uppercase tracking-wider">Categoria</th>
-                  <th class="text-left font-medium text-gray-500 px-2 py-2 uppercase tracking-wider">Nivel</th>
-                  <th class="text-left font-medium text-gray-500 px-2 py-2 uppercase tracking-wider">Fotocopia</th>
-                  <th class="text-left font-medium text-gray-500 px-2 py-2 uppercase tracking-wider">Obs 2</th>
-                  <th class="text-left font-medium text-gray-500 px-2 py-2 uppercase tracking-wider">Obs 3</th>
-                </tr>
-              </thead>
-              <tbody>
-                <template v-for="(item, i) in reporteExcel.preview.value" :key="i">
-                  <tr
-                    class="border-b border-gray-50"
-                    :class="item.FIN_GRUPO ? 'border-b-2 border-b-gray-300' : ''"
-                  >
-                    <!-- Nº y Docente se fusionan visualmente con rowspan, igual que en el Excel -->
-                    <td
-                      v-if="item.INICIO_GRUPO"
-                      :rowspan="item.FILAS_GRUPO"
-                      class="px-2 py-2 text-center align-middle border-r border-gray-100 font-medium text-gray-700"
-                    >
-                      {{ item.N }}
-                    </td>
-                    <td
-                      v-if="item.INICIO_GRUPO"
-                      :rowspan="item.FILAS_GRUPO"
-                      class="px-2 py-2 align-middle border-r border-gray-100 font-medium text-gray-800"
-                    >
-                      {{ item.NOMBRE_DOCENTE }}
-                    </td>
-
-                    <td class="px-2 py-2 text-gray-700" :class="item.NEGRITA ? 'font-semibold' : ''">
-                      {{ item.NOMBRE_MATERIA }}
-                    </td>
-                    <td class="px-2 py-2 text-center text-gray-600">{{ item.CH || '—' }}</td>
-                    <td class="px-2 py-2 text-gray-600">{{ item.TIPO_DOCUMENTO || '—' }}</td>
-                    <td class="px-2 py-2 text-gray-600">{{ item.DETALLE || '—' }}</td>
-                    <td class="px-2 py-2 text-gray-600">{{ item.CATEGORIA || '—' }}</td>
-                    <td class="px-2 py-2 text-gray-600">{{ item.NIVEL || '—' }}</td>
-                    <td class="px-2 py-2 text-gray-600">{{ item.FOTOCOPIA_TITULAR || '—' }}</td>
-                    <td class="px-2 py-2 text-gray-600">{{ item.OBS2 || '—' }}</td>
-                    <td class="px-2 py-2 text-gray-600">{{ item.OBS3 || '—' }}</td>
-                  </tr>
-                </template>
-              </tbody>
-            </table>
-
-            <div v-else class="text-center py-12 text-sm text-gray-400">
-              No hay registros para los parámetros indicados
-            </div>
-          </div>
-
-          <!-- Footer -->
-          <div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100">
-            <button
-              @click="cerrarPreviewExcel"
-              class="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
-            >
-              Cancelar
-            </button>
-            <button
-              @click="descargarExcelConfirmado"
-              :disabled="!reporteExcel.preview.value.length"
-              class="inline-flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors"
-            >
-              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H6a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-              </svg>
-              Descargar Excel
-            </button>
-          </div>
-        </div>
-      </div>
-    </Teleport>
   </div>
 </template>
 
@@ -490,34 +467,99 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useClasificacion } from '../composables/useClasificacion'
-import { useReporteExcel } from '../composables/useReporteExcel'
 import { useCategorias } from '../composables/useCategorias'
+import { useTiposTitulo } from '../composables/useTiposTitulo'
+import ExportarListado from '../components/ExportarListado.vue'
 
 const router = useRouter()
-const route = useRoute()   // ← nuevo
+const route = useRoute()
 const clasificacion = useClasificacion()
-const reporteExcel = useReporteExcel()
-const { categorias, cargarCategorias } = useCategorias() 
-const API_BASE = import.meta.env.VITE_API_URL ?? ''
+const { categorias, cargarCategorias } = useCategorias()
+const { tipos: tiposTitulo, cargarTipos } = useTiposTitulo()
+
+// ─── Ver PDF (protegido con auth:sanctum) ───
+const abriendoPdfId = ref(null)
+
+async function verPdf(idDocumento) {
+  if (abriendoPdfId.value) return
+  abriendoPdfId.value = idDocumento
+  try {
+    await clasificacion.verPdf(idDocumento, 'inline')
+  } catch (e) {
+    alert(e?.response?.status === 401
+      ? 'Tu sesión expiró. Vuelve a iniciar sesión.'
+      : 'No se pudo abrir el PDF'
+    )
+  } finally {
+    abriendoPdfId.value = null
+  }
+}
+
+// ─── Normalizar: quita tildes, mayúsculas y espacios sobrantes ───
+const norm = (s) => String(s || '')
+  .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  .toUpperCase().trim()
 
 // Filtros de la tabla principal
 const filtroNombre = ref('')
 const filtros = ref({
-  categoria: '',
+  categoria: [],
+  tipo_titulo: [],
+  observacion: [],
   nivel: '',
   gestion: '',
-  periodo: '', 
+  periodo: '',
+})
+
+// Dropdowns multi-selección del panel de filtros
+const filtroCatOpen = ref(false)
+const filtroTituloOpen = ref(false)
+const filtroObsOpen = ref(false)
+function cerrarDropdownsFiltro() {
+  filtroCatOpen.value = false
+  filtroTituloOpen.value = false
+  filtroObsOpen.value = false
+}
+
+// Observaciones distintas que existen en los documentos cargados.
+// Sin duplicados (ignora tildes y mayúsculas). Si no hay ninguna, queda vacío.
+// Las ya seleccionadas se conservan aunque otro filtro las deje fuera de la lista.
+const observacionesDisponibles = computed(() => {
+  const mapa = new Map()
+  for (const c of clasificacion.listado.value) {
+    const o = String(c.OBSERVACION || '').trim()
+    if (o && !mapa.has(norm(o))) mapa.set(norm(o), o)
+  }
+  for (const o of filtros.value.observacion) {
+    if (!mapa.has(norm(o))) mapa.set(norm(o), o)
+  }
+  return [...mapa.values()].sort((a, b) => a.localeCompare(b, 'es'))
 })
 
 // Panel de filtros colapsable
 const mostrarFiltros = ref(false)
 const filtrosActivosCount = computed(() => {
   let count = 0
-  if (filtros.value.categoria) count++
+  if (filtros.value.categoria.length) count++
+  if (filtros.value.tipo_titulo.length) count++
+  if (filtros.value.observacion.length) count++
   if (filtros.value.nivel) count++
   if (filtros.value.gestion) count++
-  if (filtros.value.periodo) count++ 
+  if (filtros.value.periodo) count++
   return count
+})
+
+// Texto que resume los filtros activos (se imprime en el PDF / Excel exportado)
+const filtrosTexto = computed(() => {
+  const partes = []
+  if (filtroNombre.value.trim()) partes.push(`Búsqueda: "${filtroNombre.value.trim()}"`)
+  if (filtros.value.categoria.length) partes.push(`Categoría: ${filtros.value.categoria.join(', ')}`)
+  if (filtros.value.tipo_titulo.length) partes.push(`Título: ${filtros.value.tipo_titulo.join(', ')}`)
+  if (filtros.value.observacion.length) partes.push(`Observación: ${filtros.value.observacion.join(', ')}`)
+  if (filtros.value.nivel) partes.push(`Nivel: ${filtros.value.nivel}`)
+  if (filtros.value.gestion) partes.push(`Gestión: ${filtros.value.gestion}`)
+  if (filtros.value.periodo) partes.push(`Periodo: ${filtros.value.periodo}`)
+  return partes.join(' · ')
 })
 
 // Modal de eliminación
@@ -529,7 +571,8 @@ const eliminando = ref(false)
 async function cargar() {
   try {
     await clasificacion.listar({
-      categoria: filtros.value.categoria || undefined,
+      categoria: filtros.value.categoria.length ? filtros.value.categoria : undefined,
+      tipo_titulo: filtros.value.tipo_titulo.length ? filtros.value.tipo_titulo : undefined,
       nivel: filtros.value.nivel || undefined,
       gestion: filtros.value.gestion || undefined,
       periodo: filtros.value.periodo || undefined,
@@ -541,14 +584,17 @@ async function cargar() {
 
 function limpiarFiltros() {
   filtroNombre.value = ''
-  filtros.value.categoria = ''
+  filtros.value.categoria = []
+  filtros.value.tipo_titulo = []
+  filtros.value.observacion = []
   filtros.value.nivel = ''
   filtros.value.gestion = ''
-  filtros.value.periodo = '' 
+  filtros.value.periodo = ''
+  cerrarDropdownsFiltro()
   cargar()
 }
 
-// Cuenta cuántos docentes distintos tiene cada documento, usando el listado ya cargado
+// Cuenta cuántos docentes distintos tiene cada documento
 const docentesPorDocumento = computed(() => {
   const mapa = new Map()
   for (const c of clasificacion.listado.value) {
@@ -587,31 +633,36 @@ const listadoPorDocente = computed(() => {
 })
 
 // ─── Filtrado + agrupado en cliente ───
-// Si hay término de búsqueda, primero se filtra sobre TODOS los documentos
-// (no solo el más reciente por docente), y luego se agrupa por docente
-// para mostrar la fila representativa. Así, si el diploma está en el
-// documento #5 o #6 de un docente, ese docente igual aparece en la lista.
-// ─── Filtrado + agrupado en cliente ───
-// Sin búsqueda: se agrupa por docente (una fila por docente, la más reciente).
-// Con búsqueda: se muestra CADA documento que coincide como su propia fila,
-// así si un docente tiene 2 diplomados (doc #5 y #6), aparecen los 2 en la lista.
+const hayFiltroCategoria = computed(
+  () => filtros.value.categoria.length > 0 || filtros.value.tipo_titulo.length > 0 || filtros.value.observacion.length > 0
+)
+
 const listadoFiltrado = computed(() => {
   const term = filtroNombre.value.trim().toLowerCase()
 
-  if (!term) return listadoPorDocente.value
+  if (!term && !hayFiltroCategoria.value) return listadoPorDocente.value
 
   const coincide = (c) => {
+    if (filtros.value.categoria.length) {
+      const cats = filtros.value.categoria.map(norm)
+      if (!cats.includes(norm(c.CATEGORIA))) return false
+    }
+
+    if (filtros.value.observacion.length) {
+      const obs = filtros.value.observacion.map(norm)
+      if (!obs.includes(norm(c.OBSERVACION))) return false
+    }
+
+    if (!term) return true
+
     const nombre  = (c.NOMBRE_DOCENTE  || '').toLowerCase()
     const tipoDoc = (c.TIPO_DOCUMENTO  || '').toLowerCase()
     const detalle = (c.DETALLE_GENERAL || '').toLowerCase()
     return nombre.includes(term) || tipoDoc.includes(term) || detalle.includes(term)
   }
 
-  // Documentos individuales que coinciden con la búsqueda (sin agrupar por docente)
   const documentosCoincidentes = clasificacion.listado.value.filter(coincide)
 
-  // Para cada documento coincidente, se añade el total real de documentos
-  // que tiene ese docente (para mostrar el contador junto al nombre, igual que antes)
   return documentosCoincidentes.map(c => {
     const clave = c.COD_DOCENTE ?? c.NOMBRE_DOCENTE
     const totalDocumentos = clasificacion.listado.value.filter(
@@ -622,15 +673,27 @@ const listadoFiltrado = computed(() => {
   })
 })
 
-// ─── Badge de categoria ───
-function badgeCategoria(categoria) {
-  if (categoria === 'Docentes Titulares')  return 'bg-emerald-50 text-emerald-700'
-  if (categoria === 'Docentes Temporales') return 'bg-amber-50 text-amber-700'
-  if (categoria === 'Examen de suficiencia') return 'bg-blue-50 text-blue-700'
-  if (categoria === 'Acefala') return 'bg-gray-50 text-gray-700'
-  if (categoria === 'Sin Examen de suficiencia') return 'bg-orange-50 text-red-700'
+// ─── Color por categoría ───
+const COLORES_CATEGORIA = {
+  'TITULARES':                'bg-emerald-50 text-emerald-700',
+  'TITULARES REV':            'bg-green-50 text-green-700',
+  'REEMPLAZO TEMPORAL':       'bg-amber-50 text-amber-700',
+  'SUPLENCIA':                'bg-yellow-50 text-yellow-700',
+  'EXAMEN SUFICIENCIA':       'bg-blue-50 text-blue-700',
+  'ACEFALA':                  'bg-sky-100 text-sky-800',
+  'SIN CATEGORIA':            'bg-orange-50 text-red-700',
+  'CERTIFICADO':              'bg-violet-50 text-violet-700',
+  'CONCURSO DE MERITO':       'bg-fuchsia-50 text-fuchsia-700',
+  'PLANILLA DE CALIFICACION': 'bg-cyan-50 text-cyan-700',
+  'COORDINADOR':              'bg-indigo-50 text-indigo-700',
+  'DIRECTOR':                 'bg-purple-50 text-purple-700',
+  'JEFE':                     'bg-rose-50 text-rose-700',
+  'HISTORICO':                'bg-stone-100 text-stone-700',
+  'PRELACION':                'bg-teal-50 text-teal-700',
+}
 
-  return 'bg-gray-50 text-gray-600'
+function badgeCategoria(categoria) {
+  return COLORES_CATEGORIA[norm(categoria)] ?? 'bg-gray-50 text-gray-600'
 }
 
 // ─── Eliminar clasificación ───
@@ -653,10 +716,8 @@ async function eliminarClasificacion() {
   try {
     let result
     if (totalDocentesEnDocumento > 1) {
-      // Solo quita a este docente, el documento y los demás docentes quedan intactos
       result = await clasificacion.eliminarDocente(itemAEliminar.value.ID_CLASIFICACION_DOCENTE)
     } else {
-      // Es el único docente -> borra el documento completo
       result = await clasificacion.eliminar(itemAEliminar.value.ID_DOCUMENTO)
     }
 
@@ -673,51 +734,6 @@ async function eliminarClasificacion() {
     eliminando.value = false
   }
 }
-// ─── Vista previa de Reporte Excel (usa el mismo construirDatos() del backend) ───
-const mostrarPreviewExcel = ref(false)
-const excelParams = ref({
-  gestion_desde: '2001',
-  gestion_hasta: '',
-  periodo: '',
-  version: '5ta Versión',
-})
-
-async function abrirPreviewExcel() {
-  if (filtros.value.gestion) {
-    excelParams.value.gestion_desde = filtros.value.gestion
-  }
-  mostrarPreviewExcel.value = true
-  await cargarPreviewExcel()
-}
-
-async function cargarPreviewExcel() {
-  try {
-    await reporteExcel.previsualizar({
-      gestion_desde: excelParams.value.gestion_desde,
-      gestion_hasta: excelParams.value.gestion_hasta,
-      periodo: excelParams.value.periodo,
-      version: excelParams.value.version,
-    })
-  } catch (e) {
-    console.error('Error cargando vista previa de Excel:', e)
-  }
-}
-
-function cerrarPreviewExcel() {
-  mostrarPreviewExcel.value = false
-}
-
-function descargarExcelConfirmado() {
-  const url = reporteExcel.urlDescarga({
-    gestion_desde: excelParams.value.gestion_desde,
-    gestion_hasta: excelParams.value.gestion_hasta,
-    periodo: excelParams.value.periodo,
-    version: excelParams.value.version,
-  })
-
-  window.open(url, '_blank')
-  cerrarPreviewExcel()
-}
 
 // ─── Debounce para búsqueda ───
 let timeoutId = null
@@ -729,11 +745,10 @@ watch(filtroNombre, () => {
 onMounted(async () => {
   if (route.query.q) {
     filtroNombre.value = String(route.query.q)
-    // Se limpia el query de la URL para que un refresh posterior
-    // no vuelva a aplicar el filtro automáticamente.
     router.replace({ query: { ...route.query, q: undefined } })
   }
   await cargarCategorias()
+  await cargarTipos()
   await cargar()
 })
 </script>

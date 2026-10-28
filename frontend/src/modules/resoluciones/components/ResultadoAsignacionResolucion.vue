@@ -16,7 +16,7 @@
         </div>
         <div>
           <h2 class="text-sm font-semibold text-white m-0">
-            {{ gruposActualizados.length > 0 ? 'Resolución asignada y aplicada en grupos' : 'Resolución asignada, pero no se aplicó en grupos' }}
+            {{ gruposActualizados.length > 0 ? 'Referencia asignada y aplicada en grupos' : 'Referencia asignada, pero no se aplicó en grupos' }}
           </h2>
           <p class="text-xs text-slate-100 m-0 mt-0.5">
             {{ ultimasAsignadas.length }} materia{{ ultimasAsignadas.length !== 1 ? 's' : '' }} vinculada{{ ultimasAsignadas.length !== 1 ? 's' : '' }} a {{ resolucionNro }}
@@ -46,7 +46,7 @@
                 <th class="px-4 py-2.5 text-left text-[0.68rem] font-semibold tracking-widest uppercase text-slate-100">Docente</th>
                 <th class="px-4 py-2.5 text-left text-[0.68rem] font-semibold tracking-widest uppercase text-slate-100">Tipo</th>
                 <th class="px-4 py-2.5 text-left text-[0.68rem] font-semibold tracking-widest uppercase text-slate-100">Tipo de ingreso</th>
-                <th class="px-4 py-2.5 text-left text-[0.68rem] font-semibold tracking-widest uppercase text-slate-100">Resolución</th>
+                <th class="px-4 py-2.5 text-left text-[0.68rem] font-semibold tracking-widest uppercase text-slate-100">Referencia</th>
                 <th class="px-4 py-2.5 text-left text-[0.68rem] font-semibold tracking-widest uppercase text-slate-100">Designación</th>
                 <th class="px-4 py-2.5 text-left text-[0.68rem] font-semibold tracking-widest uppercase text-slate-100">Reporte</th>
               </tr>
@@ -95,13 +95,13 @@
             </svg>
             <div>
               <p class="text-xs font-semibold text-amber-800 m-0">
-                La resolución se guardó, pero no se actualizó ningún registro en grupos
+                La referencia se guardó, pero no se actualizó ningún registro en grupos
               </p>
               <p class="text-xs text-amber-700/80 m-0 mt-1 leading-relaxed">
                 Las {{ ultimasAsignadas.length }} materia{{ ultimasAsignadas.length !== 1 ? 's' : '' }} qued{{ ultimasAsignadas.length !== 1 ? 'aron' : 'ó' }} vinculada{{ ultimasAsignadas.length !== 1 ? 's' : '' }} a
                 <span class="font-medium text-amber-900">{{ resolucionNro }}</span>, pero en la tabla de grupos no existe
                 ningún registro con ese mismo año y periodo para esa combinación de docente, plan, materia y grupo.
-                Esto suele pasar cuando la materia marcada corresponde a una gestión distinta a la de la resolución.
+                Esto suele pasar cuando la materia marcada corresponde a una gestión distinta a la de la referencia.
               </p>
             </div>
           </div>
@@ -133,8 +133,8 @@
           </div>
 
           <p class="text-[0.68rem] text-slate-400 mt-3 mb-0">
-            Revisá en la tabla de grupos si existe un registro para este docente/materia/grupo con el mismo año y periodo que la resolución
-            ({{ resolucionAnioPeriodoLabel }}). Si la materia corresponde a otra gestión, puede que necesites otra resolución o corregir el dato en grupos.
+            Revisá en la tabla de grupos si existe un registro para este docente/materia/grupo con el mismo año y periodo que la referencia
+            ({{ resolucionAnioPeriodoLabel }}). Si la materia corresponde a otra gestión, puede que necesites otra referencia o corregir el dato en grupos.
           </p>
         </div>
       </div>
@@ -145,14 +145,14 @@
           class="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium border border-slate-400 text-slate-900 hover:text-slate-100 hover:bg-amber-500 hover:border-amber-400 transition-colors"
           @click="$emit('asignar-otra')"
         >
-          Asignar otra resolución
+          Asignar otra referencia
         </button>
         <button
           type="button"
           class="inline-flex items-center gap-2 px-5 py-2 bg-amber-500 hover:bg-amber-400 text-white text-xs font-semibold rounded-lg transition-colors shadow-sm"
           @click="$emit('ir-a-listado')"
         >
-          Ir al listado de resoluciones
+          Ir al listado de referencias
         </button>
       </div>
     </div>

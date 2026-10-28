@@ -11,14 +11,14 @@
         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
       </svg>
       <p class="text-[13px] font-medium text-gray-600">
-        {{ accion === 'guardar-asignar' ? 'Guardando y preparando asignación de docentes…' : 'Guardando resolución…' }}
+        {{ accion === 'guardar-asignar' ? 'Guardando y preparando asignación de docentes…' : 'Guardando referencia…' }}
       </p>
     </div>
 
     <div class="p-6 space-y-5">
 
       <div>
-        <label class="block text-[14px] font-semibold text-gray-800 mb-1.5">Número de resolución *</label>
+        <label class="block text-[14px] font-semibold text-gray-800 mb-1.5">Número de referencia *</label>
         <input
           v-model="numero"
           type="text"
@@ -176,7 +176,7 @@
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
           </svg>
-          {{ saving && accion === 'guardar' ? 'Guardando...' : 'Guardar resolución' }}
+          {{ saving && accion === 'guardar' ? 'Guardando...' : 'Guardar referencia' }}
         </button>
         <button
           type="button"
@@ -236,7 +236,7 @@ const onBlurPeriodo = () => {
 
 function validar() {
   errores.value = { ...errores.value, numero: '', anio: '', periodo: '' }
-  if (!numero.value.trim()) errores.value.numero = 'El número de resolución es obligatorio.'
+  if (!numero.value.trim()) errores.value.numero = 'El número de referencia es obligatorio.'
   if (!anio.value) {
     errores.value.anio = 'El año es obligatorio.'
   } else if (!/^(19|20)\d{2}$/.test(String(anio.value))) {

@@ -2,7 +2,8 @@ import axios from 'axios'
 import router from '@/router'
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:8000',
+  
+  baseURL: import.meta.env.VITE_API_URL,
   withCredentials: false,
   headers: {
     'Content-Type': 'application/json',
@@ -24,8 +25,16 @@ api.interceptors.response.use(
     }
 
     if (error.response?.status === 401) {
+      const url = error.config?.url ?? ''
+      // No redirigir en el propio login ni en la validación inicial de
+      // sesión: esos 401 son esperables (credenciales malas / token
+      // expirado) y el store ya los maneja sin necesidad de navegar.
+      const isAuthProbe = url.includes('/api/auth/login') || url.includes('/api/auth/me')
+      const alreadyOnLogin = router.currentRoute.value.path === '/login'
       localStorage.removeItem('token')
-      router.push('/login')
+      if (!isAuthProbe && !alreadyOnLogin) {
+        router.push('/login')
+      }
     }
 
     return Promise.reject(error)

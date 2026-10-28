@@ -3,7 +3,18 @@
 import { ref } from 'vue'
 import axios from 'axios'
 
-const API_BASE = import.meta.env.VITE_API_URL || '/api'
+const API_BASE = import.meta.env.VITE_API_URL
+
+// /api/admin/horarios y /api/admin/horarios/{docente} ahora están
+// protegidas con auth:sanctum. Antes estas llamadas no mandaban ningún
+// header y devolvían 401 siempre (con o sin sesión).
+function authHeaders(extra = {}) {
+    const token = localStorage.getItem('token')
+    return {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...extra,
+    }
+}
 
 export function useHorarioAdmin() {
     const docentes = ref([])
@@ -22,6 +33,7 @@ export function useHorarioAdmin() {
                 `${API_BASE}/api/admin/horarios`,
                 {
                     params: { anio, periodo },
+                    headers: authHeaders(),
                 }
             )
 
@@ -51,6 +63,7 @@ export function useHorarioAdmin() {
                 `${API_BASE}/api/admin/horarios/${codigoDocente}`,
                 {
                     params: { anio, periodo },
+                    headers: authHeaders(),
                 }
             )
 
@@ -213,7 +226,8 @@ export function useHorarioAdmin() {
                     plan: h.PLAN,
                     nivel: h.NIVEL,
                     compartido: h.COMPARTIDO,
-                    comp: h.COMP,
+                    comp: h.COMP,   // ← restaurado: lo usan filasOrdenadas, chMostrada y la columna Comp.
+                    tipoIngreso: String(h.TIPO_INGRESO ?? '').trim(),
                     sesiones: [],
                     inscritos: h.TOTAL_NORMAL ?? 0,
                     carga: 0,
@@ -226,7 +240,7 @@ export function useHorarioAdmin() {
             const diaNormalizado = abreviaturaDia(h.DIA)
 
             item.sesiones.push({
-                dia: diaNormalizado,  // 🔥 Guardar el día normalizado (LU, MA, MI, etc.)
+                dia: diaNormalizado,  //  Guardar el día normalizado (LU, MA, MI, etc.)
                 horario: h.HORARIO,
                 ambiente: h.AMBIENTE,
                 ch: Number(h.CARGA_HORARIA || 0),
@@ -235,7 +249,12 @@ export function useHorarioAdmin() {
             item.carga += Number(h.CARGA_HORARIA || 0)
         }
 
-        return Array.from(mapa.values())
+        // Orden: PLAN → MATERIA → GRUPO
+        return Array.from(mapa.values()).sort((a, b) =>
+            String(a.plan ?? '').localeCompare(String(b.plan ?? ''), 'es', { numeric: true }) ||
+            String(a.materia ?? '').localeCompare(String(b.materia ?? ''), 'es', { numeric: true }) ||
+            String(a.grupo ?? '').localeCompare(String(b.grupo ?? ''), 'es', { numeric: true })
+        )
     }
 
     return {
@@ -249,6 +268,6 @@ export function useHorarioAdmin() {
         agruparPorMateriaGrupo,
         DIAS_LABEL,
         DIAS_ORDEN,
-        abreviaturaDia,  // 🔥 Exportar la función para usarla en otros archivos
+        abreviaturaDia,  //  Exportar la función para usarla en otros archivos
     }
 }

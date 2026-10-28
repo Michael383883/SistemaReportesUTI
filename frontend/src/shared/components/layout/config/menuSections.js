@@ -27,29 +27,32 @@ export const menuSections = [
                 label: 'Reportes',
                 icon: BarChart2,
                 children: [
-                    { to: '/reportes/docentes', label: 'Kardex docente' },
+                    { to: '/reportes/docentes', label: 'Kardex Docente' },
+                    { to: '/materias-kardex', label: 'Kardex Materia' },
+
                     { to: '/reportes/edicion-tipo-ingreso', label: 'Asignar Modalidad' },
-                    { to: '/reportes/docentes-titulo', label: 'Docentes con título' },
+                    { to: '/reportes/docentes-titulo', label: 'Docentes con Título' },
+                    { to: '/reporte-tipo-ingreso', label: 'Reporte tipo Ingreso' }
                 ],
             },
 
+            // ── Documentos y Referencia unificados: "Digitalización" y
+            // "Documentos Adjuntos" eran, en la práctica, el mismo flujo
+            // (subir / listar / asignar) al 95%. Se dejan como un solo
+            // ítem de menú; "Resolución" pasa a llamarse "Referencia".
             {
-                label: 'Digitalización',
-                icon: Upload,
-                children: [
-                    { to: '/resoluciones/subir', label: 'Subir Resolución' },
-                    { to: '/resoluciones/listado', label: 'Lista de Resoluciones' },
-                    { to: '/resoluciones/asignar', label: 'Asignar Resolución' },
-                ],
-            },
-
-            {
-                label: 'Documetos Adjuntos',
+                label: 'Documentos',
                 icon: FileText,
                 children: [
                     { to: '/clasificaciones/nueva', label: 'Subir Documento' },
-                    { to: '/clasificaciones', label: 'Listado de documentos' },
-
+                    { to: '/clasificaciones', label: 'Listado de Documentos de Docente' },
+                    { to: '/clasificaciones/listar-por-documento', label: 'Listado de Archivos' },
+                    { to: '/reporte-excel', label: 'Prelacion' },
+                    { to: '/reporte-prelacion-materia', label: 'Prelacion Materia' },
+                    { to: '/resoluciones/subir', label: 'Subir Referencia' },
+                    { to: '/resoluciones/listado', label: 'Lista de Referencias' },
+                    { to: '/resoluciones/asignar', label: 'Asignar Solo a Kardex' },
+                    { to: '/clasificaciones/subir-titulo', label: 'Subir Título' },
                 ],
             },
 
@@ -70,8 +73,8 @@ export const menuSections = [
                 icon: Settings,
                 children: [
                     { to: '/usuarios', label: 'Usuarios' },
-                    { to: '/config-bd', label: 'Base de datos' },
-                    { to: '/periodos-academicos', label: 'Periodos Académicos' },
+                    { to: '/config-bd', label: 'Base de Datos' },
+                    { to: '/periodos-academicos', label: 'Períodos Académicos' },
                 ],
             },
         ],
@@ -81,12 +84,13 @@ export const menuSections = [
     // ROL: SECRETARIA
     // ─────────────────────────────────────────
     {
-        label: 'Secretaria',
+        label: 'Secretaría',
         roles: ['secretaria'],
         items: [
             { to: '/secretaria/dashboard', label: 'Dashboard', icon: LayoutDashboard },
             { to: '/secretaria/estudiantes', label: 'Estudiantes', icon: GraduationCap },
             { to: '/secretaria/docentes', label: 'Docentes', icon: BookOpen },
+            { to: '/secretaria/kardex', label: 'Kardex', icon: FileText },
         ],
     },
 
@@ -94,7 +98,7 @@ export const menuSections = [
     // ROL: UTI
     // ─────────────────────────────────────────
     {
-        label: 'Secretaria',
+        label: 'UTI',
         roles: ['uti'],
         items: [
             { to: '/secretaria/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -112,7 +116,7 @@ export const menuSections = [
         items: [
             { to: '/secretariaTalleres/dashboard', label: 'Dashboard', icon: LayoutDashboard },
             { to: '/secretariaTalleres/docentes', label: 'Docentes', icon: BookOpen },
-            { to: '/secretariaTalleres/estudiante', label: 'Estudiante', icon: GraduationCap },
+            { to: '/secretariaTalleres/estudiante', label: 'Estudiantes', icon: GraduationCap },
         ],
     },
 ]

@@ -10,3 +10,6 @@ dist/
 # General
 .DS_Store
 .env
+
+# Local data (SQL Server mdf/ldf, logs)
+data/

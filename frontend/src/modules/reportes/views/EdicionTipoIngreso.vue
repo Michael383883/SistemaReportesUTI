@@ -86,9 +86,47 @@
       <!-- Materias del docente seleccionado -->
       <div v-if="selectedDocente" class="mb-4" :class="hayCambiosPendientes ? 'pb-24' : ''">
         <div class="flex items-center justify-between mb-2 flex-wrap gap-2">
-          <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-            Materias dictadas — {{ selectedDocente.nombres ?? selectedDocente.NOMBRES }} {{ selectedDocente.apellidos ?? selectedDocente.APELLIDOS }}
-          </p>
+          <div class="flex items-center gap-2 flex-wrap">
+            <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider m-0">
+              Materias dictadas — {{ selectedDocente.nombres ?? selectedDocente.NOMBRES }} {{ selectedDocente.apellidos ?? selectedDocente.APELLIDOS }}
+            </p>
+
+            <!-- Aviso: el filtro de último periodo se aplicó solo (docente 100 / por designar) -->
+            <span
+              v-if="filtrarUltimoPeriodo && (filtroAnio || filtroGestion)"
+              class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-amber-700 text-[11px] font-medium"
+              title="Para este docente se muestra por defecto solo el último periodo. Usá 'Limpiar' para ver todo."
+            >
+              Mostrando solo el último periodo
+            </span>
+
+            <!-- ── Habilitar periodo no concluido (misma lógica que ReporteHeader) ── -->
+            <button
+              v-if="periodoPendiente"
+              :disabled="loadingReporte"
+              type="button"
+              class="
+                inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold
+                border shadow-sm transition-all duration-150 cursor-pointer whitespace-nowrap
+                active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100
+              "
+              :class="habilitacionAplicada
+                ? 'bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100'
+                : 'bg-red-50 border-red-300 text-red-700 hover:bg-red-100'"
+              :title="habilitacionAplicada
+                ? `Mostrando ${periodoPendiente.label} (aún no concluye) — click para volver a ocultarlo`
+                : `${periodoPendiente.label} aún no concluye y está oculto — click para mostrarlo`"
+              @click="onToggleRestriccion"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path v-if="habilitacionAplicada" d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                <circle v-if="habilitacionAplicada" cx="12" cy="12" r="3"/>
+                <path v-else d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a18.9 18.9 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
+                <line v-if="!habilitacionAplicada" x1="1" y1="1" x2="23" y2="23"/>
+              </svg>
+              {{ habilitacionAplicada ? `Mostrando ${periodoPendiente.label}` : `Habilitar ${periodoPendiente.label}` }}
+            </button>
+          </div>
 
           <!-- Filtros por año y gestión -->
           <div class="flex items-center gap-2">
@@ -135,16 +173,17 @@
           :materias="materiasFiltradas"
           :cambios="cambiosPendientes"
           :docente-cod="docenteCodActual"
+          :opciones="opcionesTipoIngreso"
           @cambiar="onCambiar"
+          @agregar-categoria="onAgregarCategoria"
         />
+
+        <p v-if="errorCategoriasKardex" class="text-xs text-red-500 mt-2">
+          {{ errorCategoriasKardex }}
+        </p>
       </div>
 
-      <!--
-        Barra de "Aplicar cambios": queda fija (sticky) al fondo del viewport
-        en cuanto hay al menos un cambio pendiente, así siempre es visible
-        sin importar cuánto scrolleés la tabla — no hace falta bajar hasta
-        el final de la página para encontrarla.
-      -->
+      <!-- Barra fija de "Aplicar cambios" -->
       <Transition
         enter-active-class="transition ease-out duration-200"
         enter-from-class="opacity-0 translate-y-3"
@@ -205,12 +244,33 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import DocenteSearch from '../../docentes/components/DocenteSearch.vue'
 import { useDocentes } from '../../docentes/composables/useDocentes'
 import { useReporte } from '../../reportes/composables/useReporte'
 import { useTipoIngreso } from '../composables/useTipoIngreso'
+import { useCategoriasKardex } from '../composables/useCategoriasKardex'
 import TipoIngresoTabla from '../components/TipoIngresoTabla.vue'
+
+// ─── Catálogo de categorías para el <select> de Tipo de Ingreso ──────────
+const {
+  categorias: opcionesTipoIngreso,
+  loading: loadingCategoriasKardex,
+  error: errorCategoriasKardex,
+  cargar: cargarCategoriasKardex,
+  agregar: agregarCategoriaKardex,
+} = useCategoriasKardex()
+
+// Se carga UNA vez al montar la página (no depende del docente)
+cargarCategoriasKardex()
+
+function onAgregarCategoria({ onCreada }) {
+  const nombre = window.prompt('Nombre de la nueva categoría de tipo de ingreso:')
+  if (!nombre) return
+  agregarCategoriaKardex(nombre)
+    .then((nombreCreado) => onCreada(nombreCreado))
+    .catch(() => {}) // el error queda en errorCategoriasKardex.value
+}
 
 // ─── Docentes ───────────────────────────────────────────────────
 const {
@@ -230,11 +290,35 @@ const docenteCodActual = computed(() =>
     : null
 )
 
+// ─── Docentes "comodín" que acumulan muchas materias de todos los periodos ──
+// Solo para ellos el filtro de año/gestión se activa solo con el último periodo.
+// Si el código del "docente por designar" fuera otro, se agrega aquí.
+const CODIGOS_DOCENTE_POR_DESIGNAR = ['100']
+
+function esDocentePorDesignar(doc) {
+  if (!doc) return false
+  const cod = String(doc.codigo ?? doc.CODIGO ?? doc.cod_docente ?? '').trim()
+  if (CODIGOS_DOCENTE_POR_DESIGNAR.includes(cod)) return true
+  const nombre = `${doc.apellidos ?? doc.APELLIDOS ?? ''} ${doc.nombres ?? doc.NOMBRES ?? ''}`.toUpperCase()
+  return nombre.includes('POR DESIGNAR')
+}
+
+const filtrarUltimoPeriodo = computed(() => esDocentePorDesignar(selectedDocente.value))
+
 // ─── Reporte de materias del docente seleccionado ────────────────
 const { reporte, loading: loadingReporte, error: errorReporte, generarReporte, limpiarReporte } = useReporte()
 
 function onSeleccionarDocente(doc) {
   selectDocente(doc)
+  // Resetea el estado de habilitación de periodo al cambiar de docente
+  habilitarRestriccion.value = false
+  anioHabilitado.value = null
+  periodoHabilitado.value = null
+  // Resetea los filtros: si venimos del docente "por designar", su filtro
+  // automático no debe quedarse pegado al siguiente docente.
+  filtroAnio.value = ''
+  filtroGestion.value = ''
+
   const codigo = doc.codigo ?? doc.CODIGO
   if (codigo) generarReporte(codigo)
 }
@@ -242,9 +326,68 @@ function onSeleccionarDocente(doc) {
 function onLimpiarDocente() {
   clearSelectionDocente()
   limpiarReporte()
+  habilitarRestriccion.value = false
+  anioHabilitado.value = null
+  periodoHabilitado.value = null
   filtroAnio.value = ''
   filtroGestion.value = ''
   limpiarCambios()
+}
+
+// ─── Habilitar periodo no concluido (misma lógica que ReporteHeader.vue) ──
+const PERIODO_LABEL = {
+  '1': 'Semestre I',
+  '2': 'Semestre II',
+  '3': 'Curso de Verano',
+  '4': 'Curso de Invierno',
+}
+
+// El backend de generarReporte debe devolver reporte.restriccion con:
+// { periodos_no_concluidos: ['2026-2', ...], habilitacion_aplicada: bool, habilitacion_solicitada: '2026-2' }
+const restriccion = computed(() => reporte.value?.restriccion || null)
+
+const periodoPendiente = computed(() => {
+  const lista = restriccion.value?.periodos_no_concluidos || []
+  if (!lista.length) return null
+
+  const clave = restriccion.value?.habilitacion_aplicada
+    ? restriccion.value.habilitacion_solicitada
+    : lista[0]
+
+  if (!clave) return null
+
+  const [anioStr, periodo] = clave.split('-')
+  return {
+    anio: Number(anioStr),
+    periodo,
+    label: `${anioStr}/${periodo} (${PERIODO_LABEL[periodo] || periodo})`,
+  }
+})
+
+const habilitacionAplicada = computed(() => !!restriccion.value?.habilitacion_aplicada)
+
+// Estado que se reenvía en cada regeneración del reporte, para que la
+// habilitación del periodo no se pierda al filtrar por año/gestión
+const habilitarRestriccion = ref(false)
+const anioHabilitado       = ref(null)
+const periodoHabilitado    = ref(null)
+
+async function onToggleRestriccion() {
+  if (!periodoPendiente.value) return
+
+  const habilitar = !habilitacionAplicada.value
+  habilitarRestriccion.value = habilitar
+  anioHabilitado.value       = habilitar ? periodoPendiente.value.anio : null
+  periodoHabilitado.value    = habilitar ? periodoPendiente.value.periodo : null
+
+  const codigo = docenteCodActual.value
+  if (!codigo) return
+
+  await generarReporte(codigo, {
+    habilitarRestriccion: habilitarRestriccion.value,
+    anioHabilitado:       anioHabilitado.value,
+    periodoHabilitado:    periodoHabilitado.value,
+  })
 }
 
 // ─── Edición de tipo de ingreso ───────────────────────────────────
@@ -340,6 +483,34 @@ const materiasFiltradas = computed(() => {
     if (filtroGestion.value && gest !== filtroGestion.value) return false
     return true
   })
+})
+
+// ─── Auto-filtro al último periodo (solo docente 100 / por designar) ───
+// "Último periodo" = el año más reciente del reporte y, dentro de ese año,
+// la gestión/periodo más alto. Se aplica cada vez que llega un reporte nuevo
+// para ese docente (al seleccionarlo, o al habilitar/ocultar un periodo no
+// concluido, que puede cambiar cuál es el último). El usuario puede cambiar
+// los selects o usar "Limpiar" y su elección se respeta hasta el próximo reporte.
+function aplicarFiltroUltimoPeriodo() {
+  const anio = aniosDisponibles.value[0] // ya viene ordenado de mayor a menor
+  if (!anio) return
+
+  const gestiones = new Set()
+  materiasDelReporte.value.forEach(m => {
+    const [a, ...resto] = String(m.gestion ?? '').split('/')
+    if (a?.trim() === anio) {
+      const g = resto.join('/').trim()
+      if (g) gestiones.add(g)
+    }
+  })
+
+  filtroAnio.value = anio
+  filtroGestion.value = [...gestiones].sort().pop() ?? ''
+}
+
+watch(reporte, (nuevo) => {
+  if (!nuevo || !filtrarUltimoPeriodo.value) return
+  aplicarFiltroUltimoPeriodo()
 })
 
 // ─── Fase final ────────────────────────────────────────────────────

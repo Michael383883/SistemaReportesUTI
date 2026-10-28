@@ -208,13 +208,13 @@
             <div v-if="c.OBSERVACION || c.OBSERVACION2 || c.GESTION || c.PERIODO || c.materias?.length || c.referencias?.length || c.titulo"
                  class="px-5 pb-3 space-y-2.5 border-t border-gray-100 pt-2.5">
 
-              <!-- Observaciones -->
+              <!-- Observaciones: etiquetadas OBS1 / OBS2, cada una solo si tiene valor -->
               <div v-if="c.OBSERVACION || c.OBSERVACION2" class="flex flex-wrap gap-2">
                 <span v-if="c.OBSERVACION" class="inline-flex items-center px-3 py-1.5 bg-gray-100 rounded-lg text-sm text-gray-700 leading-snug">
-                  {{ c.OBSERVACION }}
+                  <span class="font-semibold text-gray-500 mr-1">OBS1:</span>{{ c.OBSERVACION }}
                 </span>
                 <span v-if="c.OBSERVACION2" class="inline-flex items-center px-3 py-1.5 bg-gray-100 rounded-lg text-sm text-gray-700 leading-snug">
-                  {{ c.OBSERVACION2 }}
+                  <span class="font-semibold text-gray-500 mr-1">OBS2:</span>{{ c.OBSERVACION2 }}
                 </span>
               </div>
 
@@ -235,27 +235,49 @@
               </div>
 
               <!-- Materias -->
-              <div v-if="c.materias?.length" class="flex items-start gap-2.5">
-                <span class="text-[11px] font-bold text-gray-500 uppercase tracking-wide pt-1.5 flex-shrink-0 w-[78px]">
-                  Materias
-                </span>
-                <div class="flex flex-wrap gap-1.5 flex-1 min-w-0">
-                  <span
-                    v-for="m in c.materias"
-                    :key="m.ID_DETALLE"
-                    class="inline-flex items-center gap-1.5 pl-2.5 pr-1 py-1 bg-blue-50 border border-blue-100 rounded-lg text-sm text-blue-900 leading-none"
-                  >
-                    <span class="font-semibold">{{ m.NOMBRE_MATERIA }}</span>
-                    <span
-                      class="text-[11px] font-bold px-1.5 py-1 rounded"
-                      :class="tieneNota(m) ? 'bg-blue-600 text-white' : 'bg-white text-gray-500 border border-blue-100'"
-                    >
-                      {{ tieneNota(m) ? `Nota: ${m.NOTA}` : 'Sin calificación' }}
+                <!-- Materias -->
+                  <div v-if="c.materias?.length" class="flex items-start gap-2.5">
+                    <span class="text-[11px] font-bold text-gray-500 uppercase tracking-wide pt-1.5 flex-shrink-0 w-[78px]">
+                      Materias
                     </span>
-                  </span>
-                </div>
-              </div>
+                    <div class="flex flex-wrap gap-1.5 flex-1 min-w-0">
+                      <span
+                        v-for="m in c.materias"
+                        :key="m.ID_DETALLE"
+                        class="inline-flex items-center gap-1.5 pl-2.5 pr-1 py-1 bg-blue-50 border border-blue-100 rounded-lg text-sm text-blue-900 leading-none flex-wrap"
+                      >
+                        <span class="font-semibold">{{ m.NOMBRE_MATERIA }}</span>
 
+                        <!-- Grupo: solo si viene registrado -->
+                        <span v-if="m.GRUPO" class="text-blue-700">
+                          <span class="font-semibold">Grupo:</span> {{ m.GRUPO }}
+                        </span>
+
+                        <!-- Plan abreviado (mismo estilo/lógica que las tablas de materias) -->
+                        <span
+                          v-if="m.COD_PLAN"
+                          class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-bold"
+                          :class="tipoGrp(m.COD_PLAN, m.COD_MATERIA).class"
+                          :title="`Plan: ${m.COD_PLAN}`"
+                        >
+                          <span class="w-1.5 h-1.5 rounded-full" :class="tipoGrp(m.COD_PLAN, m.COD_MATERIA).dot"></span>
+                          {{ tipoGrp(m.COD_PLAN, m.COD_MATERIA).label }}
+                        </span>
+
+                        <!-- Detalle propio de la materia (ej. "Recuperatorio"), solo si existe -->
+                        <span v-if="m.DETALLE" class="text-blue-700">
+                          <span class="font-semibold">Detalle:</span> {{ m.DETALLE }}
+                        </span>
+
+                        <span
+                          class="text-[11px] font-bold px-1.5 py-1 rounded"
+                          :class="tieneNota(m) ? 'bg-blue-600 text-white' : 'bg-white text-gray-500 border border-blue-100'"
+                        >
+                          {{ tieneNota(m) ? `Nota: ${m.NOTA}` : 'Sin calificación' }}
+                        </span>
+                      </span>
+                    </div>
+                  </div>
               <!-- Referencias -->
               <div v-if="c.referencias?.length" class="flex items-start gap-2.5">
                 <span class="text-[11px] font-bold text-gray-500 uppercase tracking-wide pt-1.5 flex-shrink-0 w-[78px]">
@@ -263,20 +285,26 @@
                 </span>
                 <div class="flex flex-wrap gap-1.5 flex-1 min-w-0">
                   <template v-for="r in c.referencias" :key="r.ID_REF">
-                    <a
+                    <!--
+                      Antes esto era <a :href="`${API_BASE}/api/resoluciones/${r.ID_RESOLUCION}/pdf`">.
+                      Esa ruta está protegida con auth:sanctum: un <a> normal del navegador
+                      NO manda el header Authorization, así que siempre daba 401.
+                      Ahora es un botón que pide el PDF con axios (con token) y lo abre como blob.
+                    -->
+                    <button
                       v-if="r.ID_RESOLUCION"
-                      :href="`${API_BASE}/api/resoluciones/${r.ID_RESOLUCION}/pdf`"
-                      target="_blank"
-                      class="group inline-flex items-center bg-green-50 border border-green-100 hover:border-green-200 rounded-lg text-sm text-green-800 font-semibold transition-colors overflow-hidden leading-none"
+                      @click="verPdfResolucion(r.ID_RESOLUCION)"
+                      :disabled="descargandoId === `res-${r.ID_RESOLUCION}`"
+                      class="group inline-flex items-center bg-green-50 border border-green-100 hover:border-green-200 rounded-lg text-sm text-green-800 font-semibold transition-colors overflow-hidden leading-none disabled:opacity-60"
                     >
                       <span class="px-2.5 py-1.5">{{ r.NRO_REFERENCIA }}</span>
                       <span class="inline-flex items-center gap-1 px-2 py-1.5 bg-green-600 group-hover:bg-green-700 text-white text-[11px] font-bold h-full transition-colors">
                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                           <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h3m5-13v4a1 1 0 001 1h4m-5-5H8a2 2 0 00-2 2v14a2 2 0 002 2h8a2 2 0 002-2V8l-5-5z"/>
                         </svg>
-                        Ver PDF
+                        {{ descargandoId === `res-${r.ID_RESOLUCION}` ? 'Abriendo...' : 'Ver PDF' }}
                       </span>
-                    </a>
+                    </button>
                     <span
                       v-else
                       class="inline-flex items-center px-2.5 py-1.5 bg-gray-100 border border-gray-100 rounded-lg text-sm text-gray-600 leading-none"
@@ -310,6 +338,17 @@
             <!-- PIE DE CARD: acciones, pegadas al contenido, sin hueco -->
             <div class="flex items-center justify-end gap-2 px-5 py-2.5 bg-gray-50 border-t border-gray-100">
               <button
+                @click="idEditando = c.ID_CLASIFICACION_DOCENTE"
+                class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                title="Editar clasificación"
+              >
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                </svg>
+                Editar
+              </button>
+
+              <button
                 @click="confirmarEliminar(c)"
                 class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                 title="Eliminar clasificación"
@@ -320,15 +359,23 @@
                 Eliminar
               </button>
 
-              <a v-if="c.NOMBRE_ARCHIVO" :href="clasificacion.urlPdf(c.ID_DOCUMENTO, 'inline')"
-                target="_blank"
-                class="inline-flex items-center gap-1.5 px-4 py-1.5 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition-colors"
+              <!--
+                Antes: <a :href="clasificacion.urlPdf(c.ID_DOCUMENTO, 'inline')">.
+                Mismo problema: /api/clasificaciones/{id}/pdf está protegida con
+                auth:sanctum, un <a> normal no manda el token. Ahora usa
+                clasificacion.verPdf(), que sí manda el Authorization header.
+              -->
+              <button
+                v-if="c.NOMBRE_ARCHIVO"
+                @click="verPdfClasificacion(c.ID_DOCUMENTO)"
+                :disabled="descargandoId === `clas-${c.ID_DOCUMENTO}`"
+                class="inline-flex items-center gap-1.5 px-4 py-1.5 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition-colors disabled:opacity-60"
               >
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h3m5-13v4a1 1 0 001 1h4m-5-5H8a2 2 0 00-2 2v14a2 2 0 002 2h8a2 2 0 002-2V8l-5-5z"/>
                 </svg>
-                Ver PDF
-              </a>
+                {{ descargandoId === `clas-${c.ID_DOCUMENTO}` ? 'Abriendo...' : 'Ver PDF' }}
+              </button>
               <span v-else class="inline-flex items-center px-3 py-1.5 text-sm text-gray-400">
                 Sin PDF adjunto
               </span>
@@ -360,7 +407,7 @@
                 {{ c.CATEGORIA }}
               </span>
               <span v-if="c.titulo" class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-purple-50 text-purple-700 flex-shrink-0">
-                🎓 {{ c.titulo.TIPO_TITULO }}
+                {{ c.titulo.TIPO_TITULO }}
               </span>
               <p class="text-sm font-medium text-gray-800 truncate">
                 {{ c.TIPO_DOCUMENTO || c.NOMBRE_ARCHIVO || 'Sin archivo' }}
@@ -383,19 +430,33 @@
           </div>
           <span v-else class="hidden md:inline text-xs text-gray-300 flex-shrink-0">Sin referencias</span>
 
-          <!-- Ver PDF -->
-          <a
+          <!--
+            Antes: <a :href="clasificacion.urlPdf(c.ID_CLASIFICACION, 'inline')">.
+            Mismo motivo que arriba: reemplazado por botón + verPdfClasificacion().
+          -->
+          <button
             v-if="c.NOMBRE_ARCHIVO"
-            :href="clasificacion.urlPdf(c.ID_CLASIFICACION, 'inline')"
-            target="_blank"
-            class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition-colors flex-shrink-0"
+            @click="verPdfClasificacion(c.ID_CLASIFICACION)"
+            :disabled="descargandoId === `clas-${c.ID_CLASIFICACION}`"
+            class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition-colors flex-shrink-0 disabled:opacity-60"
           >
             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h3m5-13v4a1 1 0 001 1h4m-5-5H8a2 2 0 00-2 2v14a2 2 0 002 2h8a2 2 0 002-2V8l-5-5z"/>
             </svg>
-            Ver PDF
-          </a>
+            {{ descargandoId === `clas-${c.ID_CLASIFICACION}` ? 'Abriendo...' : 'Ver PDF' }}
+          </button>
           <span v-else class="text-sm text-gray-300 px-2 flex-shrink-0">Sin PDF</span>
+
+          <!-- Editar -->
+          <button
+            @click="idEditando = c.ID_CLASIFICACION_DOCENTE"
+            class="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors flex-shrink-0"
+            title="Editar clasificación"
+          >
+            <svg class="w-4.5 h-4.5" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+            </svg>
+          </button>
 
           <!-- Eliminar -->
           <button
@@ -453,14 +514,28 @@
         </div>
       </div>
     </div>
+
+    <!-- Modal de Edición -->
+    <EditarClasificacionModal
+      v-if="idEditando"
+      :id="idEditando"
+      @cerrar="idEditando = null"
+      @guardado="onEditGuardado"
+    />
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import axios from 'axios'
 import { useReporteClasificacion } from '../composables/useReporteClasificacion'
 import { useClasificacion } from '../composables/useClasificacion'
+import EditarClasificacionModal from '../components/EditarClasificacionModal.vue'
+
+import { useTablaFormato } from '../../reportes/composables/reporte/useTablaFormato' // ajusta la ruta
+
+const { tipoGrp } = useTablaFormato()
 
 const API_BASE = import.meta.env.VITE_API_URL ?? ''
 const route = useRoute()
@@ -480,10 +555,18 @@ const busqueda = ref('')
 // Vista: 'timeline' (línea de tiempo) | 'lista' (lista compacta de documentos)
 const vista = ref('timeline')
 
-// Modal
+// Modal de eliminar
 const mostrarModal = ref(false)
 const itemAEliminar = ref(null)
 const eliminando = ref(false)
+
+// Modal de editar: guarda el ID_CLASIFICACION_DOCENTE en edición, o null si está cerrado
+const idEditando = ref(null)
+
+// Id (con prefijo) del PDF que se está abriendo ahora mismo, para deshabilitar
+// el botón correspondiente y evitar doble click mientras carga.
+const descandoIdInicial = null
+const descargandoId = ref(descandoIdInicial)
 
 const nombreDocente = computed(() => {
   if (!docente.value) return 'Docente'
@@ -527,26 +610,39 @@ const clasificacionesFiltradas = computed(() => {
   })
 })
 
+// ─── Normalizar: quita tildes, mayúsculas y espacios sobrantes ───
+const norm = (s) => String(s || '')
+  .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  .toUpperCase().trim()
+
+// ─── Color por categoría (una sola fuente de verdad) ───
+// badge = fondo/texto del pill, dot = color del puntito
+const COLORES_CATEGORIA = {
+  'TITULARES':                { badge: 'bg-emerald-50 text-emerald-700', dot: 'bg-emerald-500' },
+  'TITULARES REV':            { badge: 'bg-green-50 text-green-700',     dot: 'bg-green-500' },
+  'REEMPLAZO TEMPORAL':       { badge: 'bg-amber-50 text-amber-700',     dot: 'bg-amber-500' },
+  'SUPLENCIA':                { badge: 'bg-yellow-50 text-yellow-700',   dot: 'bg-yellow-500' },
+  'EXAMEN SUFICIENCIA':       { badge: 'bg-blue-50 text-blue-700',       dot: 'bg-blue-500' },
+  'ACEFALA':                  { badge: 'bg-sky-100 text-sky-800',        dot: 'bg-sky-500' },
+  'SIN CATEGORIA':            { badge: 'bg-orange-50 text-red-700',      dot: 'bg-orange-500' },
+  'CERTIFICADO':              { badge: 'bg-violet-50 text-violet-700',   dot: 'bg-violet-500' },
+  'CONCURSO DE MERITO':       { badge: 'bg-fuchsia-50 text-fuchsia-700', dot: 'bg-fuchsia-500' },
+  'PLANILLA DE CALIFICACION': { badge: 'bg-cyan-50 text-cyan-700',       dot: 'bg-cyan-500' },
+  'COORDINADOR':              { badge: 'bg-indigo-50 text-indigo-700',   dot: 'bg-indigo-500' },
+  'DIRECTOR':                 { badge: 'bg-purple-50 text-purple-700',   dot: 'bg-purple-500' },
+  'JEFE':                     { badge: 'bg-rose-50 text-rose-700',       dot: 'bg-rose-500' },
+  'HISTORICO':                { badge: 'bg-stone-100 text-stone-700',    dot: 'bg-stone-500' },
+  'PRELACION':                { badge: 'bg-teal-50 text-teal-700',       dot: 'bg-teal-500' },
+}
+
 // ─── Badge de Categoria ───
 function badgeCategoria(categoria) {
-  if (categoria === 'Docentes Titulares')  return 'bg-emerald-50 text-emerald-700'
-  if (categoria === 'Docentes Temporales') return 'bg-amber-50 text-amber-700'
-  if (categoria === 'Examen de suficiencia') return 'bg-blue-50 text-blue-700'
-  if (categoria === 'Acefala') return 'bg-gray-50 text-gray-700'
-  if (categoria === 'Sin Examen de suficiencia') return 'bg-orange-50 text-orange-700'
-
-  return 'bg-gray-50 text-gray-600'
+  return COLORES_CATEGORIA[norm(categoria)]?.badge ?? 'bg-gray-50 text-gray-600'
 }
 
 // ─── Dot de Categoria ───
 function dotCategoria(categoria) {
-  if (categoria === 'Docentes Titulares')  return 'bg-emerald-500'
-  if (categoria === 'Docentes Temporales') return 'bg-amber-500'
-  if (categoria === 'Examen de suficiencia') return 'bg-blue-500'
-  if (categoria === 'Acefala') return 'bg-gray-500'
-  if (categoria === 'Sin Examen de suficiencia') return 'bg-orange-500'
-
-  return 'bg-gray-400'
+  return COLORES_CATEGORIA[norm(categoria)]?.dot ?? 'bg-gray-400'
 }
 
 // ─── ¿La materia tiene nota registrada? ───
@@ -563,6 +659,50 @@ function formatearFecha(fecha) {
     month: '2-digit',
     year: 'numeric'
   })
+}
+
+// ─── Ver PDF de una Resolución (GET /api/resoluciones/{id}/pdf, protegida con auth:sanctum) ───
+// Un <a href> normal no manda el token; por eso se pide con axios y se abre como blob.
+async function verPdfResolucion(idResolucion) {
+  const key = `res-${idResolucion}`
+  descargandoId.value = key
+  try {
+    const token = localStorage.getItem('token')
+    const response = await axios.get(`${API_BASE}/api/resoluciones/${idResolucion}/pdf`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      responseType: 'blob',
+    })
+
+    const blobUrl = window.URL.createObjectURL(
+      new Blob([response.data], { type: 'application/pdf' })
+    )
+    window.open(blobUrl, '_blank')
+    setTimeout(() => window.URL.revokeObjectURL(blobUrl), 60_000)
+  } catch (e) {
+    console.error('Error al abrir PDF de resolución:', e)
+    alert(e?.response?.status === 401
+      ? 'Tu sesión expiró. Vuelve a iniciar sesión.'
+      : 'No se pudo abrir el PDF de la resolución'
+    )
+  } finally {
+    descargandoId.value = null
+  }
+}
+
+// ─── Ver PDF de una Clasificación (GET /api/clasificaciones/{id}/pdf, protegida con auth:sanctum) ───
+async function verPdfClasificacion(id) {
+  const key = `clas-${id}`
+  descargandoId.value = key
+  try {
+    await clasificacion.verPdf(id, 'inline')
+  } catch (e) {
+    alert(e?.response?.status === 401
+      ? 'Tu sesión expiró. Vuelve a iniciar sesión.'
+      : 'No se pudo abrir el PDF de la clasificación'
+    )
+  } finally {
+    descargandoId.value = null
+  }
 }
 
 // ─── Eliminar Clasificación ───
@@ -599,6 +739,18 @@ async function eliminarClasificacion() {
   }
 }
 
+// ─── Editar Clasificación: recarga el listado tras un guardado exitoso ───
+async function onEditGuardado() {
+  idEditando.value = null
+  try {
+    const data = await reporte.porDocente(codigoDocente.value)
+    docente.value = data.docente
+    clasificaciones.value = data.clasificaciones
+  } catch (e) {
+    console.error('Error al recargar tras editar:', e)
+  }
+}
+
 // ─── Cargar datos ───
 onMounted(async () => {
   const codDocente = route.params.cod_docente
@@ -630,4 +782,6 @@ onMounted(async () => {
     loading.value = false
   }
 })
+
+
 </script>

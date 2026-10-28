@@ -1,6 +1,7 @@
 // composables/useReporteInscritosLista.js
 // Genera el PDF académico de LISTA COMPLETA de inscritos por docente
 // (formato institucional UMSS), con jsPDF + jspdf-autotable.
+// Respeta el modo de alumnos: 'todos' | 'regulares' | 'mesa'
 
 import { ref } from 'vue'
 import { jsPDF } from 'jspdf'
@@ -14,13 +15,44 @@ const C_GROUP_BG = [235, 235, 235]
 const C_GRAY_LINE = [140, 140, 140]
 const C_MUTED = [90, 90, 90]
 
+// ── Helpers de modo ──────────────────────────────────────────────────────
+function notaDelModo(modoAlumnos) {
+    if (modoAlumnos === 'mesa') return 'Solo alumnos de examen de mesa.'
+    if (modoAlumnos === 'regulares') return 'No incluye alumnos de examen de mesa.'
+    return 'Incluye alumnos normales y de examen de mesa.'
+}
+
+function cantMesa(materia) {
+    return materia.subtotal_examen_mesa ?? materia.inscritos_examen_mesa?.length ?? 0
+}
+
+function textoResumenMateria(materia, modoAlumnos) {
+    const reg = materia.subtotal ?? 0
+    const mesa = cantMesa(materia)
+    if (modoAlumnos === 'mesa') return `${mesa} inscritos de mesa`
+    if (modoAlumnos === 'regulares') return `${reg} inscritos`
+    return mesa ? `${reg} inscritos + ${mesa} mesa` : `${reg} inscritos`
+}
+
+function textoTotalDocente(docente, etiqueta, modoAlumnos) {
+    const reg = docente.total_inscritos ?? 0
+    const mesa = docente.total_examen_mesa ?? 0
+    let t
+    if (modoAlumnos === 'mesa') t = `${etiqueta} (MESA): ${mesa}`
+    else if (modoAlumnos === 'regulares') t = `${etiqueta}: ${reg}`
+    else t = mesa
+        ? `${etiqueta}: ${reg + mesa}  (${reg} normales + ${mesa} mesa)`
+        : `${etiqueta}: ${reg}`
+    if (docente.total_abandonos) t += `  (+ ${docente.total_abandonos} abandono)`
+    return t
+}
+
 // ── Helpers de documento ─────────────────────────────────────────────────
 function crearDocumento() {
     return new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' })
 }
 
 function fechaFormateada() {
-    // Formato: DD/MM/AAAA, hh:mm:ss a. m./p. m.
     return new Date().toLocaleString('en-GB', {
         day: 'numeric', month: 'numeric', year: 'numeric',
         hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true,
@@ -79,21 +111,11 @@ function drawFooters(doc, fechaActual) {
     }
 }
 
-/**
- * Devuelve la salida final del PDF según el modo:
- * - 'ver': redirige una ventana YA abierta (pre-abierta en el clic del
- *   usuario) hacia el blob del PDF. Si no hay ventana pre-abierta, intenta
- *   abrir una nueva (puede ser bloqueada por el navegador si no hay gesto
- *   de usuario directo). Si falla, cae a descarga como último recurso.
- * - 'descargar': dispara la descarga directa.
- */
 function finalizarSalida(doc, filename, modo, ventanaPreabierta) {
     if (modo === 'imprimir') {
         const blob = doc.output('blob')
         const url = URL.createObjectURL(blob)
 
-        // Si había una ventana pre-abierta (por el gesto de clic), la cerramos:
-        // no la necesitamos para imprimir, usamos un iframe oculto en su lugar.
         if (ventanaPreabierta && !ventanaPreabierta.closed) {
             ventanaPreabierta.close()
         }
@@ -136,7 +158,6 @@ function finalizarSalida(doc, filename, modo, ventanaPreabierta) {
         } else {
             const ventana = window.open(url, '_blank')
             if (!ventana) {
-                // Popup bloqueado y no había ventana pre-abierta: fallback a descarga
                 doc.save(filename)
                 URL.revokeObjectURL(url)
                 return
@@ -150,180 +171,208 @@ function finalizarSalida(doc, filename, modo, ventanaPreabierta) {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// LISTA COMPLETA — docente → carrera → materia → estudiantes
+// LISTA COMPLETA
 // ────────────────────────────────────────────────────────────────────────────
-function generarListaCompleta(data, anio, periodo, modo = 'descargar', ventanaPreabierta = null) {
+function generarListaCompleta(data, anio, periodo, modo = 'descargar', ventanaPreabierta = null, opciones = {}) {
+    const modoAlumnos = opciones.modoAlumnos ?? 'todos'
     const doc = crearDocumento()
     const PAGE_W = doc.internal.pageSize.getWidth()
+    const PAGE_H = doc.internal.pageSize.getHeight()
     const ML = 8
     const MR = 8
     const CW = PAGE_W - ML - MR
+    const MARGIN_BOTTOM = 12
     const fechaActual = fechaFormateada()
-    const TITULO = 'LISTA DE INSCRITOS POR DOCENTE'
-    const NOTA = 'La lista incluye todos los grupos y carreras asignadas al docente.'
+    const TITULO = opciones.titulo ?? 'LISTA DE INSCRITOS POR DOCENTE'
+    const ETIQUETA_TOTAL = opciones.etiquetaTotal ?? 'TOTAL INSCRITOS DEL DOCENTE'
+    const NOTA = notaDelModo(modoAlumnos)
     const HEADER_H = drawPageHeader(doc, { titulo: TITULO, anio, periodo, fechaActual, notaSuperior: NOTA })
 
-    const body = []
+    const paginasConEncabezado = new Set([1])
+
+    function asegurarEspacio(y, necesario) {
+        if (y + necesario <= PAGE_H - MARGIN_BOTTOM) return y
+        doc.addPage()
+        const pagina = doc.internal.getCurrentPageInfo().pageNumber
+        if (!paginasConEncabezado.has(pagina)) {
+            drawPageHeader(doc, { titulo: TITULO, anio, periodo, fechaActual, notaSuperior: NOTA })
+            paginasConEncabezado.add(pagina)
+        }
+        return HEADER_H
+    }
+
+    // Fila-banda (colSpan 3) reutilizable
+    const filaBanda = (texto) => ([{
+        content: texto,
+        colSpan: 3,
+        styles: {
+            fontStyle: 'bolditalic', fontSize: 6.8, halign: 'left',
+            fillColor: C_WHITE, textColor: C_MUTED, lineWidth: 0,
+            cellPadding: { top: 1, bottom: 0.8, left: 6, right: 1.5 },
+        },
+    }])
+
+    const filasEstudiantes = (lista) =>
+        (lista ?? []).map((est, idx) => ([
+            { content: String(idx + 1) },
+            { content: est.codigo },
+            { content: est.nombre },
+        ]))
+
+    let y = HEADER_H
 
     data.forEach((docente, dIdx) => {
-        // ── Fila de docente ──────────────────────────────────────────────────
-        body.push([{
-            content: `${dIdx + 1}.  COD. ${docente.cod_docente}   ${(docente.apellidos ?? '').toUpperCase()}, ${(docente.nombres ?? '').toUpperCase()}`,
-            colSpan: 3,
-            styles: {
-                fontStyle: 'bold', fontSize: 8.5, halign: 'left',
-                fillColor: C_WHITE, textColor: C_BLACK, lineWidth: 0,
-                cellPadding: { top: dIdx === 0 ? 1.5 : 4, bottom: 1.5, left: 1.5, right: 1.5 },
-            },
-        }])
+        y = asegurarEspacio(y + (dIdx === 0 ? 1.5 : 5), 26)
 
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(8.5)
+        doc.setTextColor(...C_BLACK)
+        const textoDocente = `${dIdx + 1}.  COD. ${docente.cod_docente}   ${(docente.apellidos ?? '').toUpperCase()}, ${(docente.nombres ?? '').toUpperCase()}`
+        doc.text(textoDocente, ML + 1.5, y + 3)
+        y += 5.5
+
+        const materias = []
         docente.carreras.forEach(carrera => {
-            // ── Fila de carrera ────────────────────────────────────────────────
-            body.push([{
-                content: `${carrera.carrera}  ·  Plan ${carrera.plan}  ·  Subtotal: ${carrera.subtotal} inscritos`,
-                colSpan: 3,
-                styles: {
-                    fontStyle: 'bold', fontSize: 7.5, halign: 'left',
-                    fillColor: C_GROUP_BG, textColor: C_MUTED, lineWidth: 0,
-                    cellPadding: { top: 1.2, bottom: 1.2, left: 3, right: 1.5 },
-                },
-            }])
-
-            carrera.materias.forEach(materia => {
-                // ── Fila de materia ────────────────────────────────────────────────
-                body.push([{
-                    content: `${materia.nom_materia}  (Gr. ${materia.grupo})  —  ${materia.subtotal} inscritos`,
-                    colSpan: 3,
-                    styles: {
-                        fontStyle: 'bolditalic', fontSize: 7, halign: 'left',
-                        fillColor: C_WHITE, textColor: C_MUTED, lineWidth: 0,
-                        cellPadding: { top: 1, bottom: 0.8, left: 5, right: 1.5 },
-                    },
-                }])
-
-                // ── Estudiantes regulares ────────────────────────────────────────
-                materia.inscritos.forEach((est, idx) => {
-                    body.push([
-                        { content: String(idx + 1) },
-                        { content: est.codigo },
-                        { content: est.nombre },
-                    ])
-                })
-
-                // ── Examen de mesa (si existen) ──────────────────────────────────
-                if (materia.subtotal_examen_mesa) {
-                    body.push([{
-                        content: `Examen de mesa — ${materia.subtotal_examen_mesa} estudiantes`,
-                        colSpan: 3,
-                        styles: {
-                            fontStyle: 'bolditalic', fontSize: 6.8, halign: 'left',
-                            fillColor: C_WHITE, textColor: C_MUTED, lineWidth: 0,
-                            cellPadding: { top: 1, bottom: 0.8, left: 6, right: 1.5 },
-                        },
-                    }])
-
-                    materia.inscritos_examen_mesa.forEach((est, idx) => {
-                        body.push([
-                            { content: String(idx + 1) },
-                            { content: est.codigo },
-                            { content: est.nombre },
-                        ])
-                    })
-                }
-            })
+            carrera.materias.forEach(materia => materias.push({ carrera, materia }))
         })
 
-        // ── Total del docente ──────────────────────────────────────────────
-        const totalTexto = docente.total_examen_mesa
-            ? `TOTAL INSCRITOS DEL DOCENTE: ${docente.total_inscritos}  (+ ${docente.total_examen_mesa} examen de mesa)`
-            : `TOTAL INSCRITOS DEL DOCENTE: ${docente.total_inscritos}`
+        materias.forEach(({ carrera, materia }, mIdx) => {
+            const esUltima = mIdx === materias.length - 1
+            const body = []
 
-        body.push([{
-            content: totalTexto,
-            colSpan: 3,
-            styles: {
-                fontStyle: 'bold', fontSize: 7.5, halign: 'right',
-                fillColor: C_WHITE, textColor: C_BLACK,
-                lineWidth: { top: 0.3, right: 0, bottom: 0, left: 0 },
-                lineColor: C_GRAY_LINE,
-                cellPadding: { top: 1.5, bottom: 2.5, left: 1.5, right: 1.5 },
-            },
-        }])
-    })
+            // ── Estudiantes regulares ────────────────────────────────────────
+            if (modoAlumnos !== 'mesa') {
+                body.push(...filasEstudiantes(materia.inscritos))
+            }
 
-    autoTable(doc, {
-        startY: HEADER_H,
-        margin: { left: ML, right: MR, top: HEADER_H, bottom: 12 },
-        tableWidth: CW,
-        head: [['N°', 'CÓDIGO', 'NOMBRE DEL ESTUDIANTE']],
-        body,
-        alternateRowStyles: { fillColor: C_WHITE },
-        styles: {
-            font: 'helvetica', fontSize: 7.2,
-            cellPadding: { top: 0.7, bottom: 0.7, left: 1.5, right: 1.5 },
-            textColor: C_BLACK, lineColor: C_GRAY_LINE, lineWidth: 0,
-            fillColor: C_WHITE, overflow: 'linebreak', valign: 'middle',
-        },
-        headStyles: {
-            fillColor: C_HEAD_BG, textColor: C_BLACK, fontStyle: 'bold',
-            fontSize: 7.5, halign: 'left', valign: 'middle',
-            lineColor: C_GRAY_LINE, lineWidth: { top: 0, right: 0, bottom: 0.3, left: 0 },
-        },
-        columnStyles: {
-            0: { cellWidth: 14, halign: 'center' },
-            1: { cellWidth: 28 },
-            2: { cellWidth: 'auto' },
-        },
-        didParseCell(data) {
-            if (data.section === 'head') {
-                if (data.column.index === 0) data.cell.styles.halign = 'center'
-                return
+            // ── Estudiantes de examen de mesa ────────────────────────────────
+            if (modoAlumnos !== 'regulares' && materia.inscritos_examen_mesa?.length) {
+                // En modo "todos" se separa con una banda; en modo "mesa" no hace falta
+                if (modoAlumnos === 'todos') {
+                    body.push(filaBanda(`Examen de mesa — ${cantMesa(materia)} estudiantes`))
+                }
+                body.push(...filasEstudiantes(materia.inscritos_examen_mesa))
             }
-            if (data.section !== 'body') return
 
-            const raw = data.row.raw
-            const primera = Array.isArray(raw) ? raw[0] : null
-            const esGrupo = primera && typeof primera === 'object' && 'colSpan' in primera
-            if (esGrupo) return
+            // ── Abandono (si existen) ─────────────────────────────────────────
+            if (modoAlumnos !== 'mesa' && materia.subtotal_abandonos) {
+                body.push(filaBanda(`Abandono — ${materia.subtotal_abandonos} estudiantes`))
+                body.push(...filasEstudiantes(materia.inscritos_abandonos))
+            }
 
-            data.cell.styles.lineWidth = { top: 0, right: 0, bottom: 0.15, left: 0 }
-            if (data.column.index === 0) {
-                data.cell.styles.textColor = C_MUTED
-                data.cell.styles.fontSize = 6.8
+            // ── Total del docente (al final de su última materia) ─────────────
+            if (esUltima) {
+                body.push([{
+                    content: textoTotalDocente(docente, ETIQUETA_TOTAL, modoAlumnos),
+                    colSpan: 3,
+                    styles: {
+                        fontStyle: 'bold', fontSize: 7.5, halign: 'right',
+                        fillColor: C_WHITE, textColor: C_BLACK,
+                        lineWidth: { top: 0.3, right: 0, bottom: 0, left: 0 },
+                        lineColor: C_GRAY_LINE,
+                        cellPadding: { top: 1.5, bottom: 2.5, left: 1.5, right: 1.5 },
+                    },
+                }])
             }
-            if (data.column.index === 1) {
-                data.cell.styles.font = 'courier'
-                data.cell.styles.textColor = C_MUTED
-                data.cell.styles.fontSize = 6.8
-            }
-        },
-        didDrawPage() {
-            if (doc.internal.getCurrentPageInfo().pageNumber > 1) {
-                drawPageHeader(doc, { titulo: TITULO, anio, periodo, fechaActual, notaSuperior: NOTA })
-            }
-        },
+
+            const head = [
+                [{
+                    
+                    content: `${materia.cod_materia} - ${materia.nom_materia}  (Gr. ${materia.grupo})  ·  ${carrera.carrera}  ·  Plan ${carrera.plan}  —  ${textoResumenMateria(materia, modoAlumnos)}`,
+                    colSpan: 3,
+                    styles: {
+                        fontStyle: 'bold', fontSize: 7.5, halign: 'left',
+                        fillColor: C_GROUP_BG, textColor: C_MUTED,
+                        lineWidth: 0,
+                        cellPadding: { top: 1.2, bottom: 1.2, left: 3, right: 1.5 },
+                    },
+                }],
+                ['N°', 'CÓDIGO', 'NOMBRE DEL ESTUDIANTE'],
+            ]
+
+            y = asegurarEspacio(y + (mIdx === 0 ? 0 : 1.5), 16)
+
+            autoTable(doc, {
+                startY: y,
+                margin: { left: ML, right: MR, top: HEADER_H, bottom: MARGIN_BOTTOM },
+                tableWidth: CW,
+                head,
+                body,
+                showHead: 'everyPage',
+                alternateRowStyles: { fillColor: C_WHITE },
+                styles: {
+                    font: 'helvetica', fontSize: 7.2,
+                    cellPadding: { top: 0.7, bottom: 0.7, left: 1.5, right: 1.5 },
+                    textColor: C_BLACK, lineColor: C_GRAY_LINE, lineWidth: 0,
+                    fillColor: C_WHITE, overflow: 'linebreak', valign: 'middle',
+                },
+                headStyles: {
+                    fillColor: C_HEAD_BG, textColor: C_BLACK, fontStyle: 'bold',
+                    fontSize: 7.5, halign: 'left', valign: 'middle',
+                    lineColor: C_GRAY_LINE, lineWidth: { top: 0, right: 0, bottom: 0.3, left: 0 },
+                },
+                columnStyles: {
+                    0: { cellWidth: 14, halign: 'center' },
+                    1: { cellWidth: 28 },
+                    2: { cellWidth: 'auto' },
+                },
+                didParseCell(cellData) {
+                    if (cellData.section === 'head') {
+                        if (cellData.row.index === 1 && cellData.column.index === 0) {
+                            cellData.cell.styles.halign = 'center'
+                        }
+                        return
+                    }
+                    if (cellData.section !== 'body') return
+
+                    const raw = cellData.row.raw
+                    const primera = Array.isArray(raw) ? raw[0] : null
+                    const esGrupo = primera && typeof primera === 'object' && 'colSpan' in primera
+                    if (esGrupo) return
+
+                    cellData.cell.styles.lineWidth = { top: 0, right: 0, bottom: 0.15, left: 0 }
+                    if (cellData.column.index === 0) {
+                        cellData.cell.styles.textColor = C_MUTED
+                        cellData.cell.styles.fontSize = 6.8
+                    }
+                    if (cellData.column.index === 1) {
+                        cellData.cell.styles.font = 'courier'
+                        cellData.cell.styles.textColor = C_MUTED
+                        cellData.cell.styles.fontSize = 6.8
+                    }
+                },
+                didDrawPage() {
+                    const pagina = doc.internal.getCurrentPageInfo().pageNumber
+                    if (!paginasConEncabezado.has(pagina)) {
+                        drawPageHeader(doc, { titulo: TITULO, anio, periodo, fechaActual, notaSuperior: NOTA })
+                        paginasConEncabezado.add(pagina)
+                    }
+                },
+            })
+
+            y = doc.lastAutoTable.finalY
+        })
     })
 
     drawFooters(doc, fechaActual)
 
-    const filename = `Lista_Inscritos_${anio}_${periodo}.pdf`
+    const sufijo = modoAlumnos === 'mesa' ? '_Mesa' : modoAlumnos === 'regulares' ? '_Normales' : ''
+    const filename = opciones.filename ?? `Lista_Inscritos_${anio}_${periodo}${sufijo}.pdf`
     finalizarSalida(doc, filename, modo, ventanaPreabierta)
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// Composable público — SOLO lista completa
-// ────────────────────────────────────────────────────────────────────────────
 export function useReporteInscritosLista() {
     const generandoLista = ref(false)
 
-    async function exportarListaCompleta(data, anio, periodo, modo = 'descargar', ventanaPreabierta = null) {
+    async function exportarListaCompleta(data, anio, periodo, modo = 'descargar', ventanaPreabierta = null, opciones = {}) {
         if (!data?.length) {
             if (ventanaPreabierta && !ventanaPreabierta.closed) ventanaPreabierta.close()
             return
         }
         generandoLista.value = true
         try {
-            generarListaCompleta(data, anio, periodo, modo, ventanaPreabierta)
+            generarListaCompleta(data, anio, periodo, modo, ventanaPreabierta, opciones)
         } finally {
             generandoLista.value = false
         }

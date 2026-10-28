@@ -50,7 +50,7 @@
           (buscando materias...)
         </span>
 
-        <!-- ← NUEVO: mensaje cuando la búsqueda no encuentra resultados -->
+        <!-- Mensaje cuando la búsqueda no encuentra resultados -->
         <span v-else-if="cargaExitosa && materiasFiltradas.length === 0 && searchTerm !== ''" class="ml-2 text-gray-500">
           No hay materias que coincidan con "{{ searchTerm }}"
         </span>
@@ -58,6 +58,46 @@
           ⚠️ {{ error }}
         </span>
       </span>
+    </div>
+
+    <!-- Link para agregar materia manual (siempre visible mientras no esté ya en modo manual) -->
+    <button
+      v-if="!modoManual"
+      type="button"
+      class="mt-1 text-[11px] text-blue-500 hover:text-blue-700 hover:underline"
+      @mousedown.prevent="activarModoManual()"
+    >
+      ¿La materia no aparece en la lista? Agregarla manualmente
+    </button>
+
+    <!-- Mini formulario de materia manual -->
+    <div v-if="modoManual" class="mt-2 p-3 border border-blue-200 bg-blue-50 rounded-lg space-y-2">
+      <label class="block text-[11px] font-medium text-blue-700">
+        Nombre de la materia
+        <span class="font-normal text-blue-500">— sin código, no se aplicará en GRUPOS</span>
+      </label>
+      <input
+        ref="inputManualRef"
+        v-model="nombreManual"
+        type="text"
+        placeholder="Ej. TALLER DE TESIS II"
+        class="w-full px-2 py-1.5 text-[12px] border border-blue-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-400"
+        @keydown.enter.prevent="confirmarMateriaManual"
+        @keydown.esc="cancelarModoManual"
+      />
+      <div class="flex items-center justify-end gap-2">
+        <button type="button" class="text-[11px] text-gray-500 hover:text-gray-700" @click="cancelarModoManual">
+          Cancelar
+        </button>
+        <button
+          type="button"
+          class="text-[11px] px-3 py-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded"
+          :disabled="!nombreManual.trim()"
+          @click="confirmarMateriaManual"
+        >
+          Agregar materia
+        </button>
+      </div>
     </div>
 
     <!-- Mensaje de alerta por duplicado -->
@@ -120,8 +160,18 @@
       </div>
 
       <!-- Sin resultados de búsqueda -->
-      <div v-else-if="cargaExitosa && materiasFiltradas.length === 0 && searchTerm" class="px-3 py-3 text-[12px] text-gray-500 text-center">
-        No se encontraron materias para "{{ searchTerm }}"
+      <div
+        v-else-if="cargaExitosa && materiasFiltradas.length === 0 && searchTerm"
+        class="px-3 py-3 text-[12px] text-gray-500 text-center space-y-1.5"
+      >
+        <p>No se encontraron materias para "{{ searchTerm }}"</p>
+        <button
+          type="button"
+          class="text-[11px] font-medium text-blue-600 hover:underline"
+          @mousedown.prevent="activarModoManual(searchTerm)"
+        >
+          + Agregar "{{ searchTerm }}" como materia manual (sin código)
+        </button>
       </div>
 
       <!-- Lista de materias -->
@@ -131,7 +181,7 @@
         </div>
         <button
           v-for="(m, idx) in materiasFiltradas"
-          :key="`${m.codigo}-${m.grupo}`"
+          :key="`${m.codigo}-${m.grupo}-${m.cod_plan}`"
           type="button"
           class="w-full text-left px-3 py-2 text-[12px] border-b border-gray-100 last:border-b-0 flex items-center justify-between transition-colors"
           :class="[
@@ -139,11 +189,11 @@
               ? 'bg-blue-100 border-l-4 border-l-blue-500 ring-1 ring-inset ring-blue-200'
               : 'hover:bg-gray-50',
             materiaRegistrada(m) ? 'bg-amber-50/60' : '',
-            materiaYaSeleccionada(m.codigo) ? 'opacity-60 cursor-not-allowed' : ''
+            materiaYaSeleccionada(m.codigo, m.grupo, m.cod_plan) ? 'opacity-60 cursor-not-allowed' : ''
           ]"
           @mousedown.prevent="onSelectMateria(m)"
           @mouseenter="highlightIndex = idx"
-          :disabled="materiaYaSeleccionada(m.codigo) && !materiaRegistrada(m)"
+          :disabled="materiaYaSeleccionada(m.codigo, m.grupo, m.cod_plan) && !materiaRegistrada(m)"
         >
           <div class="flex-1 min-w-0">
             <span
@@ -171,7 +221,7 @@
             >
               <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
             </svg>
-            <svg v-else-if="materiaYaSeleccionada(m.codigo)" class="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <svg v-else-if="materiaYaSeleccionada(m.codigo, m.grupo, m.cod_plan)" class="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
             </svg>
             <svg
@@ -199,7 +249,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import { useMaterias } from '../composables/useMaterias'
 
 // ── Única destructuración del composable (antes estaba duplicada, eso
@@ -214,6 +264,8 @@ const {
   obtenerPeriodos,
   materiasRegistradas,
 } = useMaterias()
+
+const pendienteConfirmarDuplicado = ref(false)
 
 const props = defineProps({
   docente: { type: [String, Number], default: null },
@@ -246,8 +298,19 @@ const usaFiltroDocente = computed(() => {
 
 const materiasFiltradas = computed(() => materias.value)
 
-function materiaYaSeleccionada(codigo) {
-  return props.materiasSeleccionadas.some(m => m.cod_materia === codigo)
+// ⚠️ FIX Caso 3: antes comparaba solo `cod_materia` + `grupo`, así que dos
+// materias con el MISMO código y MISMO grupo pero de PLANES distintos
+// (ej. "ESTADISTICA II" MAT442 grupo 02 en Admin. de Empresas vs. la
+// misma materia/grupo en Ing. Comercial) se consideraban duplicadas y la
+// segunda quedaba bloqueada en el listado aunque fueran ofertas distintas.
+// Ahora se agrega `cod_plan` a la comparación para diferenciarlas.
+function materiaYaSeleccionada(codigo, grupo = null, codPlan = null) {
+  return props.materiasSeleccionadas.some(
+    m =>
+      m.cod_materia === codigo &&
+      (m.grupo ?? null) === (grupo ?? null) &&
+      (m.cod_plan ?? null) === (codPlan ?? null)
+  )
 }
 
 // Busca si una materia del listado ya tiene una CLASIFICACION_MATERIA
@@ -367,7 +430,7 @@ function onSelectMateria(materia) {
     return
   }
 
-  if (materiaYaSeleccionada(materia.codigo)) {
+  if (materiaYaSeleccionada(materia.codigo, materia.grupo, materia.cod_plan)) {
     mensajeDuplicado.value = `⚠️ La materia "${materia.nombre}" ya está seleccionada`
     setTimeout(() => { mensajeDuplicado.value = '' }, 3000)
     return
@@ -404,6 +467,58 @@ function onSearchInput() {
   }, 300)
 }
 
+// ─── Modo manual: materia que no está en el catálogo ───
+// Se agrega sin cod_materia, sin grupo y sin cod_plan. Esa ausencia de
+// código es la señal que usamos después para NO aplicarla en GRUPOS
+// (ver ClasificacionMateriasSection.vue → onAgregarMateria y el flag `manual`).
+const modoManual = ref(false)
+const nombreManual = ref('')
+const inputManualRef = ref(null)
+
+function activarModoManual(prefill = '') {
+  modoManual.value = true
+  nombreManual.value = (prefill || searchTerm.value || '').trim()
+  dropdownOpen.value = false
+  nextTick(() => inputManualRef.value?.focus())
+}
+
+function cancelarModoManual() {
+  modoManual.value = false
+  nombreManual.value = ''
+}
+
+
+function confirmarMateriaManual() {
+  const nombre = nombreManual.value.trim()
+  if (!nombre) return
+
+  const yaExiste = props.materiasSeleccionadas.some(
+    m => !m.cod_materia && m.nombre_materia?.trim().toLowerCase() === nombre.toLowerCase()
+  )
+
+  if (yaExiste && !pendienteConfirmarDuplicado.value) {
+    mensajeDuplicado.value = `⚠️ "${nombre}" ya está agregada. Pulsa "Agregar materia" de nuevo si quieres agregarla igual.`
+    pendienteConfirmarDuplicado.value = true
+    setTimeout(() => { pendienteConfirmarDuplicado.value = false }, 4000)
+    return
+  }
+
+  emit('agregar-materia', {
+    cod_materia: null,
+    nombre_materia: nombre,
+    cod_plan: null,
+    nombre_plan: null,
+    grupo: null,
+    nota: null,
+    detalle: '',
+    manual: true,
+  })
+
+  cancelarModoManual()
+  searchTerm.value = ''
+  pendienteConfirmarDuplicado.value = false
+}
+
 // ─── Resetear cuando cambia docente/gestión/periodo ───
 watch(() => [props.docente, props.gestion, props.periodo], () => {
   searchTerm.value = ''
@@ -413,6 +528,8 @@ watch(() => [props.docente, props.gestion, props.periodo], () => {
   highlightIndex.value = -1
   mensajeDuplicado.value = ''
   cargaExitosa.value = false
+  // No cerramos el modo manual automáticamente al cambiar gestión/periodo,
+  // pero sí si cambia el docente (ya no aplicaría el mismo contexto)
 })
 
 onMounted(async () => {

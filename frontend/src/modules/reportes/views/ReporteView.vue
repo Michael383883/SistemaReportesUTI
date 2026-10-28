@@ -4,13 +4,18 @@
     <!-- Header de página -->
     <div class="flex items-start justify-between mb-7">
       <div>
-        <h1 class="text-2xl font-bold text-gray-900 mb-0.5"> 
-          Reporte de  Kardex Docente</h1>
-        <p class="text-xs text-slate-800 m-0">Materias dictadas registradas en el SISS a partir de 2001</p>
+        <h1 class="text-2xl font-bold text-gray-900 mb-0.5">
+          {{ modoMateria ? 'Reporte Kardex Materia' : 'Reporte de  Kardex Docente' }}</h1>
+        <p class="text-xs text-slate-800 m-0">
+          {{ modoMateria
+            ? 'Docentes que dictaron la materia y grupo, registrados en el SISS a partir de 2001'
+            : 'Materias dictadas registradas en el SISS a partir de 2001' }}
+        </p>
       </div>
 
-      <!-- Toggle Version 2 (Compartidos) -->
+      <!-- Toggle Version 2 (Compartidos) — no aplica en modo materia -->
       <button
+        v-if="!modoMateria"
         type="button"
         @click="onToggleVersion"
         :disabled="loading || loadingCom"
@@ -47,52 +52,70 @@
 
     <!-- Reporte cargado -->
     <template v-else-if="reporteActivo">
-  <!-- Header del docente -->
-  <ReporteHeader
-    :reporte="reporteActivo"
-    :loading="loadingActivo"
-    :categorias="categorias"
-    :tiene-categorias="tieneCategorias"
-    :loading-categorias="loadingCategorias"
-    :categorias-seleccionadas="categoriasSeleccionadas"
-    @volver="$router.back()"
-    @toggle-restriccion="onToggleRestriccion"
-    @seleccionar-categorias="onSeleccionarCategorias"
-  />
+      <!-- Header del docente / de la materia -->
+      <ReporteHeader
+        :reporte="reporteActivo"
+        :loading="loadingActivo"
+        :categorias="categorias"
+        :tiene-categorias="tieneCategorias"
+        :loading-categorias="loadingCategorias"
+        :categorias-seleccionadas="categoriasSeleccionadas"
+        :tipos-titulo="tiposTitulo"
+        :tiene-tipos-titulo="tieneTiposTitulo"
+        :loading-tipos-titulo="loadingTiposTitulo"
+        :tipos-titulo-seleccionados="tiposTituloSeleccionados"
+        :modo-materia="modoMateria"
+        :materia-titulo="materiaTitulo"
+        @volver="$router.back()"
+        @toggle-restriccion="onToggleRestriccion"
+        @seleccionar-categorias="onSeleccionarCategorias"
+        @seleccionar-tipos-titulo="onSeleccionarTiposTitulo"
+      />
 
+      <!-- Filtros: SIEMPRE visibles, tanto en modo normal como en modo documento -->
+      <div class="mb-5">
+        <ReporteFiltros
+          v-model:anio="anioFiltro"
+          v-model:anio-hasta="anioHastaFiltro"
+          v-model:materia="materiaFiltro"
+          v-model:grupo="grupoFiltro"
+          v-model:incluir-sin-grupo="incluirSinGrupo"
+          v-model:mostrar-nota-sin-grupo="mostrarNotaSinGrupo"
+          v-model:ocultar-verano-invierno="ocultarVeranoInvierno"
+          v-model:ocultar-resolucion-designacion="ocultarResolucionDesignacion"
+          :loading="loadingActivo"
+          :reporte="reporteActivo"
+          :documentos-categoria="documentosCategoria"
+          :categorias-seleccionadas="categoriasSeleccionadas"
+          :modo-documento="modoDocumento"
+          :modo-materia="modoMateria"
+          @generar="reGenerar"
+        />
+      </div>
 
-  <!-- Filtros — se pasa :reporte para que el botón PDF tenga acceso a los datos -->
-  <div class="mb-5">
-    <ReporteFiltros
-    v-model:anio="anioFiltro"
-    v-model:anio-hasta="anioHastaFiltro"
-    v-model:materia="materiaFiltro"
-    v-model:grupo="grupoFiltro"
-    :loading="loadingActivo"
-    :reporte="reporteActivo"
-    :documentos-categoria="documentosCategoria"
-    :categorias-seleccionadas="categoriasSeleccionadas"
-    @generar="reGenerar"
-  />
+      <!-- Tabla de materias: solo en el modo normal (no en modo documento) -->
+      <ReporteTabla
+        v-if="!modoDocumento"
+        :materias="materiasTabla"
+        :cod-docente="reporteActivo.docente?.codigo"
+        :agrupar-compartidos="verCompartidos"
+        :ocultar-resolucion-designacion="ocultarResolucionDesignacion"
+        :mostrar-docente="modoMateria"
+      />
 
-  </div>
-
-  <!-- Tabla: normal o de compartidos según la versión activa -->
-  <ReporteTabla
-    :materias="reporteActivo.materias"
-    :cod-docente="reporteActivo.docente?.codigo"
-    :agrupar-compartidos="verCompartidos"
-  />
-
- <!-- ... filtros y ReporteTabla ... -->
-
-  <ClasificacionCategoriasTabla
-    :documentos="documentosCategoria"
-    :loading="loadingDocumentos"
-    :categorias="categoriasSeleccionadas"
-    @ver-pdf="verPdfCategoria"
-  />
-</template>
+      <!-- Tabla de clasificación por categoría:
+           - Camino 1 (modoDocumento): se muestra sola, reemplaza a la de materias.
+           - Camino 2 (modo normal): se muestra DEBAJO de la tabla de materias,
+             en cuanto el usuario elige categorías desde ReporteHeader. -->
+      <div v-if="modoDocumento || categoriasSeleccionadas.length > 0" :class="{ 'mt-5': !modoDocumento }">
+        <ClasificacionCategoriasTabla
+          :documentos="documentosCategoria"
+          :loading="loadingDocumentos"
+          :categorias="categoriasSeleccionadas"
+          @ver-pdf="verPdfCategoria"
+        />
+      </div>
+    </template>
 
     <!-- Empty -->
     <div v-else-if="!loadingActivo && !errorActivo" class="flex flex-col items-center justify-center py-20 text-center text-slate-400">
@@ -102,14 +125,16 @@
         <line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>
       </svg>
       <p class="text-sm font-medium">No hay reporte disponible</p>
-      <p class="text-xs mt-1">Seleccioná un docente desde la lista</p>
+      <p class="text-xs mt-1">
+        {{ modoMateria ? 'Ingresá una materia y grupo desde el buscador' : 'Seleccioná un docente desde la lista' }}
+      </p>
     </div>
 
   </div>
 </template>
 
 <script setup>
-import { onMounted, ref, computed,watch  } from 'vue'
+import { onMounted, ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useReporte } from '../composables/useReporte'
 import { useReporteCom } from '../composables/useReporteCom'
@@ -118,9 +143,18 @@ import ReporteFiltros from '../components/ReporteFiltros.vue'
 import ReporteTabla   from '../components/ReporteTabla.vue'
 import ClasificacionCategoriasTabla from '../components/ClasificacionCategoriasTabla.vue'
 import { useClasificacionCategorias } from '../composables/useClasificacionCategorias'
+import { useTipoIngreso } from '../composables/useTipoIngreso'
 
 const route  = useRoute()
 const router = useRouter()
+
+// Modo "solo documentos": viene desde el botón "Generar Reporte de Documento"
+// en la lista de docentes, ej: router.push({ query: { codigo, modo: 'documentos' } })
+const modoDocumento = computed(() => route.query.modo === 'documentos')
+
+// Modo "materia": viene del buscador de materia y grupo
+// ej: router.push({ name: 'reporte', query: { modo: 'materia', materia, grupo } })
+const modoMateria = computed(() => route.query.modo === 'materia')
 
 // Version 1: reporte normal
 const { reporte, loading, error, generarReporte } = useReporte()
@@ -143,7 +177,14 @@ const anioHastaFiltro = ref(null)
 const materiaFiltro   = ref(null)
 const grupoFiltro     = ref(null)
 
-//ss
+// Título del header en modo materia: "CODIGO NOMBRE · Grupo 01"
+const materiaTitulo = computed(() => {
+  const filas = reporteActivo.value?.materias ?? []
+  const nombre = filas.length ? filas[filas.length - 1].materia : materiaFiltro.value
+  return `${nombre ?? ''} · Grupo ${grupoFiltro.value ?? ''}`
+})
+
+// ── Categorías ──────────────────────────────────────────────────────────────
 const {
   categorias, tieneDocumentos: tieneCategorias, documentos: documentosCategoria,
   categoriasSeleccionadas, loadingCategorias, loadingDocumentos,
@@ -156,6 +197,32 @@ const onSeleccionarCategorias = (cats) => {
   cargarDocumentos(codigo, cats)
 }
 
+// ── Modalidad de ingreso (tabla TIPO_INGRESO) ───────────────────────────────
+// Las opciones del botón salen de los tipo_ingreso de las materias del reporte.
+// El endpoint GET /api/docentes/{codigo}/tipos-ingreso NO existe en el backend,
+// por eso ya no se llama a cargarTipos (evita el 404 en consola).
+// Para reactivarlo: crear la ruta en Laravel, agregar `cargarTipos: cargarTiposIngreso`
+// en el destructuring y descomentar la llamada dentro del watch de más abajo.
+const {
+  tiposDisponibles: tiposDelEndpoint,
+  loadingTipos: loadingTiposTitulo,
+  // cargarTipos: cargarTiposIngreso,
+  limpiarTipos: limpiarTiposIngreso,
+} = useTipoIngreso()
+
+// Opciones del botón = tipo_ingreso que vienen en las materias del reporte
+// (+ lo que devuelva el endpoint, si algún día se reactiva).
+const tiposTitulo = computed(() => {
+  const deMaterias = (reporteActivo.value?.materias ?? [])
+    .map(m => m.tipo_ingreso)
+    .filter(Boolean)
+  return [...new Set([...tiposDelEndpoint.value, ...deMaterias])]
+})
+const tieneTiposTitulo = computed(() => tiposTitulo.value.length > 0)
+
+// Selección actual (solo filtra la tabla, no regenera el reporte)
+const tiposTituloSeleccionados = ref([])
+
 // ── Estado de habilitación de periodo restringido ──────────────────────────
 // Se activa solo con el botón de ReporteHeader. Se mantiene en memoria para
 // que, si el usuario cambia otros filtros y regenera, el periodo habilitado
@@ -163,6 +230,41 @@ const onSeleccionarCategorias = (cats) => {
 const habilitarRestriccion = ref(false)
 const anioHabilitado       = ref(null)
 const periodoHabilitado    = ref(null)
+
+// ── Opciones: materias sin grupo/plan + nota ──
+const incluirSinGrupo     = ref(false)
+const mostrarNotaSinGrupo = ref(true)
+
+// ── Opción: ocultar verano/invierno (periodos 3 y 4) SOLO en la tabla ──
+// No regenera el reporte: solo filtra lo que ya se cargó. Los PDF siguen
+// usando el reporte completo.
+const ocultarVeranoInvierno = ref(false)
+
+// ── Opción: ocultar las columnas Resolución y Designación SOLO en la tabla ──
+// No regenera el reporte: solo oculta columnas en ReporteTabla.
+const ocultarResolucionDesignacion = ref(false)
+
+const esVeranoInvierno = (m) => {
+  const periodo = String(m?.PERIODO ?? m?.periodo ?? '').trim()
+  if (periodo) return periodo === '3' || periodo === '4'
+  // Respaldo: "2024/3 - Verano" / "2024/4 - Invierno"
+  return /\/\s*[34]\b/.test(String(m?.gestion ?? ''))
+}
+
+// Materias que se pasan a la tabla (con "Nº" renumerado si se filtró)
+const materiasTabla = computed(() => {
+  let lista = reporteActivo.value?.materias ?? []
+
+  if (ocultarVeranoInvierno.value) {
+    lista = lista.filter(m => !esVeranoInvierno(m))
+  }
+  if (tiposTituloSeleccionados.value.length) {
+    lista = lista.filter(m => tiposTituloSeleccionados.value.includes(m.tipo_ingreso))
+  }
+
+  const filtrado = ocultarVeranoInvierno.value || tiposTituloSeleccionados.value.length > 0
+  return filtrado ? lista.map((m, i) => ({ ...m, nro: i + 1 })) : lista
+})
 
 // Parsea "2016", "2016/1", "2016-2" → { anio, periodo }
 function parseAnioPeriodo(valorCrudo) {
@@ -191,6 +293,8 @@ function paramsActuales() {
     habilitarRestriccion: habilitarRestriccion.value,
     anioHabilitado:       anioHabilitado.value,
     periodoHabilitado:    periodoHabilitado.value,
+    incluirSinGrupo:      incluirSinGrupo.value,
+    mostrarNotaSinGrupo:  mostrarNotaSinGrupo.value,
   }
 }
 
@@ -201,7 +305,12 @@ onMounted(async () => {
   const materia      = route.query.materia || null
   const grupo        = route.query.grupo || null
 
-  if (!codigo) { router.replace({ name: 'docentes' }); return }
+  // Modo docente: necesita codigo. Modo materia: necesita materia + grupo.
+  if (modoMateria.value) {
+    if (!materia || !grupo) { router.replace({ name: 'materias-kardex' }); return }
+  } else if (!codigo) {
+    router.replace({ name: 'docentes' }); return
+  }
 
   anioFiltro.value      = anio
   anioHastaFiltro.value = anioHasta
@@ -211,7 +320,8 @@ onMounted(async () => {
   const { anio: anioNum, periodo }                   = parseAnioPeriodo(anio)
   const { anio: anioHastaNum, periodo: periodoHasta } = parseAnioPeriodo(anioHasta)
 
-  await generarReporte(codigo, {
+  // En modo materia el codigo es undefined → useReporte no manda "docente"
+  await generarReporte(modoMateria.value ? null : codigo, {
     anio: anioNum,
     periodo,
     anioHasta: anioHastaNum,
@@ -221,36 +331,46 @@ onMounted(async () => {
   })
 })
 
-const reGenerar = async ({ anio, periodo, anioHasta, periodoHasta, materia, grupo }) => {
+const reGenerar = async ({
+  anio, periodo, anioHasta, periodoHasta, materia, grupo,
+  incluirSinGrupo: nuevoIncluirSinGrupo,
+  mostrarNotaSinGrupo: nuevoMostrarNota,
+}) => {
 
   const codigo = route.query.codigo
-  if (!codigo) return
+  if (!codigo && !modoMateria.value) return
+
+  // Persiste el estado de los toggles para que sobreviva a otros cambios
+  // de filtro y a los toggles de "Versión (Compartidos)"
+  if (nuevoIncluirSinGrupo !== undefined) incluirSinGrupo.value = nuevoIncluirSinGrupo
+  if (nuevoMostrarNota !== undefined)     mostrarNotaSinGrupo.value = nuevoMostrarNota
 
   const anioQuery      = periodo      ? `${anio}/${periodo}`           : (anio ?? null)
   const anioHastaQuery = periodoHasta ? `${anioHasta}/${periodoHasta}` : (anioHasta ?? null)
 
-
   router.replace({
     query: {
-      codigo,
+      ...(codigo ? { codigo } : {}),
       ...(anioQuery      ? { anio: anioQuery }           : {}),
       ...(anioHastaQuery ? { anioHasta: anioHastaQuery } : {}),
       ...(materia         ? { materia }                  : {}),
       ...(grupo           ? { grupo }                    : {}),
+      ...(route.query.modo ? { modo: route.query.modo } : {}),
     }
   })
 
   const payload = {
     anio, periodo, anioHasta, periodoHasta, materia, grupo,
-    // Se reenvía el estado de habilitación vigente, para que no se pierda
-    // al cambiar otros filtros (año, materia, grupo, etc.)
     habilitarRestriccion: habilitarRestriccion.value,
     anioHabilitado:       anioHabilitado.value,
     periodoHabilitado:    periodoHabilitado.value,
+    incluirSinGrupo:      incluirSinGrupo.value,
+    mostrarNotaSinGrupo:  mostrarNotaSinGrupo.value,
   }
 
-  // Regenera la versión que está visible actualmente
-  if (verCompartidos.value) {
+  if (modoMateria.value) {
+    await generarReporte(null, payload)
+  } else if (verCompartidos.value) {
     await generarReporteCom(codigo, payload)
   } else {
     await generarReporte(codigo, payload)
@@ -265,15 +385,22 @@ const onToggleRestriccion = async ({ anio, periodo, habilitar }) => {
   periodoHabilitado.value    = habilitar ? periodo : null
 
   const codigo = route.query.codigo
-  if (!codigo) return
+  if (!codigo && !modoMateria.value) return
 
   const params = paramsActuales()
 
-  if (verCompartidos.value) {
+  if (modoMateria.value) {
+    await generarReporte(null, params)
+  } else if (verCompartidos.value) {
     await generarReporteCom(codigo, params)
   } else {
     await generarReporte(codigo, params)
   }
+}
+
+// ── Selección de modalidad de ingreso (botón de ReporteHeader) ──────────────
+const onSeleccionarTiposTitulo = (tipos) => {
+  tiposTituloSeleccionados.value = tipos
 }
 
 // ── Click en el botón "Versión 2 (Compartidos)" ─────────────────────────────
@@ -296,11 +423,40 @@ const onToggleVersion = async () => {
   }
 }
 
+// Al cambiar de docente: limpia y vuelve a cargar categorías
+// (las modalidades de ingreso salen de las materias del reporte)
 watch(
   () => reporteActivo.value?.docente?.codigo,
-  (codigo) => {
+  (codigo, anterior) => {
+    // Solo recarga si realmente cambió el docente (evita borrar la selección
+    // cada vez que se regenera el reporte del mismo docente)
+    if (codigo === anterior) return
     limpiarCategorias()
-    if (codigo) cargarCategorias(codigo)
+    limpiarTiposIngreso()
+    tiposTituloSeleccionados.value = []
+    if (codigo) {
+      cargarCategorias(codigo)
+      // cargarTiposIngreso(codigo)   // desactivado: el endpoint /tipos-ingreso no existe (404)
+    }
   }
 )
+
+// ── Modo "Generar Reporte de Documento": al llegar con ?modo=documentos,
+// apenas se cargan las categorías del docente, se seleccionan TODAS
+// automáticamente (mismo efecto que tocar "Todas" en el dropdown de
+// ReporteHeader), para no obligar al usuario a habilitarlas a mano. ──────
+watch(
+  categorias,
+  (cats) => {
+    if (!modoDocumento.value) return
+    if (!cats.length) return
+    // Sólo auto-selecciona si todavía no hay nada elegido (evita pisar
+    // una deselección manual que haga el usuario después)
+    if (categoriasSeleccionadas.value.length > 0) return
+
+    onSeleccionarCategorias([...cats])
+  },
+  { immediate: true }
+)
+
 </script>

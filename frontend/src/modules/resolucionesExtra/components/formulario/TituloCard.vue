@@ -19,14 +19,14 @@
         </div>
       </div>
 
-      <!-- Tipo de título: combobox (seleccionar, buscar o crear uno nuevo), en mayúsculas -->
+      <!-- Tipo de título: catálogo de solo lectura (se busca y se elige; no se crea aquí) -->
       <div class="md:col-span-2 relative">
         <label class="text-[12px] font-medium text-gray-700">Tipo de título</label>
         <div class="relative mt-1">
           <input
             v-model="tipoTituloModel"
             type="text"
-            placeholder="Todos / escribe para buscar o crear..."
+            placeholder="Busca y selecciona un tipo de título..."
             class="w-full border border-gray-300 rounded-lg pl-3 pr-8 py-2 text-[13px] uppercase placeholder:normal-case"
             @focus="tipoOpen = true"
             @input="tipoOpen = true"
@@ -51,15 +51,17 @@
               class="px-3 py-2 hover:bg-amber-50 cursor-pointer">
             {{ opcion }}
           </li>
-          <li v-if="tiposFiltrados.length === 0 && tipoTituloModel.trim()"
-              @mousedown.prevent="elegirTipo(tipoTituloModel)"
-              class="px-3 py-2 hover:bg-amber-50 cursor-pointer text-amber-600 font-medium">
-            + Crear "{{ tipoTituloModel.trim() }}"
-          </li>
-          <li v-else-if="tiposFiltrados.length === 0" class="px-3 py-2 text-gray-400 italic">
+          <li v-if="tiposFiltrados.length === 0" class="px-3 py-2 text-gray-400 italic">
             Sin coincidencias
           </li>
         </ul>
+
+        <p class="mt-1 text-[11px] text-gray-400">
+          ¿Falta un tipo de título?
+          <router-link to="/periodos-academicos" class="text-orange-500 hover:underline">
+            Agrégalo en Configuración
+          </router-link>.
+        </p>
       </div>
       <div>
         <label class="text-[12px] font-medium text-gray-700">Nombre del título *</label>
@@ -126,10 +128,14 @@
         </ul>
       </div>
 
+      <!-- Fecha del título: al elegirla se calculan Gestión y Periodo -->
       <div>
         <label class="text-[12px] font-medium text-gray-700">Fecha del título</label>
         <input v-model="form.titulo.fecha_titulo" type="date"
           class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-[13px]" />
+        <p class="mt-1 text-[11px] text-gray-400">
+          Gestión y Periodo se completan solos: hasta el 31 de julio = periodo 1, desde el 1 de agosto = periodo 2.
+        </p>
       </div>
 
       <div>
@@ -176,11 +182,9 @@ function campoMayusculas(campo) {
 }
 
 // ─── Combobox: Tipo de título ───
-// Usa el composable compartido: trae los tipos reales desde el backend
-// y permite que, si el usuario escribe uno nuevo, quede disponible de
-// inmediato en todos los componentes que usen useTiposTitulo (por
-// ejemplo, en el filtro del reporte de docentes).
-const { tipos: TIPOS_TITULO, loading: loadingTipos, cargarTipos, agregarTipoLocal } = useTiposTitulo()
+// Catálogo de solo lectura: trae los tipos reales desde el backend. Ya no
+// se crean tipos desde aquí; el alta vive en Configuración.
+const { tipos: TIPOS_TITULO, loading: loadingTipos, cargarTipos } = useTiposTitulo()
 
 const tipoOpen = ref(false)
 const tipoTituloModel = campoMayusculas('tipo_titulo')
@@ -193,16 +197,22 @@ const tiposFiltrados = computed(() => {
 
 function elegirTipo(opcion) {
   tipoTituloModel.value = opcion
-  if (opcion) agregarTipoLocal(opcion)
   tipoOpen.value = false
 }
 
 function onBlurTipo() {
-  // Si el usuario escribió un tipo que no está en la lista, lo agregamos
-  // al vuelo para que quede disponible de inmediato y pueda categorizar
-  // rápido sin tener que recargar la página.
+  // Solo valen los tipos del catálogo: si lo escrito no coincide con
+  // ninguno, se limpia. Se omite mientras el catálogo carga o está vacío,
+  // para no borrar un valor válido.
   const valor = tipoTituloModel.value.trim()
-  if (valor) agregarTipoLocal(valor)
+  if (
+    valor &&
+    !loadingTipos.value &&
+    TIPOS_TITULO.value.length > 0 &&
+    !TIPOS_TITULO.value.includes(valor)
+  ) {
+    tipoTituloModel.value = ''
+  }
   setTimeout(() => { tipoOpen.value = false }, 150)
 }
 
@@ -266,18 +276,50 @@ onMounted(() => {
   cargarTipos()
 })
 
-// ─── Si "Tipo o Número de Documento" está vacío, se sincroniza
-// automáticamente con lo que el usuario seleccione/escriba en "Tipo de título".
-// Si ya tiene un valor, no se sobreescribe.
+// ─── Gestión y Periodo automáticos según la fecha del título ───
+// Hasta el 31 de julio  -> periodo 1
+// Desde el 1 de agosto  -> periodo 2
+// La Gestión es el año de la fecha. Solo se recalcula cuando cambia la fecha
+// (sin `immediate`, para no pisar los datos de un documento que se edita).
+// La categoría la fija ClasificacionForm ("SIN CATEGORIA"), no este componente.
 watch(
-  () => props.form.titulo?.tipo_titulo,
-  (nuevoTipo) => {
-    const tipoDocActual = (props.form.tipo_documento || '').trim()
-    if (!tipoDocActual) {
-      props.form.tipo_documento = nuevoTipo
-    }
+  () => props.form.titulo?.fecha_titulo,
+  (fecha) => {
+    if (!fecha) return
+    const [anioStr, mesStr] = fecha.split('-') // formato yyyy-mm-dd
+    const anio = Number(anioStr)
+    const mes  = Number(mesStr)
+    // Evita años parciales mientras se teclea (ej. "0002")
+    if (anioStr?.length !== 4 || anio < 1900 || !mes) return
+
+    props.form.gestion = anioStr
+    props.form.periodo = mes <= 7 ? '1' : '2'
   }
 )
 
+// ─── Sincronización: "Tipo o Número de Documento" ← "Tipo de título" ───
+// Solo se autocompleta mientras el usuario NO haya escrito nada distinto
+// a mano en "Tipo o Número de Documento". `ultimoValorSincronizado` indica
+// si el valor actual fue puesto por este mismo watcher (y se puede seguir
+// actualizando letra por letra) o si el usuario lo modificó manualmente.
+const ultimoValorSincronizado = ref('')
+
+watch(
+  () => props.form.titulo?.tipo_titulo,
+  (nuevoTipo) => {
+    const tipoDocActual = props.form.tipo_documento || ''
+    const estaVacio = tipoDocActual.trim() === ''
+
+    // Se compara SIN recortar espacios, para que un espacio intermedio
+    // no rompa la comparación con el último valor sincronizado.
+    const noTocadoPorUsuario =
+      estaVacio || tipoDocActual === ultimoValorSincronizado.value
+
+    if (noTocadoPorUsuario) {
+      props.form.tipo_documento = nuevoTipo
+      ultimoValorSincronizado.value = nuevoTipo
+    }
+  }
+)
 
 </script>

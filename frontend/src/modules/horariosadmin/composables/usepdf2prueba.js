@@ -1,4 +1,4 @@
-// composables/usePdfResumenDos.js
+// composables/usepdf2prueba.js
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
 
@@ -12,6 +12,13 @@ const C_TEXT_MUTED = [110, 110, 110]
 function norm(v) {
     if (v === null || v === undefined) return ''
     return String(v).trim()
+}
+
+// ── Columna TIPO (tipo de ingreso, viene de GRUPOS.TIPO_INGRESO) ──
+function abreviarTipo(texto) {
+    const t = norm(texto)
+    if (!t) return ''
+    return t.length > 10 ? t.slice(0, 9) + '.' : t
 }
 
 /**
@@ -190,7 +197,7 @@ export function generarPDFResumenDos(
         // Fila con el nombre del docente
         body.push([{
             content: `${docente.docente ?? ''}  ${(docente.apellidos ?? '').toUpperCase()} ${(docente.nombres ?? '').toUpperCase()}`,
-            colSpan: 7,
+            colSpan: 8,
             styles: {
                 fontStyle: 'normal', fontSize: 8.5, halign: 'left',
                 fillColor: C_WHITE, lineWidth: 0,
@@ -217,11 +224,12 @@ export function generarPDFResumenDos(
             body.push([
                 nivelTexto,                          // 0: carrera - nivel
                 materiaTexto,                         // 1: MATERIA
-                norm(p.GRUPO),                        // 2: GRP
-                String(p.CARGA_HORARIA ?? ''),        // 3: CH
-                String(p.TOTAL_NORMAL ?? ''),         // 4: INSCRITOS
-                compTexto,                            // 5: COMPARTE CON
-                String(calcularTotal(fila)),          // 6: INS. TOTAL
+                abreviarTipo(p.TIPO_INGRESO),         // 2: TIPO
+                norm(p.GRUPO),                        // 3: GRP
+                String(p.CARGA_HORARIA ?? ''),        // 4: CH
+                String(p.TOTAL_NORMAL ?? ''),         // 5: INSCRITOS
+                compTexto,                            // 6: COMPARTE CON
+                String(calcularTotal(fila)),          // 7: INS. TOTAL
             ])
         }
 
@@ -229,9 +237,9 @@ export function generarPDFResumenDos(
         const totalCH = filas.reduce((acc, f) => acc + (Number(f.principal.CARGA_HORARIA) || 0), 0)
         const totalGeneral = filas.reduce((acc, f) => acc + calcularTotal(f), 0)
 
-        // Fila TOTAL alineada: etiqueta TOTAL ocupa NIVEL+MATERIA+GRP, CH y total general en sus columnas
+        // Fila TOTAL: etiqueta TOTAL ocupa PLAN+MATERIA+TIPO+GRP, luego CH y total general en sus columnas
         body.push([
-            { content: 'TOTAL', colSpan: 3, styles: { halign: 'right', fontStyle: 'bold', fontSize: 7.5, fillColor: C_WHITE, lineWidth: 0 } },
+            { content: 'TOTAL', colSpan: 4, styles: { halign: 'right', fontStyle: 'bold', fontSize: 7.5, fillColor: C_WHITE, lineWidth: 0 } },
             { content: `${totalCH} Mes(${totalCH * 4})`, colSpan: 1, styles: { halign: 'center', fontStyle: 'bold', fontSize: 8, fillColor: C_WHITE, lineWidth: 0 } },
             { content: '', colSpan: 1, styles: { fillColor: C_WHITE, lineWidth: 0 } },
             { content: '', colSpan: 1, styles: { fillColor: C_WHITE, lineWidth: 0 } },
@@ -246,7 +254,7 @@ export function generarPDFResumenDos(
         startY: HEADER_H,
         margin: { left: ML, right: MR, top: HEADER_H, bottom: 12 },
         tableWidth: CW,
-        head: [['PLAN-NVL', 'MATERIA', 'GRP', 'CH', 'INSC.', 'COMPARTE CON', 'INS. TOT.']],
+        head: [['PLAN-NVL', 'MATERIA', 'TIPO', 'GRP', 'CH', 'INSC.', 'COMPARTE CON', 'INS. TOT.']],
         body,
         alternateRowStyles: { fillColor: C_WHITE },
         styles: {
@@ -264,25 +272,26 @@ export function generarPDFResumenDos(
         },
         columnStyles: {
             0: { cellWidth: 16, halign: 'center' },
-            1: { cellWidth: 50 },
-            2: { cellWidth: 11, halign: 'center' },
-            3: { cellWidth: 25, halign: 'center' },
-            4: { cellWidth: 13, halign: 'center' },
-            5: { cellWidth: 'auto' },
-            6: { cellWidth: 14, halign: 'center' },
+            1: { cellWidth: 52 },
+            2: { cellWidth: 14, halign: 'center' },   // TIPO
+            3: { cellWidth: 11, halign: 'center' },   // GRP
+            4: { cellWidth: 15, halign: 'center' },   // CH
+            5: { cellWidth: 10, halign: 'center' },   // INSC.
+            6: { cellWidth: 'auto' },                 // COMPARTE CON
+            7: { cellWidth: 14, halign: 'center' },   // INS. TOT.
         },
 
         didParseCell(data) {
             if (data.section === 'head') {
                 if (data.column.index === 1) data.cell.styles.halign = 'left'
-                if (data.column.index === 5) data.cell.styles.halign = 'left'
+                if (data.column.index === 6) data.cell.styles.halign = 'left'
                 return
             }
 
             if (data.section !== 'body') return
 
             const raw = data.row.raw
-            const isDataRow = Array.isArray(raw) && raw.length === 7
+            const isDataRow = Array.isArray(raw) && raw.length === 8
             if (!isDataRow) return
 
             // Saltar filas de cabecera docente o total (tienen objetos con colSpan)
@@ -291,8 +300,8 @@ export function generarPDFResumenDos(
 
             const col = data.column.index
 
-            // Líneas horizontales solo desde columna GRP (índice 2) en adelante
-            if (col <= 1) {
+            // Líneas horizontales solo desde columna GRP (índice 3) en adelante
+            if (col <= 2) {
                 data.cell.styles.lineWidth = { top: 0, right: 0, bottom: 0, left: 0 }
             } else {
                 data.cell.styles.lineWidth = { top: 0, right: 0, bottom: 0.2, left: 0 }
@@ -310,15 +319,21 @@ export function generarPDFResumenDos(
                 data.cell.styles.fontSize = 7
             }
 
+            // Col TIPO: texto chico para que quepa
+            if (col === 2) {
+                data.cell.styles.fontStyle = 'normal'
+                data.cell.styles.fontSize = 6
+            }
+
             // Inscritos sin valor → gris, como un placeholder "0"
-            if (col === 4 && (data.cell.raw === '0' || data.cell.raw === '')) {
+            if (col === 5 && (data.cell.raw === '0' || data.cell.raw === '')) {
                 data.cell.styles.textColor = C_ZERO_TEXT
             }
 
             // COMPARTE CON: texto gris/mutado, normal, sin negrita.
             // Con varias hermanas, el texto trae '\n' y autotable lo respeta
             // (cada hermana queda en su propia línea dentro de la celda).
-            if (col === 5) {
+            if (col === 6) {
                 data.cell.styles.textColor = data.cell.raw ? C_TEXT_MUTED : C_ZERO_TEXT
                 data.cell.styles.fontStyle = 'normal'
                 data.cell.styles.fontSize = 6.3
@@ -326,7 +341,7 @@ export function generarPDFResumenDos(
             }
 
             // INS. TOTAL: peso normal, igual que el resto
-            if (col === 6) {
+            if (col === 7) {
                 data.cell.styles.fontStyle = 'normal'
                 data.cell.styles.fontSize = 7
             }

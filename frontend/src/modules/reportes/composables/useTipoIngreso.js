@@ -1,7 +1,7 @@
 import { ref, computed } from 'vue'
 import axios from 'axios'
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'
+const API_BASE = import.meta.env.VITE_API_URL
 
 function authHeaders() {
     const token = localStorage.getItem('token')
@@ -18,6 +18,12 @@ function authHeaders() {
  *     TODOS los cambios pendientes de una sola vez (bulk), actualizando
  *     tanto GRUPOS como, si existe, el detalle correspondiente en
  *     RESOLUCION_DETALLE.
+ *
+ * Además expone la lista de tipos de ingreso que tiene un docente
+ * (cargarTipos). OPCIONAL: ReporteView.vue ya no la llama porque el botón
+ * "Modalidad de Ingreso" se arma con los tipo_ingreso de las materias del
+ * reporte. Si se vuelve a usar, el backend debe exponer
+ * GET /api/docentes/{codigo}/tipos-ingreso devolviendo un array de strings.
  */
 export function useTipoIngreso() {
     const guardando = ref(false)
@@ -29,6 +35,36 @@ export function useTipoIngreso() {
 
     const cantidadCambios = computed(() => Object.keys(cambiosPendientes.value).length)
     const hayCambiosPendientes = computed(() => cantidadCambios.value > 0)
+
+    // ── Lista de tipos de ingreso del docente (para el botón del reporte) ──
+    const tiposDisponibles = ref([])
+    const loadingTipos = ref(false)
+    const tieneTipos = computed(() => tiposDisponibles.value.length > 0)
+
+    async function cargarTipos(codDocente) {
+        loadingTipos.value = true
+        try {
+            const { data } = await axios.get(
+                `${API_BASE}/api/docentes/${codDocente}/tipos-ingreso`,
+                { headers: { ...authHeaders() } }
+            )
+            // Se espera: ['EXAMEN SUFICIENCIA', 'CONCURSO', ...]
+            tiposDisponibles.value = Array.isArray(data) ? data : (data?.data ?? [])
+        } catch (e) {
+            // 404 = el endpoint aún no existe en el backend: no es un error real,
+            // se ignora en silencio. Cualquier otro error sí se registra.
+            if (e.response?.status !== 404) {
+                console.error('❌ cargarTipos (tipo_ingreso):', e.response?.data ?? e.message)
+            }
+            tiposDisponibles.value = []
+        } finally {
+            loadingTipos.value = false
+        }
+    }
+
+    function limpiarTipos() {
+        tiposDisponibles.value = []
+    }
 
     function generarKey(docenteCod, materia) {
         return `${docenteCod}__${materia.plan}__${materia.materia}__${materia.grp}__${materia.gestion}`
@@ -58,9 +94,8 @@ export function useTipoIngreso() {
 
     /**
      * Aplica todos los cambios pendientes de una sola vez.
-     * materiasPorDocente: array de { docenteCod, materia } correspondientes
-     * a cada key presente en cambiosPendientes — lo arma la vista, que es
-     * quien tiene el contexto de qué docente/materia corresponde a cada key.
+     * itemsParaGuardar: array de items ya armados por la vista
+     * (cod_docente, cod_plan, cod_materia, grupo, gestion, tipo_ingreso).
      */
     async function aplicarCambios(itemsParaGuardar) {
         if (itemsParaGuardar.length === 0) {
@@ -119,6 +154,13 @@ export function useTipoIngreso() {
         guardando,
         errorGuardado,
         resultadoGuardado,
+
+        // lista de tipos del docente
+        tiposDisponibles,
+        loadingTipos,
+        tieneTipos,
+        cargarTipos,
+        limpiarTipos,
 
         generarKey,
         registrarCambio,

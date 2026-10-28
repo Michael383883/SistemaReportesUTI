@@ -1,7 +1,7 @@
-import { ref } from 'vue'
+﻿import { ref } from 'vue'
 import axios from 'axios'
 
-const API_BASE = import.meta.env.VITE_API_URL ?? ''
+const API_BASE = import.meta.env.VITE_API_URL
 
 export function useClasificacion() {
     const loading = ref(false)
@@ -33,7 +33,12 @@ export function useClasificacion() {
         }
     }
 
-    function buildFormData({ cod_docente, categoria, nivel, tipo_documento, gestion, periodo, detalle_general, observacion, observacion2, materias, referencias, titulo, archivo }) {
+    function buildFormData({
+        cod_docente, categoria, nivel, tipo_documento, gestion, periodo,
+        detalle_general, observacion, observacion2, materias, referencias,
+        titulo, archivo, solo_este_docente,
+        id_documento_origen, // 👈 NUEVO: reutilizar el PDF de otro documento
+    }) {
         const fd = new FormData()
         if (cod_docente) fd.append('cod_docente', cod_docente)
         fd.append('categoria', categoria)
@@ -48,6 +53,15 @@ export function useClasificacion() {
         fd.append('referencias', JSON.stringify(referencias || []))
         if (titulo) fd.append('titulo', JSON.stringify(titulo))   // 👈 esto faltaba
         if (archivo) fd.append('archivo_pdf', archivo)
+
+        // 👈 NUEVO: si no se manda archivo pero sí un documento origen,
+        // el backend reutiliza esa RUTA_ARCHIVO/NOMBRE_ARCHIVO en vez de
+        // pedir un PDF nuevo.
+        if (!archivo && id_documento_origen) {
+            fd.append('id_documento_origen', id_documento_origen)
+        }
+
+        if (solo_este_docente) fd.append('solo_este_docente', '1')
         return fd
     }
     async function guardarClasificacion(payload) {
@@ -67,7 +81,7 @@ export function useClasificacion() {
                 headers: authHeaders({ 'Content-Type': 'multipart/form-data' }),
             })
 
-            // 👇 nuevo: qué contestó el backend al guardar
+            //  nuevo: qué contestó el backend al guardar
             console.log("✅ Respuesta de guardarClasificacion:", data)
 
             if (!data.ok) {
@@ -158,8 +172,40 @@ export function useClasificacion() {
     }
 
     // GET /api/clasificaciones/{id}/pdf
+    // Se mantiene por si se usa en algún otro lado (ej. como referencia de texto),
+    // pero OJO: esta URL NO debe usarse directo en un <a href>, porque esa ruta
+    // está protegida con auth:sanctum y un <a> normal no manda el token.
     function urlPdf(id, modo = 'inline') {
         return `${API_BASE}/api/clasificaciones/${id}/pdf?modo=${modo}`
+    }
+
+    // Descarga el PDF protegido usando axios (sí manda el token) y lo abre
+    // en una pestaña nueva como blob. Esta es la forma correcta de "ver" el PDF.
+    async function verPdf(id, modo = 'inline') {
+        loading.value = true
+        error.value = null
+        try {
+            const response = await axios.get(`${API_BASE}/api/clasificaciones/${id}/pdf`, {
+                params: { modo },
+                headers: authHeaders(),
+                responseType: 'blob',
+            })
+
+            const blobUrl = window.URL.createObjectURL(
+                new Blob([response.data], { type: 'application/pdf' })
+            )
+            window.open(blobUrl, '_blank')
+
+            // Libera la memoria del blob después de un rato
+            setTimeout(() => window.URL.revokeObjectURL(blobUrl), 60_000)
+        } catch (e) {
+            error.value = e?.response?.data?.error || 'No se pudo abrir el PDF'
+            errorDetalle.value = parseErrorDetalle(e?.response?.data)
+            console.error('❌ Error en verPdf:', e)
+            throw e
+        } finally {
+            loading.value = false
+        }
     }
 
     function reset() {
@@ -194,7 +240,7 @@ export function useClasificacion() {
         error.value = null
         errorDetalle.value = null
 
-        // 👇 NUEVO: mostrar exactamente qué se va a mandar
+        //  NUEVO: mostrar exactamente qué se va a mandar
         console.log("===== ENVIANDO A /aplicar =====")
         console.log("URL:", `${API_BASE}/api/clasificaciones/${id}/aplicar`)
         console.log("id_documento:", id)
@@ -208,7 +254,7 @@ export function useClasificacion() {
                 { headers: authHeaders() }
             )
 
-            // 👇 NUEVO: mostrar la respuesta completa, salga bien o mal
+            //  NUEVO: mostrar la respuesta completa, salga bien o mal
             console.log("✅ Respuesta completa de /aplicar:", data)
             console.log("   filas_afectadas:", data.filas_afectadas)
             console.log("   grupos:", data.grupos)
@@ -238,7 +284,7 @@ export function useClasificacion() {
         error.value = null
         errorDetalle.value = null
 
-        // 👇 NUEVO
+        //   NUEVO
         console.log("===== ENVIANDO A /quitar =====")
         console.log("URL:", `${API_BASE}/api/clasificaciones/${id}/quitar`)
         console.log("id_documento:", id)
@@ -252,7 +298,7 @@ export function useClasificacion() {
                 { headers: authHeaders() }
             )
 
-            // 👇 NUEVO
+            //   NUEVO
             console.log("✅ Respuesta completa de /quitar:", data)
 
             if (!data.ok) {
@@ -273,6 +319,85 @@ export function useClasificacion() {
         }
     }
 
+    async function actualizarClasificacion(id, payload, confirmarDesvinculacion = false) {
+        loading.value = true
+        error.value = null
+        errorDetalle.value = null
+        try {
+            const fd = buildFormData(payload)
+            fd.append('_method', 'PUT')
+            if (confirmarDesvinculacion) fd.append('confirmar_desvinculacion', '1')
+
+            const { data } = await axios.post(`${API_BASE}/api/clasificaciones/${id}`, fd, {
+                headers: authHeaders({ 'Content-Type': 'multipart/form-data' }),
+            })
+
+            // 👈 NUEVO: detectar el caso especial ANTES de tratarlo como error genérico,
+            // por si axios resuelve el 409 sin lanzar excepción.
+            if (!data.ok && data.tipo === 'confirmar_desvinculacion') {
+                const err = new Error('confirmar_desvinculacion')
+                err.docentesADesvincular = data.docentes_a_desvincular
+                err.mensaje = data.mensaje
+                throw err
+            }
+
+            if (!data.ok) {
+                error.value = data.error || 'No se pudo actualizar la clasificación'
+                errorDetalle.value = parseErrorDetalle(data)
+                throw new Error(error.value)
+            }
+            return data
+        } catch (e) {
+            // Ya viene armado desde arriba (caso "resuelto sin excepción")
+            if (e.message === 'confirmar_desvinculacion' && e.docentesADesvincular) {
+                throw e
+            }
+            // Caso normal: axios sí rechazó con status 409
+            if (e?.response?.status === 409 && e?.response?.data?.tipo === 'confirmar_desvinculacion') {
+                const err = new Error('confirmar_desvinculacion')
+                err.docentesADesvincular = e.response.data.docentes_a_desvincular
+                err.mensaje = e.response.data.mensaje
+                throw err
+            }
+            if (e?.response?.data?.tipo === 'validacion') {
+                const primerError = Object.values(e.response.data.errores)[0]?.[0]
+                error.value = primerError || 'Error de validación'
+                errorDetalle.value = { tipoError: 'validacion', mensaje: error.value }
+            } else if (!error.value) {
+                error.value = e?.response?.data?.error || e.message || 'No se pudo actualizar la clasificación'
+                errorDetalle.value = parseErrorDetalle(e?.response?.data)
+            }
+            throw e
+        } finally {
+            loading.value = false
+        }
+    }
+
+    async function guardarMateriasAdicionales(idDocumento, detalles) {
+        loading.value = true
+        error.value = null
+        errorDetalle.value = null
+        try {
+            const { data } = await axios.post(
+                `${API_BASE}/api/clasificaciones/${idDocumento}/materias/bulk`,
+                { detalles },
+                { headers: authHeaders() }
+            )
+            if (!data.ok) {
+                error.value = data.error || 'No se pudieron agregar las materias'
+                throw new Error(error.value)
+            }
+            return data // { ok, total, ids_materia }
+        } catch (e) {
+            error.value = e?.response?.data?.error || e.message || 'No se pudieron agregar las materias'
+            errorDetalle.value = parseErrorDetalle(e?.response?.data)
+            throw e
+        } finally {
+            loading.value = false
+        }
+    }
+
+
     return {
         loading,
         error,
@@ -282,11 +407,14 @@ export function useClasificacion() {
         listar,
         obtener,
         guardarClasificacion,
+        actualizarClasificacion,
         eliminar,
         eliminarDocente,
         aplicarEnGrupos,
         quitarDeGrupos,
         urlPdf,
+        verPdf,
         reset,
+        guardarMateriasAdicionales,
     }
 }

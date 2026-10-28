@@ -2,7 +2,7 @@
 // Genera el PDF de APROBADOS Y REPROBADOS RESUMIDOS, en formato
 // PLANO por grupo/materia (una fila por grupo), tal como lo entrega
 // el endpoint resumenPorGrupo. NO agrupa por docente/carrera —
-// es el detalle crudo grupo por grupo.
+// es el detalle crudo grupo por grupo. Incluye columnas de Tipo y Abandonos.
 
 import { ref } from 'vue'
 import { jsPDF } from 'jspdf'
@@ -27,6 +27,38 @@ function fechaFormateada() {
         hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true,
     })
     return `${dia}/${mes}/${anio} ${hora}`
+}
+
+// ── Columna TIPO: abreviatura corta del tipo de ingreso ─────────────────
+// Mismo mapa/lógica que DocenteInscritosCard.vue. Completa con tus siglas fijas.
+const ABREV_TIPO = {
+    // 'TITULAR': 'TIT',
+    // 'INVITADO': 'INV',
+    // 'INTERINO': 'INT',
+}
+
+function norm(v) {
+    if (v === null || v === undefined) return ''
+    return String(v).trim()
+}
+
+function abreviarTipo(texto) {
+    const t = norm(texto)
+    if (!t) return ''
+    const exacto = ABREV_TIPO[t.toUpperCase()]
+    if (exacto) return exacto
+    return t.length > 10 ? t.slice(0, 9) + '…' : t
+}
+
+// Busca el tipo de ingreso bajo los nombres de campo más probables
+function leerTipo(fila) {
+    return (
+        fila.TIPO_INGRESO ??
+        fila.tipo_ingreso ??
+        fila.TIPO ??
+        fila.tipo ??
+        null
+    )
 }
 
 function drawPageHeader(doc, { titulo, anio, periodo, fechaActual, notaSuperior }) {
@@ -145,6 +177,9 @@ function finalizarSalida(doc, filename, modo, ventanaPreabierta) {
 
 // ────────────────────────────────────────────────────────────────────────
 // RESUMEN PLANO por grupo/materia — misma forma que entrega el backend
+// Columnas (índices): 0 N° | 1 Plan | 2 Carrera | 3 Nivel | 4 Docente |
+// 5 Cód. Materia | 6 Materia | 7 Tipo | 8 Grupo | 9 T.Exam |
+// 10 Insc. | 11 Aprob. | 12 Reprob. | 13 Aband.
 // ────────────────────────────────────────────────────────────────────────
 function generarResumenAprobadosReprobadosResumido(data, anio, periodo, modo = 'descargar', ventanaPreabierta = null) {
     const doc = crearDocumento()
@@ -153,17 +188,26 @@ function generarResumenAprobadosReprobadosResumido(data, anio, periodo, modo = '
     const MR = 8
     const CW = PAGE_W - ML - MR
     const fechaActual = fechaFormateada()
-    const TITULO = 'APROBADOS Y REPROBADOS RESUMIDOS'
-    const NOTA = 'Detalle por grupo'
+    const TITULO = 'APROBADOS Y REPROBADOS COMPLETO'
+    const NOTA = 'La columna N = Modalidad Normal , No se incluye inscritos de mesa'
     const HEADER_H = drawPageHeader(doc, { titulo: TITULO, anio, periodo, fechaActual, notaSuperior: NOTA })
+
+    // Diagnóstico: si ninguna fila trae el tipo, mostrar qué campos llegan realmente
+    if (!data.some(f => norm(leerTipo(f)))) {
+        console.warn(
+            '[Aprobados/Reprobados] Ninguna fila trae el tipo de ingreso. ' +
+            'Campos que devuelve el endpoint:', Object.keys(data[0] ?? {})
+        )
+    }
 
     const totalIns = data.reduce((s, d) => s + (Number(d.INSCRITOS) || 0), 0)
     const totalApr = data.reduce((s, d) => s + (Number(d.APROBADOS) || 0), 0)
     const totalRep = data.reduce((s, d) => s + (Number(d.REPROBADOS) || 0), 0)
+    const totalAband = data.reduce((s, d) => s + (Number(d.ABANDONOS) || 0), 0)
 
     const head = [[
-        'N°', 'Plan', 'Carrera', 'Nivel', 'Docente', 'Cód. Materia', 'Materia', 'Grupo', 'T.Exam',
-        'Insc.', 'Aprob.', 'Reprob.',
+        'N°', 'Plan', 'Carrera', 'Nivel', 'Docente', 'Cód. Materia', 'Materia', 'Tipo', 'Grupo', 'T.Exam',
+        'Insc.', 'Aprob.', 'Reprob.', 'Aband.',
     ]]
 
     const body = data.map((fila, idx) => [
@@ -174,11 +218,13 @@ function generarResumenAprobadosReprobadosResumido(data, anio, periodo, modo = '
         fila.NOMBRE_DOCENTE ?? '—',
         fila.MATERIA ?? '—',
         fila.NOMBRE ?? '—',
+        abreviarTipo(leerTipo(fila)) || '—',
         fila.GRUPO ?? '—',
         fila.TIPO_EXAMEN ?? '—',
         String(fila.INSCRITOS ?? 0),
         String(fila.APROBADOS ?? 0),
         String(fila.REPROBADOS ?? 0),
+        String(fila.ABANDONOS ?? 0),
     ])
 
     body.push([
@@ -191,9 +237,11 @@ function generarResumenAprobadosReprobadosResumido(data, anio, periodo, modo = '
         { content: 'TOTAL GENERAL', styles: { fontStyle: 'bold', fillColor: C_HEAD_BG, lineWidth: 0, halign: 'right' } },
         { content: '', styles: { fillColor: C_HEAD_BG, lineWidth: 0 } },
         { content: '', styles: { fillColor: C_HEAD_BG, lineWidth: 0 } },
+        { content: '', styles: { fillColor: C_HEAD_BG, lineWidth: 0 } },
         { content: String(totalIns), styles: { fontStyle: 'bold', halign: 'center', fillColor: C_HEAD_BG, lineWidth: 0 } },
         { content: String(totalApr), styles: { fontStyle: 'bold', halign: 'center', fillColor: C_HEAD_BG, lineWidth: 0 } },
         { content: String(totalRep), styles: { fontStyle: 'bold', halign: 'center', fillColor: C_HEAD_BG, lineWidth: 0 } },
+        { content: String(totalAband), styles: { fontStyle: 'bold', halign: 'center', fillColor: C_HEAD_BG, lineWidth: 0 } },
     ])
 
     autoTable(doc, {
@@ -204,26 +252,27 @@ function generarResumenAprobadosReprobadosResumido(data, anio, periodo, modo = '
         body,
         alternateRowStyles: { fillColor: C_WHITE },
         styles: {
-            font: 'helvetica', fontSize: 7,
-            cellPadding: { top: 0.7, bottom: 0.7, left: 1.5, right: 1.5 },
+            font: 'helvetica', fontSize: 6.8,
+            cellPadding: { top: 0.7, bottom: 0.7, left: 1.3, right: 1.3 },
             textColor: C_BLACK, lineColor: C_GRAY_LINE, lineWidth: { top: 0, right: 0, bottom: 0.15, left: 0 },
             fillColor: C_WHITE, halign: 'center', valign: 'middle',
         },
         headStyles: {
             fillColor: C_HEAD_BG, textColor: C_BLACK, fontStyle: 'bold',
-            fontSize: 7.2, halign: 'center', valign: 'middle',
+            fontSize: 7, halign: 'center', valign: 'middle',
             lineColor: C_GRAY_LINE, lineWidth: { top: 0, right: 0, bottom: 0.3, left: 0 },
         },
         columnStyles: {
-            0: { cellWidth: 10 },
-            1: { cellWidth: 16 },
-            2: { cellWidth: 16 },
-            3: { cellWidth: 12 },
-            4: { cellWidth: 42, halign: 'left' },
-            5: { cellWidth: 18, font: 'courier' },
-            6: { cellWidth: 46, halign: 'left' },
-            7: { cellWidth: 14 },
-            8: { cellWidth: 14 },
+            0: { cellWidth: 9 },
+            1: { cellWidth: 15 },
+            2: { cellWidth: 15 },
+            3: { cellWidth: 11 },
+            4: { cellWidth: 56, halign: 'left' },
+            5: { cellWidth: 17, font: 'courier' },
+            6: { cellWidth: 50, halign: 'left' },
+            7: { cellWidth: 16 },   // Tipo
+            8: { cellWidth: 13 },   // Grupo
+            9: { cellWidth: 13 },   // T.Exam
         },
         didDrawPage() {
             if (doc.internal.getCurrentPageInfo().pageNumber > 1) {

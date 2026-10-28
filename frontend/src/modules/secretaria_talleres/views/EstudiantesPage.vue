@@ -1,21 +1,21 @@
 <template>
-  <div class="min-h-screen bg-slate-50">
+  <div class="min-h-screen bg-slate-50 dark:bg-[#0b1120]">
 
         <!-- ===== HEADER ===== -->
-    <div class="border-b border-slate-200">
+    <div class="border-b border-slate-200 dark:border-white/[0.08]">
   <div class="w-full px-2 sm:px-2 py-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
 
     <!-- Título -->
     <div>
-      <h1 class="text-xl font-bold text-slate-1000 tracking-tight">
+      <h1 class="text-xl font-bold text-slate-1000 dark:text-white tracking-tight">
         Estudiantes en Talleres
       </h1>
-      <p class="text-sm text-slate-500 mt-0.5 flex items-center gap-2">
+      <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-2">
         <template v-if="filtros.anio && filtros.periodo">
           Gestión · {{ PERIODOS[filtros.periodo] || filtros.periodo }} / {{ filtros.anio }}
           <span
             v-if="!gestionEsAutomatica"
-            class="text-[11px] font-semibold text-amber-600 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5"
+            class="text-[11px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-400/20 rounded-full px-2 py-0.5"
           >
             seleccionado manualmente
           </span>
@@ -29,7 +29,7 @@
         <div class="flex flex-wrap items-center gap-2">
 
           <!-- Badge total -->
-          <div class="inline-flex items-center gap-2 rounded-full bg-blue-50 px-4 py-1.5 text-blue-700 text-sm font-semibold border border-blue-100">
+          <div class="inline-flex items-center gap-2 rounded-full bg-blue-50 dark:bg-blue-500/10 px-4 py-1.5 text-blue-700 dark:text-blue-400 text-sm font-semibold border border-blue-100 dark:border-blue-400/20">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m9-4a4 4 0 11-8 0 4 4 0 018 0zm6 4a2 2 0 11-4 0 2 2 0 014 0zM5 16a2 2 0 11-4 0 2 2 0 014 0z" />
             </svg>
@@ -88,18 +88,18 @@
               <div
                 v-if="mostrarMenuGenerar"
                 class="absolute right-0 top-full mt-1.5 z-50
-                       bg-white border border-slate-200 rounded-xl
+                       bg-white dark:bg-[#111a2e] border border-slate-200 dark:border-white/[0.08] rounded-xl
                        shadow-xl overflow-hidden w-64 p-3"
               >
                 <!-- ── Lista de estudiantes (Excel simple) ── -->
-                <p class="text-[0.65rem] font-semibold tracking-widest uppercase text-slate-800 mb-2 px-0.5">
+                <p class="text-[0.65rem] font-semibold tracking-widest uppercase text-slate-800 dark:text-slate-300 mb-2 px-0.5">
                   Lista de estudiantes
                 </p>
                 <div class="flex items-center gap-2">
                   <button
                     @click="exportarNormal('ver'); mostrarMenuGenerar = false"
                     title="Ver lista"
-                    class="flex-1 flex items-center justify-center py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg transition-colors"
+                    class="flex-1 flex items-center justify-center py-2.5 bg-slate-100 dark:bg-white/[0.06] hover:bg-slate-200 dark:hover:bg-white/[0.12] text-slate-600 dark:text-slate-300 rounded-lg transition-colors"
                   >
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
@@ -109,7 +109,7 @@
                   <button
                     @click="exportarNormal('imprimir'); mostrarMenuGenerar = false"
                     title="Imprimir"
-                    class="flex-1 flex items-center justify-center py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg transition-colors"
+                    class="flex-1 flex items-center justify-center py-2.5 bg-slate-100 dark:bg-white/[0.06] hover:bg-slate-200 dark:hover:bg-white/[0.12] text-slate-600 dark:text-slate-300 rounded-lg transition-colors"
                   >
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6v-8z"/>
@@ -118,7 +118,7 @@
                   <button
                     @click="exportarNormal('descargar'); mostrarMenuGenerar = false"
                     title="Descargar Excel"
-                    class="flex-1 flex items-center justify-center py-2.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-700 rounded-lg transition-colors"
+                    class="flex-1 flex items-center justify-center py-2.5 bg-emerald-100 dark:bg-emerald-500/10 hover:bg-emerald-200 dark:hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 rounded-lg transition-colors"
                   >
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
@@ -127,19 +127,19 @@
                     </svg>
                   </button>
                 </div>
-                <p class="text-xs text-slate-800 mt-1.5 px-0.5">Nombre, código y carrera</p>
+                <p class="text-xs text-slate-800 dark:text-slate-400 mt-1.5 px-0.5">Nombre, código y carrera</p>
 
-                <div class="border-t border-slate-100 my-3"></div>
+                <div class="border-t border-slate-100 dark:border-white/[0.08] my-3"></div>
 
                 <!-- ── Lista con datos de contacto (Excel detalle) ── -->
-                <p class="text-[0.65rem] font-semibold tracking-widest uppercase text-slate-800 mb-2 px-0.5">
+                <p class="text-[0.65rem] font-semibold tracking-widest uppercase text-slate-800 dark:text-slate-300 mb-2 px-0.5">
                   Lista con datos de contacto
                 </p>
                 <div class="flex items-center gap-2">
                   <button
                     @click="exportarDetalle('ver'); mostrarMenuGenerar = false"
                     title="Ver lista"
-                    class="flex-1 flex items-center justify-center py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg transition-colors"
+                    class="flex-1 flex items-center justify-center py-2.5 bg-slate-100 dark:bg-white/[0.06] hover:bg-slate-200 dark:hover:bg-white/[0.12] text-slate-600 dark:text-slate-300 rounded-lg transition-colors"
                   >
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
@@ -149,7 +149,7 @@
                   <button
                     @click="exportarDetalle('imprimir'); mostrarMenuGenerar = false"
                     title="Imprimir"
-                    class="flex-1 flex items-center justify-center py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg transition-colors"
+                    class="flex-1 flex items-center justify-center py-2.5 bg-slate-100 dark:bg-white/[0.06] hover:bg-slate-200 dark:hover:bg-white/[0.12] text-slate-600 dark:text-slate-300 rounded-lg transition-colors"
                   >
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6v-8z"/>
@@ -158,7 +158,7 @@
                   <button
                     @click="exportarDetalle('descargar'); mostrarMenuGenerar = false"
                     title="Descargar Excel"
-                    class="flex-1 flex items-center justify-center py-2.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-700 rounded-lg transition-colors"
+                    class="flex-1 flex items-center justify-center py-2.5 bg-emerald-100 dark:bg-emerald-500/10 hover:bg-emerald-200 dark:hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 rounded-lg transition-colors"
                   >
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
@@ -167,19 +167,19 @@
                     </svg>
                   </button>
                 </div>
-                <p class="text-xs text-slate-800 mt-1.5 px-0.5">Con correo y celular</p>
+                <p class="text-xs text-slate-800 dark:text-slate-400 mt-1.5 px-0.5">Con correo y celular</p>
 
-                <div class="border-t border-slate-100 my-3"></div>
+                <div class="border-t border-slate-100 dark:border-white/[0.08] my-3"></div>
 
                 <!-- ── Reporte por materia (PDF) ── -->
-                <p class="text-[0.65rem] font-semibold tracking-widest uppercase text-slate-800 mb-2 px-0.5">
+                <p class="text-[0.65rem] font-semibold tracking-widest uppercase text-slate-800 dark:text-slate-300 mb-2 px-0.5">
                   Reporte por materia
                 </p>
                 <div class="flex items-center gap-2">
                   <button
                     @click="generarReporte('ver'); mostrarMenuGenerar = false"
                     title="Ver PDF"
-                    class="flex-1 flex items-center justify-center py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg transition-colors"
+                    class="flex-1 flex items-center justify-center py-2.5 bg-slate-100 dark:bg-white/[0.06] hover:bg-slate-200 dark:hover:bg-white/[0.12] text-slate-600 dark:text-slate-300 rounded-lg transition-colors"
                   >
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
@@ -189,7 +189,7 @@
                   <button
                     @click="generarReporte('imprimir'); mostrarMenuGenerar = false"
                     title="Imprimir"
-                    class="flex-1 flex items-center justify-center py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg transition-colors"
+                    class="flex-1 flex items-center justify-center py-2.5 bg-slate-100 dark:bg-white/[0.06] hover:bg-slate-200 dark:hover:bg-white/[0.12] text-slate-600 dark:text-slate-300 rounded-lg transition-colors"
                   >
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6v-8z"/>
@@ -198,7 +198,7 @@
                   <button
                     @click="generarReporte('descargar'); mostrarMenuGenerar = false"
                     title="Descargar PDF"
-                    class="flex-1 flex items-center justify-center py-2.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-700 rounded-lg transition-colors"
+                    class="flex-1 flex items-center justify-center py-2.5 bg-emerald-100 dark:bg-emerald-500/10 hover:bg-emerald-200 dark:hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 rounded-lg transition-colors"
                   >
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
@@ -207,7 +207,7 @@
                     </svg>
                   </button>
                 </div>
-                <p class="text-xs text-slate-800 mt-1.5 px-0.5">Guardar en tu equipo</p>
+                <p class="text-xs text-slate-800 dark:text-slate-400 mt-1.5 px-0.5">Guardar en tu equipo</p>
               </div>
             </Transition>
 
@@ -230,7 +230,7 @@
           <div class="flex items-center gap-1.5 shrink-0">
             <select
               v-model="filtros.periodo"
-              class="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition"
+              class="h-10 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#111a2e] px-3 text-sm text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-500/30 focus:border-blue-500 transition"
               title="Periodo académico"
             >
               <option v-for="(nombre, codigo) in PERIODOS" :key="codigo" :value="codigo">
@@ -240,7 +240,7 @@
 
             <select
               v-model="filtros.anio"
-              class="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition"
+              class="h-10 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#111a2e] px-3 text-sm text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-500/30 focus:border-blue-500 transition"
               title="Año"
             >
               <option v-for="a in aniosDisponibles" :key="a" :value="a">
@@ -252,7 +252,7 @@
               v-if="!gestionEsAutomatica"
               @click="volverAGestionActual"
               title="Volver a la gestión actual detectada por el sistema"
-              class="h-10 px-3 rounded-xl border border-amber-200 bg-amber-50 text-amber-700 text-xs font-semibold hover:bg-amber-100 transition shrink-0"
+              class="h-10 px-3 rounded-xl border border-amber-200 dark:border-amber-400/20 bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 text-xs font-semibold hover:bg-amber-100 dark:hover:bg-amber-500/20 transition shrink-0"
             >
               Hoy
             </button>
@@ -261,7 +261,7 @@
           <!-- Buscador -->
           <div class="relative flex-1">
             <svg xmlns="http://www.w3.org/2000/svg"
-              class="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400"
+              class="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 dark:text-slate-500"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor">
@@ -278,13 +278,13 @@
               v-model="filtros.busqueda"
               type="text"
               placeholder="Buscar estudiante, docente o código..."
-              class="w-full h-10 rounded-xl border border-slate-200 bg-white
+              class="w-full h-10 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#111a2e]
                     pl-11 pr-4 text-sm
-                    text-slate-700
-                    placeholder:text-slate-400
+                    text-slate-700 dark:text-slate-200
+                    placeholder:text-slate-400 dark:placeholder:text-slate-500
                     focus:outline-none
                     focus:ring-2
-                    focus:ring-blue-100
+                    focus:ring-blue-100 dark:focus:ring-blue-500/30
                     focus:border-blue-500
                     transition"/>
           </div>
@@ -293,13 +293,13 @@
           <button
             @click="mostrarFiltros = !mostrarFiltros"
             class="flex items-center gap-2 h-10 px-4 rounded-xl
-                  border border-slate-200 bg-white
-                  hover:bg-slate-50
+                  border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#111a2e]
+                  hover:bg-slate-50 dark:hover:bg-white/[0.06]
                   transition
                   shrink-0">
 
             <svg xmlns="http://www.w3.org/2000/svg"
-              class="h-4 w-4 text-slate-600"
+              class="h-4 w-4 text-slate-600 dark:text-slate-300"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor">
@@ -312,7 +312,7 @@
 
             </svg>
 
-            <span class="text-sm font-medium text-slate-700">
+            <span class="text-sm font-medium text-slate-700 dark:text-slate-200">
               Filtros
             </span>
 
@@ -335,7 +335,7 @@
             </span>
 
             <svg xmlns="http://www.w3.org/2000/svg"
-              class="h-4 w-4 text-slate-500 transition duration-200"
+              class="h-4 w-4 text-slate-500 dark:text-slate-400 transition duration-200"
               :class="{ 'rotate-180': mostrarFiltros }"
               fill="none"
               viewBox="0 0 24 24"
@@ -362,12 +362,12 @@
 
           <div
             v-if="mostrarFiltros"
-            class="mt-3 rounded-xl border border-slate-200
-                  bg-slate-50 p-4">
+            class="mt-3 rounded-xl border border-slate-200 dark:border-white/[0.08]
+                  bg-slate-50 dark:bg-[#0f1729] p-4">
 
             <div class="flex items-center justify-between mb-3">
 
-              <span class="text-sm font-semibold text-slate-700">
+              <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">
                 Filtros avanzados
               </span>
 
@@ -375,8 +375,8 @@
                 v-if="filtros.plan || filtros.materia || filtros.grupo"
                 @click="limpiarFiltros"
                 class="text-xs font-medium
-                      text-blue-600
-                      hover:text-blue-700
+                      text-blue-600 dark:text-blue-400
+                      hover:text-blue-700 dark:hover:text-blue-300
                       transition">
 
                 Restablecer
@@ -389,15 +389,16 @@
 
               <!-- Carrera -->
               <div>
-                <label class="block text-xs font-medium text-slate-500 mb-1">
+                <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">
                   Carrera
                 </label>
 
                 <select
                   v-model="filtros.plan"
                   class="w-full h-10 rounded-lg
-                        border border-slate-200
-                        bg-white
+                        border border-slate-200 dark:border-white/[0.08]
+                        bg-white dark:bg-[#111a2e]
+                        text-slate-700 dark:text-slate-200
                         px-3
                         text-sm">
 
@@ -417,15 +418,16 @@
 
               <!-- Materia -->
               <div>
-                <label class="block text-xs font-medium text-slate-500 mb-1">
+                <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">
                   Materia
                 </label>
 
                 <select
                   v-model="filtros.materia"
                   class="w-full h-10 rounded-lg
-                        border border-slate-200
-                        bg-white
+                        border border-slate-200 dark:border-white/[0.08]
+                        bg-white dark:bg-[#111a2e]
+                        text-slate-700 dark:text-slate-200
                         px-3
                         text-sm">
 
@@ -445,15 +447,16 @@
 
               <!-- Grupo -->
               <div>
-                <label class="block text-xs font-medium text-slate-500 mb-1">
+                <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">
                   Grupo
                 </label>
 
                 <select
                   v-model="filtros.grupo"
                   class="w-full h-10 rounded-lg
-                        border border-slate-200
-                        bg-white
+                        border border-slate-200 dark:border-white/[0.08]
+                        bg-white dark:bg-[#111a2e]
+                        text-slate-700 dark:text-slate-200
                         px-3
                         text-sm">
 
@@ -473,7 +476,7 @@
                 </select>
 
                 <!-- Toggle para habilitar/deshabilitar manualmente esos grupos -->
-<label class="flex items-center gap-2 mt-2 text-xs text-slate-500">
+<label class="flex items-center gap-2 mt-2 text-xs text-slate-500 dark:text-slate-400">
   <input type="checkbox" v-model="permitirGruposDeshabilitados" />
   Permitir seleccionar grupos 00 / EA / EG
 </label>
@@ -492,7 +495,7 @@
 
       <!-- Estado cargando -->
       <div v-if="cargando" class="flex items-center justify-center py-24">
-        <div class="flex flex-col items-center gap-3 text-slate-400">
+        <div class="flex flex-col items-center gap-3 text-slate-400 dark:text-slate-500">
           <svg class="animate-spin h-8 w-8 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
@@ -502,11 +505,11 @@
       </div>
 
       <!-- Sin datos en el backend para esta gestión (año/periodo actual) -->
-      <div v-else-if="sinDatosDeGestion" class="flex flex-col items-center justify-center py-24 text-slate-400">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mb-3 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+      <div v-else-if="sinDatosDeGestion" class="flex flex-col items-center justify-center py-24 text-slate-400 dark:text-slate-500">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mb-3 text-slate-300 dark:text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
           <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
         </svg>
-        <p class="text-base font-medium text-slate-600">
+        <p class="text-base font-medium text-slate-600 dark:text-slate-300">
           No hay estudiantes inscritos en talleres
         </p>
         <p class="text-sm mt-1 text-center max-w-sm">
@@ -520,15 +523,15 @@
       </div>
 
       <!-- Hay datos, pero el filtro/búsqueda no encontró nada -->
-      <div v-else-if="!estudiantesFiltrados.length" class="flex flex-col items-center justify-center py-24 text-slate-400">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mb-3 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+      <div v-else-if="!estudiantesFiltrados.length" class="flex flex-col items-center justify-center py-24 text-slate-400 dark:text-slate-500">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mb-3 text-slate-300 dark:text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
           <path stroke-linecap="round" stroke-linejoin="round" d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
         <p class="text-base font-medium">Sin resultados</p>
         <p class="text-sm mt-1">Intenta ajustar los filtros de búsqueda.</p>
         <button
           @click="limpiarFiltros"
-          class="mt-3 text-sm font-medium text-blue-600 hover:text-blue-700 transition"
+          class="mt-3 text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition"
         >
           Limpiar filtros
         </button>
@@ -558,6 +561,7 @@
 
   </div>
 </template>
+
 
 <script setup>
 defineOptions({ name: 'EstudiantesPage' })

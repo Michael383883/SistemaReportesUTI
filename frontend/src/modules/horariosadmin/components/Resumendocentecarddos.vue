@@ -7,7 +7,11 @@
       class="flex justify-between items-center px-5 py-1 bg-slate-800 text-white"
     >
       <div class="flex flex-col min-w-0">
-        <h2 class="text-[15px] font-bold truncate">
+        <h2
+          class="text-[15px] font-bold truncate cursor-pointer hover:underline"
+          title="Ver horario del docente"
+          @click="emit('ver-horario', docente)"
+        >
          {{ docente.docente }} - {{ docente.apellidos }} {{ docente.nombres }} 
         </h2>
       </div>
@@ -28,6 +32,9 @@
             </th>
             <th class="px-2 py-2 text-left text-[10.5px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
               Materia
+            </th>
+            <th class="px-2 py-2 text-center text-[10.5px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 whitespace-nowrap">
+              Tipo
             </th>
             <th class="px-2 py-2 text-center text-[10.5px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
               Grp
@@ -77,6 +84,18 @@
               </span>
             </td>
 
+            <!-- Tipo (de ingreso, viene de GRUPOS.TIPO_INGRESO) -->
+            <td class="text-center px-2 py-1.5 align-top">
+              <span
+                v-if="norm(fila.principal.TIPO_INGRESO)"
+                class="inline-block px-1.5 py-0.5 text-[10px] font-semibold rounded bg-amber-50 text-amber-800 border border-amber-200 whitespace-nowrap"
+                :title="norm(fila.principal.TIPO_INGRESO)"
+              >
+                {{ abreviarTipo(fila.principal.TIPO_INGRESO) }}
+              </span>
+              <span v-else class="text-slate-300 dark:text-slate-600">—</span>
+            </td>
+
             <!-- Grupo -->
             <td class="text-center px-2 py-1.5 align-top font-semibold text-slate-600 dark:text-slate-300">
               {{ fila.principal.GRUPO }}
@@ -108,7 +127,7 @@
                   <span class="text-slate-800 dark:text-slate-100 font-medium truncate">
                     {{ h.MATERIA }} - {{ h.NOMBRE }}
                   </span>
-                  <span class="text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                  <span class="text-slate-900 dark:text-slate-400 whitespace-nowrap">
                     · Grp {{ h.GRUPO }} · Ins: {{ h.TOTAL_NORMAL ?? '—' }}
                   </span>
                 </div>
@@ -140,7 +159,7 @@
 
         <tfoot>
           <tr class="bg-slate-100 dark:bg-slate-800 border-t-2 border-slate-200 dark:border-slate-700">
-            <td colspan="5" class="text-right px-4 py-2 text-[11px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300">
+            <td colspan="6" class="text-right px-4 py-2 text-[11px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300">
               Total
             </td>
             <td class="text-center py-2">
@@ -177,9 +196,28 @@ const props = defineProps({
   docente: { type: Object, required: true },
 })
 
+// Se emite al hacer clic en el nombre del docente
+const emit = defineEmits(['ver-horario'])
+
 function norm(v) {
   if (v === null || v === undefined) return ''
   return String(v).trim()
+}
+
+// Columna TIPO: abreviatura corta del tipo de ingreso.
+// Completa el mapa con tus categorías reales si quieres siglas fijas.
+const ABREV_TIPO = {
+  // 'TITULAR': 'TIT',
+  // 'INVITADO': 'INV',
+  // 'INTERINO': 'INT',
+}
+
+function abreviarTipo(texto) {
+  const t = norm(texto)
+  if (!t) return ''
+  const exacto = ABREV_TIPO[t.toUpperCase()]
+  if (exacto) return exacto
+  return t.length > 10 ? t.slice(0, 9) + '…' : t
 }
 
 const filasAgrupadas = computed(() => {

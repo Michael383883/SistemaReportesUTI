@@ -13,6 +13,9 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src')
     }
   },
+  esbuild: {
+    drop: ['console', 'debugger'],
+  },
   test: {
     environment: 'jsdom',
     globals: true,

@@ -10,15 +10,28 @@ export function useTablaFormato() {
     }
 
     const GRP_MAP = {
-        '059801': { label: 'CCP', class: 'bg-violet-50 text-violet-600 dark:bg-violet-500/15 dark:text-violet-300', dot: 'bg-violet-500 dark:bg-violet-400' },
+        '059801': { label: 'ECO', class: 'bg-violet-50 text-violet-600 dark:bg-violet-500/15 dark:text-violet-300', dot: 'bg-violet-500 dark:bg-violet-400' },
         '109401': { label: 'ADM', class: 'bg-blue-50 text-blue-600 dark:bg-blue-500/15 dark:text-blue-300', dot: 'bg-blue-500 dark:bg-blue-400' },
         '125091': { label: 'COM', class: 'bg-green-50 text-green-600 dark:bg-green-500/15 dark:text-green-300', dot: 'bg-green-500 dark:bg-green-400' },
         '126091': { label: 'FIN', class: 'bg-teal-50 text-teal-600 dark:bg-teal-500/15 dark:text-teal-300', dot: 'bg-teal-500 dark:bg-teal-400' },
-        '089801': { label: 'ECO', class: 'bg-amber-50 text-amber-600 dark:bg-amber-500/15 dark:text-amber-300', dot: 'bg-amber-500 dark:bg-amber-400' },
+        '089801': { label: 'CCP', class: 'bg-amber-50 text-amber-600 dark:bg-amber-500/15 dark:text-amber-300', dot: 'bg-amber-500 dark:bg-amber-400' },
+        '148141': { label: 'ADM', class: 'bg-pink-50 text-pink-600 dark:bg-pink-500/15 dark:text-pink-300', dot: 'bg-pink-500 dark:bg-pink-400' },
     }
 
-    function tipoGrp(plan) {
-        return GRP_MAP[plan] ?? { label: plan, class: 'bg-slate-100 text-slate-600 dark:bg-slate-700/60 dark:text-slate-300', dot: 'bg-slate-400' }
+    // Regla especial: si el código de MATERIA (no el de plan) COMIENZA con
+    // "240", se reemplaza el badge de PLAN por "DESC", sin importar cuál
+    // sea el plan real de esa fila.
+    const DESC_STYLE = { label: 'DESC', class: 'bg-rose-50 text-rose-600 dark:bg-rose-500/15 dark:text-rose-300', dot: 'bg-rose-500 dark:bg-rose-400' }
+
+    // `plan`          → código de plan (ej. '148141')
+    // `materiaCodigo` → código de materia (ej. '2401209'), usado SOLO para
+    //                    detectar el prefijo 240 y reemplazar el badge.
+    function tipoGrp(plan, materiaCodigo) {
+        const codigoMateria = String(materiaCodigo ?? '').trim()
+        if (codigoMateria.startsWith('240')) return DESC_STYLE
+
+        const codigo = String(plan ?? '').trim()
+        return GRP_MAP[codigo] ?? { label: plan, class: 'bg-slate-100 text-slate-600 dark:bg-slate-700/60 dark:text-slate-300', dot: 'bg-slate-400' }
     }
 
     return { tipoGestion, tipoGrp }

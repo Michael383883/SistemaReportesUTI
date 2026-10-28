@@ -1,4 +1,3 @@
-
 export const resolucionesExtraRoutes = [
     {
         path: '/clasificaciones',
@@ -14,5 +13,26 @@ export const resolucionesExtraRoutes = [
         path: '/clasificaciones/docente/:cod_docente',
         name: 'clasificaciones-docente',
         component: () => import('./views/ClasificacionDocenteView.vue'),
+    },
+    {
+        path: '/clasificaciones/asignar-documento',
+        name: 'clasificacion-asignar-documento',
+        component: () => import('./views/AsignacionPorDocumentoView.vue'),
+    },
+    {
+        path: '/clasificaciones/listar-por-documento',
+        name: 'clasificaciones-listar-por-documento',
+        component: () => import('./views/ListarPorDocumento.vue'),
+    },
+    {
+        path: '/clasificaciones/subir-titulo',
+        name: 'subir-titulo',
+        component: () => import('./views/SubirTituloView.vue'),
+    },
+    { path: '/reporte-excel', name: 'reporte-excel', component: () => import('./views/ReporteExcelView.vue') },
+    {
+        path: '/reporte-prelacion-materia',
+        name: 'reporte-prelacion-materia',
+        component: () => import('./views/ReportePrelacionMateriaView.vue'),
     },
 ]

@@ -15,7 +15,7 @@
       </div>
       <div>
         <h2 class="text-sm font-medium text-gray-800">
-          {{ fase === 'grupos' ? 'Grupos actualizados' : 'Resolución guardada correctamente' }}
+          {{ fase === 'grupos' ? 'Grupos actualizados' : 'Referencia guardada correctamente' }}
         </h2>
         <p class="text-xs text-gray-400 mt-0.5">
           {{ fase === 'grupos' ? `${gruposActualizados.length} registro(s) actualizados en la tabla grupos.` : 'Verifica los datos registrados antes de finalizar.' }}
@@ -44,10 +44,10 @@
     <!-- ══════════════ FASE 1: preview resolución ══════════════ -->
     <div v-else-if="fase === 'preview'" class="divide-y divide-gray-100">
 
-      <!-- Datos de la resolución -->
+      <!-- Datos de la referencia -->
       <div>
         <p class="px-6 py-3 text-[10px] font-medium text-gray-400 uppercase tracking-wider bg-gray-50">
-          Datos de la resolución
+          Datos de la referencia
         </p>
         <table class="w-full text-xs">
           <tbody class="divide-y divide-gray-100">
@@ -147,7 +147,7 @@
                 <th class="px-4 py-2.5 text-left text-[10px] font-medium text-gray-400 uppercase tracking-wider">Grupo</th>
                 <th class="px-4 py-2.5 text-left text-[10px] font-medium text-gray-400 uppercase tracking-wider">Docente</th>
                 <th class="px-4 py-2.5 text-left text-[10px] font-medium text-gray-400 uppercase tracking-wider">Tipo</th>
-                <th class="px-4 py-2.5 text-left text-[10px] font-medium text-gray-400 uppercase tracking-wider">Resolución</th>
+                <th class="px-4 py-2.5 text-left text-[10px] font-medium text-gray-400 uppercase tracking-wider">Referencia</th>
                 <th class="px-4 py-2.5 text-left text-[10px] font-medium text-gray-400 uppercase tracking-wider">Designación</th>
               </tr>
             </thead>
@@ -233,7 +233,7 @@ async function handleTerminar() {
   const id = props.resolucionId ?? props.resolucion?.id_resolucion ?? props.resolucion?.iDResolucion
 
   if (!id) {
-    errorLocal.value = 'No se encontró el ID de la resolución. (id=' + JSON.stringify(props.resolucion) + ')'
+    errorLocal.value = 'No se encontró el ID de la referencia. (id=' + JSON.stringify(props.resolucion) + ')'
     return
   }
 

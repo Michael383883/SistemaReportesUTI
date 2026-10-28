@@ -85,7 +85,8 @@ import {
   BookOpen,
   Layers,
   FileText,
-  BarChart2
+  BarChart2,
+  GraduationCap
 } from 'lucide-vue-next'
 
 const ICONS = {
@@ -93,6 +94,7 @@ const ICONS = {
   'book-open': BookOpen,
   layers: Layers,
   'file-text': FileText,
+  'graduation-cap': GraduationCap,
   bar: BarChart2
 }
 

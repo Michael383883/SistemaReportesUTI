@@ -1,5 +1,5 @@
 <template>
-  <header class="flex items-center justify-between shrink-0 z-10 h-16 bg-[#081F33] px-5">
+  <header class="flex items-center justify-between shrink-0 z-50 h-16 bg-[#081F33] px-5">
     <!-- Logo + Título en el topbar -->
     <div class="flex items-center gap-3">
       <img :src="logo" alt="SIA-UTI" class="h-12 w-auto shrink-0" />

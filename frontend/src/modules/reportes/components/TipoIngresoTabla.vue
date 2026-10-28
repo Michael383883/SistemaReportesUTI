@@ -11,7 +11,7 @@
             <th class="text-left px-4 py-3 text-[0.68rem] font-semibold tracking-widest uppercase text-slate-100">Materia</th>
             <th class="text-left px-4 py-3 text-[0.68rem] font-semibold tracking-widest uppercase text-slate-100 w-14">GRP</th>
             <th class="text-left px-4 py-3 text-[0.68rem] font-semibold tracking-widest uppercase text-slate-100">Resolución</th>
-            <th class="text-left px-4 py-3 text-[0.68rem] font-semibold tracking-widest uppercase text-slate-100 w-44">Tipo de ingreso</th>
+            <th class="text-left px-4 py-3 text-[0.68rem] font-semibold tracking-widest uppercase text-slate-100 w-48">Tipo de ingreso</th>
           </tr>
         </thead>
         <tbody>
@@ -48,7 +48,7 @@
               <span v-else class="text-slate-800 text-xs">Sin resolución</span>
             </td>
 
-            <!-- Tipo de ingreso (editable) -->
+            <!-- Tipo de ingreso (editable, opciones desde el catálogo KARDEX) -->
             <td class="px-4 py-3">
               <div class="flex items-center gap-2">
                 <select
@@ -58,14 +58,11 @@
                   :class="tieneCambioPendiente(m)
                     ? 'border-emerald-400 bg-emerald-50 text-emerald-700 focus:border-emerald-500'
                     : 'border-slate-300 bg-white text-slate-700 focus:border-amber-500'"
-                  @change="onCambiar(m, $event.target.value)"
+                  @change="onSelectChange(m, $event)"
                 >
                   <option value="">-- Seleccionar --</option>
-                  <option value="ACEFALIA">ACEFALIA</option>
-                  <option value="TEMPORAL">TEMPORAL</option>
-                  <option value="TITULAR">TITULAR</option>
-                  <option value="EXAMEN SUFICIENCIA">EXAMEN SUFICIENCIA</option>
-                  <option value="EXAMEN COMPETENCIA">EXAMEN COMPETENCIA</option>
+                  <option v-for="op in opciones" :key="op" :value="op">{{ op }}</option>
+                  <option v-if="permitirNuevaCategoria" value="__nueva__">+ Nueva categoría…</option>
                 </select>
 
                 <span
@@ -105,9 +102,14 @@ const props = defineProps({
   // Mapa de cambios pendientes: key -> nuevo tipo_ingreso elegido
   cambios: { type: Object, default: () => ({}) },
   docenteCod: { type: [Number, String], default: null },
+  // Opciones del <select>, ahora vienen del catálogo KARDEX (ver
+  // useCategoriasKardex) en vez de estar hardcodeadas acá.
+  opciones: { type: Array, default: () => [] },
+  // Si está en true, se muestra "+ Nueva categoría…" al final del <select>
+  permitirNuevaCategoria: { type: Boolean, default: true },
 })
 
-const emit = defineEmits(['cambiar'])
+const emit = defineEmits(['cambiar', 'agregar-categoria'])
 
 function keyDe(m) {
   return `${props.docenteCod}__${m.plan}__${m.materia}__${m.grp}__${m.gestion}`
@@ -126,6 +128,24 @@ function valorActual(m) {
 
 function onCambiar(m, nuevoValor) {
   emit('cambiar', { key: keyDe(m), materia: m, valor: nuevoValor })
+}
+
+// Si el usuario elige "+ Nueva categoría…", en vez de aplicar ese valor
+// literal, se le pide el nombre y se delega la creación al padre (que
+// habla con el catálogo KARDEX vía useCategoriasKardex). El <select> vuelve
+// a mostrar el valor anterior mientras tanto.
+function onSelectChange(m, event) {
+  const valor = event.target.value
+
+  if (valor === '__nueva__') {
+    event.target.value = valorActual(m) // evita que quede "trabado" en __nueva__
+    emit('agregar-categoria', {
+      onCreada: (nombreCreado) => onCambiar(m, nombreCreado),
+    })
+    return
+  }
+
+  onCambiar(m, valor)
 }
 
 const cantidadCambios = computed(() => {

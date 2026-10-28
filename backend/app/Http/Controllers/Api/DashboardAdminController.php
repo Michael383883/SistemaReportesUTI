@@ -5,153 +5,29 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 
 class DashboardAdminController extends Controller
 {
     public function kpis(): JsonResponse
     {
         try {
-
-            $gestion = $this->getGestionActual();
+            $gestion = self::getGestionActual();
             $anio = $gestion['anio'];
             $periodo = $gestion['periodo'];
 
-            // =====================================================
-            // RESUMEN
-            // =====================================================
-            $resumen = [
+            $cacheKey = self::cacheKey($anio, $periodo);
 
-                'total_docentes' => DB::table('DOCENTES')->count(),
-
-                'docentes_activos' => DB::table('HORARIOS2 as h')
-                    ->join('GRUPOS as g', function ($join) {
-                        $join->on('h.ANIO', '=', 'g.ANIO')
-                            ->on('h.PERIODO', '=', 'g.PERIODO')
-                            ->on('h.MATERIA', '=', 'g.MATERIA')
-                            ->on('h.GRUPO', '=', 'g.GRUPO')
-                            ->on('h.DOCENTE', '=', 'g.DOCENTE');
-                    })
-                    ->where('h.ANIO', $anio)
-                    ->where('h.PERIODO', $periodo)
-                    ->where('h.TIPO', 'C')
-                    ->where('g.PRIMARIO', 'Y')
-                    ->distinct()
-                    ->count('h.DOCENTE'),
-
-                'total_materias' => DB::table('MATERIAS')
-                    ->where('ANIO', $anio)
-                    ->where('PERIODO', $periodo)
-                    ->distinct()
-                    ->count('CODIGO'),
-
-                'total_grupos' => DB::table('GRUPOS')
-                    ->where('ANIO', $anio)
-                    ->where('PERIODO', $periodo)
-                    ->count(),
-
-                'total_resoluciones' => DB::table('RESOLUCIONES_PDF')->count(),
-            ];
-
-            // =====================================================
-            // TOP DOCENTES
-            // =====================================================
-
-            $top_docentes = DB::table('HORARIOS2 as h')
-                ->join('DOCENTES as d', 'd.CODIGO', '=', 'h.DOCENTE')
-                ->join('GRUPOS as g', function ($join) {
-                    $join->on('h.ANIO', '=', 'g.ANIO')
-                        ->on('h.PERIODO', '=', 'g.PERIODO')
-                        ->on('h.MATERIA', '=', 'g.MATERIA')
-                        ->on('h.GRUPO', '=', 'g.GRUPO')
-                        ->on('h.DOCENTE', '=', 'g.DOCENTE');
-                })
-                ->where('h.ANIO', $anio)
-                ->where('h.PERIODO', $periodo)
-                ->where('h.TIPO', 'C')
-                ->where('g.PRIMARIO', 'Y')
-                ->select(
-                    'd.CODIGO',
-                    DB::raw("(d.APELLIDOS + ' ' + d.NOMBRES) AS NOMBRE"),
-                    DB::raw('COUNT(*) AS TOTAL_HORAS')
-                )
-                ->groupBy(
-                    'd.CODIGO',
-                    'd.APELLIDOS',
-                    'd.NOMBRES'
-                )
-                ->orderByDesc('TOTAL_HORAS')
-                ->limit(10)
-                ->get();
-
-            // =====================================================
-            // RESOLUCIONES RECIENTES
-            // =====================================================
-            $resoluciones_recientes = DB::table('RESOLUCIONES_PDF')
-                ->select(
-                    'ID_RESOLUCION',
-                    'NRO_RESOLUCION',
-                    'DESCRIPCION',
-                    'NOMBRE_ARCHIVO',
-                    'FECHA_SUBIDA'
-                )
-                ->orderByDesc('FECHA_SUBIDA')
-                ->limit(8)
-                ->get()
-                ->map(fn($r) => [
-                    'id' => $r->ID_RESOLUCION,
-                    'numero' => $r->NRO_RESOLUCION,
-                    'descripcion' => $r->DESCRIPCION,
-                    'archivo' => $r->NOMBRE_ARCHIVO,
-                    'fecha' => $r->FECHA_SUBIDA,
-                    'url_pdf' => url("/api/resoluciones/{$r->ID_RESOLUCION}/pdf")
-                ]);
-            // =====================================================
-            // DISTRIBUCION POR TIPO DE MATERIA
-            // =====================================================
-
-            $distribucion_tipo = DB::table('MATERIAS')
-                ->where('ANIO', $anio)
-                ->where('PERIODO', $periodo)
-                ->select(
-                    'TIPO',
-                    DB::raw('COUNT(*) AS CANTIDAD')
-                )
-                ->groupBy('TIPO')
-                ->get();
-
-            // =====================================================
-            // EVOLUCION INSCRITOS
-            // =====================================================
-
-            $evolucion_inscritos = DB::table('KARDEX_EXT')
-                ->select(
-                    'ANIO',
-                    'PERIODO',
-                    DB::raw('COUNT(DISTINCT ESTUDIANTE) AS TOTAL')
-                )
-                ->groupBy(
-                    'ANIO',
-                    'PERIODO'
-                )
-                ->orderBy('ANIO')
-                ->orderBy('PERIODO')
-                ->get();
+            $data = Cache::remember($cacheKey, now()->addHours(6), function () use ($anio, $periodo) {
+                return $this->buildDashboardData($anio, $periodo);
+            });
 
             return response()->json([
                 'success' => true,
-                'data' => [
-                    'gestion' => [
-                        'anio' => $anio,
-                        'periodo' => $periodo
-                    ],
-                    'resumen' => $resumen,
-                    'top_docentes' => $top_docentes,
-                    'resoluciones_recientes' => $resoluciones_recientes,
-                    'distribucion_tipo' => $distribucion_tipo,
-                    'evolucion_inscritos' => $evolucion_inscritos
-                ]
+                'data' => $data,
             ]);
         } catch (\Exception $e) {
+            \Log::error('Error en DashboardAdminController@kpis: ' . $e->getMessage());
 
             return response()->json([
                 'success' => false,
@@ -161,11 +37,165 @@ class DashboardAdminController extends Controller
         }
     }
 
-    private function getGestionActual(): array
+    public function refreshKpis(): JsonResponse
+    {
+        self::limpiarCacheDashboard();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Cache del dashboard limpiado. Se recalculará en la próxima carga.',
+        ]);
+    }
+
+    private function buildDashboardData(int $anio, int $periodo): array
+    {
+        // =====================================================
+        // RESUMEN
+        // Solo consultas simples, sin JOIN a HORARIOS2/GRUPOS.
+        // =====================================================
+        $resumen = [
+
+            // Cantidad de docentes registrados
+            'total_docentes' => DB::table('DOCENTES')->count(),
+
+            // Cuántas materias hay en la gestión actual
+            'total_materias' => DB::table('MATERIAS')
+                ->where('ANIO', $anio)
+                ->where('PERIODO', $periodo)
+                ->distinct()
+                ->count('CODIGO'),
+
+            // Cantidad de resoluciones
+            'total_resoluciones' => DB::table('RESOLUCIONES_PDF')->count(),
+
+            // Cantidad de documentos clasificados
+            'total_documentos' => DB::table('CLASIFICACION_DOCUMENTO')->count(),
+
+            // Cantidad de títulos registrados
+            'total_titulos' => DB::table('CLASIFICACION_TITULO')->count(),
+        ];
+
+        // =====================================================
+        // RESOLUCIONES RECIENTES
+        // =====================================================
+        $resoluciones_recientes = DB::table('RESOLUCIONES_PDF')
+            ->select(
+                'ID_RESOLUCION',
+                'NRO_RESOLUCION',
+                'DESCRIPCION',
+                'NOMBRE_ARCHIVO',
+                'FECHA_SUBIDA'
+            )
+            ->orderByDesc('FECHA_SUBIDA')
+            ->limit(8)
+            ->get()
+            ->map(fn($r) => [
+                'id' => $r->ID_RESOLUCION,
+                'numero' => $r->NRO_RESOLUCION,
+                'descripcion' => $r->DESCRIPCION,
+                'archivo' => $r->NOMBRE_ARCHIVO,
+                'fecha' => $r->FECHA_SUBIDA,
+                'url_pdf' => url("/api/resoluciones/{$r->ID_RESOLUCION}/pdf")
+            ]);
+
+        // =====================================================
+        // DOCUMENTOS RECIENTES (clasificación)
+        // =====================================================
+        $documentos_recientes = DB::table('CLASIFICACION_DOCUMENTO')
+            ->select(
+                'ID_DOCUMENTO',
+                'TIPO_DOCUMENTO',
+                'CATEGORIA',
+                'NIVEL',
+                'GESTION',
+                'NOMBRE_ARCHIVO',
+                'FECHA_REGISTRO'
+            )
+            ->orderByDesc('FECHA_REGISTRO')
+            ->limit(8)
+            ->get()
+            ->map(fn($d) => [
+                'id' => $d->ID_DOCUMENTO,
+                'tipo' => $d->TIPO_DOCUMENTO,
+                'categoria' => $d->CATEGORIA,
+                'nivel' => $d->NIVEL,
+                'gestion' => $d->GESTION,
+                'archivo' => $d->NOMBRE_ARCHIVO,
+                'fecha' => $d->FECHA_REGISTRO,
+            ]);
+
+        // =====================================================
+        // DISTRIBUCION POR CATEGORIA DE DOCUMENTO
+        // =====================================================
+        $distribucion_documentos = DB::table('CLASIFICACION_DOCUMENTO')
+            ->select(
+                'CATEGORIA',
+                DB::raw('COUNT(*) AS CANTIDAD')
+            )
+            ->groupBy('CATEGORIA')
+            ->get();
+
+        // =====================================================
+        // DISTRIBUCION POR TIPO DE MATERIA
+        // =====================================================
+        $distribucion_tipo = DB::table('MATERIAS')
+            ->where('ANIO', $anio)
+            ->where('PERIODO', $periodo)
+            ->select(
+                'TIPO',
+                DB::raw('COUNT(*) AS CANTIDAD')
+            )
+            ->groupBy('TIPO')
+            ->get();
+
+        // NOTA: se quitó "top_docentes" (JOIN HORARIOS2 + DOCENTES + GRUPOS
+        // sin índice, 1.6M filas). Esa era la consulta que corría 141+ segundos
+        // y causaba el timeout. Si se reactiva, agregar antes el índice
+        // compuesto sobre HORARIOS2(ANIO,PERIODO,MATERIA,GRUPO,DOCENTE) y
+        // GRUPOS(mismas columnas), o exponerla en un endpoint aparte con su
+        // propio cache.
+
+        return [
+            'gestion' => [
+                'anio' => $anio,
+                'periodo' => $periodo
+            ],
+            'resumen' => $resumen,
+            'resoluciones_recientes' => $resoluciones_recientes,
+            'documentos_recientes' => $documentos_recientes,
+            'distribucion_tipo' => $distribucion_tipo,
+            'distribucion_documentos' => $distribucion_documentos,
+        ];
+    }
+
+    /**
+     * Gestión académica activa.
+     */
+    public static function getGestionActual(): array
     {
         return [
             'anio' => 2026,
             'periodo' => 1
         ];
+    }
+
+    /**
+     * Clave de cache determinística para una gestión dada.
+     * "v2": se cambió al agregar total_titulos, para no servir la caché vieja.
+     */
+    private static function cacheKey(int $anio, int $periodo): string
+    {
+        return "dashboard_kpis_v2_{$anio}_{$periodo}";
+    }
+
+    /**
+     * Invalida la caché del dashboard para la gestión actual.
+     * Llamar desde cualquier controller que guarde/borre datos que afecten
+     * al dashboard (resoluciones, documentos, títulos, etc.).
+     */
+    public static function limpiarCacheDashboard(): void
+    {
+        $gestion = self::getGestionActual();
+        Cache::forget(self::cacheKey($gestion['anio'], $gestion['periodo']));
     }
 }

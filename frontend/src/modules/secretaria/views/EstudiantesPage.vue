@@ -339,9 +339,6 @@ defineOptions({ name: 'EstudiantesPage' })
 import { ref, computed, onMounted, watch } from 'vue'
 import EstudiantesTabla from '../components/EstudiantesTabla.vue'
 import estudiantesInscritosService, {
-  ANIO_ACTUAL,
-  PERIODO_ACTUAL,
-  PERIODOS,
   PLANES,
   NIVELES,
 } from '../services/estudiantesInscritosService.js'
@@ -351,20 +348,30 @@ import {
   LIMITE_PREVIEW,
   UMBRAL_ADVERTENCIA,
 } from '../services/reporteExcelEstudiantes.js'
+import { usePeriodoAcademicoActual } from '@/modules/periodos-academicos/composables/usePeriodoAcademicoActual'
+
+// ─────────────────────────────────────────────
+// Periodo académico actual (desde la BD)
+// ─────────────────────────────────────────────
+const {
+  anio: anioActual,
+  periodo: periodoActual,
+  promesa: promesaPeriodoActual,
+} = usePeriodoAcademicoActual()
 
 // ─────────────────────────────────────────────
 // Estado
 // ─────────────────────────────────────────────
-console.log('PERIODOS:', JSON.stringify(PERIODOS))
-//const PERIODOS_LABEL = Object.fromEntries(PERIODOS.map(p => [p.value, p.label.replace('Periodo ', '')]))
-
 const filtros = ref({
-  anio: ANIO_ACTUAL,
-  periodo: PERIODO_ACTUAL,
+  anio: String(anioActual.value),
+  periodo: String(periodoActual.value),
   plan: '',
   nivel: '',
   busqueda: '',
 })
+
+// Evita que el watch de filtros dispare cargas antes de conocer el periodo real
+const inicializado = ref(false)
 
 const grupos  = ref([])
 const total = ref(0)
@@ -387,9 +394,10 @@ const progresoPorcentaje = computed(() =>
 
 const aniosDisponibles = computed(() => {
   const actual = new Date().getFullYear()
-  const desde = actual - 5
+  const base = Math.max(actual, Number(anioActual.value) || actual)
+  const desde = base - 5
   const anios = []
-  for (let a = actual + 1; a >= desde; a--) anios.push(String(a))
+  for (let a = base + 1; a >= desde; a--) anios.push(String(a))
   return anios
 })
 
@@ -459,12 +467,16 @@ watch(() => filtros.value.busqueda, aplicarBusquedaLocal)
 watch(
   () => [filtros.value.anio, filtros.value.periodo, filtros.value.plan, filtros.value.nivel],
   () => {
+    if (!inicializado.value) return
     page.value = 1
     cargarEstudiantes()
   }
 )
 
-watch(page, cargarEstudiantes)
+watch(page, () => {
+  if (!inicializado.value) return
+  cargarEstudiantes()
+})
 
 function irPaginaAnterior() {
   if (page.value > 1) page.value -= 1
@@ -476,8 +488,8 @@ function irPaginaSiguiente() {
 
 function limpiarFiltros() {
   filtros.value = {
-    anio: ANIO_ACTUAL,
-    periodo: PERIODO_ACTUAL,
+    anio: String(anioActual.value),
+    periodo: String(periodoActual.value),
     plan: '',
     nivel: '',
     busqueda: '',
@@ -609,15 +621,15 @@ function escapeHtml(valor) {
 // Gestión automática vs manual
 // ─────────────────────────────────────────────
 const gestionEsAutomatica = computed(() =>
-  filtros.value.anio === ANIO_ACTUAL && filtros.value.periodo === PERIODO_ACTUAL
+  String(filtros.value.anio) === String(anioActual.value) &&
+  String(filtros.value.periodo) === String(periodoActual.value)
 )
 
 function volverAGestionActual() {
-  filtros.value.anio = ANIO_ACTUAL
-  filtros.value.periodo = PERIODO_ACTUAL
+  filtros.value.anio = String(anioActual.value)
+  filtros.value.periodo = String(periodoActual.value)
 }
 
-// Objeto plano { '1': 'I', '2': 'II' } — igual que en Talleres
 // Objeto plano { '1': 'I', '2': 'II' } — conversión manual a números romanos
 const PERIODOS_MAP = {
   '1': 'I',
@@ -640,5 +652,20 @@ async function descargar() {
   }
 }
 
-onMounted(cargarEstudiantes)
+// ─────────────────────────────────────────────
+// Montaje: esperar el periodo real de la BD y recién ahí cargar
+// ─────────────────────────────────────────────
+onMounted(async () => {
+  try {
+    await promesaPeriodoActual
+  } catch (e) {
+    // si falla, seguimos con los valores de fallback del composable
+  }
+
+  filtros.value.anio = String(anioActual.value)
+  filtros.value.periodo = String(periodoActual.value)
+
+  inicializado.value = true
+  await cargarEstudiantes()
+})
 </script>

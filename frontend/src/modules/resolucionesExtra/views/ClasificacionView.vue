@@ -3,8 +3,14 @@
 
     <!-- Header -->
     <div class="mb-8">
-      <h1 class="text-[20px] font-bold text-gray-1000">Digitalizar Documentos de Docente</h1>
-      <p class="text-[14px] text-gray-700 mt-1">Carga y registro de documentos (Web sis 2001)</p>
+      <h1 class="text-[20px] font-bold text-gray-1000">
+        {{ modoTitulo ? 'Subir Título de Docente' : 'Digitalizar Documentos de Docente' }}
+      </h1>
+      <p class="text-[14px] text-gray-700 mt-1">
+        {{ modoTitulo
+          ? 'Carga del título (PDF) y registro de sus datos. Categoría SIN CATEGORÍA; gestión y periodo según la fecha del título.'
+          : 'Carga y registro de documentos (Web sis 2001)' }}
+      </p>
     </div>
 
     <!-- Stepper -->
@@ -40,12 +46,26 @@
       </div>
 
       <!-- Archivo subido, visible junto al stepper en el paso 2 -->
-      <div v-if="currentStep === 1 && archivo" class="flex items-center gap-2 px-4 py-2 bg-blue-50 border border-blue-200 rounded-lg">
-        <svg class="w-4 h-4 text-blue-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <div v-if="currentStep === 1 && (archivo || reutilizarArchivo)" class="flex items-center gap-2 px-4 py-2 rounded-lg border"
+           :class="reutilizarArchivo ? 'bg-emerald-50 border-emerald-200' : 'bg-blue-50 border-blue-200'">
+        <svg class="w-4 h-4 flex-shrink-0" :class="reutilizarArchivo ? 'text-emerald-500' : 'text-blue-500'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round"
             d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
         </svg>
-        <span class="text-[13px] font-medium text-blue-700 truncate max-w-[220px]">{{ archivo.name }}</span>
+        <span class="text-[13px] font-medium truncate max-w-[220px]" :class="reutilizarArchivo ? 'text-emerald-700' : 'text-blue-700'">
+          {{ reutilizarArchivo ? archivoOrigenNombre : archivo.name }}
+        </span>
+        <span v-if="reutilizarArchivo" class="text-[10px] font-semibold text-emerald-500 uppercase">reutilizado</span>
+
+        <!-- Visualizar el PDF mientras se llena el formulario -->
+        <button
+          v-if="archivo && !successMessage"
+          type="button"
+          @click="mostrarVisor ? cerrarVisor() : abrirVisor()"
+          class="ml-2 px-3 py-1 text-[12px] font-semibold rounded-md bg-amber-500 hover:bg-amber-400 text-white transition-colors"
+        >
+          {{ mostrarVisor ? 'Ocultar PDF' : 'Visualizar' }}
+        </button>
       </div>
     </div>
 
@@ -84,7 +104,9 @@
             </div>
 
             <div v-else>
-              <p class="text-[15px] font-semibold text-gray-700">Arrastra el PDF aquí</p>
+              <p class="text-[15px] font-semibold text-gray-700">
+                {{ modoTitulo ? 'Arrastra el PDF del título aquí' : 'Arrastra el PDF aquí' }}
+              </p>
               <p class="text-[14px] text-gray-800 mt-1">Selecciona el documento desde tu dispositivo</p>
             </div>
 
@@ -130,79 +152,137 @@
     <!-- ══════════════════════════════════════════════ -->
     <!-- PASO 1: Formulario                             -->
     <!-- ══════════════════════════════════════════════ -->
-    <div v-if="currentStep === 1">
+    <div
+      v-if="currentStep === 1"
+      :class="visorVisible
+        ? (visorAmplio
+            ? 'grid grid-cols-1 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] gap-4 items-start'
+            : 'grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-4 items-start')
+        : ''"
+    >
 
-      <div v-if="successMessage" class="bg-white rounded-xl border border-gray-200 p-10 text-center">
-        <div class="w-14 h-14 mx-auto rounded-full bg-green-50 flex items-center justify-center mb-4">
-          <svg class="w-7 h-7 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
-          </svg>
-        </div>
-        <p class="text-[15px] font-semibold text-gray-900">{{ successMessage }}</p>
-        <p class="text-[13px] text-gray-400 mt-1">
-          Clasificación registrada correctamente (Documento ID: {{ ultimoId }}, docentes vinculados: {{ docentesRegistrados }}).
-        </p>
-
-        <!-- Estado de asignación a GRUPOS -->
-        <p v-if="aplicadoAGrupos === true" class="text-[13px] text-green-600 mt-1 font-medium">
-          ✓ Datos aplicados en GRUPOS correctamente.
-        </p>
-        <p v-else-if="aplicadoAGrupos === false" class="text-[13px] text-amber-600 mt-1 font-medium">
-          ⚠️ La clasificación se guardó, pero no se pudo aplicar en GRUPOS. Puedes intentarlo luego desde el listado.
-        </p>
-
-        <!-- Detalle técnico del error al aplicar en GRUPOS -->
-        <div v-if="errorGrupos" class="mt-2 mx-auto max-w-md text-left p-3 rounded-lg bg-red-50 border border-red-200 text-[11px] font-mono text-red-700 space-y-1">
-          <p v-if="errorGrupos.sqlstate"><strong>SQLSTATE:</strong> {{ errorGrupos.sqlstate }}</p>
-          <p v-if="errorGrupos.codigoDriver"><strong>Código driver:</strong> {{ errorGrupos.codigoDriver }}</p>
-          <p v-if="errorGrupos.mensajeDriver"><strong>Mensaje SQL Server:</strong> {{ errorGrupos.mensajeDriver }}</p>
-          <p v-if="errorGrupos.mensaje"><strong>Mensaje:</strong> {{ errorGrupos.mensaje }}</p>
-          <details v-if="errorGrupos.sql" class="cursor-pointer">
-            <summary class="text-red-600">Ver SQL y bindings</summary>
-            <pre class="whitespace-pre-wrap mt-1">{{ errorGrupos.sql }}</pre>
-            <pre class="whitespace-pre-wrap mt-1">Bindings: {{ JSON.stringify(errorGrupos.bindings) }}</pre>
-          </details>
-        </div>
-
-        <div class="flex items-center justify-center gap-3 mt-6">
-          <button
-            @click="resetAll"
-            class="inline-flex items-center gap-2 px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-[14px] font-medium rounded-lg transition-colors"
-          >
-            Registrar otra clasificación
-          </button>
-          <router-link
-  :to="{
-    name: 'clasificaciones-listado',
-    query: nombreDocenteBusqueda ? { q: nombreDocenteBusqueda } : {}
-  }"
-  class="inline-flex items-center gap-2 px-5 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-[14px] font-medium rounded-lg transition-colors"
->
-  Ver listado
-</router-link>
-        </div>
+      <!-- Visor del PDF (fijo a la izquierda mientras se hace scroll en el formulario) -->
+      <div
+        v-if="visorVisible"
+        class="lg:sticky lg:top-4 h-[75vh] lg:h-[calc(100vh-2rem)]"
+      >
+        <PdfVisor
+          :file="archivo"
+          :nombre="archivo?.name || ''"
+          :ampliado="visorAmplio"
+          @cerrar="cerrarVisor"
+          @toggle-ancho="visorAmplio = !visorAmplio"
+        />
       </div>
 
-      <ClasificacionForm
-        v-else
-        :docentes="docentes"
-        :saving="clasificacion.loading.value"
-        :error="clasificacion.error.value"
-        :archivo-nombre="archivo?.name || ''"
-        @guardar="onGuardar"
-        @back="currentStep = 0"
-      />
+      <!-- Contenido del paso 1 -->
+      <div class="min-w-0">
+
+        <div v-if="successMessage" class="bg-white rounded-xl border border-gray-200 p-10 text-center">
+          <div class="w-14 h-14 mx-auto rounded-full bg-green-50 flex items-center justify-center mb-4">
+            <svg class="w-7 h-7 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+            </svg>
+          </div>
+          <p class="text-[15px] font-semibold text-gray-900">{{ successMessage }}</p>
+          <p class="text-[13px] text-gray-400 mt-1">
+            Clasificación registrada correctamente (Documento ID: {{ ultimoId }}, docentes vinculados: {{ docentesRegistrados }}).
+          </p>
+
+          <!-- Estado de asignación a GRUPOS -->
+          <p v-if="aplicadoAGrupos === true" class="text-[13px] text-green-600 mt-1 font-medium">
+            ✓ Datos aplicados en GRUPOS correctamente.
+          </p>
+          <p v-else-if="aplicadoAGrupos === false" class="text-[13px] text-amber-600 mt-1 font-medium">
+            ⚠️ La clasificación se guardó, pero no se pudo aplicar en GRUPOS. Puedes intentarlo luego desde el listado.
+          </p>
+
+          <!-- Detalle técnico del error al aplicar en GRUPOS -->
+          <div v-if="errorGrupos" class="mt-2 mx-auto max-w-md text-left p-3 rounded-lg bg-red-50 border border-red-200 text-[11px] font-mono text-red-700 space-y-1">
+            <p v-if="errorGrupos.sqlstate"><strong>SQLSTATE:</strong> {{ errorGrupos.sqlstate }}</p>
+            <p v-if="errorGrupos.codigoDriver"><strong>Código driver:</strong> {{ errorGrupos.codigoDriver }}</p>
+            <p v-if="errorGrupos.mensajeDriver"><strong>Mensaje SQL Server:</strong> {{ errorGrupos.mensajeDriver }}</p>
+            <p v-if="errorGrupos.mensaje"><strong>Mensaje:</strong> {{ errorGrupos.mensaje }}</p>
+            <details v-if="errorGrupos.sql" class="cursor-pointer">
+              <summary class="text-red-600">Ver SQL y bindings</summary>
+              <pre class="whitespace-pre-wrap mt-1">{{ errorGrupos.sql }}</pre>
+              <pre class="whitespace-pre-wrap mt-1">Bindings: {{ JSON.stringify(errorGrupos.bindings) }}</pre>
+            </details>
+          </div>
+
+          <div class="flex items-center justify-center gap-3 mt-6 flex-wrap">
+            <button
+              @click="resetAll"
+              class="inline-flex items-center gap-2 px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-[14px] font-medium rounded-lg transition-colors"
+            >
+              {{ modoTitulo ? 'Subir otro título' : 'Registrar nuevo documento' }}
+            </button>
+
+            <!-- Reutilizar el mismo PDF para otra categoría, sin volver a subirlo/almacenarlo -->
+            <button
+              v-if="ultimoId && !modoTitulo"
+              @click="guardarConOtraCategoria"
+              class="inline-flex items-center gap-2 px-5 py-2 bg-amber-500 hover:bg-amber-400 text-white text-[14px] font-medium rounded-lg transition-colors"
+            >
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+              </svg>
+              Guardar con otra categoría (mismo PDF)
+            </button>
+
+            <!--
+              IMPORTANTE: aquí se arma el query "q" que llega al listado.
+              Antes usaba nombreDocenteBusqueda (nombre del docente), lo cual
+              era incorrecto porque una resolución puede tener varios docentes
+              asociados. Ahora se busca por resolucionBusqueda (TIPO_DOCUMENTO +
+              DETALLE_GENERAL), que es único por documento.
+            -->
+            <router-link
+              :to="{
+                name: 'clasificaciones-listado',
+                query: resolucionBusqueda ? { q: resolucionBusqueda } : {}
+              }"
+              class="inline-flex items-center gap-2 px-5 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-[14px] font-medium rounded-lg transition-colors"
+            >
+              Ver listado
+            </router-link>
+          </div>
+        </div>
+
+        <ClasificacionForm
+          v-else
+          :docentes="docentes"
+          :saving="clasificacion.loading.value"
+          :error="clasificacion.error.value"
+          :archivo-nombre="reutilizarArchivo ? archivoOrigenNombre : (archivo?.name || '')"
+          :reutilizando-archivo="reutilizarArchivo"
+          :initial="datosPrevios || {}"
+          :abrir-titulo="modoTitulo && !reutilizarArchivo"
+          @guardar="onGuardar"
+          @back="onBackDesdeFormulario"
+        />
+      </div>
     </div>
 
   </div>
 </template>
-
 <script setup>
-import { ref } from 'vue'
+import { ref, computed, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import ClasificacionForm from '../components/ClasificacionForm.vue'
+import PdfVisor from '../components/PdfVisor.vue'
 import { useClasificacion } from '../composables/useClasificacion'
-import { useDocentesReportes } from '../composables/useDocentesReportes' // ajusta la ruta
+import { useDocentesReportes } from '../composables/useDocentesReportes' 
 
+// modoTitulo = true: el PDF es un título. El formulario abre directo el
+// módulo de título (categoría SIN CATEGORIA, gestión/periodo por fecha).
+// Lo usa SubirTituloView; por defecto la vista funciona como siempre.
+const props = defineProps({
+  modoTitulo: { type: Boolean, default: false },
+})
+
+const router = useRouter()
 const clasificacion = useClasificacion()
 
 const {
@@ -225,7 +305,53 @@ const docentesRegistrados = ref(0)
 const aplicadoAGrupos = ref(null)
 const errorGrupos = ref(null)
 
-const nombreDocenteBusqueda = ref('')  
+// ─── Búsqueda para el botón "Ver listado" ───
+// Antes se llamaba nombreDocenteBusqueda y guardaba el nombre del docente.
+// Se renombra a resolucionBusqueda porque ahora guarda el identificador de
+// la resolución/documento (tipo_documento + detalle_general), que es lo
+// correcto para buscar en el listado ya que un mismo documento puede tener
+// varios docentes vinculados.
+const resolucionBusqueda = ref('')
+
+// ─── Reutilizar el PDF de un documento ya guardado ───
+const idDocumentoOrigen   = ref(null)  // ID_DOCUMENTO cuyo archivo se va a reutilizar
+const reutilizarArchivo   = ref(false) // true => no se envía archivo, se reutiliza el del origen
+const archivoOrigenNombre = ref('')    // nombre a mostrar mientras se reutiliza
+
+// ── FIX "mismo PDF, otra categoría" ──
+// Guarda el último formData que se envió a guardar (categoria, nivel,
+// gestion, periodo, tipo_documento, detalle_general, observaciones,
+// materias, referencias, titulo, etc.), para poder pre-cargarlo en el
+// formulario cuando el usuario reutiliza el mismo PDF con otra categoría.
+// Antes esto no se guardaba, así que "Guardar con otra categoría" abría el
+// formulario completamente vacío y había que retipear todo de nuevo.
+const ultimoFormData = ref(null)
+
+// Lo que efectivamente se pasa como :initial a ClasificacionForm. Solo se
+// llena al hacer clic en "Guardar con otra categoría (mismo PDF)"; en el
+// flujo normal (o tras "Registrar otra clasificación") queda en null para
+// que el formulario arranque vacío como siempre.
+const datosPrevios = ref(null)
+
+// ─── Visor del PDF mientras se llena el formulario ───
+// El visor (PdfVisor.vue) dibuja el PDF con pdf.js: zoom, mano para
+// arrastrar y ajuste al ancho. Recibe el File que ya está en memoria.
+const mostrarVisor = ref(false)
+const visorAmplio  = ref(false) // true => el visor ocupa más ancho que el formulario
+
+// Solo se muestra mientras hay archivo y todavía no se guardó (en la
+// pantalla de éxito ya no hace falta).
+const visorVisible = computed(() =>
+  mostrarVisor.value && !!archivo.value && !successMessage.value
+)
+
+function abrirVisor()  { if (archivo.value) mostrarVisor.value = true }
+function cerrarVisor() { mostrarVisor.value = false }
+
+// Si vuelve al paso 0 (subir PDF), se cierra el visor
+watch(currentStep, (v) => {
+  if (v === 0) cerrarVisor()
+})
 
 function limpiarArchivo() {
   archivo.value     = null
@@ -267,24 +393,77 @@ function irAlPaso2() {
   currentStep.value = 1
 }
 
-  async function onGuardar(formData, debeAplicarAGrupos) {
+// Desde el formulario, "Volver" debe respetar si veníamos reutilizando archivo
+function onBackDesdeFormulario() {
+  if (reutilizarArchivo.value) {
+    reutilizarArchivo.value   = false
+    idDocumentoOrigen.value   = null
+    archivoOrigenNombre.value = ''
+    // Si estábamos en el flujo "mismo PDF, otra categoría" y el usuario da
+    // Volver antes de guardar, se descarta el prellenado para no arrastrarlo
+    // a un intento distinto (subir un PDF nuevo desde cero).
+    datosPrevios.value        = null
+  }
+  currentStep.value = 0
+}
+
+// Dispara el flujo de "misma PDF, otra categoría"
+function guardarConOtraCategoria() {
+  idDocumentoOrigen.value   = ultimoId.value
+  archivoOrigenNombre.value = archivo.value?.name || archivoOrigenNombre.value || `Documento #${ultimoId.value}`
+  reutilizarArchivo.value   = true
+
+  // ── FIX: precarga el formulario con los datos de la clasificación que
+  // se acaba de guardar (resolución/tipo_documento, detalle_general,
+  // categoria/tipo de ingreso, gestion, periodo, observaciones, referencias,
+  // titulo). Las MATERIAS quedan afuera a propósito: al cambiar de
+  // categoría, las materias registradas antes no deben arrastrarse, el
+  // usuario debe volver a seleccionarlas.
+  if (ultimoFormData.value) {
+    const { materias, ...restoDatos } = ultimoFormData.value
+    datosPrevios.value = { ...restoDatos, materias: [] }
+  } else {
+    datosPrevios.value = null
+  }
+
+  // Limpiamos el estado de "éxito" para volver a mostrar el formulario (ahora precargado)
+  successMessage.value      = ''
+  aplicadoAGrupos.value      = null
+  errorGrupos.value          = null
+
+  currentStep.value = 1
+}
+// Texto que identifica la resolución para el filtro del listado.
+// tipo_documento es el NOMBRE de la resolución (ej. "RESOLUCIÓN 245/2024"),
+// tal como se muestra como título en la columna "Documento" del listado.
+// detalle_general es solo la descripción/detalle, por eso NO se usa aquí.
+function construirResolucionBusqueda(formData) {
+  return (formData.tipo_documento || '').trim()
+}
+
+async function onGuardar(formData, debeAplicarAGrupos, irAAsignarExtra = false) {
   try {
-    const resultado = await clasificacion.guardarClasificacion({ ...formData, archivo: archivo.value })
+    const payload = {
+      ...formData,
+      // Si estamos reutilizando, NO mandamos el File (evita subir/almacenar de nuevo)
+      archivo: reutilizarArchivo.value ? null : archivo.value,
+      ...(reutilizarArchivo.value && idDocumentoOrigen.value
+        ? { id_documento_origen: idDocumentoOrigen.value }
+        : {}),
+    }
+
+    const resultado = await clasificacion.guardarClasificacion(payload)
     ultimoId.value = resultado.idDocumento
     docentesRegistrados.value = resultado.idsClasificacionDocente.length
 
-    // ─── Docente para pre-llenar el buscador del listado ───
-    // Si varias materias tienen docentes distintos, se toma el primero;
-    // si no hay materias (ej. solo título) o todas comparten docente,
-    // se usa el docente general del formulario.
-    const docentesUnicos = [
-      ...new Set(
-        (formData.materias || [])
-          .map(m => m.docente ? `${m.docente.apellidos} ${m.docente.nombres}`.trim() : null)
-          .filter(Boolean)
-      )
-    ]
-    nombreDocenteBusqueda.value = docentesUnicos[0] || formData.nombre_docente_general || ''
+    // ── FIX: guardamos el formData recién enviado (sin el archivo, que no
+    // aplica como "dato" reutilizable) para poder precargarlo si el usuario
+    // pide "Guardar con otra categoría (mismo PDF)".
+    ultimoFormData.value = formData
+
+    // Búsqueda para "Ver listado": por resolución, no por docente,
+    // porque un documento puede tener varios docentes vinculados.
+    resolucionBusqueda.value = construirResolucionBusqueda(formData)
 
     if (debeAplicarAGrupos && resultado.materiasInsertadas > 0) {
       try {
@@ -300,11 +479,39 @@ function irAlPaso2() {
       errorGrupos.value = null
     }
 
-    successMessage.value = 'Clasificación guardada exitosamente'
-  } catch {
+    if (irAAsignarExtra) {
+      router.push({
+        name: 'clasificacion-asignar-documento',
+        query: {
+          documento: resultado.idDocumento,
+          gestion: formData.gestion,
+          periodo: formData.periodo,
+          tipo_documento: formData.tipo_documento,
+          detalle_general: formData.detalle_general,
+        },
+      })
+      return
+    }
+
+    successMessage.value = props.modoTitulo
+      ? 'Título guardado exitosamente'
+      : 'Clasificación guardada exitosamente'
+
+    // Ya se guardó: apagamos el modo "reutilizar" para que "Registrar otra
+    // clasificación" vuelva al flujo normal de subir PDF desde cero.
+    reutilizarArchivo.value   = false
+    idDocumentoOrigen.value   = null
+
+    // El prellenado (si venía de "mismo PDF, otra categoría") ya cumplió su
+    // función; se limpia para no dejarlo pegado en el próximo guardado
+    // normal. Si el usuario vuelve a pedir "otra categoría", se vuelve a
+    // armar con ultimoFormData actualizado.
+    datosPrevios.value = null
+  } catch (e) {
+    console.error('Error en onGuardar:', e)
     // error visible vía :error en ClasificacionForm
   }
- }
+}
 
 function resetAll() {
   clasificacion.reset()
@@ -316,7 +523,21 @@ function resetAll() {
   docentesRegistrados.value = 0
   aplicadoAGrupos.value = null
   errorGrupos.value = null
+  resolucionBusqueda.value = ''
 
-nombreDocenteBusqueda.value = ''   // ← nuevo
+  // limpiar también el estado de reutilización de archivo
+  reutilizarArchivo.value   = false
+  idDocumentoOrigen.value   = null
+  archivoOrigenNombre.value = ''
+
+  // ── FIX: "Registrar otra clasificación" es un flujo completamente
+  // nuevo (nuevo PDF, nuevo documento), así que no debe arrastrar datos
+  // de la clasificación anterior.
+  ultimoFormData.value = null
+  datosPrevios.value    = null
+
+  // Cierra el visor del PDF anterior
+  cerrarVisor()
+  visorAmplio.value = false
 }
 </script>

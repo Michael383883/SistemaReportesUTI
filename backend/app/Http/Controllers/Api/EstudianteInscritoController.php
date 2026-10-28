@@ -13,21 +13,12 @@ class EstudianteInscritoController extends Controller
      * Lista de estudiantes inscritos por anio/periodo, segun los planes
      * de estudio definidos (CON, ADM, COM, FIN, ECO).
      *
-     * Parametros opcionales (query string):
-     *   - anio      (default: 2026)
-     *   - periodo   (default: 1)
-     *   - plan      (filtra por un plan especifico, ej: 089801)
-     *   - materia   (filtra por codigo de materia)
-     *   - grupo     (filtra por grupo)
-     *   - nivel     (filtra por un nivel especifico, ej: A, B, C...)
-     *   - page      (default: 1) numero de pagina
-     *   - per_page  (default: 100, maximo: 500) registros por pagina
-     *
-     * Ejemplo: GET /api/estudiantes-inscritos?anio=2026&periodo=1&nivel=A&page=1&per_page=100
+     * NOTA: este endpoint SI incluye alumnos de examen de mesa ('E'),
+     * porque el reporte de "Lista completa" los muestra en su propia
+     * sección por materia. No confundir con los resumenes de abajo.
      */
     public function index(Request $request)
     {
-        // anio y periodo ahora son obligatorios, sin valor por defecto
         $request->validate([
             'anio' => 'required',
             'periodo' => 'required',
@@ -71,6 +62,12 @@ class EstudianteInscritoController extends Controller
             'X',
         ];
 
+        $nivelesPlaceholders = implode(', ', array_map(
+            fn($idx) => ":nivel_permitido_{$idx}",
+            array_keys($nivelesPermitidos)
+        ));
+
+        // ── SELECT base con ROW_NUMBER() en vez de OFFSET/FETCH ──
         $selectData = "
         SELECT
             K.ANIO,
@@ -88,20 +85,20 @@ class EstudianteInscritoController extends Controller
             K.MATERIA,
             M.NOMBRE AS NOMBRE_MATERIA,
             K.GRUPO,
-
-            -- DOCENTE
             D.CODIGO AS COD_DOCENTE,
             D.APELLIDOS + ' ' + D.NOMBRES AS DOCENTE,
-
-            -- ESTUDIANTE
             B.CODIGO AS COD_ESTUDIANTE,
-            B.APELLIDOS + ' ' + B.NOMBRES AS ESTUDIANTE
+            B.APELLIDOS + ' ' + B.NOMBRES AS ESTUDIANTE,
+            ROW_NUMBER() OVER (
+                ORDER BY
+                    M.NIVEL ASC,
+                    K.[PLAN],
+                    K.MATERIA,
+                    K.GRUPO,
+                    B.APELLIDOS,
+                    B.NOMBRES
+            ) AS RN
     ";
-
-        $nivelesPlaceholders = implode(', ', array_map(
-            fn($idx) => ":nivel_permitido_{$idx}",
-            array_keys($nivelesPermitidos)
-        ));
 
         $fromWhere = "
         FROM KARDEX_EXT K
@@ -124,7 +121,7 @@ class EstudianteInscritoController extends Controller
             K.ANIO = :anio
             AND K.PERIODO = :periodo
             AND K.CANCELADO IS NULL
-            AND K.TIPO_EXAMEN IN ('N','E')
+            AND (K.TIPO_EXAMEN IN ('N','E') OR K.TIPO_EXAMEN IS NULL)
             AND G.PRIMARIO = 'Y'
             AND G.TIPO = 'N'
             AND K.[PLAN] IN ('089801','109401','125091','126091','059801')
@@ -174,27 +171,26 @@ class EstudianteInscritoController extends Controller
 
         $sqlCount = "SELECT COUNT(*) AS TOTAL " . $fromWhere;
 
-        $sqlData = $selectData . $fromWhere . "
-        ORDER BY
-            M.NIVEL ASC,
-            K.[PLAN],
-            K.MATERIA,
-            K.GRUPO,
-            B.APELLIDOS,
-            B.NOMBRES
-        OFFSET :offset ROWS FETCH NEXT :per_page ROWS ONLY
-            ";
+        // ── Paginación vía CTE + ROW_NUMBER() (compatible con SQL Server 2008+) ──
+        $sqlData = "
+        WITH PAGINADO AS (
+            {$selectData}
+            {$fromWhere}
+        )
+        SELECT * FROM PAGINADO
+        WHERE RN BETWEEN :row_inicio AND :row_fin
+        ORDER BY RN
+    ";
 
         $bindingsData = $bindings + [
-            'offset' => $offset,
-            'per_page' => $perPage,
+            'row_inicio' => $offset + 1,
+            'row_fin' => $offset + $perPage,
         ];
 
         try {
             $total = (int) (DB::select($sqlCount, $bindings)[0]->TOTAL ?? 0);
             $resultados = DB::select($sqlData, $bindingsData);
 
-            // Agrupar por PLAN + MATERIA + GRUPO + NIVEL, con su docente y lista de estudiantes
             $grupos = [];
 
             foreach ($resultados as $fila) {
@@ -245,21 +241,11 @@ class EstudianteInscritoController extends Controller
     }
 
     /**
-     * Resumen de inscritos/aprobados/reprobados por grupo, materia y docente.
+     * Resumen de inscritos/aprobados/reprobados/abandonos por grupo, materia y docente.
+     * Incluye TIPO_INGRESO (GRUPOS.TIPO_INGRESO).
      *
-     * Parametros obligatorios (query string):
-     *   - anio
-     *   - periodo
-     *
-     * Parametros opcionales (query string):
-     *   - plan      (filtra por un plan especifico, ej: 089801)
-     *   - materia   (filtra por codigo de materia)
-     *   - grupo     (filtra por grupo)
-     *   - nivel     (filtra por un nivel especifico, ej: A, B, C...)
-     *   - page      (default: 1) numero de pagina
-     *   - per_page  (default: 100, maximo: 500) registros por pagina
-     *
-     * Ejemplo: GET /api/estudiantes-inscritos/resumen-grupo?anio=2025&periodo=2
+     * NOTA: NO incluye alumnos de examen de mesa ('E'). Solo modalidad
+     * normal ('N') y abandono (TIPO_EXAMEN NULL / sin nota).
      */
     public function resumenPorGrupo(Request $request)
     {
@@ -313,55 +299,74 @@ class EstudianteInscritoController extends Controller
             array_keys($nivelesPermitidos)
         ));
 
-        // CTE compartido entre el conteo total y la consulta paginada
+        // ── Igual que en listaInscritos(): solo periodos regulares (1 y 2)
+        // tienen horario real cargado en HORARIOS2. Los periodos 3/4 (mesa /
+        // intersemestral) no lo exigen.
+        $periodosConHorarioRegular = [1, 2];
+        $filtroHorario = in_array((int) $periodo, $periodosConHorarioRegular, true)
+            ? "AND EXISTS (
+                SELECT 1
+                FROM HORARIOS2 H
+                WHERE H.ANIO = G.ANIO
+                  AND H.PERIODO = G.PERIODO
+                  AND H.MATERIA = G.MATERIA
+                  AND H.GRUPO = G.GRUPO
+                  AND H.DOCENTE = G.DOCENTE
+                  AND H.TIPO = 'C'
+                  AND H.HORA NOT IN (730,900,1030,1200,1330,1500,1630,1800,1930,2100)
+           )"
+            : "";
+
         $baseCte = "
-        WITH BASE AS (
-            SELECT
-                K.ANIO,
-                K.PERIODO,
-                K.[PLAN],
-                CASE K.[PLAN]
-                    WHEN '089801' THEN 'CON'
-                    WHEN '109401' THEN 'ADM'
-                    WHEN '125091' THEN 'COM'
-                    WHEN '126091' THEN 'FIN'
-                    WHEN '059801' THEN 'ECO'
-                    ELSE K.[PLAN]
-                END AS CARRERA,
-                M.NIVEL,
-                D.APELLIDOS + ' ' + D.NOMBRES AS NOMBRE_DOCENTE,
-                K.MATERIA,
-                M.NOMBRE,
-                K.GRUPO,
-                K.TIPO_EXAMEN,
-                K.ESTUDIANTE,
-                K.NOTA_FINAL
-            FROM KARDEX_EXT K
-            INNER JOIN BIOGRAFICOS B
-                ON B.CODIGO = K.ESTUDIANTE
-            INNER JOIN MATERIAS M
-                ON M.ANIO = K.ANIO
-                AND M.PERIODO = K.PERIODO
-                AND M.[PLAN] = K.[PLAN]
-                AND M.CODIGO = K.MATERIA
-            INNER JOIN GRUPOS G
-                ON G.ANIO = K.ANIO
-                AND G.PERIODO = K.PERIODO
-                AND G.[PLAN] = K.[PLAN]
-                AND G.MATERIA = K.MATERIA
-                AND G.GRUPO = K.GRUPO
-            LEFT JOIN BIOGRAFICOS D
-                ON D.CODIGO = G.DOCENTE
-            WHERE
-                K.ANIO = :anio
-                AND K.PERIODO = :periodo
-                AND K.CANCELADO IS NULL
-                AND K.TIPO_EXAMEN IN ('N','E')
-                AND G.PRIMARIO = 'Y'
-                AND G.TIPO = 'N'
-                AND K.[PLAN] IN ('089801','109401','125091','126091','059801')
-                AND M.NIVEL IN ($nivelesPlaceholders)
-    ";
+    WITH BASE AS (
+        SELECT
+            K.ANIO,
+            K.PERIODO,
+            K.[PLAN],
+            CASE K.[PLAN]
+                WHEN '089801' THEN 'CON'
+                WHEN '109401' THEN 'ADM'
+                WHEN '125091' THEN 'COM'
+                WHEN '126091' THEN 'FIN'
+                WHEN '059801' THEN 'ECO'
+                ELSE K.[PLAN]
+            END AS CARRERA,
+            M.NIVEL,
+            D.APELLIDOS + ' ' + D.NOMBRES AS NOMBRE_DOCENTE,
+            K.MATERIA,
+            M.NOMBRE,
+            K.GRUPO,
+            G.TIPO_INGRESO,
+            K.TIPO_EXAMEN,
+            K.ESTUDIANTE,
+            K.NOTA_FINAL
+        FROM KARDEX_EXT K
+        INNER JOIN BIOGRAFICOS B
+            ON B.CODIGO = K.ESTUDIANTE
+        INNER JOIN MATERIAS M
+            ON M.ANIO = K.ANIO
+            AND M.PERIODO = K.PERIODO
+            AND M.[PLAN] = K.[PLAN]
+            AND M.CODIGO = K.MATERIA
+        INNER JOIN GRUPOS G
+            ON G.ANIO = K.ANIO
+            AND G.PERIODO = K.PERIODO
+            AND G.[PLAN] = K.[PLAN]
+            AND G.MATERIA = K.MATERIA
+            AND G.GRUPO = K.GRUPO
+        INNER JOIN DOCENTES D
+            ON D.CODIGO = G.DOCENTE
+        WHERE
+            K.ANIO = :anio
+            AND K.PERIODO = :periodo
+            AND K.CANCELADO IS NULL
+            AND (K.TIPO_EXAMEN = 'N' OR K.TIPO_EXAMEN IS NULL)
+            AND G.PRIMARIO = 'Y'
+            AND G.TIPO = 'N'
+            AND K.[PLAN] IN ('089801','109401','125091','126091','059801')
+            AND M.NIVEL IN ($nivelesPlaceholders)
+            $filtroHorario
+";
 
         $bindings = [
             'anio' => $anio,
@@ -404,48 +409,41 @@ class EstudianteInscritoController extends Controller
             $bindings['nivel_filtro'] = $nivel;
         }
 
-        $baseCte .= " ) "; // cierra el CTE
+        $baseCte .= " ) ";
 
+        // ── GROUP BY con bucket de ABANDONOS separado de REPROBADOS ──
         $groupBySelect = "
-        SELECT
-            ANIO,
-            PERIODO,
-            [PLAN],
-            CARRERA,
-            NIVEL,
-            NOMBRE_DOCENTE,
-            MATERIA,
-            NOMBRE,
-            GRUPO,
-            TIPO_EXAMEN,
-            COUNT(*) AS INSCRITOS,
-            SUM(CASE WHEN NOTA_FINAL >= 51 THEN 1 ELSE 0 END) AS APROBADOS,
-            SUM(CASE WHEN NOTA_FINAL < 51  THEN 1 ELSE 0 END) AS REPROBADOS
-        FROM BASE
-        GROUP BY
-            ANIO, PERIODO, [PLAN], CARRERA, NIVEL, NOMBRE_DOCENTE,
-            MATERIA, NOMBRE, GRUPO, TIPO_EXAMEN
-    ";
+    SELECT
+        ANIO, PERIODO, [PLAN], CARRERA, NIVEL, NOMBRE_DOCENTE,
+        MATERIA, NOMBRE, GRUPO, TIPO_INGRESO, TIPO_EXAMEN,
+        COUNT(*) AS INSCRITOS,
+        SUM(CASE WHEN NOTA_FINAL >= 51 THEN 1 ELSE 0 END) AS APROBADOS,
+        SUM(CASE WHEN NOTA_FINAL < 51 AND NOTA_FINAL > 0 THEN 1 ELSE 0 END) AS REPROBADOS,
+        SUM(CASE WHEN NOTA_FINAL = 0 OR NOTA_FINAL IS NULL THEN 1 ELSE 0 END) AS ABANDONOS
+    FROM BASE
+    GROUP BY
+        ANIO, PERIODO, [PLAN], CARRERA, NIVEL, NOMBRE_DOCENTE,
+        MATERIA, NOMBRE, GRUPO, TIPO_INGRESO, TIPO_EXAMEN
+";
 
-        $sqlCount = "
-        {$baseCte}
-        SELECT COUNT(*) AS TOTAL FROM ({$groupBySelect}) AS RESUMEN
-    ";
+        $sqlCount = " {$baseCte} SELECT COUNT(*) AS TOTAL FROM ({$groupBySelect}) AS RESUMEN ";
 
         $sqlData = "
-        {$baseCte}
-        {$groupBySelect}
-        ORDER BY
-            [PLAN],
-            NIVEL ASC,
-            MATERIA,
-            GRUPO
-        OFFSET :offset ROWS FETCH NEXT :per_page ROWS ONLY
-    ";
+    {$baseCte},
+    RESUMEN AS ( {$groupBySelect} ),
+    PAGINADO AS (
+        SELECT *,
+            ROW_NUMBER() OVER (ORDER BY NOMBRE_DOCENTE, [PLAN], MATERIA, GRUPO) AS RN
+        FROM RESUMEN
+    )
+    SELECT * FROM PAGINADO
+    WHERE RN BETWEEN :row_inicio AND :row_fin
+    ORDER BY RN
+";
 
         $bindingsData = $bindings + [
-            'offset' => $offset,
-            'per_page' => $perPage,
+            'row_inicio' => $offset + 1,
+            'row_fin' => $offset + $perPage,
         ];
 
         try {
@@ -470,8 +468,12 @@ class EstudianteInscritoController extends Controller
         }
     }
 
-
-
+    /**
+     * Resumen de aprobados/reprobados/abandonos por docente y carrera.
+     *
+     * NOTA: NO incluye alumnos de examen de mesa ('E'). Solo modalidad
+     * normal ('N') y abandono (TIPO_EXAMEN NULL / sin nota).
+     */
     public function resumenAprobadosReprobados(Request $request)
     {
         $anio = $request->query('anio');
@@ -513,8 +515,25 @@ class EstudianteInscritoController extends Controller
             array_keys($nivelesPermitidos)
         ));
 
-        // ── BASE: igual que resumenPorGrupo, pero exponiendo cod_docente,
-        //          apellidos y nombres por separado (no concatenados) ──
+        // ── Igual que en listaInscritos(): solo los periodos regulares (1 y 2)
+        // tienen horario real cargado en HORARIOS2. Sin este filtro, GRUPOS.DOCENTE
+        // puede quedar con un valor desactualizado y traer docentes que en
+        // realidad no dictaron nada en esa gestion.
+        $periodosConHorarioRegular = [1, 2];
+        $filtroHorario = in_array((int) $periodo, $periodosConHorarioRegular, true)
+            ? "AND EXISTS (
+                SELECT 1
+                FROM HORARIOS2 H
+                WHERE H.ANIO = G.ANIO
+                  AND H.PERIODO = G.PERIODO
+                  AND H.MATERIA = G.MATERIA
+                  AND H.GRUPO = G.GRUPO
+                  AND H.DOCENTE = G.DOCENTE
+                  AND H.TIPO = 'C'
+                  AND H.HORA NOT IN (730,900,1030,1200,1330,1500,1630,1800,1930,2100)
+           )"
+            : "";
+
         $sql = "
         WITH BASE AS (
             SELECT
@@ -544,18 +563,18 @@ class EstudianteInscritoController extends Controller
                 AND G.[PLAN] = K.[PLAN]
                 AND G.MATERIA = K.MATERIA
                 AND G.GRUPO = K.GRUPO
-            LEFT JOIN BIOGRAFICOS D
+            INNER JOIN DOCENTES D
                 ON D.CODIGO = G.DOCENTE
             WHERE
                 K.ANIO = :anio
                 AND K.PERIODO = :periodo
                 AND K.CANCELADO IS NULL
-                AND K.TIPO_EXAMEN IN ('N','E')
+                AND (K.TIPO_EXAMEN = 'N' OR K.TIPO_EXAMEN IS NULL)
                 AND G.PRIMARIO = 'Y'
                 AND G.TIPO = 'N'
                 AND K.[PLAN] IN ('089801','109401','125091','126091','059801')
                 AND M.NIVEL IN ($nivelesPlaceholders)
-                AND D.CODIGO IS NOT NULL
+                $filtroHorario
         )
         SELECT
             COD_DOCENTE,
@@ -564,7 +583,8 @@ class EstudianteInscritoController extends Controller
             CARRERA,
             COUNT(*) AS INSCRITOS,
             SUM(CASE WHEN NOTA_FINAL >= 51 THEN 1 ELSE 0 END) AS APROBADOS,
-            SUM(CASE WHEN NOTA_FINAL < 51  THEN 1 ELSE 0 END) AS REPROBADOS
+            SUM(CASE WHEN NOTA_FINAL < 51 AND NOTA_FINAL > 0 THEN 1 ELSE 0 END) AS REPROBADOS,
+            SUM(CASE WHEN NOTA_FINAL = 0 OR NOTA_FINAL IS NULL THEN 1 ELSE 0 END) AS ABANDONOS
         FROM BASE
         GROUP BY COD_DOCENTE, APELLIDOS, NOMBRES, CARRERA
         ORDER BY APELLIDOS, NOMBRES, CARRERA
@@ -581,7 +601,6 @@ class EstudianteInscritoController extends Controller
         try {
             $filas = DB::select($sql, $bindings);
 
-            // ── Agrupar filas planas (docente+carrera) en la estructura anidada ──
             $porDocente = [];
             foreach ($filas as $f) {
                 $cod = $f->COD_DOCENTE;
@@ -595,6 +614,7 @@ class EstudianteInscritoController extends Controller
                         'total_inscritos' => 0,
                         'total_aprobados' => 0,
                         'total_reprobados' => 0,
+                        'total_abandonos' => 0,
                     ];
                 }
 
@@ -603,11 +623,13 @@ class EstudianteInscritoController extends Controller
                     'subtotal_inscritos' => (int) $f->INSCRITOS,
                     'subtotal_aprobados' => (int) $f->APROBADOS,
                     'subtotal_reprobados' => (int) $f->REPROBADOS,
+                    'subtotal_abandonos' => (int) $f->ABANDONOS,
                 ];
 
                 $porDocente[$cod]['total_inscritos'] += (int) $f->INSCRITOS;
                 $porDocente[$cod]['total_aprobados'] += (int) $f->APROBADOS;
                 $porDocente[$cod]['total_reprobados'] += (int) $f->REPROBADOS;
+                $porDocente[$cod]['total_abandonos'] += (int) $f->ABANDONOS;
             }
 
             $data = array_values($porDocente);

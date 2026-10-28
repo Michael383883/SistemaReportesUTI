@@ -1,7 +1,7 @@
 import { ref } from 'vue'
 import axios from 'axios'
 
-const API_BASE = import.meta.env.VITE_API_URL || '/api'
+const API_BASE = import.meta.env.VITE_API_URL
 
 const normalizeDocente = (doc) => {
     if (!doc || typeof doc !== 'object') return doc
@@ -32,6 +32,13 @@ const normalizeMateria = (m) => {
     out.resolucion = m.resolucion ?? m.RESOLUCION ?? m.resolucion_num ?? m.RESOLUCION_NUM ?? ''
     out.designacion = m.designacion ?? m.DESIGNACION ?? ''
     out.tipo_ingreso = m.tipo_ingreso ?? m.TIPO_INGRESO ?? ''
+
+    // ── Modo materia: docente de cada fila ──
+    out.cod_docente = m.cod_docente ?? m.CODIGO ?? m.codigo ?? ''
+    out.docente_nombre = m.docente_nombre ?? m.docente ?? ''
+
+    // Documentos referenciados (CLASIFICACION_REFERENCIA) — siempre un array
+    out.referencias = m.referencias ?? m.REFERENCIAS ?? []
     return out
 }
 
@@ -61,19 +68,11 @@ export function useReporte() {
     const error = ref(null)
 
     /**
-     * Genera el reporte de un docente.
+     * Genera el reporte de un docente, o (modo materia) de una materia + grupo.
      *
-     * @param {number|string} codigoDocente
+     * @param {number|string|null} codigoDocente  null/undefined => modo materia
+     *                                            (requiere filtros.materia y filtros.grupo)
      * @param {Object} filtros
-     * @param {number|null} filtros.anio               Año "desde" (o único año si no hay rango)
-     * @param {string|null} filtros.periodo             Periodo del año desde: '1' | '2' | '3' | '4'
-     * @param {number|null} filtros.anioHasta           Año "hasta" (para filtrar por rango)
-     * @param {string|null} filtros.periodoHasta        Periodo del año hasta
-     * @param {string|null} filtros.materia             Código o nombre de materia
-     * @param {string|null} filtros.grupo
-     * @param {boolean}     filtros.habilitarRestriccion  true = pide liberar un periodo puntual restringido
-     * @param {number|null} filtros.anioHabilitado        Año del periodo a liberar (junto con habilitarRestriccion)
-     * @param {string|null} filtros.periodoHabilitado     Periodo a liberar (junto con habilitarRestriccion)
      */
     const generarReporte = async (codigoDocente, filtros = {}) => {
         loading.value = true
@@ -90,12 +89,17 @@ export function useReporte() {
             habilitarRestriccion = false,
             anioHabilitado = null,
             periodoHabilitado = null,
+            incluirSinGrupo = false,
+            mostrarNotaSinGrupo = true,
         } = filtros
 
 
         try {
             const token = localStorage.getItem('token')
-            const payload = { docente: Number(codigoDocente) }
+
+            // docente es opcional: sin docente el backend arma el kardex de la materia
+            const payload = {}
+            if (codigoDocente) payload.docente = Number(codigoDocente)
 
             if (anio) payload.anio = Number(anio)
             if (periodo) payload.periodo = periodo
@@ -104,13 +108,15 @@ export function useReporte() {
             if (materia) payload.materia = materia
             if (grupo) payload.grupo = grupo
 
-            // Solo se manda si el usuario clickeó "habilitar" en el frontend.
-            // Si no, el backend sigue ocultando lo no concluido como siempre.
             if (habilitarRestriccion && anioHabilitado && periodoHabilitado) {
                 payload.habilitar_restriccion = true
                 payload.anio_habilitado = Number(anioHabilitado)
                 payload.periodo_habilitado = periodoHabilitado
             }
+
+            // ── Opciones: materias sin grupo/plan + nota ──
+            payload.incluir_sin_grupo = incluirSinGrupo
+            payload.mostrar_nota_sin_grupo = mostrarNotaSinGrupo
 
             const response = await axios.post(
                 `${API_BASE}/api/reporte-docente`,
@@ -118,9 +124,7 @@ export function useReporte() {
                 { headers: { Authorization: `Bearer ${token}` } }
             )
 
-
             reporte.value = normalizeReporteResponse(response.data)
-
 
         } catch (err) {
             console.error('[useReporte] ERROR en la petición →', err.response?.data || err.message)

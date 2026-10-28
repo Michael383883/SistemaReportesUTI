@@ -92,28 +92,33 @@
                 </span>
               </td>
               <td class="px-4 py-3 text-right">
-                <button
-                  @click="openEdit(u)"
-                  class="inline-flex items-center gap-1 px-2 py-1 rounded text-[0.68rem] font-medium
-                         bg-blue-50 text-blue-600 hover:bg-blue-100
-                         dark:bg-blue-500/10 dark:text-blue-400 dark:hover:bg-blue-500/20
-                         transition-colors mr-1.5"
-                  title="Editar"
-                  aria-label="Editar usuario"
-                >
-                  <Pencil class="w-3 h-3" />
-                </button>
-                <button
-                  @click="openDelete(u)"
-                  class="inline-flex items-center gap-1 px-2 py-1 rounded text-[0.68rem] font-medium
-                         bg-red-50 text-red-600 hover:bg-red-100
-                         dark:bg-red-500/10 dark:text-red-400 dark:hover:bg-red-500/20
-                         transition-colors"
-                  title="Eliminar"
-                  aria-label="Eliminar usuario"
-                >
-                  <Trash2 class="w-3 h-3" />
-                </button>
+                <template v-if="u.role !== 'admin'">
+                  <button
+                    @click="openEdit(u)"
+                    class="inline-flex items-center gap-1 px-2 py-1 rounded text-[0.68rem] font-medium
+                           bg-blue-50 text-blue-600 hover:bg-blue-100
+                           dark:bg-blue-500/10 dark:text-blue-400 dark:hover:bg-blue-500/20
+                           transition-colors mr-1.5"
+                    title="Editar"
+                    aria-label="Editar usuario"
+                  >
+                    <Pencil class="w-3 h-3" />
+                  </button>
+                  <button
+                    @click="openDelete(u)"
+                    class="inline-flex items-center gap-1 px-2 py-1 rounded text-[0.68rem] font-medium
+                           bg-red-50 text-red-600 hover:bg-red-100
+                           dark:bg-red-500/10 dark:text-red-400 dark:hover:bg-red-500/20
+                           transition-colors"
+                    title="Eliminar"
+                    aria-label="Eliminar usuario"
+                  >
+                    <Trash2 class="w-3 h-3" />
+                  </button>
+                </template>
+                <span v-else class="text-[0.68rem] text-slate-400 dark:text-slate-600 italic">
+                  Sin acciones
+                </span>
               </td>
             </tr>
 
@@ -131,6 +136,9 @@
         {{ usersStore.users.length }} registro{{ usersStore.users.length !== 1 ? 's' : '' }}
       </div>
     </div>
+
+    <!-- Permisos de módulos -->
+    <ModulePermissions class="mt-8" />
 
     <!-- Modales -->
     <UserFormModal
@@ -152,10 +160,11 @@
 import { ref, onMounted } from 'vue'
 import { Plus, AlertCircle, X, Pencil, Trash2, Loader2 } from 'lucide-vue-next'
 import { useUsersStore } from '../store/usersStore'
-import { getRoleLabel, getRoleBadgeClass } from '@/shared/utils/helpers'
+import { getRoleLabel } from '@/shared/utils/helpers'
 import { useNotify } from '@/shared/composables/useNotify'
 import UserFormModal      from '../components/UserFormModal.vue'
 import DeleteConfirmModal from '../components/DeleteConfirmModal.vue'
+import ModulePermissions  from '../components/ModulePermissions.vue'
 
 const usersStore   = useUsersStore()
 const notify       = useNotify()
@@ -193,22 +202,19 @@ async function handleDelete() {
     deletingUser.value = null
   } catch { notify.error('Error al eliminar el usuario') }
 }
+
 const getRoleClass = (role) => {
   switch (role) {
     case 'admin':
-      return 'bg-red-100 text-red-800 border-red-200';
-
+      return 'bg-red-100 text-red-800 border-red-200'
     case 'secretaria':
-      return 'bg-blue-100 text-blue-800 border-blue-200';
-
+      return 'bg-blue-100 text-blue-800 border-blue-200'
     case 'secretaria_talleres':
-      return 'bg-violet-100 text-violet-800 border-violet-200';
-
+      return 'bg-violet-100 text-violet-800 border-violet-200'
     case 'uti':
-      return 'bg-emerald-100 text-emerald-800 border-emerald-200';
-
+      return 'bg-emerald-100 text-emerald-800 border-emerald-200'
     default:
-      return 'bg-slate-100 text-slate-700 border-slate-200';
+      return 'bg-slate-100 text-slate-700 border-slate-200'
   }
-};
+}
 </script>

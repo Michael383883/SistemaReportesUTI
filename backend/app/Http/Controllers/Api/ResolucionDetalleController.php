@@ -28,7 +28,7 @@ class ResolucionDetalleController extends Controller
                 'rp.FECHA_SUBIDA'
             )
             ->orderBy('rp.FECHA_SUBIDA', 'desc')
-            ->limit(10)
+
             ->get();
 
         return response()->json($listado);
@@ -50,7 +50,7 @@ class ResolucionDetalleController extends Controller
                 'rd.COD_MATERIA',
                 'rd.GRUPO',
                 'rd.TIPO',
-                'rd.TIPO_INGRESO',   // ← agregar esto
+                'rd.TIPO_INGRESO',
                 'rd.OBSERVACION'
             )
             ->orderBy('d.APELLIDOS')
@@ -142,6 +142,90 @@ class ResolucionDetalleController extends Controller
             'total' => count($idsInsertados),
             'ids_detalle' => $idsInsertados, // ← clave: el frontend lo necesita para aplicarEnGrupos
         ], 201);
+    }
+
+    // DELETE /resoluciones/{id}/detalles/{idDetalle}
+    //
+    // Quita UN docente/materia de la resolución:
+    //   1) Limpia en GRUPOS lo que aplicarEnGrupos() escribió para ese detalle.
+    //   2) Borra la fila de RESOLUCION_DETALLE.
+    //
+    // El UPDATE solo limpia filas de GRUPOS que todavía tienen escrita ESTA
+    // resolución (g.RESOLUCION = rp.NRO_RESOLUCION), para no borrar datos si
+    // otra resolución sobrescribió esa materia después.
+    public function destroy($id_resolucion, $id_detalle)
+    {
+        DB::beginTransaction();
+
+        try {
+            $detalle = DB::table('RESOLUCION_DETALLE')
+                ->where('ID_DETALLE', $id_detalle)
+                ->where('ID_RESOLUCION', $id_resolucion)
+                ->first();
+
+            if (!$detalle) {
+                DB::rollBack();
+                return response()->json([
+                    'ok' => false,
+                    'error' => 'El docente/materia no existe en esta referencia',
+                ], 404);
+            }
+
+            $gruposLimpiados = DB::update("
+                UPDATE g
+                SET
+                    g.RESOLUCION   = NULL,
+                    g.DESIGNACION  = NULL,
+                    g.TIPO_INGRESO = NULL
+                FROM GRUPOS g
+                JOIN RESOLUCION_DETALLE dr
+                    ON  g.DOCENTE                          = dr.COD_DOCENTE
+                    AND g.[PLAN]  COLLATE Modern_Spanish_CI_AS = dr.COD_PLAN   COLLATE Modern_Spanish_CI_AS
+                    AND g.MATERIA COLLATE Modern_Spanish_CI_AS = dr.COD_MATERIA COLLATE Modern_Spanish_CI_AS
+                    AND g.[GRUPO] COLLATE Modern_Spanish_CI_AS = dr.[GRUPO]     COLLATE Modern_Spanish_CI_AS
+                    AND g.[TIPO]  COLLATE Modern_Spanish_CI_AS = dr.[TIPO]      COLLATE Modern_Spanish_CI_AS
+                JOIN RESOLUCIONES_PDF rp
+                    ON rp.ID_RESOLUCION = dr.ID_RESOLUCION
+                WHERE
+                    dr.ID_DETALLE = ?
+                    AND g.ANIO    = rp.ANIO
+                    AND g.PERIODO COLLATE Modern_Spanish_CI_AS = CAST(rp.PERIODO AS NVARCHAR(10)) COLLATE Modern_Spanish_CI_AS
+                    AND g.RESOLUCION COLLATE Modern_Spanish_CI_AS = rp.NRO_RESOLUCION COLLATE Modern_Spanish_CI_AS
+            ", [$id_detalle]);
+
+            DB::table('RESOLUCION_DETALLE')
+                ->where('ID_DETALLE', $id_detalle)
+                ->delete();
+
+            DB::commit();
+            DashboardAdminController::limpiarCacheDashboard();
+
+            return response()->json([
+                'ok' => true,
+                'mensaje' => 'Docente/materia quitado de la referencia',
+                'grupos_limpiados' => $gruposLimpiados,
+            ]);
+
+        } catch (\Throwable $e) {
+            DB::rollBack();
+
+            $mensajeSeguro = preg_replace(
+                '/[\x00-\x08\x0B\x0C\x0E-\x1F\x80-\xFF]/',
+                '?',
+                $e->getMessage()
+            );
+
+            \Log::error('Error al quitar detalle de resolución', [
+                'id_resolucion' => $id_resolucion,
+                'id_detalle' => $id_detalle,
+                'mensaje' => $mensajeSeguro,
+            ]);
+
+            return response()->json([
+                'ok' => false,
+                'error' => $mensajeSeguro,
+            ], 500);
+        }
     }
 
     // PUT /resoluciones/{id}/aplicar

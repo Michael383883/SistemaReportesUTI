@@ -1,4 +1,4 @@
-import { ref, computed } from 'vue'
+﻿import { ref, computed } from 'vue'
 import axios from 'axios'
 
 const API_BASE = import.meta.env.VITE_API_URL
@@ -40,12 +40,63 @@ export function useResolucionListado() {
 
     let debounceId = null
 
-    function urlVer(id) {
-        return `${API_BASE}/api/resoluciones/${id}/pdf`
+    // ─────────────────────────────────────────────────────────────
+    // Ver / Descargar PDF vía axios (blob), en vez de <a href> directo,
+    // para que el token Bearer viaje en el header de la petición.
+    // ─────────────────────────────────────────────────────────────
+    const abriendoPdf = ref(false)
+    const descargandoPdf = ref(false)
+
+    async function verPdf(id) {
+        abriendoPdf.value = true
+        error.value = ''
+        try {
+            const { data } = await axios.get(
+                `${API_BASE}/api/resoluciones/${id}/pdf`,
+                {
+                    headers: authHeaders(),
+                    responseType: 'blob',
+                }
+            )
+            const blobUrl = URL.createObjectURL(new Blob([data], { type: 'application/pdf' }))
+            window.open(blobUrl, '_blank')
+            setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000)
+        } catch (e) {
+            error.value = e.response?.status === 401
+                ? 'Tu sesión expiró. Inicia sesión nuevamente.'
+                : 'No se pudo abrir el PDF.'
+        } finally {
+            abriendoPdf.value = false
+        }
     }
 
-    function urlDescargar(id) {
-        return `${API_BASE}/api/resoluciones/${id}/pdf?modo=descargar`
+    async function descargarPdf(id, nombreArchivo = `resolucion-${id}.pdf`) {
+        descargandoPdf.value = true
+        error.value = ''
+        try {
+            const { data } = await axios.get(
+                `${API_BASE}/api/resoluciones/${id}/pdf`,
+                {
+                    headers: authHeaders(),
+                    params: { modo: 'descargar' },
+                    responseType: 'blob',
+                }
+            )
+            const blobUrl = URL.createObjectURL(new Blob([data], { type: 'application/pdf' }))
+            const link = document.createElement('a')
+            link.href = blobUrl
+            link.download = nombreArchivo
+            document.body.appendChild(link)
+            link.click()
+            link.remove()
+            URL.revokeObjectURL(blobUrl)
+        } catch (e) {
+            error.value = e.response?.status === 401
+                ? 'Tu sesión expiró. Inicia sesión nuevamente.'
+                : 'No se pudo descargar el PDF.'
+        } finally {
+            descargandoPdf.value = false
+        }
     }
 
     function formatearFecha(fecha) {
@@ -176,6 +227,100 @@ export function useResolucionListado() {
         }
     }
 
+
+    const editando = ref(false)
+    const errorEditar = ref('')
+
+    async function actualizarResolucion(id, formData) {
+        editando.value = true
+        errorEditar.value = ''
+        try {
+            const { data } = await axios.post(
+                `${API_BASE}/api/resoluciones/${id}`,
+                formData,
+                { headers: authHeaders() }
+            )
+
+            if (data?.ok === false) {
+                errorEditar.value = data.error ?? 'No se pudo actualizar la resolución.'
+                return false
+            }
+
+            await cargarListado()
+            return true
+
+        } catch (e) {
+            errorEditar.value = e.response?.data?.error
+                ?? e.message
+                ?? 'Error al actualizar la resolución.'
+            return false
+        } finally {
+            editando.value = false
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Docentes/materias asignados a la referencia que se está editando
+    // ─────────────────────────────────────────────────────────────
+    const detalles = ref([])
+    const cargandoDetalles = ref(false)
+    const errorDetalles = ref('')
+    const quitandoDetalleId = ref(null)
+
+    async function cargarDetalles(idResolucion) {
+        cargandoDetalles.value = true
+        errorDetalles.value = ''
+        detalles.value = []
+
+        try {
+            const { data } = await axios.get(
+                `${API_BASE}/api/resoluciones/${idResolucion}/detalles`,
+                { headers: authHeaders() }
+            )
+            detalles.value = mapKeys(Array.isArray(data) ? data : [])
+        } catch (e) {
+            errorDetalles.value = e.response?.data?.error
+                ?? 'No se pudieron cargar los docentes asignados.'
+        } finally {
+            cargandoDetalles.value = false
+        }
+    }
+
+    // Quita UN docente/materia de la referencia (borra la fila de
+    // RESOLUCION_DETALLE y limpia lo escrito en GRUPOS). Es inmediato:
+    // no depende del botón "Guardar cambios" del modal.
+    async function quitarDetalle(idResolucion, idDetalle) {
+        quitandoDetalleId.value = idDetalle
+        errorDetalles.value = ''
+
+        try {
+            const { data } = await axios.delete(
+                `${API_BASE}/api/resoluciones/${idResolucion}/detalles/${idDetalle}`,
+                { headers: authHeaders() }
+            )
+
+            if (data?.ok === false) {
+                errorDetalles.value = data.error ?? 'No se pudo quitar el docente.'
+                return false
+            }
+
+            detalles.value = detalles.value.filter(d => d.idDetalle !== idDetalle)
+            return true
+
+        } catch (e) {
+            errorDetalles.value = e.response?.data?.error
+                ?? 'Error al quitar el docente de la referencia.'
+            return false
+        } finally {
+            quitandoDetalleId.value = null
+        }
+    }
+
+    function limpiarDetalles() {
+        detalles.value = []
+        errorDetalles.value = ''
+    }
+
     return {
         filas,
         loading,
@@ -183,8 +328,10 @@ export function useResolucionListado() {
         busqueda,
         anioSeleccionado,
         aniosDisponibles,
-        urlVer,
-        urlDescargar,
+        verPdf,
+        descargarPdf,
+        abriendoPdf,
+        descargandoPdf,
         formatearFecha,
         cargarListado,
         buscar,
@@ -193,5 +340,15 @@ export function useResolucionListado() {
         eliminando,
         errorEliminar,
         eliminarResolucion,
+        editando,
+        errorEditar,
+        actualizarResolucion,
+        detalles,
+        cargandoDetalles,
+        errorDetalles,
+        quitandoDetalleId,
+        cargarDetalles,
+        quitarDetalle,
+        limpiarDetalles,
     }
 }

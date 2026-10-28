@@ -27,6 +27,13 @@ function planAAbreviacion(plan) {
     return s
 }
 
+// ── Columna TIPO (tipo de ingreso, viene de GRUPOS.TIPO_INGRESO) ──
+function abreviarTipo(texto) {
+    const t = String(texto ?? '').trim()
+    if (!t) return ''
+    return t.length > 10 ? t.slice(0, 9) + '.' : t
+}
+
 // ── Función para determinar el valor de C ──
 function getValorC(mat) {
     const compTexto = mat.COMPARTIDO ?? ''
@@ -118,7 +125,7 @@ export function generarPDFResumen(docentes = [], { anio, periodo, modo = 'descar
 
         body.push([{
             content: `${docente.docente}  ${(docente.apellidos ?? '').toUpperCase()} ${(docente.nombres ?? '').toUpperCase()}`,
-            colSpan: 7,
+            colSpan: 8,
             styles: {
                 fontStyle: 'normal',
                 fontSize: 8.5,
@@ -146,15 +153,16 @@ export function generarPDFResumen(docentes = [], { anio, periodo, modo = 'descar
             body.push([
                 planTexto,
                 materiaTexto,
+                abreviarTipo(mat.TIPO_INGRESO),   // TIPO
                 mat.GRUPO ?? '',
-                String(chValue),  // 🔥 Usar chMostrada()
+                String(chValue),
                 String(mat.TOTAL_NORMAL ?? ''),
                 String(c),
                 compTexto,
             ])
         }
 
-        // ── 🔥 CALCULAR TOTALES CORRECTAMENTE ──
+        // ── CALCULAR TOTALES ──
         let totalCH = 0
         let totalInscN = 0
         const gruposVistosInsc = new Set()
@@ -171,9 +179,10 @@ export function generarPDFResumen(docentes = [], { anio, periodo, modo = 'descar
             }
         }
 
+        // 8 columnas: vacío(1) + TOTAL(3: MATERIA, TIPO, GRP) + CH + INSC + C + COMPARTIDO
         body.push([
             { content: '', colSpan: 1, styles: { fillColor: C_WHITE, lineWidth: 0 } },
-            { content: 'TOTAL', colSpan: 2, styles: { halign: 'right', fontStyle: 'bold', fontSize: 8, fillColor: C_WHITE, lineWidth: 0 } },
+            { content: 'TOTAL', colSpan: 3, styles: { halign: 'right', fontStyle: 'bold', fontSize: 8, fillColor: C_WHITE, lineWidth: 0 } },
             { content: `${totalCH} Mes(${totalCH * 4})`, colSpan: 1, styles: { halign: 'center', fontStyle: 'bold', fontSize: 8, fillColor: C_WHITE, lineWidth: 0 } },
             { content: String(totalInscN), colSpan: 1, styles: { halign: 'center', fontStyle: 'bold', fontSize: 8, fillColor: C_WHITE, lineWidth: 0 } },
             { content: '', colSpan: 1, styles: { fillColor: C_WHITE, lineWidth: 0 } },
@@ -187,12 +196,12 @@ export function generarPDFResumen(docentes = [], { anio, periodo, modo = 'descar
         startY: HEADER_H,
         margin: { left: ML, right: MR, top: HEADER_H, bottom: 12 },
         tableWidth: CW,
-        head: [['PLAN-NVL', 'MATERIA', 'GRP', 'CH', 'INSC-N', 'C', 'COMPARTIDO']],
+        head: [['PLAN-NVL', 'MATERIA', 'TIPO', 'GRP', 'CH', 'INSC-N', 'C', 'COMPARTIDO']],
         body,
         alternateRowStyles: { fillColor: C_WHITE },
         styles: {
             font: 'helvetica',
-            fontSize: 6.5,  //  Reducido para que quepa mejor
+            fontSize: 6.5,
             cellPadding: { top: 0.4, bottom: 0.4, left: 1, right: 1 },
             textColor: C_BLACK,
             lineColor: C_GRAY_LINE,
@@ -213,17 +222,18 @@ export function generarPDFResumen(docentes = [], { anio, periodo, modo = 'descar
             cellPadding: { top: 0.6, bottom: 0.6, left: 0.5, right: 0.5 },
         },
         columnStyles: {
-            0: { cellWidth: 16, halign: 'left', cellPadding: { top: 0.3, bottom: 0.3, left: 0.5, right: 0.3 } },  // 🔥 Achicado
-            1: { cellWidth: 60, halign: 'left', cellPadding: { top: 0.3, bottom: 0.3, left: 0.3, right: 0.5 } },  // 🔥 Ajustado
-            2: { cellWidth: 10, halign: 'center' },
-            3: { cellWidth: 18, halign: 'center' },
-            4: { cellWidth: 10, halign: 'center' },
-            5: { cellWidth: 8, halign: 'center' },
-            6: { cellWidth: 'auto', halign: 'left' },
+            0: { cellWidth: 16, halign: 'left', cellPadding: { top: 0.3, bottom: 0.3, left: 0.5, right: 0.3 } },
+            1: { cellWidth: 56, halign: 'left', cellPadding: { top: 0.3, bottom: 0.3, left: 0.3, right: 0.5 } },
+            2: { cellWidth: 14, halign: 'center', fontSize: 6 },   // TIPO
+            3: { cellWidth: 10, halign: 'center' },                // GRP
+            4: { cellWidth: 18, halign: 'center' },                // CH
+            5: { cellWidth: 10, halign: 'center' },                // INSC-N
+            6: { cellWidth: 8, halign: 'center' },                 // C
+            7: { cellWidth: 'auto', halign: 'left' },              // COMPARTIDO
         },
         didParseCell(data) {
             if (data.section === 'head') {
-                if ([2, 3, 4, 5].includes(data.column.index)) {
+                if ([2, 3, 4, 5, 6].includes(data.column.index)) {
                     data.cell.styles.halign = 'center'
                 }
                 if (data.column.index === 0) {
@@ -235,7 +245,7 @@ export function generarPDFResumen(docentes = [], { anio, periodo, modo = 'descar
             if (data.section !== 'body') return
 
             const raw = data.row.raw
-            const isDataRow = Array.isArray(raw) && raw.length === 7
+            const isDataRow = Array.isArray(raw) && raw.length === 8
             if (!isDataRow) return
 
             const firstCell = raw[0]
@@ -243,7 +253,7 @@ export function generarPDFResumen(docentes = [], { anio, periodo, modo = 'descar
 
             const col = data.column.index
 
-            if (col <= 1) {
+            if (col <= 2) {
                 data.cell.styles.lineWidth = { top: 0, right: 0, bottom: 0, left: 0 }
             } else {
                 data.cell.styles.lineWidth = { top: 0, right: 0, bottom: 0.2, left: 0 }
@@ -251,21 +261,21 @@ export function generarPDFResumen(docentes = [], { anio, periodo, modo = 'descar
 
             if (col === 0) {
                 data.cell.styles.fontStyle = 'normal'
-                data.cell.styles.fontSize = 6.5  //  Fuente más pequeña para PLAN
+                data.cell.styles.fontSize = 6.5
             }
 
-            if (col === 5 && data.cell.raw === '0') {
+            if (col === 6 && data.cell.raw === '0') {
                 data.cell.styles.textColor = C_ZERO_TEXT
             }
 
-            if (col === 6 && data.cell.raw) {
+            if (col === 7 && data.cell.raw) {
                 data.cell.styles.textColor = C_BLACK
                 data.cell.styles.fontStyle = 'normal'
                 data.cell.styles.fontSize = 6.5
             }
         },
         didDrawCell(data) {
-            if (data.section === 'head' && data.column.index === 4) {
+            if (data.section === 'head' && data.column.index === 5) {
                 doc.setFont('helvetica', 'bold')
                 doc.setFontSize(6.5)
                 const label = 'INSC-N'

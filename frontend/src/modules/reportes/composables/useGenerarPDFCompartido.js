@@ -2,6 +2,8 @@
 // Genera un PDF oficial estilo UMSS – Materias dictadas de un docente,
 // versión "Compartidos": agrupa cada materia padre con sus materias
 // hermanas (compartidas) en una sola fila, igual que ReporteTablaCom.vue.
+// Con modoMateria genera el kardex de una materia y grupo (con la columna
+// Docente) en esta misma versión agrupada.
 // Orientación: PORTRAIT (vertical) – Letter 216 × 279 mm
 // Dependencias: jspdf  +  jspdf-autotable
 //   npm install jspdf jspdf-autotable
@@ -27,15 +29,29 @@ const PLAN_MAP = {
     '059801': 'ECO',
 }
 
+// ── Resuelve la abreviación de un código de plan ─────────────────────────────
+// Regla especial: si el código de MATERIA (no el de plan) COMIENZA con
+// "240", se muestra "DESC" en vez del plan real, sin importar el plan
+// asociado a esa fila.
+function getPlanAbbrev(plan, materiaCodigo) {
+    const codigoMateria = norm(materiaCodigo)
+    if (codigoMateria.startsWith('240')) return 'DESC'
+
+    const codigo = norm(plan)
+    return PLAN_MAP[codigo] || codigo
+}
+
 // ── Agrupa materias compartidas ──────────────────────────────────────────────
 //
 // PASO 1 — Semestre regular (1 y 2): usa la tabla GRUPOS_COMPARTIDOS
 // (comp='0' padre, comp='1' hija), agrupado por orden_comparte+gestión.
 //
 // PASO 2 — Verano/Invierno (3 y 4): no hay orden_comparte ahí, así que
-// se agrupa por gestión. El flag compartido="COMPARTIDO" marca al PADRE
-// (fila propia); la otra materia de la misma gestión, sin ese flag, es
-// su HIJA (se cuelga en "Comparte", sin fila propia).
+// se agrupa por gestión. El flag compartido="COMPARTIDO" marca a la
+// HIJA (se cuelga en "Comparte", sin fila propia); la otra materia de
+// la misma gestión, sin ese flag, es el PADRE (fila propia). Mismo
+// criterio que en el PASO 1: el registro que lleva el flag es el
+// derivado/compartido, no el origen.
 function agruparCompartidas(materias) {
     const lista = materias || []
 
@@ -85,8 +101,8 @@ function agruparCompartidas(materias) {
 
     for (const [, indices] of porGestionVI) {
         if (indices.length < 2) continue
-        const padres = indices.filter((i) => esCompartido(lista[i]))   // CON flag → padre
-        const hijas = indices.filter((i) => !esCompartido(lista[i]))   // SIN flag → hijo
+        const padres = indices.filter((i) => !esCompartido(lista[i]))  // SIN flag → padre
+        const hijas = indices.filter((i) => esCompartido(lista[i]))    // CON flag → hijo
 
         if (padres.length === 1 && hijas.length >= 1) {
             hermanasDe.set(padres[0], hijas)
@@ -114,7 +130,7 @@ function formatComparte(hermanas) {
         .map((h) => {
             const codigo = h.codigo || h.materia_codigo || ''
             const materia = h.materia || ''
-            const plan = PLAN_MAP[h.plan] || h.plan || ''
+            const plan = getPlanAbbrev(h.plan, codigo)
             const nivel = h.nivel || ''
             const grp = h.grp ? ` - ${h.grp}` : ''
 
@@ -136,7 +152,26 @@ function formatComparte(hermanas) {
 }
 
 export function generarPDFCompartido(reporte, opts = {}) {
-    const { action = 'open', documentosCategoria = [], categoriasSeleccionadas = [] } = opts
+    const {
+        action = 'open',
+        documentosCategoria = [],
+        categoriasSeleccionadas = [],
+        // Cuando es true: la tabla sale SIN las columnas "Resolución" y
+        // "Designación", y las columnas restantes se ensanchan para
+        // aprovechar todo el ancho de la página.
+        sinResolucionDesignacion = false,
+
+        // ── Modo "Kardex de materia y grupo" ────────────────────────────────
+        // Cuando es true: el encabezado muestra la materia y el grupo en vez
+        // del docente, y la tabla agrega la columna DOCENTE
+        // (cod_docente + docente_nombre) junto a MATERIA.
+        modoMateria = false,
+        // Ej: "1301040 ADMINISTRACION DE COOPERATIVAS · Grupo 20"
+        materiaTitulo = '',
+        // Solo para el nombre del archivo
+        materiaCodigo = '',
+        grupo = '',
+    } = opts
 
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' })
 
@@ -150,6 +185,23 @@ export function generarPDFCompartido(reporte, opts = {}) {
     const COLOR_GRAY_BG = [240, 240, 240]
     const COLOR_ROW_LINE = [170, 170, 170]
 
+    // ── Textos que cambian según el modo ────────────────────────────────────────
+    const tituloPdf = modoMateria
+        ? 'KARDEX DE MATERIA Y GRUPO'
+        : 'MATERIAS DICTADAS DE UN DOCENTE '
+
+    const descripcionPdf = modoMateria
+        ? 'Docentes que dictaron la materia y grupo, registrados en el SISS a partir de la gestión 2001. ' +
+          'Esta versión agrupa cada materia con los planes/grupos con los que comparte grupo, ' +
+          'mostrados en la columna "Comparte".'
+        : 'Datos históricos pertenecientes a la Facultad de Ciencias Económicas registrados en el SISS ' +
+          'a partir de la gestión 2001. Esta versión agrupa cada materia con los planes/grupos con los ' +
+          'que comparte grupo, mostrados en la columna "Comparte".'
+
+    const lineaSujeto = modoMateria
+        ? `MATERIA : ${materiaTitulo}`
+        : `DOCENTE : (${reporte.docente?.codigo || ''}) - ${reporte.docente?.nombre || ''}`
+
     function drawHeader() {
         doc.setFont('helvetica', 'bold')
         doc.setFontSize(5.5)
@@ -158,7 +210,7 @@ export function generarPDFCompartido(reporte, opts = {}) {
         doc.text('FACULTAD DE CIENCIAS ECONÓMICAS', MARGIN_L, 6)
 
         doc.setFontSize(11)
-        doc.text('MATERIAS DICTADAS DE UN DOCENTE ', PAGE_W / 2, 12, { align: 'center' })
+        doc.text(tituloPdf, PAGE_W / 2, 12, { align: 'center' })
 
         doc.setDrawColor(...COLOR_ROW_LINE)
         doc.setLineWidth(0.3)
@@ -167,38 +219,51 @@ export function generarPDFCompartido(reporte, opts = {}) {
         doc.setFont('helvetica', 'normal')
         doc.setFontSize(6.5)
         doc.setTextColor(40, 40, 40)
-        const descripcion =
-            'Datos históricos pertenecientes a la Facultad de Ciencias Económicas registrados en el SISS ' +
-            'a partir de la gestión 2001. Esta versión agrupa cada materia con los planes/grupos con los ' +
-            'que comparte grupo, mostrados en la columna "Comparte".'
-        const descLines = doc.splitTextToSize(descripcion, CONTENT_W)
+        const descLines = doc.splitTextToSize(descripcionPdf, CONTENT_W)
         doc.text(descLines, MARGIN_L, 21)
 
-        const docenteY = 21 + descLines.length * 3.0 + 3
+        // ── Docente (modo normal) o materia + grupo (modo materia) ──────────────
+        const sujetoY = 21 + descLines.length * 3.0 + 3
         doc.setFont('helvetica', 'bold')
         doc.setFontSize(8)
         doc.setTextColor(...COLOR_BLACK)
-        const codigoDoc = reporte.docente?.codigo || ''
-        const nombreDoc = reporte.docente?.nombre || ''
-        doc.text(`DOCENTE : (${codigoDoc}) - ${nombreDoc}`, MARGIN_L, docenteY)
+        doc.text(lineaSujeto, MARGIN_L, sujetoY)
 
-        return docenteY + 3
+        return sujetoY + 3
     }
 
-    doc.setProperties({ title: 'Materias dictadas de un docente (Compartidos)' })
+    doc.setProperties({
+        title: modoMateria
+            ? 'Kardex de materia y grupo (Compartidos)'
+            : 'Materias dictadas de un docente (Compartidos)',
+    })
 
     const startY = drawHeader()
 
-    const columnas = [
-        { header: 'N°', dataKey: 'nro' },
-        { header: 'GESTIÓN', dataKey: 'gestion' },
-        { header: 'PLAN', dataKey: 'plan' },
-        { header: 'MATERIA', dataKey: 'materia' },
-        { header: 'GRP', dataKey: 'grp' },
-        { header: 'COMPARTE', dataKey: 'comparte' },
-        { header: 'RESOLUCIÓN', dataKey: 'resolucion' },
-        { header: 'DESIGNACIÓN', dataKey: 'designacion' },
+    // ── Definición de columnas ───────────────────────────────────────────────────
+    // `ancho: [normal, sinResolucionDesignacion]`. Al ocultar Resolución y
+    // Designación, las columnas que quedan se ensanchan y "COMPARTE" absorbe
+    // el espacio restante.
+    // Con `soloMateria: true` la columna sólo sale en el kardex de materia.
+    // En modo materia se agrega DOCENTE, así que GESTIÓN, MATERIA y COMPARTE
+    // ceden ancho para que entren todas las columnas.
+    const defsColumnas = [
+        { header: 'N°', dataKey: 'nro', ancho: [7, 8], halign: 'center' },
+        { header: 'GESTIÓN', dataKey: 'gestion', ancho: modoMateria ? [20, 24] : [22, 26], halign: 'center', fontSize: 6.5 },
+        { header: 'PLAN', dataKey: 'plan', ancho: [10, 12], halign: 'center' },
+        { header: 'MATERIA', dataKey: 'materia', ancho: modoMateria ? [36, 48] : [45, 60], halign: 'left', fontSize: 6.0 },
+        { header: 'DOCENTE', dataKey: 'docente', ancho: [34, 40], halign: 'left', fontSize: 6.0, soloMateria: true },
+        { header: 'GRP', dataKey: 'grp', ancho: [8, 10], halign: 'center', fontSize: 5.5 },
+        { header: 'COMPARTE', dataKey: 'comparte', ancho: modoMateria ? [38, 'auto'] : [43, 'auto'], halign: 'left', fontSize: 6.0 },
+        { header: 'RESOLUCIÓN', dataKey: 'resolucion', ancho: [18, 18], halign: 'left', soloEnNormal: true },
+        { header: 'DESIGNACIÓN', dataKey: 'designacion', ancho: ['auto', 'auto'], halign: 'left', fontSize: 6.0, soloEnNormal: true },
     ]
+
+    const idxAncho = sinResolucionDesignacion ? 1 : 0
+    const columnas = defsColumnas.filter((c) =>
+        !(sinResolucionDesignacion && c.soloEnNormal) &&
+        !(!modoMateria && c.soloMateria),
+    )
 
     const filasAgrupadas = agruparCompartidas(reporte.materias)
 
@@ -207,13 +272,24 @@ export function generarPDFCompartido(reporte, opts = {}) {
     const filas = filasAgrupadas.map(({ principal: m, hermanas }, index) => ({
         nro: index + 1,
         gestion: formatGestion(m.gestion),
-        plan: PLAN_MAP[m.plan] || m.plan || '',
+        plan: getPlanAbbrev(m.plan, m.codigo || m.materia_codigo),
         materia: m.materia || '',
+        // Modo materia: "197300004 GARCIA PEREIRA OSVALDO"
+        docente: `${norm(m.cod_docente)} ${norm(m.docente_nombre)}`.trim(),
         grp: m.grp || '',
         comparte: formatComparte(hermanas),
         resolucion: m.resolucion || '',
         designacion: m.designacion || '',
     }))
+
+    // columnStyles por índice, calculado sobre las columnas realmente visibles
+    const columnStyles = {}
+    columnas.forEach((c, i) => {
+        columnStyles[i] = {
+            cellWidth: c.ancho[idxAncho],
+            ...(c.halign ? { halign: c.halign } : {}),
+        }
+    })
 
     autoTable(doc, {
         startY,
@@ -249,16 +325,7 @@ export function generarPDFCompartido(reporte, opts = {}) {
             fillColor: false,
         },
 
-        columnStyles: {
-            0: { cellWidth: 7, halign: 'center' },
-            1: { cellWidth: 22, halign: 'center' },
-            2: { cellWidth: 10, halign: 'center' },
-            3: { cellWidth: 45, halign: 'left' },
-            4: { cellWidth: 8, halign: 'center' },
-            5: { cellWidth: 43, halign: 'left' },
-            6: { cellWidth: 18, halign: 'left' },
-            7: { cellWidth: 'auto', halign: 'left' },
-        },
+        columnStyles,
 
         didDrawCell(data) {
             if (data.section !== 'body') return
@@ -275,15 +342,11 @@ export function generarPDFCompartido(reporte, opts = {}) {
         },
 
         didParseCell(data) {
-            if (data.section === 'body' && [3, 5, 7].includes(data.column.index)) {
-                data.cell.styles.fontSize = 6.0
-            }
-            if (data.section === 'body' && data.column.index === 1) {
-                data.cell.styles.fontSize = 6.5
-                data.cell.styles.halign = 'center'
-            }
-            if (data.section === 'body' && data.column.index === 4) {
-                data.cell.styles.fontSize = 5.5
+            // Tamaños de fuente por columna, identificadas por dataKey (no por
+            // índice, porque los índices cambian al ocultar columnas).
+            if (data.section === 'body') {
+                const def = columnas[data.column.index]
+                if (def?.fontSize) data.cell.styles.fontSize = def.fontSize
             }
             if (data.section === 'head' && data.column.index === 0) {
                 data.cell.styles.fontSize = 6.2
@@ -335,7 +398,7 @@ export function generarPDFCompartido(reporte, opts = {}) {
         doc.setFont('helvetica', 'bold')
         doc.setFontSize(8)
         doc.setTextColor(...COLOR_BLACK)
-        
+
         y += 1
 
         const columnasCat = [
@@ -409,7 +472,9 @@ export function generarPDFCompartido(reporte, opts = {}) {
     }
 
     const codigoDoc = reporte.docente?.codigo || 'doc'
-    const fileName = `reporte_docente_compartidos_${codigoDoc}.pdf`
+    const fileName = modoMateria
+        ? `kardex_materia_compartidos_${norm(materiaCodigo) || 'materia'}_grupo_${norm(grupo) || 'x'}.pdf`
+        : `reporte_docente_compartidos_${codigoDoc}.pdf`
 
     if (action === 'save') {
         doc.save(fileName)

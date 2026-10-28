@@ -5,10 +5,9 @@
       <div class="flex items-center justify-between">
         <div>
           <h1 class="text-2xl font-bold text-slate-800 dark:text-white">Dashboard</h1>
-          <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Gestión I-2026</p>
         </div>
         <div class="flex items-center gap-3">
-          <button 
+          <button
             @click="fetchKpis"
             :disabled="loading"
             class="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -30,13 +29,11 @@
       </div>
 
       <!-- KPI Cards -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
         <StatCard
           icon="users"
           label="Docentes Registrados"
           :value="resumen.total_docentes ?? 0"
-          sub="activos este periodo"
-          :progress="porcentajeDocActivos"
           color="#D28B45"
           :loading="loading"
         />
@@ -50,18 +47,27 @@
         />
 
         <StatCard
-          icon="layers"
-          label="Grupos Asignados"
-          :value="resumen.total_grupos ?? 0"
+          icon="file-text"
+          label="Documentos de Docentes"
+          :value="resumen.total_documentos ?? 0"
           color="#3b82f6"
           :loading="loading"
         />
 
         <StatCard
           icon="file-text"
-          label="Resoluciones"
+          label="Referencias"
           :value="resumen.total_resoluciones ?? 0"
           color="#10b981"
+          :loading="loading"
+        />
+
+        <!-- NUEVA: Títulos -->
+        <StatCard
+          icon="graduation-cap"
+          label="Títulos de Docentes"
+          :value="resumen.total_titulos ?? 0"
+          color="#8b5cf6"
           :loading="loading"
         />
       </div>
@@ -69,6 +75,12 @@
       <!-- Resoluciones recientes -->
       <ResolucionesRecientes
         :items="resolucionesRecientes"
+        :loading="loading"
+      />
+
+      <!-- Documentos recientes -->
+      <DocumentosRecientes
+        :items="documentosRecientes"
         :loading="loading"
       />
     </div>
@@ -83,6 +95,7 @@ import { useDashboard } from '../composables/useDashboard'
 
 import StatCard from '../components/StatCard.vue'
 import ResolucionesRecientes from '../components/ResolucionesRecientes.vue'
+import DocumentosRecientes from '../components/DocumentosRecientes.vue'
 
 const {
   loading,
@@ -90,6 +103,7 @@ const {
   resumen,
   resolucionesRecientes,
   porcentajeDocActivos,
+  documentosRecientes,
   fetchKpis,
 } = useDashboard()
 
