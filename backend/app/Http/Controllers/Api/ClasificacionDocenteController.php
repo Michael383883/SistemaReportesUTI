@@ -112,6 +112,41 @@ class ClasificacionDocenteController extends Controller
 
         $listado = $query->orderBy('NOMBRE_DOCENTE')->get();
 
+        // ── Adjuntar las materias de cada fila (para exportar PDF/Excel) ──
+        // Cada fila del listado = un docente dentro de un documento
+        // (ID_CLASIFICACION_DOCENTE), así que sus materias se buscan por ese id.
+        // Se consulta en lotes de 1000 por el límite de parámetros de SQL Server.
+        $materiasPorClasif = collect();
+
+        foreach ($listado->pluck('ID_CLASIFICACION_DOCENTE')->unique()->chunk(1000) as $lote) {
+            $materiasPorClasif = $materiasPorClasif->concat(
+                DB::table('CLASIFICACION_MATERIA')
+                    ->whereIn('ID_CLASIFICACION_DOCENTE', $lote->all())
+                    ->orderBy('ORDEN')
+                    ->select(
+                        'ID_CLASIFICACION_DOCENTE',
+                        'NOMBRE_MATERIA',
+                        'NOTA',
+                        'GRUPO',
+                        'DETALLE'
+                    )
+                    ->get()
+            );
+        }
+
+        $materiasPorClasif = $materiasPorClasif->groupBy('ID_CLASIFICACION_DOCENTE');
+
+        foreach ($listado as $fila) {
+            $fila->MATERIAS = ($materiasPorClasif->get($fila->ID_CLASIFICACION_DOCENTE) ?? collect())
+                ->map(fn($m) => [
+                    'NOMBRE_MATERIA' => $m->NOMBRE_MATERIA,
+                    'NOTA' => $m->NOTA,
+                    'GRUPO' => $m->GRUPO,
+                    'DETALLE' => $m->DETALLE,
+                ])
+                ->values();
+        }
+
         return response()->json($listado);
     }
 

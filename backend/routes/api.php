@@ -55,6 +55,9 @@ use App\Http\Controllers\Api\ReportePrelacionMateriaController;
 // Reporte Tipo de ingreso (NUEVO)
 use App\Http\Controllers\Api\TipoIngresoReporteController;
 
+// Reporte Kardex de materias (ACÉFALAS / por tipo de ingreso)
+use App\Http\Controllers\Api\ReporteKardexMateriaController;
+
 // Periodos
 use App\Http\Controllers\Api\PeriodoAcademicoController;
 
@@ -168,6 +171,18 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/reporte-docentes/tipos-titulo', [ClasificacionDocenteController::class, 'actualizarTipoTitulo']);
     Route::get('reporte-docentes/con-titulo', [ReporteDocenteController::class, 'docentesConTitulo']);
     Route::get('reporte-docentes/con-titulo/excel', [ReporteDocenteController::class, 'excel']);
+
+    /* ----------------------------------------------------------------
+     | REPORTE KARDEX DE MATERIAS (ACÉFALAS / tipo de ingreso)
+     | GET /api/reporte-kardex-materia/planes
+     | GET /api/reporte-kardex-materia/listado   (vista previa + id_documento/nombre_archivo para el PDF)
+     | GET /api/reporte-kardex-materia/excel
+     * ---------------------------------------------------------------- */
+    Route::prefix('reporte-kardex-materia')->group(function () {
+        Route::get('/planes', [ReporteKardexMateriaController::class, 'planes']);
+        Route::get('/listado', [ReporteKardexMateriaController::class, 'listado']);
+        Route::get('/excel', [ReporteKardexMateriaController::class, 'excel']);
+    });
 
     /* ----------------------------------------------------------------
      | HORARIOS DE DOCENTES
@@ -297,6 +312,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // 4) Genéricas {id} al final
     Route::get('/clasificaciones/{id}', [ClasificacionDocenteController::class, 'show'])
         ->where('id', '[0-9]+');
+    // PDF del documento (lo usa el botón "PDF" del reporte Kardex de materias)
     Route::get('/clasificaciones/{id}/pdf', [ClasificacionDocenteController::class, 'descargar'])
         ->where('id', '[0-9]+');
     Route::put('/clasificaciones/{id}', [ClasificacionDocenteController::class, 'update']);
