@@ -29,6 +29,7 @@ export const menuSections = [
                 children: [
                     { to: '/reportes/docentes', label: 'Kardex Docente' },
                     { to: '/materias-kardex', label: 'Kardex Materia' },
+                    { to: '/reportes/kardex-materia', label: 'Kardex Documento' },
 
                     { to: '/reportes/edicion-tipo-ingreso', label: 'Asignar Modalidad' },
                     { to: '/reportes/docentes-titulo', label: 'Docentes con Título' },
@@ -45,7 +46,7 @@ export const menuSections = [
                 icon: FileText,
                 children: [
                     { to: '/clasificaciones/nueva', label: 'Subir Documento' },
-                    { to: '/clasificaciones', label: 'Listado de Documentos de Docente' },
+                    { to: '/clasificaciones', label: 'Listado Doc. de Docente' },
                     { to: '/clasificaciones/listar-por-documento', label: 'Listado de Archivos' },
                     { to: '/reporte-excel', label: 'Prelacion' },
                     { to: '/reporte-prelacion-materia', label: 'Prelacion Materia' },
