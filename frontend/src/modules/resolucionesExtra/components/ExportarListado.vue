@@ -27,8 +27,21 @@
       class="absolute left-0 top-full mt-1 w-60 z-30 bg-white border border-gray-200 rounded-lg shadow-xl overflow-hidden"
     >
       <p class="px-3 py-2 text-[11px] text-gray-400 bg-gray-50 border-b border-gray-100">
-        {{ listado.length }} registro(s) de la tabla
+        {{ totalDocentes }} docente(s) · {{ listado.length }} documento(s)
       </p>
+
+      <!-- Datos extra a incluir en el reporte -->
+      <div class="px-3 py-2 border-b border-gray-100 space-y-1.5">
+        <p class="text-[11px] text-gray-400">Incluir en el reporte</p>
+        <label class="flex items-center gap-2 text-[13px] text-gray-700 cursor-pointer">
+          <input type="checkbox" v-model="incluirObs" class="accent-blue-600" />
+          Observación
+        </label>
+        <label class="flex items-center gap-2 text-[13px] text-gray-700 cursor-pointer">
+          <input type="checkbox" v-model="incluirMaterias" class="accent-blue-600" />
+          Materias
+        </label>
+      </div>
 
       <button
         type="button"
@@ -62,7 +75,7 @@
         <span class="inline-flex items-center justify-center w-9 h-9 rounded-lg text-[10px] font-bold flex-shrink-0 bg-green-50 text-green-700">XLS</span>
         <span>
           <span class="block text-sm font-medium text-gray-800">Descargar Excel</span>
-          <span class="block text-[11px] text-gray-400">Archivo .xlsx con filtros</span>
+          <span class="block text-[11px] text-gray-400">Archivo .xlsx con formato</span>
         </span>
       </button>
     </div>
@@ -70,11 +83,12 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { exportarPDF, exportarExcel } from '../composables/useExportarListado'
 
 const props = defineProps({
-  // Lo que se muestra en la tabla (listadoFiltrado)
+  // TODOS los documentos que cumplen los filtros (uno por fila, sin agrupar).
+  // El agrupado por docente lo hace el exportador.
   listado: { type: Array, default: () => [] },
   // Texto de los filtros activos, ej: "Categoría: TITULARES · Gestión: 2025"
   filtrosTexto: { type: String, default: '' },
@@ -82,13 +96,25 @@ const props = defineProps({
 
 const abierto = ref(false)
 
-function accion(tipo) {
+// Datos extra opcionales
+const incluirObs = ref(false)
+const incluirMaterias = ref(false)
+
+const totalDocentes = computed(
+  () => new Set(props.listado.map((c) => c.COD_DOCENTE ?? c.NOMBRE_DOCENTE)).size
+)
+
+async function accion(tipo) {
   abierto.value = false
-  const opts = { filtrosTexto: props.filtrosTexto }
+  const opts = {
+    filtrosTexto: props.filtrosTexto,
+    incluirObs: incluirObs.value,
+    incluirMaterias: incluirMaterias.value,
+  }
   try {
     if (tipo === 'pdf-ver') exportarPDF(props.listado, { ...opts, action: 'open' })
     else if (tipo === 'pdf-descargar') exportarPDF(props.listado, { ...opts, action: 'save' })
-    else if (tipo === 'excel') exportarExcel(props.listado, opts)
+    else if (tipo === 'excel') await exportarExcel(props.listado, opts)
   } catch (e) {
     console.error('Error exportando listado:', e)
     alert('No se pudo generar el reporte')

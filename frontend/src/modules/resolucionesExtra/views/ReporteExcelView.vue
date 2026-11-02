@@ -453,6 +453,25 @@
           >
             Volver
           </button>
+
+          <!-- Vista previa en PDF -->
+          <button
+            @click="previsualizarPdf"
+            :disabled="!reporteExcel.previewMostrado.value.length || estaActualizando || generandoPdf"
+            class="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors"
+            title="Ver cómo quedaría el reporte en PDF"
+          >
+            <svg v-if="generandoPdf" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+            </svg>
+            <svg v-else class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+              <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+            </svg>
+            {{ generandoPdf ? 'Generando…' : 'Vista previa PDF' }}
+          </button>
+
           <button
             @click="descargarExcelConfirmado"
             :disabled="!reporteExcel.previewMostrado.value.length || estaActualizando"
@@ -466,6 +485,44 @@
         </div>
       </div>
     </div>
+
+    <!-- Modal: Vista previa del reporte en PDF -->
+    <Teleport to="body">
+      <div v-if="mostrarModalPdf" class="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" @click.self="cerrarModalPdf">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-6xl h-[90vh] flex flex-col overflow-hidden">
+          <div class="flex items-center justify-between gap-3 px-5 py-3 border-b border-gray-100">
+            <div class="min-w-0">
+              <h3 class="text-sm font-semibold text-gray-900">Vista previa del PDF</h3>
+              <p class="text-xs text-gray-500 truncate">{{ nombreArchivoPdf }}</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <button
+                @click="abrirPdfEnPestana"
+                class="px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+              >
+                Abrir en pestaña
+              </button>
+              <button
+                @click="descargarPdfPrevia"
+                class="px-3 py-1.5 text-xs font-semibold text-white bg-amber-600 hover:bg-amber-700 rounded-lg transition-colors"
+              >
+                Descargar PDF
+              </button>
+              <button
+                @click="cerrarModalPdf"
+                class="w-8 h-8 flex items-center justify-center text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
+                title="Cerrar"
+              >
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+          <iframe v-if="urlPdf" :src="urlPdf" class="flex-1 w-full border-0 bg-slate-100" title="Vista previa PDF"></iframe>
+        </div>
+      </div>
+    </Teleport>
 
     <!-- Modal de Confirmación: Reasignar Carga Horaria (experimental) -->
     <Teleport to="body">
@@ -522,12 +579,26 @@ import { useReporteExcel } from '../composables/useReporteExcel'
 import { useClasificacion } from '../composables/useClasificacion'
 import { useCategorias } from '../composables/useCategorias'
 import { useTiposTitulo } from '../composables/useTiposTitulo'
+import { usePeriodoActual } from '../../horariosadmin/composables/usePeriodoActual'
+import { generarPDFReporteExcel } from '../composables/usePdfReporteExcel'
 
 const router = useRouter()
 const reporteExcel = useReporteExcel()
 const clasificacion = useClasificacion()
 const { categorias, cargarCategorias } = useCategorias()
 const { tipos: tiposTitulo, cargarTipos } = useTiposTitulo()
+
+// ─── Año / periodo actual (mismo composable que usa el reporte de horarios) ───
+const { anio: anioActual, periodo: periodoActual } = usePeriodoActual()
+
+// Lleva el año/periodo de "Docentes activos" al periodo actual
+function sincronizarPeriodoActual() {
+  if (anioActual.value)    reporteExcel.anioActivos.value = Number(anioActual.value)
+  if (periodoActual.value) reporteExcel.periodoActivos.value = Number(periodoActual.value)
+}
+
+// immediate: se aplica ya; si el periodo llega después (async), se vuelve a aplicar
+watch([anioActual, periodoActual], sincronizarPeriodoActual, { immediate: true })
 
 // ─── Normalizar: quita tildes, mayúsculas y espacios sobrantes ───
 const norm = (s) => String(s || '')
@@ -717,6 +788,7 @@ async function aplicarConfiguracionNormal() {
     reporteExcel.mostrarCompartidas.value = false
     dropdownAbierto.value = null
     resultadoCargaHoraria.value = null
+    sincronizarPeriodoActual()
     excelParams.value = {
       gestion_desde: '2001',
       gestion_hasta: '',
@@ -754,6 +826,9 @@ async function abrirPrelacion() {
     modoPrelacion.value = true
     dropdownAbierto.value = null
     resultadoCargaHoraria.value = null
+
+    // Año/periodo de activos = periodo actual
+    sincronizarPeriodoActual()
 
     reporteExcel.soloActivos.value = false
     reporteExcel.mostrarReferencias.value = true
@@ -883,6 +958,70 @@ async function ejecutarAsignarCargaHoraria() {
   }
 }
 
+// ─── Vista previa en PDF ───
+// Genera el PDF con las filas tal cual se ven en pantalla (previewMostrado).
+const mostrarModalPdf = ref(false)
+const generandoPdf = ref(false)
+const urlPdf = ref('')
+const nombreArchivoPdf = ref('')
+
+function liberarUrlPdf() {
+  if (urlPdf.value) {
+    URL.revokeObjectURL(urlPdf.value)
+    urlPdf.value = ''
+  }
+}
+
+async function previsualizarPdf() {
+  if (generandoPdf.value) return
+  generandoPdf.value = true
+  try {
+    // deja que el botón pinte el estado "Generando…" antes del trabajo pesado
+    await nextTick()
+    liberarUrlPdf()
+
+    const { url, filename } = generarPDFReporteExcel(
+      reporteExcel.previewMostrado.value,
+      {
+        titulo: modoPrelacion.value ? 'Reporte de Prelación' : 'Reporte Excel',
+        version: excelParams.value.version,
+        gestion: reporteExcel.gestionEtiqueta.value,
+        anio: reporteExcel.anioActivos.value,
+        periodo: reporteExcel.periodoActivos.value,
+        soloActivos: reporteExcel.soloActivos.value,
+        totalDocentes: reporteExcel.totalDocentes.value,
+      }
+    )
+    urlPdf.value = url
+    nombreArchivoPdf.value = filename
+    mostrarModalPdf.value = true
+  } catch (e) {
+    console.error('Error generando la vista previa en PDF:', e)
+    alert('No se pudo generar la vista previa en PDF')
+  } finally {
+    generandoPdf.value = false
+  }
+}
+
+function cerrarModalPdf() {
+  mostrarModalPdf.value = false
+  liberarUrlPdf()
+}
+
+function abrirPdfEnPestana() {
+  if (urlPdf.value) window.open(urlPdf.value, '_blank')
+}
+
+function descargarPdfPrevia() {
+  if (!urlPdf.value) return
+  const a = document.createElement('a')
+  a.href = urlPdf.value
+  a.download = nombreArchivoPdf.value || 'reporte.pdf'
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+}
+
 // ─── Descargar ───
 // Siempre se usa el endpoint personalizado (POST): envía las filas tal cual se
 // ven en pantalla, incluyendo TOTAL_CH y TOTAL_CH_MES ("Mes 96"), para que el
@@ -903,6 +1042,7 @@ onMounted(async () => {
   try {
     await cargarCategorias()
     await cargarTipos()
+    await nextTick()          // asegura que año/periodo ya se sincronizaron
     await abrirPrelacion()
   } finally {
     iniciando.value = false
@@ -912,5 +1052,6 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   clearTimeout(timerAuto)
   clearTimeout(timerActivos)
+  liberarUrlPdf()
 })
 </script>

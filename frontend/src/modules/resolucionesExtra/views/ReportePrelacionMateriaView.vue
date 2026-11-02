@@ -25,7 +25,7 @@
 
         <div class="flex items-center gap-2">
           <button
-            @click="restablecerFiltros"
+            @click="restablecer"
             :disabled="estaActualizando"
             class="hidden sm:inline-flex px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50"
             title="Vuelve a los filtros originales"
@@ -372,6 +372,7 @@ import {
   PERIODOS,
 } from '../composables/useReportePrelacionMateria'
 import { useClasificacion } from '../composables/useClasificacion'
+import { usePeriodoActual } from '../../horariosadmin/composables/usePeriodoActual'
 
 const router = useRouter()
 const clasificacion = useClasificacion()
@@ -395,6 +396,28 @@ const {
   restablecerFiltros,
   reset,
 } = useReportePrelacionMateria()
+
+function restablecer() {
+  restablecerFiltros()
+  sincronizarPeriodoActual(true)
+}
+// ─── Año / periodo actual ───
+const { anio: anioActual, periodo: periodoActual } = usePeriodoActual()
+
+let periodoAplicado = false
+
+// Pone año/periodo actual en los filtros.
+// Sin "forzar" solo se aplica una vez, para no pisar lo que el usuario cambie después.
+function sincronizarPeriodoActual(forzar = false) {
+  if (!forzar && periodoAplicado) return
+  if (!anioActual.value || !periodoActual.value) return
+  filtros.value.anio = Number(anioActual.value)
+  filtros.value.periodo = Number(periodoActual.value)
+  periodoAplicado = true
+}
+
+// immediate: si ya están listos se aplica ya; si llegan después (async), se aplica al llegar
+watch([anioActual, periodoActual], () => sincronizarPeriodoActual(), { immediate: true })
 
 // ═══════════════════════════════════════════════════════════════
 // ESTADO DE LA VISTA
