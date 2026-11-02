@@ -25,11 +25,17 @@ export const reportesRoutes = [
 
     { path: '/materias-kardex', name: 'materias-kardex', component: () => import('./views/MateriasKardexView.vue') },
 
-
-    { path: '/reporte-tipo-ingreso', 
-      name: 'reporte-tipo-ingreso',
-      component: () => import('./views/ReporteTipoIngreso.vue') 
+    {
+        path: '/reporte-tipo-ingreso',
+        name: 'reporte-tipo-ingreso',
+        component: () => import('./views/ReporteTipoIngreso.vue')
     },
 
-
+    // ── NUEVO: Kardex de materias (acéfalas, etc.) con vista previa y Excel ──
+    {
+        path: '/reportes/kardex-materia',
+        name: 'reportes-kardex-materia',
+        component: () => import('./views/KardexMateriaReporteView.vue'),
+        // meta: { requiresAuth: true }  ← igual que tus otras rutas
+    },
 ]
