@@ -354,7 +354,6 @@
               <th class="text-left font-semibold text-gray-500 px-2 py-2.5 uppercase tracking-wider">Detalle</th>
               <th class="text-left font-semibold text-gray-500 px-2 py-2.5 uppercase tracking-wider">Categoría</th>
               <th class="text-center font-semibold text-gray-500 px-2 py-2.5 uppercase tracking-wider" title="Total de carga horaria del docente (y su equivalente mensual: x 4)">T. CH</th>
-              <th class="text-left font-semibold text-gray-500 px-2 py-2.5 uppercase tracking-wider">Nivel</th>
               <th class="text-left font-semibold text-gray-500 px-2 py-2.5 uppercase tracking-wider">Fotocopia</th>
               <th class="text-left font-semibold text-gray-500 px-2 py-2.5 uppercase tracking-wider">Obs 2</th>
               <th class="text-left font-semibold text-gray-500 px-2 py-2.5 uppercase tracking-wider">Obs 3</th>
@@ -400,7 +399,6 @@
                   </div>
                 </td>
 
-                <td class="px-2 py-2 text-gray-600">{{ item.NIVEL || '—' }}</td>
                 <td class="px-2 py-2 text-gray-600">{{ item.FOTOCOPIA_TITULAR || '—' }}</td>
                 <td class="px-2 py-2 text-gray-600">{{ item.OBS2 || '—' }}</td>
                 <td class="px-2 py-2 text-gray-600">{{ item.OBS3 || '—' }}</td>
@@ -786,6 +784,7 @@ async function aplicarConfiguracionNormal() {
     reporteExcel.soloActivos.value = false
     reporteExcel.mostrarReferencias.value = false
     reporteExcel.mostrarCompartidas.value = false
+    reporteExcel.excluirPrelacion.value = false   // quita docente 100 y materias 18
     dropdownAbierto.value = null
     resultadoCargaHoraria.value = null
     sincronizarPeriodoActual()
@@ -833,6 +832,10 @@ async function abrirPrelacion() {
     reporteExcel.soloActivos.value = false
     reporteExcel.mostrarReferencias.value = true
     reporteExcel.mostrarCompartidas.value = false
+
+    // Excluye al docente 100 y las materias cuyo código empieza con 18.
+    // Debe ir ANTES de alternarSoloActivos (ahí se aplica el filtro).
+    reporteExcel.excluirPrelacion.value = true
 
     excelParams.value = {
       gestion_desde: '1970',

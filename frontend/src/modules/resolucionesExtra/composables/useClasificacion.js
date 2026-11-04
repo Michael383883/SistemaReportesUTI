@@ -30,14 +30,30 @@ export function useClasificacion() {
             bindings: respData.bindings ?? null,
             archivo: respData.archivo ?? null,
             linea: respData.linea ?? null,
+            paso: respData.paso ?? null,
+            pasosCompletados: respData.pasos_completados ?? null,
+            revertido: respData.revertido ?? null,
         }
     }
+
+    // Arma un mensaje legible: error + paso donde falló + estado de los datos.
+    function armarMensajeError(data, fallback) {
+        const base = data?.error || fallback
+        if (!data?.paso) return base
+        const estado = data.revertido
+            ? 'No se guardó NINGÚN cambio: todo se revirtió y los datos quedaron como estaban.'
+            : 'Atención: algunos cambios pudieron haberse aplicado. Revisa el documento.'
+        return `${base}\n\nFalló en el paso: ${data.paso}\n${estado}`
+    }
+
+    const MSG_RED =
+        'No hay conexión con el servidor. No se pudo confirmar si los cambios se guardaron; recarga el listado y verifica.'
 
     function buildFormData({
         cod_docente, categoria, nivel, tipo_documento, gestion, periodo,
         detalle_general, observacion, observacion2, materias, referencias,
         titulo, archivo, solo_este_docente,
-        id_documento_origen, // 👈 NUEVO: reutilizar el PDF de otro documento
+        id_documento_origen, // reutilizar el PDF de otro documento (no se vuelve a subir)
     }) {
         const fd = new FormData()
         if (cod_docente) fd.append('cod_docente', cod_docente)
@@ -51,12 +67,11 @@ export function useClasificacion() {
         if (observacion2) fd.append('observacion2', observacion2)
         fd.append('materias', JSON.stringify(materias || []))
         fd.append('referencias', JSON.stringify(referencias || []))
-        if (titulo) fd.append('titulo', JSON.stringify(titulo))   // 👈 esto faltaba
+        if (titulo) fd.append('titulo', JSON.stringify(titulo))
         if (archivo) fd.append('archivo_pdf', archivo)
 
-        // 👈 NUEVO: si no se manda archivo pero sí un documento origen,
-        // el backend reutiliza esa RUTA_ARCHIVO/NOMBRE_ARCHIVO en vez de
-        // pedir un PDF nuevo.
+        // Sin archivo nuevo pero con documento origen: el backend reutiliza
+        // esa RUTA_ARCHIVO/NOMBRE_ARCHIVO en vez de pedir un PDF nuevo.
         if (!archivo && id_documento_origen) {
             fd.append('id_documento_origen', id_documento_origen)
         }
@@ -64,6 +79,8 @@ export function useClasificacion() {
         if (solo_este_docente) fd.append('solo_este_docente', '1')
         return fd
     }
+
+    // POST /api/clasificaciones
     async function guardarClasificacion(payload) {
         loading.value = true
         error.value = null
@@ -71,18 +88,17 @@ export function useClasificacion() {
         try {
             const fd = buildFormData(payload)
 
-            console.log("===== FORMDATA (guardarClasificacion) =====")
+            console.log('===== FORMDATA (guardarClasificacion) =====')
             for (const [key, value] of fd.entries()) {
                 console.log(key, value)
             }
-            console.log("=============================================")
+            console.log('=============================================')
 
             const { data } = await axios.post(`${API_BASE}/api/clasificaciones`, fd, {
                 headers: authHeaders({ 'Content-Type': 'multipart/form-data' }),
             })
 
-            //  nuevo: qué contestó el backend al guardar
-            console.log("✅ Respuesta de guardarClasificacion:", data)
+            console.log('✅ Respuesta de guardarClasificacion:', data)
 
             if (!data.ok) {
                 error.value = data.error || 'No se pudo guardar la clasificación'
@@ -102,8 +118,14 @@ export function useClasificacion() {
                 error.value = primerError || 'Error de validación'
                 errorDetalle.value = { tipoError: 'validacion', mensaje: error.value }
             } else if (!error.value) {
-                error.value = e?.response?.data?.error || e.message || 'No se pudo guardar la clasificación'
-                errorDetalle.value = parseErrorDetalle(e?.response?.data)
+                if (e?.response?.data) {
+                    error.value = e.response.data.error || e.message || 'No se pudo guardar la clasificación'
+                    errorDetalle.value = parseErrorDetalle(e.response.data)
+                } else if (e.message === 'Network Error') {
+                    error.value = MSG_RED
+                } else {
+                    error.value = e.message || 'No se pudo guardar la clasificación'
+                }
             }
             throw e
         } finally {
@@ -172,15 +194,14 @@ export function useClasificacion() {
     }
 
     // GET /api/clasificaciones/{id}/pdf
-    // Se mantiene por si se usa en algún otro lado (ej. como referencia de texto),
-    // pero OJO: esta URL NO debe usarse directo en un <a href>, porque esa ruta
+    // OJO: esta URL NO debe usarse directo en un <a href>, porque esa ruta
     // está protegida con auth:sanctum y un <a> normal no manda el token.
     function urlPdf(id, modo = 'inline') {
         return `${API_BASE}/api/clasificaciones/${id}/pdf?modo=${modo}`
     }
 
-    // Descarga el PDF protegido usando axios (sí manda el token) y lo abre
-    // en una pestaña nueva como blob. Esta es la forma correcta de "ver" el PDF.
+    // Descarga el PDF protegido con axios (sí manda el token) y lo abre
+    // en una pestaña nueva como blob.
     async function verPdf(id, modo = 'inline') {
         loading.value = true
         error.value = null
@@ -196,7 +217,6 @@ export function useClasificacion() {
             )
             window.open(blobUrl, '_blank')
 
-            // Libera la memoria del blob después de un rato
             setTimeout(() => window.URL.revokeObjectURL(blobUrl), 60_000)
         } catch (e) {
             error.value = e?.response?.data?.error || 'No se pudo abrir el PDF'
@@ -240,12 +260,11 @@ export function useClasificacion() {
         error.value = null
         errorDetalle.value = null
 
-        //  NUEVO: mostrar exactamente qué se va a mandar
-        console.log("===== ENVIANDO A /aplicar =====")
-        console.log("URL:", `${API_BASE}/api/clasificaciones/${id}/aplicar`)
-        console.log("id_documento:", id)
-        console.log("ids_materia:", idsMateria)
-        console.log("================================")
+        console.log('===== ENVIANDO A /aplicar =====')
+        console.log('URL:', `${API_BASE}/api/clasificaciones/${id}/aplicar`)
+        console.log('id_documento:', id)
+        console.log('ids_materia:', idsMateria)
+        console.log('================================')
 
         try {
             const { data } = await axios.put(
@@ -254,11 +273,10 @@ export function useClasificacion() {
                 { headers: authHeaders() }
             )
 
-            //  NUEVO: mostrar la respuesta completa, salga bien o mal
-            console.log("✅ Respuesta completa de /aplicar:", data)
-            console.log("   filas_afectadas:", data.filas_afectadas)
-            console.log("   grupos:", data.grupos)
-            console.log("   mensaje:", data.mensaje)
+            console.log('✅ Respuesta completa de /aplicar:', data)
+            console.log('   filas_afectadas:', data.filas_afectadas)
+            console.log('   grupos:', data.grupos)
+            console.log('   mensaje:', data.mensaje)
 
             if (!data.ok) {
                 error.value = data.error || 'No se pudo aplicar la clasificación en grupos'
@@ -268,7 +286,10 @@ export function useClasificacion() {
 
             return data // { ok, filas_afectadas, grupos, mensaje? }
         } catch (e) {
-            error.value = e?.response?.data?.error || 'No se pudo aplicar la clasificación en grupos'
+            error.value = e?.response?.data?.error
+                || (e.message === 'Network Error' ? MSG_RED : null)
+                || e.message
+                || 'No se pudo aplicar la clasificación en grupos'
             errorDetalle.value = parseErrorDetalle(e?.response?.data)
             console.error('❌ Error en aplicarEnGrupos:', errorDetalle.value)
             console.error('❌ Respuesta cruda del error:', e?.response?.data)
@@ -284,12 +305,11 @@ export function useClasificacion() {
         error.value = null
         errorDetalle.value = null
 
-        //   NUEVO
-        console.log("===== ENVIANDO A /quitar =====")
-        console.log("URL:", `${API_BASE}/api/clasificaciones/${id}/quitar`)
-        console.log("id_documento:", id)
-        console.log("ids_materia:", idsMateria)
-        console.log("===============================")
+        console.log('===== ENVIANDO A /quitar =====')
+        console.log('URL:', `${API_BASE}/api/clasificaciones/${id}/quitar`)
+        console.log('id_documento:', id)
+        console.log('ids_materia:', idsMateria)
+        console.log('===============================')
 
         try {
             const { data } = await axios.put(
@@ -298,8 +318,7 @@ export function useClasificacion() {
                 { headers: authHeaders() }
             )
 
-            //   NUEVO
-            console.log("✅ Respuesta completa de /quitar:", data)
+            console.log('✅ Respuesta completa de /quitar:', data)
 
             if (!data.ok) {
                 error.value = data.error || 'No se pudo quitar la clasificación de grupos'
@@ -309,7 +328,10 @@ export function useClasificacion() {
 
             return data // { ok, filas_afectadas, grupos, mensaje? }
         } catch (e) {
-            error.value = e?.response?.data?.error || 'No se pudo quitar la clasificación de grupos'
+            error.value = e?.response?.data?.error
+                || (e.message === 'Network Error' ? MSG_RED : null)
+                || e.message
+                || 'No se pudo quitar la clasificación de grupos'
             errorDetalle.value = parseErrorDetalle(e?.response?.data)
             console.error('❌ Error en quitarDeGrupos:', errorDetalle.value)
             console.error('❌ Respuesta cruda del error:', e?.response?.data)
@@ -319,6 +341,7 @@ export function useClasificacion() {
         }
     }
 
+    // POST (con _method=PUT) /api/clasificaciones/{id}
     async function actualizarClasificacion(id, payload, confirmarDesvinculacion = false) {
         loading.value = true
         error.value = null
@@ -332,8 +355,7 @@ export function useClasificacion() {
                 headers: authHeaders({ 'Content-Type': 'multipart/form-data' }),
             })
 
-            // 👈 NUEVO: detectar el caso especial ANTES de tratarlo como error genérico,
-            // por si axios resuelve el 409 sin lanzar excepción.
+            // Caso especial ANTES del error genérico, por si axios resuelve el 409 sin lanzar.
             if (!data.ok && data.tipo === 'confirmar_desvinculacion') {
                 const err = new Error('confirmar_desvinculacion')
                 err.docentesADesvincular = data.docentes_a_desvincular
@@ -342,17 +364,17 @@ export function useClasificacion() {
             }
 
             if (!data.ok) {
-                error.value = data.error || 'No se pudo actualizar la clasificación'
+                error.value = armarMensajeError(data, 'No se pudo actualizar la clasificación')
                 errorDetalle.value = parseErrorDetalle(data)
                 throw new Error(error.value)
             }
             return data
         } catch (e) {
-            // Ya viene armado desde arriba (caso "resuelto sin excepción")
+            // Ya viene armado desde arriba
             if (e.message === 'confirmar_desvinculacion' && e.docentesADesvincular) {
                 throw e
             }
-            // Caso normal: axios sí rechazó con status 409
+            // axios sí rechazó con status 409
             if (e?.response?.status === 409 && e?.response?.data?.tipo === 'confirmar_desvinculacion') {
                 const err = new Error('confirmar_desvinculacion')
                 err.docentesADesvincular = e.response.data.docentes_a_desvincular
@@ -363,9 +385,14 @@ export function useClasificacion() {
                 const primerError = Object.values(e.response.data.errores)[0]?.[0]
                 error.value = primerError || 'Error de validación'
                 errorDetalle.value = { tipoError: 'validacion', mensaje: error.value }
+            } else if (e?.response?.data) {
+                // Error del servidor (500 con paso, etc.)
+                error.value = armarMensajeError(e.response.data, e.message || 'No se pudo actualizar la clasificación')
+                errorDetalle.value = parseErrorDetalle(e.response.data)
             } else if (!error.value) {
-                error.value = e?.response?.data?.error || e.message || 'No se pudo actualizar la clasificación'
-                errorDetalle.value = parseErrorDetalle(e?.response?.data)
+                error.value = e.message === 'Network Error'
+                    ? MSG_RED
+                    : (e.message || 'No se pudo actualizar la clasificación')
             }
             throw e
         } finally {
@@ -373,6 +400,7 @@ export function useClasificacion() {
         }
     }
 
+    // POST /api/clasificaciones/{idDocumento}/materias/bulk
     async function guardarMateriasAdicionales(idDocumento, detalles) {
         loading.value = true
         error.value = null
@@ -396,7 +424,6 @@ export function useClasificacion() {
             loading.value = false
         }
     }
-
 
     return {
         loading,

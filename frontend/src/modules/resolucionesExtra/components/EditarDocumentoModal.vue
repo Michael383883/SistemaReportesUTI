@@ -6,7 +6,9 @@
         <!-- Header -->
         <div class="flex items-start justify-between gap-3 px-6 py-4 border-b border-gray-100">
           <div class="min-w-0">
-            <p class="text-xs font-semibold text-blue-500 uppercase tracking-wide">Editar documento completo</p>
+            <p class="text-xs font-semibold uppercase tracking-wide" :class="modo === 'copia' ? 'text-emerald-600' : 'text-blue-500'">
+              {{ modo === 'copia' ? 'Registrar copia con el mismo PDF' : 'Editar documento completo' }}
+            </p>
             <h3 class="text-lg font-semibold text-gray-900 truncate">
               {{ doc.TIPO_DOCUMENTO || 'Documento' }}
             </h3>
@@ -42,8 +44,41 @@
           </div>
         </div>
 
-        <!-- Aviso: títulos de otros docentes (este form solo edita el del docente principal) -->
-        <div v-if="otrosTitulos.length" class="mx-6 mt-3 flex items-start gap-2 p-2.5 bg-purple-50 border border-purple-200 rounded-lg text-purple-700 text-[12px]">
+        <!-- Pestañas de modo (solo si el documento tiene PDF que reutilizar) -->
+        <div v-if="doc.NOMBRE_ARCHIVO && !cargando && !errorCarga && !avisoGrupos" class="px-6 pt-3 flex flex-wrap gap-2">
+          <button
+            type="button"
+            @click="cambiarModo('editar')"
+            :disabled="guardando"
+            class="px-3 py-1.5 text-sm font-medium rounded-lg border transition-colors"
+            :class="modo === 'editar' ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'"
+          >
+            Editar este documento
+          </button>
+          <button
+            type="button"
+            @click="cambiarModo('copia')"
+            :disabled="guardando"
+            class="px-3 py-1.5 text-sm font-medium rounded-lg border transition-colors"
+            :class="modo === 'copia' ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'"
+          >
+            Registrar copia (mismo PDF) para otro docente / tipo
+          </button>
+        </div>
+
+        <!-- Explicación del modo copia -->
+        <div v-if="modo === 'copia' && !avisoGrupos" class="mx-6 mt-3 p-2.5 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-800 text-[12px]">
+          Se creará un <strong>documento nuevo</strong> reutilizando el PDF
+          <strong>{{ doc.NOMBRE_ARCHIVO }}</strong> (no se sube ni se duplica el archivo).
+          El documento original <strong>no se modifica</strong>. Cambia el docente, la categoría, el tipo
+          o las materias como necesites antes de guardar.
+          <span v-if="otrosTitulos.length">
+            Los títulos de otros docentes del documento original no se copian.
+          </span>
+        </div>
+
+        <!-- Aviso: títulos de otros docentes (solo en edición) -->
+        <div v-if="modo === 'editar' && otrosTitulos.length" class="mx-6 mt-3 flex items-start gap-2 p-2.5 bg-purple-50 border border-purple-200 rounded-lg text-purple-700 text-[12px]">
           <svg class="w-3.5 h-3.5 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
             <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
           </svg>
@@ -67,19 +102,53 @@
 
           <div v-else-if="errorCarga" class="text-center py-16 text-sm text-red-500">
             {{ errorCarga }}
+            <div class="mt-3">
+              <button type="button" @click="cargar" class="px-3 py-1.5 text-sm font-medium bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg">
+                Reintentar
+              </button>
+            </div>
           </div>
 
-          <!-- FIX: ya no se pasa :reutilizando-archivo="true"; ese banner ("se
-               reutilizará el PDF...") es de la ALTA, no de la edición. -->
+          <!-- Guardó el documento, pero falló aplicar en GRUPOS -->
+          <div v-else-if="avisoGrupos" class="py-8 max-w-xl mx-auto text-center">
+            <div class="w-14 h-14 mx-auto mb-4 rounded-full bg-amber-100 flex items-center justify-center">
+              <svg class="w-7 h-7 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+              </svg>
+            </div>
+            <h4 class="text-base font-semibold text-gray-900 mb-1">Guardado, pero con una advertencia</h4>
+            <p class="text-sm text-gray-600 mb-2">
+              Los datos del documento <strong>sí se guardaron</strong>, pero <strong>no se pudieron aplicar en GRUPOS</strong>.
+            </p>
+            <p class="text-xs text-red-600 whitespace-pre-line bg-red-50 border border-red-100 rounded-lg p-2.5 mb-4">{{ avisoGrupos }}</p>
+            <p class="text-xs text-gray-500 mb-4">Vuelve a intentarlo luego con la opción "Aplicar en grupos" del documento.</p>
+            <button type="button" @click="$emit('guardado')" class="px-4 py-2 text-sm font-medium text-white bg-blue-700 hover:bg-blue-800 rounded-lg">
+              Entendido, cerrar
+            </button>
+          </div>
+
+          <!-- :key="modo" vuelve a montar el form al cambiar de pestaña
+               (ClasificacionForm lee `initial` una sola vez al crearse) -->
           <ClasificacionForm
             v-else
+            :key="modo"
             :saving="guardando"
-            :error="errorGuardar"
+            :error="''"
             :archivo-nombre="doc.NOMBRE_ARCHIVO"
-            :initial="initial"
+            :reutilizando-archivo="modo === 'copia'"
+            :initial="modo === 'copia' ? initialCopia : initial"
             @guardar="onGuardar"
             @back="$emit('cerrar')"
           />
+        </div>
+
+        <!-- Error visible siempre (fuera del scroll) -->
+        <div v-if="errorGuardar" class="mx-6 mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
+          <svg class="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+          </svg>
+          <p class="flex-1 text-xs text-red-700 whitespace-pre-line">{{ errorGuardar }}</p>
+          <button type="button" @click="errorGuardar = ''" class="text-red-400 hover:text-red-600 text-xs">Cerrar</button>
         </div>
       </div>
     </div>
@@ -87,7 +156,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import ClasificacionForm from './ClasificacionForm.vue'
 import { useDocumentos } from '../composables/useDocumentos.js'
 
@@ -96,8 +165,11 @@ const props = defineProps({
 })
 const emit = defineEmits(['cerrar', 'guardado'])
 
-// Instancia propia: no necesita compartir el listado general de la vista.
+// Instancia propia: no comparte el listado general de la vista.
 const { clasificacion, obtenerCompleto } = useDocumentos()
+
+// 'editar' = modifica este documento | 'copia' = documento nuevo reutilizando el PDF
+const modo = ref('editar')
 
 const cargando = ref(true)
 const errorCarga = ref(null)
@@ -107,8 +179,24 @@ const idClasificacionPrincipal = ref(null)
 
 const guardando = ref(false)
 const errorGuardar = ref('')
+const avisoGrupos = ref('')
 
 const abriendoPdf = ref(false)
+
+// Copia profunda de `initial` con las materias marcadas como NUEVAS
+// (en la copia ninguna "ya está registrada") y sin título de otros docentes.
+const initialCopia = computed(() => {
+  if (!initial.value) return null
+  const copia = JSON.parse(JSON.stringify(initial.value))
+  copia.materias = (copia.materias || []).map(m => ({ ...m, yaRegistrada: false }))
+  return copia
+})
+
+function cambiarModo(nuevo) {
+  if (guardando.value || modo.value === nuevo) return
+  modo.value = nuevo
+  errorGuardar.value = ''
+}
 
 async function verArchivo() {
   if (abriendoPdf.value) return
@@ -138,41 +226,6 @@ async function cargar() {
   }
 }
 
-// ClasificacionForm emite: guardar(payload, asignaAGrupos, irAAsignarExtra)
-async function onGuardar(payload, asignaAGrupos) {
-  if (guardando.value) return
-  guardando.value = true
-  errorGuardar.value = ''
-  try {
-    await intentarGuardar(payload, asignaAGrupos, false)
-  } catch (e) {
-    if (e.message === 'confirmar_desvinculacion') {
-      const lista = (e.docentesADesvincular || [])
-        .map(d => {
-          const nombre = d.nombre || d.cod_docente
-          return d.tiene_titulo ? `${nombre} (también se eliminará su título)` : nombre
-        })
-        .join('\n- ')
-
-      const confirmar = confirm(`${e.mensaje}\n\nDocente(s):\n- ${lista}\n\n¿Continuar?`)
-      if (confirmar) {
-        try {
-          await intentarGuardar(payload, asignaAGrupos, true)
-        } catch (e2) {
-          // El reintento también puede fallar (otro 409, validación, red...)
-          errorGuardar.value = mensajeDeError(e2)
-        }
-      } else {
-        errorGuardar.value = 'Guardado cancelado.'
-      }
-    } else {
-      errorGuardar.value = mensajeDeError(e)
-    }
-  } finally {
-    guardando.value = false
-  }
-}
-
 function mensajeDeError(e) {
   if (e?.message === 'confirmar_desvinculacion') {
     return e.mensaje || 'El servidor volvió a pedir confirmación de desvinculación.'
@@ -183,15 +236,92 @@ function mensajeDeError(e) {
     || 'No se pudo guardar los cambios'
 }
 
-async function intentarGuardar(payload, asignaAGrupos, confirmarDesvinculacion) {
+// Intenta aplicar en GRUPOS. Devuelve null si salió bien o un texto si falló.
+async function aplicarEnGruposSeguro(idDocumento) {
+  try {
+    await clasificacion.aplicarEnGrupos(idDocumento)
+    return null
+  } catch (e) {
+    console.error('El documento se guardó, pero falló al aplicar en GRUPOS:', e)
+    return clasificacion.error.value || e?.message || 'Error desconocido al aplicar en GRUPOS'
+  }
+}
+
+// ClasificacionForm emite: guardar(payload, asignaAGrupos, irAAsignarExtra)
+async function onGuardar(payload, asignaAGrupos) {
+  if (guardando.value) return
+  guardando.value = true
+  errorGuardar.value = ''
+  try {
+    if (modo.value === 'copia') {
+      await guardarComoCopia(payload, asignaAGrupos)
+    } else {
+      await guardarEdicion(payload, asignaAGrupos)
+    }
+  } catch (e) {
+    if (e?.message === 'confirmar_desvinculacion' && modo.value === 'editar') {
+      await manejarDesvinculacion(e, payload, asignaAGrupos)
+    } else {
+      errorGuardar.value = mensajeDeError(e)
+    }
+  } finally {
+    guardando.value = false
+  }
+}
+
+async function manejarDesvinculacion(e, payload, asignaAGrupos) {
+  const lista = (e.docentesADesvincular || [])
+    .map(d => {
+      const nombre = d.nombre || d.cod_docente
+      return d.tiene_titulo ? `${nombre} (también se eliminará su título)` : nombre
+    })
+    .join('\n- ')
+
+  const confirmar = confirm(`${e.mensaje}\n\nDocente(s):\n- ${lista}\n\n¿Continuar?`)
+  if (!confirmar) {
+    errorGuardar.value = 'Guardado cancelado. No se modificó nada.'
+    return
+  }
+  try {
+    await guardarEdicion(payload, asignaAGrupos, true)
+  } catch (e2) {
+    errorGuardar.value = mensajeDeError(e2)
+  }
+}
+
+// ── Modo EDITAR ──
+async function guardarEdicion(payload, asignaAGrupos, confirmarDesvinculacion = false) {
   const resultado = await clasificacion.actualizarClasificacion(
     idClasificacionPrincipal.value, payload, confirmarDesvinculacion
   )
+  const idDoc = resultado.id_documento ?? props.doc.ID_DOCUMENTO
+
   if (asignaAGrupos) {
-    try {
-      await clasificacion.aplicarEnGrupos(resultado.id_documento ?? props.doc.ID_DOCUMENTO)
-    } catch (e) {
-      console.error('El documento se guardó, pero falló al aplicar en GRUPOS:', e)
+    const fallo = await aplicarEnGruposSeguro(idDoc)
+    if (fallo) {
+      avisoGrupos.value = fallo
+      return // no cierra: el usuario ve la advertencia y cierra con el botón
+    }
+  }
+
+  if (resultado.gestion_o_periodo_cambio && !asignaAGrupos) {
+    alert('Cambió la gestión o el periodo: GRUPOS se limpió para la combinación anterior. Recuerda usar "Aplicar en grupos" para la nueva.')
+  }
+  emit('guardado')
+}
+
+// ── Modo COPIA: documento nuevo, reutilizando el PDF (no se vuelve a subir) ──
+async function guardarComoCopia(payload, asignaAGrupos) {
+  const resultado = await clasificacion.guardarClasificacion({
+    ...payload,
+    id_documento_origen: props.doc.NOMBRE_ARCHIVO ? props.doc.ID_DOCUMENTO : undefined,
+  })
+
+  if (asignaAGrupos) {
+    const fallo = await aplicarEnGruposSeguro(resultado.idDocumento)
+    if (fallo) {
+      avisoGrupos.value = fallo
+      return
     }
   }
   emit('guardado')

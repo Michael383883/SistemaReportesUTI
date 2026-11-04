@@ -81,6 +81,18 @@ function buscarClaveMateria(key, mapa) {
 
 const PLACEHOLDER_SIN_MATERIA = 'NO REGENTA MATERIA EN LA FCE'
 
+// ─── Exclusiones del reporte de Prelación ───
+// 1) Docentes que nunca deben aparecer (por código de docente).
+// 2) Materias cuyo CÓDIGO DE MATERIA empieza con 18: esas materias no se
+//    muestran. Si el docente tiene otras materias, sigue apareciendo solo con
+//    esas; si solo tenía materias 18, el docente desaparece.
+// Agrega aquí los códigos de docente que quieras excluir (como texto).
+const CODIGOS_DOCENTES_EXCLUIDOS_PRELACION = new Set(['100'])
+const PREFIJO_MATERIA_EXCLUIDA_PRELACION = '18'
+
+const esCodigoMateriaExcluido = (codMateria) =>
+    String(codMateria ?? '').trim().startsWith(PREFIJO_MATERIA_EXCLUIDA_PRELACION)
+
 // Marcas de agrupación que se recalculan cada vez que se arman los bloques
 const MARCAS_GRUPO = ['N', 'NOMBRE_DOCENTE', 'INICIO_GRUPO', 'FILAS_GRUPO', 'FIN_GRUPO', 'INICIO_MATERIA', 'FILAS_MATERIA']
 
@@ -233,6 +245,12 @@ export function useReporteExcel() {
     // Cantidad de filas ACEFALA + compartida que se ocultaron del preview
     const filasOcultasCompartidas = ref(0)
 
+    // ── Exclusiones de Prelación ──
+    // true: se excluyen los docentes de CODIGOS_DOCENTES_EXCLUIDOS_PRELACION
+    // y las materias cuyo código empieza con 18 (se aplica al completar con
+    // "Solo docentes activos", que es lo que usa Prelación).
+    const excluirPrelacion = ref(false)
+
     // ── Docentes activos (para el botón "Solo Activos") ──
     const cargandoActivos = ref(false)
     const errorActivos = ref(null)
@@ -307,6 +325,8 @@ export function useReporteExcel() {
 
     // GET /api/reportes/docentes-clasificados/preview
     // categoria y tipo_titulo pueden venir como array (multi-selección) o string
+    // OJO: cada fila debe traer COD_MATERIA (código de la materia) para poder
+    // excluir las materias que empiezan con 18 en Prelación.
     async function previsualizar({ gestion_desde, gestion_hasta, periodo, version, categoria, tipo_titulo, mostrar_referencias } = {}) {
         loading.value = true
         error.value = null
@@ -397,7 +417,8 @@ export function useReporteExcel() {
     // GET /api/reportes/carga-horaria-docentes?anio=X&periodo=Y
     // Trae, por docente, la carga horaria real (CH) de cada materia que dicta
     // en esa gestión/periodo (según HORARIOS2/GRUPOS/MATERIAS).
-    // Cada materia debe traer también `compartida` (columna COMP., 0 o 1).
+    // Cada materia debe traer también `compartida` (columna COMP., 0 o 1)
+    // y `cod_materia` (código de la materia, p. ej. 1803024).
     async function obtenerCargaHorariaDocentes({ anio, periodo } = {}) {
         cargandoCargaHoraria.value = true
         errorCargaHoraria.value = null
@@ -434,7 +455,12 @@ export function useReporteExcel() {
     // - Las filas COMPARTIDA conservan CH = '-' y cuentan como materia cubierta.
     // - Las materias compartidas (COMP. > 0) que no están en ningún documento
     //   solo se agregan si "Compartido" está activo (con CH '-').
+    // - Con excluirPrelacion: se omiten los docentes excluidos y las materias
+    //   con código que empieza con 18 (si el docente se queda sin materias
+    //   por eso, no se muestra).
     function completarConActivos(filasBase) {
+        const excluir = excluirPrelacion.value
+
         // 1) Agrupar el preview actual por docente (bloques)
         const bloquesPorDocente = new Map()
         let i = 0
@@ -451,9 +477,15 @@ export function useReporteExcel() {
 
         // 2) Materias reales por docente: cod -> Map(materiaNormalizada -> {nombre, ch, compartida})
         const cargaPorDocente = new Map()
+        const docentesCon18EnCarga = new Set() // docentes que dictan alguna materia 18
         for (const d of cargaActivos.value) {
             const m = new Map()
             for (const mat of (d.materias || [])) {
+                // Materia 18: se ignora (no suma CH ni se agrega como faltante)
+                if (excluir && esCodigoMateriaExcluido(mat.cod_materia)) {
+                    docentesCon18EnCarga.add(String(d.codigo))
+                    continue
+                }
                 const key = normalizarNombreMateria(mat.nom_materia)
                 if (!key) continue
                 const prev = m.get(key)
@@ -493,20 +525,20 @@ export function useReporteExcel() {
             if (vistos.has(cod)) continue
             vistos.add(cod)
 
+            // Docente excluido del reporte de Prelación
+            if (excluir && CODIGOS_DOCENTES_EXCLUIDOS_PRELACION.has(cod)) continue
+
             const existente = bloquesPorDocente.get(cod)
             const carga = cargaPorDocente.get(cod) || new Map()
             const nombre = existente?.nombre || `${a.apellidos || ''} ${a.nombres || ''}`.trim()
 
-            // Las filas ACÉFALA solo se conservan si la materia se dicta en el
-            // año/periodo seleccionado (según la carga horaria real de ese
-            // docente). Las demás categorías no se tocan.
             // Las filas ACÉFALA solo se conservan si el documento es del año/periodo
             // seleccionado. Las demás categorías no se tocan.
             const esDelPeriodo = (f) =>
                 String(f.GESTION ?? '').trim() === String(anioActivos.value) &&
                 String(f.PERIODO ?? '').trim() === String(periodoActivos.value)
 
-            const filas = existente
+            let filas = existente
                 ? existente.filas.filter(f => {
                     if (!esFilaAcefala(f)) return true
                     // Respaldo: si el backend aún no envía GESTION/PERIODO, filtra por materia
@@ -516,7 +548,16 @@ export function useReporteExcel() {
                     return esDelPeriodo(f)
                 })
                 : []
-                
+
+            // Materias con código 18: se quitan de las filas con documento.
+            // Si el docente se queda sin nada por esto, no se muestra.
+            let tuvoMateria18 = docentesCon18EnCarga.has(cod)
+            if (excluir) {
+                const antes = filas.length
+                filas = filas.filter(f => !esCodigoMateriaExcluido(f.COD_MATERIA))
+                if (filas.length < antes) tuvoMateria18 = true
+            }
+
             const cubiertas = new Set()
 
             filas.forEach(f => {
@@ -545,6 +586,9 @@ export function useReporteExcel() {
 
                 filas.push(filaSinDocumento(cod, mat.nombre, mat.ch))
             }
+
+            // Solo tenía materias 18: el docente no se muestra
+            if (tuvoMateria18 && !filas.length) continue
 
             // activo sin documentos ni materias
             if (!filas.length) filas.push(filaSinDocumento(cod, '-', null))
@@ -720,6 +764,8 @@ export function useReporteExcel() {
     // (mismos números y ≥ 75% de palabras en común). Si hay coincidencia asigna
     // la CH; si no, deja la fila como está. No toca filas sin materia real
     // (placeholder "NO REGENTA...") ni las filas compartidas (CH = '-').
+    // Con excluirPrelacion, las materias con código 18 no entran al mapa (así
+    // su CH no se mezcla con otra materia del mismo nombre).
     async function asignarCargaHoraria({ anio, periodo } = {}) {
         const cargaDocentes = await obtenerCargaHorariaDocentes({ anio, periodo })
 
@@ -729,6 +775,7 @@ export function useReporteExcel() {
         for (const docente of cargaDocentes) {
             const m = new Map()
             for (const materia of (docente.materias || [])) {
+                if (excluirPrelacion.value && esCodigoMateriaExcluido(materia.cod_materia)) continue
                 const key = normalizarNombreMateria(materia.nom_materia)
                 if (!key) continue
                 m.set(key, (m.get(key) || 0) + Number(materia.carga_horaria || 0))
@@ -1073,6 +1120,7 @@ export function useReporteExcel() {
         previewSinCombinar = null
         mostrarReferencias.value = false
         mostrarCompartidas.value = false
+        excluirPrelacion.value = false
         datosCrudos = null
         compartidasMap = new Map()
         filasOcultasCompartidas.value = 0
@@ -1095,6 +1143,9 @@ export function useReporteExcel() {
         // Compartido
         mostrarCompartidas,
         alternarMostrarCompartidas,
+
+        // Exclusiones de Prelación (docente 100 + materias con código 18)
+        excluirPrelacion,
 
         // Solo Activos
         cargandoActivos,
