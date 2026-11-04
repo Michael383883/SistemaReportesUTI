@@ -361,9 +361,18 @@ class ReporteExcelController extends Controller
                         'COD_DOCENTE' => $clasificacion->COD_DOCENTE,
                         'NOMBRE_DOCENTE' => $nombreDocente,
                         'NOMBRE_MATERIA' => $materia->NOMBRE_MATERIA ?: '-',
+                        // Código de la materia (ej. 1803024). Se usa en Prelación para
+                        // excluir las materias cuyo código empieza con 18.
+                        // OJO: ajusta el nombre de la columna según tu tabla de materias.
+                        'COD_MATERIA' => $materia->COD_MATERIA
+                            ?? $materia->CODIGO_MATERIA
+                            ?? $materia->MATERIA
+                            ?? null,
                         'CH' => $materia->CARGA_HORARIA ?? null,
                         'DETALLE' => $detalleFila,
                         'CATEGORIA' => $this->formatearCategoria($documento->CATEGORIA),
+                        // NIVEL se sigue enviando (se usa para ordenar/numerar), pero
+                        // ya no se muestra como columna en la tabla, el PDF ni el Excel.
                         'NIVEL' => $primeraFilaClasificacion ? $nivel : '',
                         'FOTOCOPIA_TITULAR' => $documento->FOTOCOPIA_TITULAR ? 'PRESENTO FOTOCOPIA' : '',
                         'OBS2' => $obs2,
@@ -461,10 +470,10 @@ class ReporteExcelController extends Controller
     }
 
     /**
-     * Layout de columnas:
+     * Layout de columnas (sin la columna NIVEL):
      * B Nº | C NOMBRE DOCENTE | D NOMBRE MATERIA | E CH | F DETALLE
-     * G CATEGORIA | H T. CH (total por docente) | I NIVEL | J (separador vacío)
-     * K FOTOCOPIA TITULAR | L OBS2 | M OBS3
+     * G CATEGORIA | H T. CH (total por docente) | I (separador vacío)
+     * J FOTOCOPIA TITULAR | K OBS2 | L OBS3
      */
     private function generarExcel(array $data, string $gestion, string $version)
     {
@@ -480,12 +489,12 @@ class ReporteExcelController extends Controller
         $sheet->setCellValue('B2', 'Facultad de Ciencias Económicas');
 
         $sheet->setCellValue('B3', 'LISTA DE DOCENTES Y LAS MATERIAS QUE IMPARTEN - PRELACIÓN');
-        $sheet->mergeCells('B3:I3');
+        $sheet->mergeCells('B3:H3');
         $sheet->getStyle('B3')->getFont()->setBold(true)->setSize(14);
         $sheet->getStyle('B3')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
         $sheet->setCellValue('B4', 'Nota: Este es un documento preliminar aún no aprobado por la comisión revisora, el mismo puede ser modificado de acuerdo a la solicitud debidamente documentada con Resolución.');
-        $sheet->mergeCells('B4:I4');
+        $sheet->mergeCells('B4:H4');
         $sheet->getStyle('B4')->getAlignment()->setWrapText(true)->setVertical(Alignment::VERTICAL_CENTER);
         $sheet->getRowDimension(4)->setRowHeight(32);
 
@@ -498,16 +507,15 @@ class ReporteExcelController extends Controller
             'F' => 'DETALLE',
             'G' => 'CATEGORIA',
             'H' => 'T. CH',
-            'I' => 'NIVEL',
-            'K' => 'FOTOCOPIA TITULAR',
-            'L' => 'OBS 2',
-            'M' => 'OBS3',
+            'J' => 'FOTOCOPIA TITULAR',
+            'K' => 'OBS 2',
+            'L' => 'OBS3',
         ];
 
         foreach ($headers as $col => $texto) {
             $sheet->setCellValue($col . '5', $texto);
         }
-        foreach (['B5:I5', 'K5:M5'] as $rango) {
+        foreach (['B5:H5', 'J5:L5'] as $rango) {
             $sheet->getStyle($rango)->getFont()->setBold(true);
             $sheet->getStyle($rango)->getAlignment()
                 ->setHorizontal(Alignment::HORIZONTAL_CENTER)
@@ -524,7 +532,7 @@ class ReporteExcelController extends Controller
 
         foreach ($data as $item) {
             // T. CH solo en la primera fila de cada docente; 0 se deja vacío.
-// Si viene TOTAL_CH_MES (x 4), se agrega debajo: "24" / "Mes 96".
+            // Si viene TOTAL_CH_MES (x 4), se agrega debajo: "24" / "Mes 96".
             $totalCh = null;
             if (!empty($item['INICIO_GRUPO']) && !empty($item['TOTAL_CH'])) {
                 $totalCh = $item['TOTAL_CH'];
@@ -540,15 +548,14 @@ class ReporteExcelController extends Controller
             $sheet->setCellValue('F' . $fila, $item['DETALLE']);
             $sheet->setCellValue('G' . $fila, $item['CATEGORIA']);
             $sheet->setCellValue('H' . $fila, $totalCh);
-            $sheet->setCellValue('I' . $fila, $item['NIVEL']);
-            $sheet->setCellValue('K' . $fila, $item['FOTOCOPIA_TITULAR']);
-            $sheet->setCellValue('L' . $fila, $item['OBS2']);
-            $sheet->setCellValue('M' . $fila, $item['OBS3']);
+            $sheet->setCellValue('J' . $fila, $item['FOTOCOPIA_TITULAR']);
+            $sheet->setCellValue('K' . $fila, $item['OBS2']);
+            $sheet->setCellValue('L' . $fila, $item['OBS3']);
 
-            $sheet->getStyle('B' . $fila . ':I' . $fila)->getAlignment()
+            $sheet->getStyle('B' . $fila . ':H' . $fila)->getAlignment()
                 ->setWrapText(true)
                 ->setVertical(Alignment::VERTICAL_CENTER);
-            $sheet->getStyle('K' . $fila . ':M' . $fila)->getAlignment()
+            $sheet->getStyle('J' . $fila . ':L' . $fila)->getAlignment()
                 ->setWrapText(true)
                 ->setVertical(Alignment::VERTICAL_CENTER);
 
@@ -557,9 +564,9 @@ class ReporteExcelController extends Controller
             $sheet->getStyle('H' . $fila)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
             $sheet->getStyle('H' . $fila)->getFont()->setBold(true);
 
-            $sheet->getStyle('B' . $fila . ':I' . $fila)->getBorders()->getAllBorders()
+            $sheet->getStyle('B' . $fila . ':H' . $fila)->getBorders()->getAllBorders()
                 ->setBorderStyle(Border::BORDER_THIN);
-            $sheet->getStyle('K' . $fila . ':M' . $fila)->getBorders()->getAllBorders()
+            $sheet->getStyle('J' . $fila . ':L' . $fila)->getBorders()->getAllBorders()
                 ->setBorderStyle(Border::BORDER_THIN);
 
             // Fusiona Nº, Docente y T. CH a lo largo de todas las filas del docente
@@ -604,19 +611,19 @@ class ReporteExcelController extends Controller
             }
 
             if (!empty($item['FIN_GRUPO'])) {
-                $sheet->getStyle('B' . $fila . ':I' . $fila)->getBorders()->getBottom()
+                $sheet->getStyle('B' . $fila . ':H' . $fila)->getBorders()->getBottom()
                     ->setBorderStyle(Border::BORDER_MEDIUM);
-                $sheet->getStyle('K' . $fila . ':M' . $fila)->getBorders()->getBottom()
+                $sheet->getStyle('J' . $fila . ':L' . $fila)->getBorders()->getBottom()
                     ->setBorderStyle(Border::BORDER_MEDIUM);
             }
 
             $fila++;
         }
 
-        // === AUTOFILTRO (CATEGORIA, T. CH y NIVEL: G a I) ===
+        // === AUTOFILTRO (CATEGORIA y T. CH: G a H) ===
         $ultimaFila = $fila - 1;
         if ($ultimaFila >= 5) {
-            $sheet->setAutoFilter('G5:I' . $ultimaFila);
+            $sheet->setAutoFilter('G5:H' . $ultimaFila);
         }
 
         // === ANCHOS DE COLUMNA ===
@@ -628,11 +635,10 @@ class ReporteExcelController extends Controller
         $sheet->getColumnDimension('F')->setWidth(55);
         $sheet->getColumnDimension('G')->setWidth(26);
         $sheet->getColumnDimension('H')->setWidth(8);
-        $sheet->getColumnDimension('I')->setWidth(15.3);
-        $sheet->getColumnDimension('J')->setWidth(1.5);
-        $sheet->getColumnDimension('K')->setWidth(23.6);
-        $sheet->getColumnDimension('L')->setWidth(16);
-        $sheet->getColumnDimension('M')->setWidth(20);
+        $sheet->getColumnDimension('I')->setWidth(1.5);   // separador
+        $sheet->getColumnDimension('J')->setWidth(23.6);
+        $sheet->getColumnDimension('K')->setWidth(16);
+        $sheet->getColumnDimension('L')->setWidth(20);
 
         $sheet->freezePane('B6');
 

@@ -29,7 +29,7 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
  * Parámetros (listado y excel):
  *   anio                 requerido  ej. 2026
  *   periodo              requerido  1 | 2 | 3 | 4
- *   categoria            opcional   default "ACÉFALA" (compara sin tildes ni mayúsculas)
+ *   categorias[]         opcional   varias; default "ACÉFALA" (compara sin tildes ni mayúsculas)
  *   planes[]             opcional   códigos de plan; vacío = todas las carreras
  *   incluir_compartidas  opcional   default 1: incluye las filas "(*) COMPARTIDO" bajo su materia
  *   con_asignacion       opcional   default 1: rellena Nombre Docente / Resolución / Designación
@@ -109,7 +109,7 @@ class ReporteKardexMateriaController extends Controller
             : '_' . implode('-', array_map(fn($p) => self::CARRERAS[$p]['abrev'], $filtros['planes']));
 
         $nombreArchivo = 'kardex_materias_'
-            . Str::slug(Str::ascii($filtros['categoria']), '_')
+            . Str::slug(Str::ascii(implode('-', $filtros['categorias'])), '_')
             . '_' . $filtros['anio'] . '_' . $filtros['periodo']
             . $sufijoPlanes . '.xlsx';
 
@@ -132,24 +132,37 @@ class ReporteKardexMateriaController extends Controller
         if (is_string($planes)) {
             $planes = array_filter(array_map('trim', explode(',', $planes)));
         }
-        $request->merge(['planes' => array_values((array) $planes)]);
+        // Acepta categorias[]=a&categorias[]=b  (o el antiguo categoria=a)
+        $categorias = (array) $request->query('categorias', []);
+        if ($request->filled('categoria')) {
+            $categorias[] = (string) $request->query('categoria');
+        }
+        $categorias = array_values(array_unique(array_filter(
+            array_map(fn($c) => trim((string) $c), $categorias),
+            fn($c) => $c !== ''
+        )));
+
+        $request->merge([
+            'planes' => array_values((array) $planes),
+            'categorias' => $categorias,
+        ]);
 
         $request->validate([
             'anio' => 'required|integer|min:2000|max:2100',
             'periodo' => 'required|string|in:1,2,3,4',
-            'categoria' => 'nullable|string|max:30',
+            'categorias' => 'nullable|array|max:20',
+            'categorias.*' => 'string|max:60',
             'planes' => 'nullable|array',
             'planes.*' => ['string', Rule::in(array_keys(self::CARRERAS))],
             'incluir_compartidas' => 'nullable|boolean',
             'con_asignacion' => 'nullable|boolean',
         ]);
 
-        $categoria = trim((string) $request->input('categoria', ''));
-
         return [
             'anio' => (int) $request->input('anio'),
             'periodo' => (string) $request->input('periodo'),
-            'categoria' => $categoria !== '' ? $categoria : self::CATEGORIA_DEFECTO,
+            // Sin selección = ACÉFALA
+            'categorias' => !empty($categorias) ? $categorias : [self::CATEGORIA_DEFECTO],
             'planes' => array_values(array_unique($request->input('planes', []))),
             'incluir_compartidas' => $request->boolean('incluir_compartidas', true),
             'con_asignacion' => $request->boolean('con_asignacion', true),
@@ -161,7 +174,7 @@ class ReporteKardexMateriaController extends Controller
     // ═════════════════════════════════════════════════════════════
     private function construirReporte(array $f): array
     {
-        $filas = $this->consultarGrupos($f['anio'], $f['periodo'], $f['categoria']);
+        $filas = $this->consultarGrupos($f['anio'], $f['periodo'], $f['categorias']);
         $secciones = $this->armarSecciones($filas, $f['planes'], $f['incluir_compartidas']);
 
         $totalFilas = 0;
@@ -172,10 +185,11 @@ class ReporteKardexMateriaController extends Controller
         }
 
         return [
-            'titulo' => $this->titulo($f['categoria'], $f['anio'], $f['periodo']),
+            'titulo' => $this->titulo($f['categorias'], $f['anio'], $f['periodo']),
             'anio' => $f['anio'],
             'periodo' => $f['periodo'],
-            'categoria' => $f['categoria'],
+            'categoria' => implode(', ', $f['categorias']),
+            'categorias' => $f['categorias'],
             'planes_filtro' => $f['planes'],
             'total_materias' => $totalMaterias,   // sin contar las filas compartidas
             'total_filas' => $totalFilas,
@@ -183,10 +197,13 @@ class ReporteKardexMateriaController extends Controller
         ];
     }
 
-    private function titulo(string $categoria, int $anio, string $periodo): string
+    private function titulo(array $categorias, int $anio, string $periodo): string
     {
-        $esAcefala = Str::upper(Str::ascii($categoria)) === 'ACEFALA';
-        $texto = $esAcefala ? 'ACÉFALAS' : mb_strtoupper($categoria);
+        $textos = array_map(function ($c) {
+            $esAcefala = in_array(Str::upper(Str::ascii($c)), ['ACEFALA', 'ACEFALAS'], true);
+            return $esAcefala ? 'ACÉFALAS' : mb_strtoupper($c);
+        }, $categorias);
+        $texto = implode(' / ', $textos);
 
         $periodoLabel = match ($periodo) {
             '3' => 'VERANO',
@@ -201,8 +218,6 @@ class ReporteKardexMateriaController extends Controller
      * Una fila por GRUPO (materia + plan + grupo) de la gestión con la
      * categoría pedida en GRUPOS.TIPO_INGRESO.
      *
-     *  - docente_anterior: último docente DISTINTO del actual que dictó ese
-     *    mismo plan+materia+grupo en una gestión anterior (sin verano/invierno).
      *  - ch: carga horaria = 2 por cada registro de HORARIOS2 (tipo 'C'), con la
      *    misma regla de horas excluidas que ReporteDocenteController@horario.
      *  - comp / comparte / orden_comparte: de GRUPOS_COMPARTIDOS.
@@ -212,9 +227,18 @@ class ReporteKardexMateriaController extends Controller
      *    (mismo plan, materia, grupo, docente, gestión, periodo y categoría).
      *    Solo se toman documentos que tengan archivo PDF subido (RUTA_ARCHIVO).
      */
-    private function consultarGrupos(int $anio, string $periodo, string $categoria): array
+    private function consultarGrupos(int $anio, string $periodo, array $categorias): array
     {
         $planesSql = implode(',', array_map(fn($p) => "'" . $p . "'", array_keys(self::CARRERAS)));
+
+        // Una categoría = un parámetro enlazado (:cat0, :cat1, ...)
+        $bindings = ['anio' => $anio, 'periodo' => $periodo];
+        $categoriasSql = [];
+        foreach (array_values($categorias) as $i => $cat) {
+            $categoriasSql[] = "UPPER(LTRIM(RTRIM(:cat{$i}))) COLLATE Modern_Spanish_CI_AI";
+            $bindings["cat{$i}"] = $cat;
+        }
+        $categoriasIn = implode(', ', $categoriasSql);
 
         $sql = <<<SQL
         SELECT
@@ -226,7 +250,6 @@ class ReporteKardexMateriaController extends Controller
             GRUPOS.GRUPO                           AS grupo,
             GRUPOS.DOCENTE                         AS cod_docente,
             LTRIM(RTRIM(DOC.APELLIDOS + ' ' + DOC.NOMBRES)) AS docente_actual,
-            ANT.NOMBRE                             AS docente_anterior,
             ISNULL(HOR.CH, 0)                      AS ch,
             GRUPOS.RESOLUCION,
             GRUPOS.DESIGNACION,
@@ -259,23 +282,6 @@ class ReporteKardexMateriaController extends Controller
               AND GC2.PRIMARIO = GRUPOS.PRIMARIO
             ORDER BY GC2.ORDEN
         ) AS GC
-
-        OUTER APPLY (
-            SELECT TOP 1 LTRIM(RTRIM(DA.APELLIDOS + ' ' + DA.NOMBRES)) AS NOMBRE
-            FROM GRUPOS AS G2
-            INNER JOIN DOCENTES AS DA
-                ON DA.CODIGO = G2.DOCENTE
-            WHERE G2.[PLAN]    = GRUPOS.[PLAN]
-              AND G2.MATERIA   = GRUPOS.MATERIA
-              AND G2.GRUPO     = GRUPOS.GRUPO
-              AND G2.PRIMARIO  = 'Y'
-              AND G2.TIPO      = 'N'
-              AND G2.PERIODO NOT IN ('3','4')
-              AND (G2.ANIO < GRUPOS.ANIO
-                   OR (G2.ANIO = GRUPOS.ANIO AND G2.PERIODO < GRUPOS.PERIODO))
-              AND (GRUPOS.DOCENTE IS NULL OR G2.DOCENTE <> GRUPOS.DOCENTE)
-            ORDER BY G2.ANIO DESC, G2.PERIODO DESC
-        ) AS ANT
 
         OUTER APPLY (
             SELECT COUNT(*) * 2 AS CH
@@ -317,16 +323,12 @@ class ReporteKardexMateriaController extends Controller
           AND GRUPOS.PERIODO  = :periodo
           AND GRUPOS.[PLAN] IN ({$planesSql})
           AND UPPER(LTRIM(RTRIM(COALESCE(GRUPOS.TIPO_INGRESO, '')))) COLLATE Modern_Spanish_CI_AI
-              = UPPER(LTRIM(RTRIM(:categoria))) COLLATE Modern_Spanish_CI_AI
+              IN ({$categoriasIn})
 
         ORDER BY GRUPOS.[PLAN], GRUPOS.MATERIA, GRUPOS.GRUPO
         SQL;
 
-        return DB::connection('sqlsrv')->select($sql, [
-            'anio' => $anio,
-            'periodo' => $periodo,
-            'categoria' => $categoria,
-        ]);
+        return DB::connection('sqlsrv')->select($sql, $bindings);
     }
 
     private function normalizarFila(object $f): array
@@ -343,7 +345,6 @@ class ReporteKardexMateriaController extends Controller
             'ch' => (int) $f->ch,
             'cod_docente' => trim((string) $f->cod_docente),
             'docente_actual' => trim((string) $f->docente_actual),
-            'docente_anterior' => trim((string) $f->docente_anterior),
             'resolucion' => trim((string) $f->RESOLUCION),
             'designacion' => trim((string) $f->DESIGNACION),
             'tipo_ingreso' => mb_strtoupper(trim((string) $f->TIPO_INGRESO)),
@@ -411,10 +412,10 @@ class ReporteKardexMateriaController extends Controller
 
             $lista = $porPlan[$codPlan];
 
-            // Agrupa por docente anterior (los vacíos al final), luego materia y grupo
+            // Orden por materia y grupo
             usort($lista, function ($a, $b) {
-                $ka = [$a[0]['docente_anterior'] === '' ? 1 : 0, $a[0]['docente_anterior'], $a[0]['cod_materia'], $a[0]['grupo']];
-                $kb = [$b[0]['docente_anterior'] === '' ? 1 : 0, $b[0]['docente_anterior'], $b[0]['cod_materia'], $b[0]['grupo']];
+                $ka = [$a[0]['cod_materia'], $a[0]['grupo']];
+                $kb = [$b[0]['cod_materia'], $b[0]['grupo']];
                 return $ka <=> $kb;
             });
 
@@ -449,6 +450,9 @@ class ReporteKardexMateriaController extends Controller
 
     // ═════════════════════════════════════════════════════════════
     //  EXCEL
+    //  Columnas: A Nº | B Plan | C (sep) | D SIS-Mat | E Materia | F Grupo | G CH
+    //            | H (sep) | I Docente | J D-H-A | K Compartido | L Resolución
+    //            | M (sep) | N Designación | O Tipo
     // ═════════════════════════════════════════════════════════════
     private function escribirHoja(Worksheet $sheet, array $reporte, bool $conAsignacion): void
     {
@@ -456,8 +460,8 @@ class ReporteKardexMateriaController extends Controller
         $GRIS_HEAD = 'FFD9D9D9';
         $GRIS_SEP = 'FFBFBFBF';
 
-        $ultimaCol = 'P';
-        $columnasSeparadoras = ['D', 'I', 'N'];
+        $ultimaCol = 'O';
+        $columnasSeparadoras = ['C', 'H', 'M'];
 
         // Título
         $sheet->mergeCells("A1:{$ultimaCol}1");
@@ -470,7 +474,6 @@ class ReporteKardexMateriaController extends Controller
 
         $encabezados = [
             'Nº',
-            'Docente Anterior',
             'Plan',
             '',
             'SIS-Mat',
@@ -522,28 +525,27 @@ class ReporteKardexMateriaController extends Controller
 
             foreach ($sec['filas'] as $fila) {
                 $sheet->fromArray([
-                    $fila['nro'],
-                    $fila['docente_anterior'],
-                    null,
-                    null,
-                    null,
-                    $fila['nombre_materia'],
-                    null,
-                    $fila['ch'],
-                    null,
-                    $conAsignacion ? $fila['docente_actual'] : null,
-                    null,
-                    $fila['compartido'],
-                    $conAsignacion ? $fila['resolucion'] : null,
-                    null,
-                    $conAsignacion ? $fila['designacion'] : null,
-                    $fila['tipo_ingreso'],
+                    $fila['nro'],                                            // A
+                    null,                                                    // B Plan (explícito abajo)
+                    null,                                                    // C sep
+                    null,                                                    // D SIS-Mat (explícito abajo)
+                    $fila['nombre_materia'],                                 // E
+                    null,                                                    // F Grupo (explícito abajo)
+                    $fila['ch'],                                             // G
+                    null,                                                    // H sep
+                    $conAsignacion ? $fila['docente_actual'] : null,         // I
+                    null,                                                    // J D-H-A
+                    $fila['compartido'],                                     // K
+                    $conAsignacion ? $fila['resolucion'] : null,             // L
+                    null,                                                    // M sep
+                    $conAsignacion ? $fila['designacion'] : null,            // N
+                    $fila['tipo_ingreso'],                                   // O
                 ], null, "A{$r}");
 
                 // Texto explícito para no perder ceros a la izquierda (grupo "01", códigos)
-                $sheet->setCellValueExplicit("C{$r}", $fila['plan_abrev'] . "\n" . $fila['cod_plan'], DataType::TYPE_STRING);
-                $sheet->setCellValueExplicit("E{$r}", $fila['cod_materia'], DataType::TYPE_STRING);
-                $sheet->setCellValueExplicit("G{$r}", $fila['grupo'], DataType::TYPE_STRING);
+                $sheet->setCellValueExplicit("B{$r}", $fila['plan_abrev'] . "\n" . $fila['cod_plan'], DataType::TYPE_STRING);
+                $sheet->setCellValueExplicit("D{$r}", $fila['cod_materia'], DataType::TYPE_STRING);
+                $sheet->setCellValueExplicit("F{$r}", $fila['grupo'], DataType::TYPE_STRING);
 
                 if ($fila['rowspan'] > 1) {
                     $sheet->mergeCells("A{$r}:A" . ($r + $fila['rowspan'] - 1));
@@ -562,11 +564,11 @@ class ReporteKardexMateriaController extends Controller
             $sheet->getStyle($rangoDatos)->getBorders()->getAllBorders()
                 ->setBorderStyle(Border::BORDER_THIN)->getColor()->setARGB($NEGRO);
 
-            foreach (['A', 'C', 'E', 'G', 'H', 'K', 'L', 'P'] as $c) {
+            foreach (['A', 'B', 'D', 'F', 'G', 'J', 'K', 'O'] as $c) {
                 $sheet->getStyle("{$c}{$primera}:{$c}{$ultima}")->getAlignment()
                     ->setHorizontal(Alignment::HORIZONTAL_CENTER);
             }
-            foreach (['C', 'L', 'P'] as $c) {
+            foreach (['B', 'K', 'O'] as $c) {
                 $sheet->getStyle("{$c}{$primera}:{$c}{$ultima}")->getFont()->setBold(true);
             }
             foreach ($columnasSeparadoras as $c) {
@@ -579,21 +581,20 @@ class ReporteKardexMateriaController extends Controller
 
         $anchos = [
             'A' => 5,
-            'B' => 28,
-            'C' => 9,
-            'D' => 1.5,
-            'E' => 11,
-            'F' => 32,
-            'G' => 7,
-            'H' => 5,
-            'I' => 1.5,
-            'J' => 30,
-            'K' => 14,
-            'L' => 18,
-            'M' => 22,
-            'N' => 1.5,
-            'O' => 30,
-            'P' => 14,
+            'B' => 9,
+            'C' => 1.5,
+            'D' => 11,
+            'E' => 32,
+            'F' => 7,
+            'G' => 5,
+            'H' => 1.5,
+            'I' => 30,
+            'J' => 14,
+            'K' => 18,
+            'L' => 22,
+            'M' => 1.5,
+            'N' => 30,
+            'O' => 14,
         ];
         foreach ($anchos as $col => $w) {
             $sheet->getColumnDimension($col)->setWidth($w);

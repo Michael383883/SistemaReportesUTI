@@ -12,6 +12,7 @@ class ClasificacionDocenteController extends Controller
 {
     // GRUPOS.TIPO_INGRESO es varchar(30): la categoría no puede pasar de 30.
     private const MAX_CATEGORIA = 30;
+
     // GET /clasificaciones
     //
     // Filtros multi-selección (categoria[] y tipo_titulo[]):
@@ -34,8 +35,8 @@ class ClasificacionDocenteController extends Controller
                 'cdoc.CATEGORIA',
                 'cdoc.NIVEL',
                 'cdoc.TIPO_DOCUMENTO',
-                'cdoc.DETALLE_GENERAL',   // ← NUEVA
-                'cdoc.OBSERVACION',       // ← NUEVA (la usa el filtro "Observación")
+                'cdoc.DETALLE_GENERAL',
+                'cdoc.OBSERVACION',
                 'cdoc.GESTION',
                 'cdoc.PERIODO',
                 'cdoc.FOTOCOPIA_TITULAR',
@@ -113,8 +114,6 @@ class ClasificacionDocenteController extends Controller
         $listado = $query->orderBy('NOMBRE_DOCENTE')->get();
 
         // ── Adjuntar las materias de cada fila (para exportar PDF/Excel) ──
-        // Cada fila del listado = un docente dentro de un documento
-        // (ID_CLASIFICACION_DOCENTE), así que sus materias se buscan por ese id.
         // Se consulta en lotes de 1000 por el límite de parámetros de SQL Server.
         $materiasPorClasif = collect();
 
@@ -201,8 +200,15 @@ class ClasificacionDocenteController extends Controller
     }
 
     // POST /clasificaciones
+    //
+    // También lo usa el modo "Registrar copia" del editor (con
+    // id_documento_origen para reutilizar el PDF sin duplicarlo).
     public function store(Request $request)
     {
+        // Ruta del PDF recién subido en ESTA petición (no la reutilizada).
+        // Si algo falla, se borra para no dejar archivos huérfanos.
+        $rutaNuevaSubida = null;
+
         DB::beginTransaction();
 
         try {
@@ -269,7 +275,9 @@ class ClasificacionDocenteController extends Controller
 
                 $carpeta = 'clasificacion_docente/' . ($request->gestion ?: 'sin_gestion');
                 $nombreLimpio = preg_replace('/[^A-Za-z0-9\-_\.]/', '-', $archivo->getClientOriginalName());
-                $rutaArchivo = $archivo->storeAs($carpeta, $nombreLimpio, 'public');
+                // Nombre único: evita sobrescribir un PDF que otro documento ya use.
+                $rutaArchivo = $archivo->storeAs($carpeta, time() . '_' . $nombreLimpio, 'public');
+                $rutaNuevaSubida = $rutaArchivo;
                 $nombreArchivo = $archivo->getClientOriginalName();
                 $fotocopia = true;
 
@@ -396,7 +404,7 @@ class ClasificacionDocenteController extends Controller
             ], 201);
 
         } catch (\Illuminate\Validation\ValidationException $e) {
-            DB::rollBack();
+            $this->revertirTodo($rutaNuevaSubida);
 
             return response()->json([
                 'ok' => false,
@@ -405,7 +413,7 @@ class ClasificacionDocenteController extends Controller
             ], 422);
 
         } catch (\Throwable $e) {
-            DB::rollBack();
+            $this->revertirTodo($rutaNuevaSubida);
 
             $mensajeSeguro = preg_replace(
                 '/[\x00-\x08\x0B\x0C\x0E-\x1F\x80-\xFF]/',
@@ -439,15 +447,30 @@ class ClasificacionDocenteController extends Controller
     //  - Un hermano que solo tiene TÍTULO (no editable desde este form) nunca
     //    se desvincula por esta vía.
     //  - Las materias que el usuario quitó se limpian también en GRUPOS.
-    //  - NUEVO: si cambia categoría / tipo de documento / detalle, se
-    //    re-sincroniza GRUPOS (que es lo que lee el reporte de tipo de ingreso).
+    //  - Si cambia categoría / tipo de documento / detalle, se re-sincroniza GRUPOS.
+    //
+    // ── SEGUIMIENTO DE PASOS ──
+    // Todo corre en una transacción. Si algo falla: se revierte TODO, se borra
+    // el PDF nuevo escrito en disco, y se responde con el paso exacto donde
+    // falló, los pasos que se habían completado y `revertido: true`.
     public function update(Request $request, $id)
     {
+        $pasoActual = 'Iniciando';
+        $pasosCompletados = [];
+        $marcar = function (string $nombre) use (&$pasoActual, &$pasosCompletados) {
+            if ($pasoActual !== 'Iniciando') {
+                $pasosCompletados[] = $pasoActual;
+            }
+            $pasoActual = $nombre;
+        };
+
         DB::beginTransaction();
 
         $rutaViejaABorrar = null;
+        $rutaNuevaGuardada = null; // PDF nuevo escrito en disco (se borra si hay rollback)
 
         try {
+            $marcar('Buscar la clasificación');
             $ccd = DB::table('CLASIFICACION_DOCENTE')
                 ->where('ID_CLASIFICACION_DOCENTE', $id)
                 ->first();
@@ -459,6 +482,7 @@ class ClasificacionDocenteController extends Controller
 
             $idDocumentoOriginal = $ccd->ID_DOCUMENTO;
 
+            $marcar('Validar los datos enviados');
             $request->validate([
                 'categoria' => 'required|string|max:' . self::MAX_CATEGORIA,
                 'nivel' => 'nullable|string|in:Primer nivel,Segundo nivel,Tercer nivel',
@@ -490,6 +514,7 @@ class ClasificacionDocenteController extends Controller
                     throw new \Exception('titulo inválido: el JSON no es un objeto');
             }
 
+            $marcar('Detectar docentes vinculados');
             // ¿Hay otros docentes (hermanos) vinculados al mismo documento?
             $tieneHermanos = DB::table('CLASIFICACION_DOCENTE')
                 ->where('ID_DOCUMENTO', $idDocumentoOriginal)
@@ -592,6 +617,7 @@ class ClasificacionDocenteController extends Controller
             }
 
             if ($request->hasFile('archivo_pdf')) {
+                $marcar('Guardar el PDF nuevo en disco');
                 $archivo = $request->file('archivo_pdf');
                 if (!$archivo->isValid()) {
                     DB::rollBack();
@@ -607,7 +633,9 @@ class ClasificacionDocenteController extends Controller
 
                 $carpeta = 'clasificacion_docente/' . ($request->gestion ?: 'sin_gestion');
                 $nombreLimpio = preg_replace('/[^A-Za-z0-9\-_\.]/', '-', $archivo->getClientOriginalName());
-                $rutaArchivo = $archivo->storeAs($carpeta, $nombreLimpio, 'public');
+                // Nombre único: evita sobrescribir un PDF que otro documento comparta.
+                $rutaArchivo = $archivo->storeAs($carpeta, time() . '_' . $nombreLimpio, 'public');
+                $rutaNuevaGuardada = $rutaArchivo;
 
                 $datosDocumento['RUTA_ARCHIVO'] = $rutaArchivo;
                 $datosDocumento['NOMBRE_ARCHIVO'] = $archivo->getClientOriginalName();
@@ -620,6 +648,7 @@ class ClasificacionDocenteController extends Controller
 
             if ($desvincular) {
                 // ── Modo "solo este docente": documento nuevo e independiente ──
+                $marcar('Crear documento independiente (solo este docente)');
                 $idDocumento = DB::table('CLASIFICACION_DOCUMENTO')->insertGetId(array_merge($datosDocumento, [
                     'FECHA_REGISTRO' => DB::raw('GETDATE()'),
                 ]), 'ID_DOCUMENTO');
@@ -628,6 +657,7 @@ class ClasificacionDocenteController extends Controller
                     ->where('ID_CLASIFICACION_DOCENTE', $id)
                     ->update(['ID_DOCUMENTO' => $idDocumento]);
             } else {
+                $marcar('Actualizar datos del documento (CLASIFICACION_DOCUMENTO)');
                 $idDocumento = $idDocumentoOriginal;
                 DB::table('CLASIFICACION_DOCUMENTO')
                     ->where('ID_DOCUMENTO', $idDocumento)
@@ -636,6 +666,7 @@ class ClasificacionDocenteController extends Controller
 
             // ── Ejecutar la desvinculación de hermanos confirmada ──
             if (!$desvincular && $hermanosADesvincular->isNotEmpty()) {
+                $marcar('Desvincular docentes que ya no tienen materias');
                 foreach ($hermanosADesvincular as $h) {
                     $materiasDelHermano = DB::table('CLASIFICACION_MATERIA')
                         ->where('ID_DOCUMENTO', $idDocumentoOriginal)
@@ -648,7 +679,8 @@ class ClasificacionDocenteController extends Controller
                             $materiasDelHermano,
                             $h->COD_DOCENTE,
                             $docActual->GESTION,
-                            $docActual->PERIODO
+                            $docActual->PERIODO,
+                            true // estricto: si falla GRUPOS, se revierte todo
                         );
                     }
 
@@ -667,6 +699,7 @@ class ClasificacionDocenteController extends Controller
             }
 
             // ── Mapa docente -> ID_CLASIFICACION_DOCENTE (agrega hermanos nuevos) ──
+            $marcar('Vincular docentes nuevos al documento');
             $mapaDocenteId = [(string) $ccd->COD_DOCENTE => $id];
 
             foreach ($materias as $m) {
@@ -703,6 +736,7 @@ class ClasificacionDocenteController extends Controller
             // El principal siempre se incluye (soporta "vaciar mis materias").
             $idsAEliminar = array_unique(array_merge([$id], array_keys($materiasPorDestino)));
 
+            $marcar('Reemplazar materias (CLASIFICACION_MATERIA)');
             // Foto de las materias ANTES de borrarlas, para saber cuáles
             // quitó el usuario y limpiarlas también en GRUPOS.
             $materiasAntes = DB::table('CLASIFICACION_MATERIA as cm')
@@ -741,13 +775,15 @@ class ClasificacionDocenteController extends Controller
 
             // ── Limpieza en GRUPOS por cambio de gestión/periodo (todos los docentes) ──
             if ($gestionCambio && $materiasAntiguasParaLimpiar->isNotEmpty() && $docActual) {
+                $marcar('Limpiar GRUPOS (cambió gestión/periodo)');
                 $porDocente = $materiasAntiguasParaLimpiar->groupBy('COD_DOCENTE_MATERIA');
                 foreach ($porDocente as $codDocenteMateria => $materiasDeEseDocente) {
                     $this->limpiarGruposPorMateriasAntiguas(
                         $materiasDeEseDocente,
                         $codDocenteMateria,
                         $docActual->GESTION,
-                        $docActual->PERIODO
+                        $docActual->PERIODO,
+                        true
                     );
                 }
             }
@@ -755,6 +791,7 @@ class ClasificacionDocenteController extends Controller
             // ── Limpieza en GRUPOS de las materias que el usuario QUITÓ ──
             // (si cambió gestión/periodo ya se limpió todo arriba).
             if (!$gestionCambio && $docActual && $materiasAntes->isNotEmpty()) {
+                $marcar('Limpiar GRUPOS (materias quitadas)');
                 $clave = fn($idDest, $plan, $mat, $grupo) =>
                     $idDest . '|' . trim((string) $plan) . '|' . trim((string) $mat) . '|' . trim((string) $grupo);
 
@@ -780,11 +817,13 @@ class ClasificacionDocenteController extends Controller
                         $ms,
                         $codDoc,
                         $docActual->GESTION,
-                        $docActual->PERIODO
+                        $docActual->PERIODO,
+                        true
                     );
                 }
             }
 
+            $marcar('Actualizar título (CLASIFICACION_TITULO)');
             DB::table('CLASIFICACION_TITULO')
                 ->where('ID_DOCUMENTO', $idDocumentoOriginal)
                 ->where('ID_CLASIFICACION_DOCENTE', $id)
@@ -808,6 +847,7 @@ class ClasificacionDocenteController extends Controller
             // Referencias: son por documento (compartidas).
             $referenciasActualizadas = 0;
             if ($request->has('referencias')) {
+                $marcar('Actualizar referencias (CLASIFICACION_REFERENCIA)');
                 $referencias = json_decode($request->referencias, true) ?: [];
 
                 if (!$desvincular) {
@@ -823,7 +863,7 @@ class ClasificacionDocenteController extends Controller
                 }
             }
 
-            // ── NUEVO: reflejar en GRUPOS el cambio de categoría / tipo / detalle ──
+            // ── Reflejar en GRUPOS el cambio de categoría / tipo / detalle ──
             // Si cambió gestión/periodo ya se limpió GRUPOS arriba y el usuario
             // debe volver a "Aplicar en grupos" para la combinación nueva.
             $gruposSincronizados = 0;
@@ -834,11 +874,14 @@ class ClasificacionDocenteController extends Controller
                     || (string) ($docActual->DETALLE_GENERAL ?? '') !== (string) ($request->detalle_general ?? '');
 
                 if ($cambioDatos) {
+                    $marcar('Sincronizar GRUPOS (categoría / tipo / detalle)');
                     $gruposSincronizados = $this->sincronizarGruposDocumento($idDocumento, $docActual->CATEGORIA);
                 }
             }
 
+            $marcar('Confirmar cambios (commit)');
             DB::commit();
+            $pasosCompletados[] = $pasoActual;
 
             // Borrado del PDF anterior DESPUÉS del commit, y solo si
             // ningún otro documento lo usa y no es el mismo archivo recién guardado.
@@ -869,20 +912,60 @@ class ClasificacionDocenteController extends Controller
                 // Si viene true, conviene avisar que vuelva a "Aplicar en GRUPOS"
                 // para la gestión/periodo nueva.
                 'gestion_o_periodo_cambio' => $gestionCambio,
+                'pasos_completados' => $pasosCompletados,
             ]);
 
         } catch (\Illuminate\Validation\ValidationException $e) {
-            DB::rollBack();
+            $this->revertirTodo($rutaNuevaGuardada);
             return response()->json(['ok' => false, 'tipo' => 'validacion', 'errores' => $e->errors()], 422);
         } catch (\Throwable $e) {
-            DB::rollBack();
+            $this->revertirTodo($rutaNuevaGuardada);
+
             $mensajeSeguro = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x80-\xFF]/', '?', $e->getMessage());
             Log::error('Error al actualizar ClasificacionDocente', [
+                'paso' => $pasoActual,
+                'pasos_completados' => $pasosCompletados,
                 'mensaje' => $mensajeSeguro,
                 'linea' => $e->getLine(),
                 'archivo' => $e->getFile(),
             ]);
-            return response()->json(['ok' => false, 'error' => $mensajeSeguro], 500);
+
+            return response()->json([
+                'ok' => false,
+                'tipo_error' => 'general',
+                'error' => $mensajeSeguro,
+                'paso' => $pasoActual,
+                'pasos_completados' => $pasosCompletados,
+                'revertido' => true, // la transacción se deshizo: NO se modificó ninguna tabla
+            ], 500);
+        }
+    }
+
+    /**
+     * Deshace la transacción (si sigue abierta) y borra el PDF nuevo escrito
+     * en disco durante este intento, para no dejar archivos huérfanos.
+     */
+    private function revertirTodo($rutaNuevaGuardada)
+    {
+        try {
+            if (DB::transactionLevel() > 0) {
+                DB::rollBack();
+            }
+        } catch (\Throwable $e) {
+            Log::error('Falló el rollback', ['error' => $e->getMessage()]);
+        }
+
+        if ($rutaNuevaGuardada) {
+            try {
+                if (Storage::disk('public')->exists($rutaNuevaGuardada)) {
+                    Storage::disk('public')->delete($rutaNuevaGuardada);
+                }
+            } catch (\Throwable $e) {
+                Log::warning('No se pudo borrar el PDF nuevo tras el rollback', [
+                    'ruta' => $rutaNuevaGuardada,
+                    'error' => $e->getMessage(),
+                ]);
+            }
         }
     }
 
@@ -962,11 +1045,14 @@ class ClasificacionDocenteController extends Controller
      * conjunto de materias. Se usa desde update() (cambio de gestión/periodo,
      * hermano desvinculado, materia quitada), destroy() y destroyDocente().
      *
-     * No lanza excepción hacia arriba: si un UPDATE falla se loguea y se continúa.
+     * Modo normal ($estricto = false): si un UPDATE falla se loguea y se continúa
+     * (destroy/destroyDocente).
+     * Modo estricto ($estricto = true): si falla, lanza excepción para que
+     * update() revierta TODA la transacción en vez de dejar GRUPOS a medias.
      *
      * @param \Illuminate\Support\Collection|array $materiasAntiguas filas de CLASIFICACION_MATERIA (COD_MATERIA, COD_PLAN, GRUPO)
      */
-    private function limpiarGruposPorMateriasAntiguas($materiasAntiguas, $codDocente, $gestionAntigua, $periodoAntigua)
+    private function limpiarGruposPorMateriasAntiguas($materiasAntiguas, $codDocente, $gestionAntigua, $periodoAntigua, bool $estricto = false)
     {
         if (!$gestionAntigua || !$codDocente) {
             return;
@@ -1012,6 +1098,14 @@ class ClasificacionDocenteController extends Controller
                     'periodo_antigua' => $periodoAntigua,
                     'error' => $e->getMessage(),
                 ]);
+
+                // En edición se prefiere abortar TODO antes que dejar GRUPOS a medias.
+                if ($estricto) {
+                    throw new \Exception(
+                        "No se pudo limpiar GRUPOS para la materia {$m->COD_MATERIA} (plan {$m->COD_PLAN}, grupo {$m->GRUPO}): "
+                        . $e->getMessage()
+                    );
+                }
             }
         }
     }
