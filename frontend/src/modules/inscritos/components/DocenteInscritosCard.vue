@@ -33,7 +33,7 @@
           <th v-if="showComp" class="text-left font-medium text-slate-800 dark:text-slate-400 text-xs px-2 py-2">Comparte</th>
           <th class="text-center font-medium text-slate-800 dark:text-slate-400 text-xs px-2 py-2">Tipo</th>
           <th class="text-center font-medium text-slate-800 dark:text-slate-400 text-xs px-2 py-2" title="Compartido (0 / 1). Si el número es clicable, haz clic para ver el detalle en la columna Comparte.">C</th>
-          <th class="text-right font-medium text-slate-800 dark:text-slate-400 text-xs px-2 py-2">Regular</th>
+          <th class="text-right font-medium text-slate-800 dark:text-slate-400 text-xs px-2 py-2">Normal</th>
           <th class="text-right font-medium text-slate-800 dark:text-slate-400 text-xs px-2 py-2">Mesa</th>
           <th class="text-right font-medium text-slate-800 dark:text-slate-400 text-xs px-4 py-2">Total</th>
           <th v-if="showTotalC" class="text-right font-medium text-slate-800 dark:text-slate-400 text-xs px-4 py-2" title="Suma de padre + hijo en materias compartidas">Total C</th>
@@ -223,7 +223,7 @@
                       <td class="py-1.5 text-right">
                         <span class="text-[10px] font-semibold px-2 py-0.5 rounded-md"
                               :class="colorClasses[item.carrera.carrera.toLowerCase()]?.badge ?? 'bg-slate-100 text-slate-600'">
-                          Regular
+                          Normal
                         </span>
                       </td>
                     </tr>
@@ -453,7 +453,7 @@ const materiasFlat = computed(() => {
 
     const cl = clusters.get(i.key)
     if (cl) {
-      // Total C = padre + todos sus hijos (regular + mesa)
+      // Total C = padre + todos sus hijos (normal + mesa)
       const totalC = totalMateria(i) + cl.hijos.reduce((s, h) => s + totalMateria(h), 0)
       const miembros = [i.key, ...cl.hijos.map((h) => h.key)]
       salida.push({

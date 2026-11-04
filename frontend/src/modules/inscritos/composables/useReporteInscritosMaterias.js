@@ -1,6 +1,6 @@
 // composables/useReporteInscritosMaterias.js
 // PDF de TOTAL DE INSCRITOS POR DOCENTE / MATERIA
-// Columnas: PLAN | MATERIA | TIPO | GRP | C | REGULAR | MESA | TOTAL | TOTAL C
+// Columnas: PLAN | MATERIA | TIPO | GRP | C | NORMAL | MESA | TOTAL | TOTAL C
 // Mismo estilo académico que el PDF de Carga Horaria (una sola tabla,
 // docente en línea simple, negrilla solo en cabecera y totales).
 // Usa los datos ya cargados en pantalla (dataFiltrada), sin fetch.
@@ -237,7 +237,7 @@ function ordenarMaterias(docente) {
 }
 
 // Agrupa las materias ya ordenadas por `cid` y calcula el TOTAL C de cada grupo
-// (regular + mesa de todas las materias del grupo).
+// (normal + mesa de todas las materias del grupo).
 function agruparPorCluster(materiasOrdenadas) {
     const grupos = []
     materiasOrdenadas.forEach(item => {
@@ -259,7 +259,7 @@ function agruparPorCluster(materiasOrdenadas) {
 
 // ────────────────────────────────────────────────────────────────────────────
 // TOTAL DE INSCRITOS POR MATERIA
-// Columnas (índices): 0 PLAN | 1 MATERIA | 2 TIPO | 3 GRP | 4 C | 5 REGULAR | 6 MESA | 7 TOTAL | 8 TOTAL C
+// Columnas (índices): 0 PLAN | 1 MATERIA | 2 TIPO | 3 GRP | 4 C | 5 NORMAL | 6 MESA | 7 TOTAL | 8 TOTAL C
 // ────────────────────────────────────────────────────────────────────────────
 function generarTotalesPorMateria(data, anio, periodo, modo = 'descargar', ventanaPreabierta = null, opciones = {}) {
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' })
@@ -270,7 +270,7 @@ function generarTotalesPorMateria(data, anio, periodo, modo = 'descargar', venta
     const HEADER_H = 24
     const fechaActual = fechaFormateada()
     const TITULO = opciones.titulo ?? 'TOTAL DE INSCRITOS POR MATERIA'
-    const NOTA = 'Incluye alumnos regulares y de examen de mesa.'
+    const NOTA = 'Incluye alumnos normales y de examen de mesa.'
     const hdr = { titulo: TITULO, anio, periodo, fechaActual, nota: NOTA }
 
     const numTxt = n => String(n ?? 0)
@@ -369,7 +369,7 @@ function generarTotalesPorMateria(data, anio, periodo, modo = 'descargar', venta
         startY: HEADER_H,
         margin: { left: ML, right: MR, top: HEADER_H, bottom: 12 },
         tableWidth: CW,
-        head: [['PLAN', 'MATERIA', 'TIPO', 'GRP', 'C', 'REGULAR', 'MESA', 'TOTAL', 'TOTAL C']],
+        head: [['PLAN', 'MATERIA', 'TIPO', 'GRP', 'C', 'NORMAL', 'MESA', 'TOTAL', 'TOTAL C']],
         body,
         alternateRowStyles: { fillColor: C_WHITE },
         styles: {
@@ -413,7 +413,7 @@ function generarTotalesPorMateria(data, anio, periodo, modo = 'descargar', venta
                 ? { top: 0, right: 0, bottom: 0, left: 0 }
                 : { top: 0, right: 0, bottom: 0.2, left: 0 }
 
-            // Ceros en gris suave (C, Regular, Mesa)
+            // Ceros en gris suave (C, Normal, Mesa)
             if (col >= 4 && col <= 6 && cell.cell.raw === '0') {
                 cell.cell.styles.textColor = C_ZERO_TEXT
             }
@@ -462,7 +462,7 @@ async function generarExcelTotalesPorMateria(data, anio, periodo, opciones = {})
         { width: 11 },  // C TIPO
         { width: 7 },   // D GRP
         { width: 5 },   // E C
-        { width: 11 },  // F REGULAR
+        { width: 11 },  // F NORMAL
         { width: 11 },  // G MESA
         { width: 11 },  // H TOTAL
         { width: 11 },  // I TOTAL C
@@ -489,7 +489,7 @@ async function generarExcelTotalesPorMateria(data, anio, periodo, opciones = {})
     ws.getCell('A3').alignment = { horizontal: 'center' }
 
     ws.mergeCells('A4:E4')
-    ws.getCell('A4').value = 'Incluye alumnos regulares y de examen de mesa.'
+    ws.getCell('A4').value = 'Incluye alumnos normales y de examen de mesa.'
     ws.getCell('A4').font = { name: FONT, size: 8 }
     ws.mergeCells('F4:I4')
     ws.getCell('F4').value = fechaFormateada()
@@ -498,7 +498,7 @@ async function generarExcelTotalesPorMateria(data, anio, periodo, opciones = {})
 
     // ── Cabecera de columnas ────────────────────────────────────────────
     const head = ws.getRow(HEAD_ROW)
-    head.values = ['PLAN', 'MATERIA', 'TIPO', 'GRP', 'C', 'REGULAR', 'MESA', 'TOTAL', 'TOTAL C']
+    head.values = ['PLAN', 'MATERIA', 'TIPO', 'GRP', 'C', 'NORMAL', 'MESA', 'TOTAL', 'TOTAL C']
     head.eachCell((cell, col) => {
         cell.font = { name: FONT, size: 9, bold: true }
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF0F0F0' } }
