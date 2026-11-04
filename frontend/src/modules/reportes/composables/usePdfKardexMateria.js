@@ -34,7 +34,6 @@ export function generarPDFKardexMateria(secciones, opts = {}) {
                 })
             }
             fila.push(
-                celda(val(f.docente_anterior)),
                 celda(`${f.plan_abrev}\n${f.cod_plan}`, { halign: 'center', fontStyle: 'bold' }),
                 celda(val(f.cod_materia), { halign: 'center' }),
                 celda(val(f.nombre_materia)),
@@ -51,7 +50,7 @@ export function generarPDFKardexMateria(secciones, opts = {}) {
 
         autoTable(doc, {
             head: [[
-                'Nº', 'Docente anterior', 'Plan', 'SIS-Mat', 'Materia', 'Grupo', 'CH',
+                'Nº', 'Plan', 'SIS-Mat', 'Materia', 'Grupo', 'CH',
                 'Docente actual', 'Compartido', 'Resolución', 'Designación', 'Tipo',
             ]],
             body,
@@ -61,12 +60,12 @@ export function generarPDFKardexMateria(secciones, opts = {}) {
             styles: { fontSize: 7, cellPadding: 3, lineColor: [229, 231, 235], lineWidth: 0.4, overflow: 'linebreak' },
             headStyles: { fillColor: [243, 244, 246], textColor: [75, 85, 99], fontStyle: 'bold', halign: 'center' },
             columnStyles: {
-                0: { cellWidth: 24 },
-                2: { cellWidth: 42 },
-                3: { cellWidth: 44 },
-                5: { cellWidth: 32 },
-                6: { cellWidth: 26 },
-                11: { cellWidth: 40 },
+                0: { cellWidth: 24 },   // Nº
+                1: { cellWidth: 42 },   // Plan
+                2: { cellWidth: 44 },   // SIS-Mat
+                4: { cellWidth: 32 },   // Grupo
+                5: { cellWidth: 26 },   // CH
+                10: { cellWidth: 40 },  // Tipo
             },
             // Encabezado repetido en cada página de la carrera
             didDrawPage: () => {

@@ -43,7 +43,11 @@
       </div>
 
       <!-- ── Panel de opciones ── -->
-      <div v-show="panelOpciones" class="px-6 py-4 bg-slate-50 border-b border-gray-100">
+      <div v-show="panelOpciones" class="relative px-6 py-4 bg-slate-50 border-b border-gray-100">
+
+        <!-- Overlay para cerrar el dropdown -->
+        <div v-if="dropdownAbierto" class="fixed inset-0 z-20" @click="dropdownAbierto = false"></div>
+
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
           <!-- 1 · Gestión -->
@@ -81,14 +85,64 @@
               </div>
             </div>
 
-            <div class="mt-3">
+            <!-- Tipo de ingreso: dropdown multi-selección -->
+            <div class="mt-3 relative" :class="{ 'z-30': dropdownAbierto }">
               <label class="block text-[11px] font-medium text-gray-500 mb-0.5">Tipo de ingreso</label>
-              <input v-model="filtros.categoria" list="kardex-categorias" type="text" placeholder="ACÉFALA"
-                class="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
-              <datalist id="kardex-categorias">
-                <option v-for="c in categoriasSugeridas" :key="c" :value="c" />
-              </datalist>
-              <p class="text-[11px] text-gray-400 mt-1">Ignora tildes y mayúsculas. Vacío = ACÉFALA.</p>
+              <button
+                type="button"
+                @click="dropdownAbierto = !dropdownAbierto"
+                class="w-full flex items-center justify-between gap-2 px-2.5 py-1.5 text-sm border rounded-lg bg-white text-left"
+                :class="filtros.categorias.length ? 'border-blue-300 ring-1 ring-blue-100' : 'border-gray-300'"
+              >
+                <span class="truncate" :class="filtros.categorias.length ? 'text-gray-800 font-medium' : 'text-gray-400'">
+                  {{ filtros.categorias.length ? `${filtros.categorias.length} seleccionada(s)` : 'ACÉFALA (por defecto)' }}
+                </span>
+                <svg class="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+                </svg>
+              </button>
+
+              <div
+                v-if="dropdownAbierto"
+                class="absolute left-0 top-full mt-1 w-72 bg-white border border-gray-200 rounded-lg shadow-xl max-h-64 overflow-y-auto"
+              >
+                <label
+                  v-for="op in categorias"
+                  :key="op"
+                  class="flex items-center gap-2 px-3 py-2 text-[13px] text-slate-700 hover:bg-blue-50 cursor-pointer"
+                >
+                  <input type="checkbox" :value="op" v-model="filtros.categorias" class="accent-blue-600" />
+                  {{ op }}
+                </label>
+                <div v-if="!categorias.length" class="px-3 py-2 text-[12px] text-gray-400 italic">Sin opciones</div>
+                <div class="sticky bottom-0 flex items-center justify-between px-3 py-2 border-t border-gray-100 bg-gray-50">
+                  <button type="button" class="text-[11px] text-gray-500 hover:text-red-500"
+                    @mousedown.prevent="filtros.categorias = []">
+                    Quitar todas
+                  </button>
+                  <button type="button" class="text-[11px] font-medium text-blue-600 hover:text-blue-700"
+                    @mousedown.prevent="dropdownAbierto = false">
+                    Listo
+                  </button>
+                </div>
+              </div>
+
+              <!-- Etiquetas de lo seleccionado -->
+              <div v-if="filtros.categorias.length" class="flex flex-wrap gap-1.5 mt-2">
+                <span
+                  v-for="c in filtros.categorias"
+                  :key="c"
+                  class="inline-flex items-center gap-1 pl-2 pr-1 py-0.5 text-[11px] font-medium rounded-full bg-blue-50 text-blue-700"
+                >
+                  {{ c }}
+                  <button type="button" @click="quitarCategoria(c)" class="w-4 h-4 rounded-full hover:bg-blue-100 flex items-center justify-center" title="Quitar">
+                    <svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                  </button>
+                </span>
+              </div>
+              <p v-else class="text-[11px] text-gray-400 mt-1">Sin selección = ACÉFALA.</p>
             </div>
           </section>
 
@@ -249,11 +303,10 @@
             </h4>
 
             <div class="overflow-x-auto border border-gray-200 rounded-lg">
-              <table class="w-full text-xs border-collapse min-w-[1040px]">
+              <table class="w-full text-xs border-collapse min-w-[900px]">
                 <thead class="bg-gray-100 text-gray-600">
                   <tr>
                     <th class="px-2 py-2 text-center font-semibold w-10">Nº</th>
-                    <th class="px-2 py-2 text-left font-semibold">Docente anterior</th>
                     <th class="px-2 py-2 text-center font-semibold">Plan</th>
                     <th class="px-2 py-2 text-center font-semibold">SIS-Mat</th>
                     <th class="px-2 py-2 text-left font-semibold">Materia</th>
@@ -281,7 +334,6 @@
                       class="px-2 py-1.5 text-center align-middle border-r border-gray-100 font-medium text-gray-700">
                       {{ f.nro }}
                     </td>
-                    <td class="px-2 py-1.5 text-gray-700">{{ f.docente_anterior || '—' }}</td>
                     <td class="px-2 py-1.5 text-center">
                       <div class="font-bold text-gray-800">{{ f.plan_abrev }}</div>
                       <div class="text-[10px] text-gray-500 tabular-nums">{{ f.cod_plan }}</div>
@@ -336,7 +388,7 @@
             </div>
           </template>
           <template v-else>
-            No hay materias de tipo “{{ filtros.categoria || 'ACÉFALA' }}” en {{ etiquetaPeriodo }}/{{ filtros.anio }}
+            No hay materias de tipo “{{ etiquetaCategorias }}” en {{ etiquetaPeriodo }}/{{ filtros.anio }}
             para las carreras elegidas. Prueba con otro periodo o quita carreras.
           </template>
         </div>
@@ -428,6 +480,7 @@
 import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useKardexMateria } from '../composables/useKardexMateria'
+import { useCategorias } from '../../resolucionesExtra/composables/useCategorias'
 import { usePeriodoActual } from '../../horariosadmin/composables/usePeriodoActual'
 import { generarPDFKardexMateria } from '../composables/usePdfKardexMateria'
 
@@ -437,6 +490,9 @@ const {
   cargarPlanes, consultar, descargarExcel,
   verPdf: abrirPdfDocumento,
 } = useKardexMateria()
+
+// Lista de categorías (la misma que usa el Reporte Excel)
+const { categorias, cargarCategorias } = useCategorias()
 
 // ─── Periodo actual (mismo composable que usa el reporte de horarios) ───
 const { anio: anioActual, periodo: periodoActual } = usePeriodoActual()
@@ -448,19 +504,17 @@ const periodos = [
   { valor: '4', texto: '4 · Invierno' },
 ]
 
-// Ajusta si tus categorías de TIPO_INGRESO se llaman distinto
-const categoriasSugeridas = ['ACÉFALA', 'TITULAR', 'EXAMEN SUFICIENCIA']
-
 const filtros = ref({
   anio: Number(anioActual.value) || new Date().getFullYear(),
   periodo: String(periodoActual.value || '1'),
-  categoria: 'ACÉFALA',
+  categorias: [],          // vacío = ACÉFALA (lo resuelve el backend)
   planes: [],
   incluirCompartidas: true,
   conAsignacion: true,
 })
 
 const panelOpciones = ref(true)
+const dropdownAbierto = ref(false)
 const busqueda = ref('')
 const pestana = ref('todas')
 
@@ -484,6 +538,14 @@ const anioValido = computed(() => {
 })
 
 const etiquetaPeriodo = computed(() => ({ '3': 'Verano', '4': 'Invierno' }[String(filtros.value.periodo)] || filtros.value.periodo))
+
+const etiquetaCategorias = computed(() =>
+  filtros.value.categorias.length ? filtros.value.categorias.join(', ') : 'ACÉFALA'
+)
+
+function quitarCategoria(c) {
+  filtros.value.categorias = filtros.value.categorias.filter((x) => x !== c)
+}
 
 function alternarPlan(cod) {
   const i = filtros.value.planes.indexOf(cod)
@@ -513,13 +575,26 @@ let timer = null
 
 const claveConsulta = computed(() => {
   const f = filtros.value
-  return [f.anio, f.periodo, f.categoria, [...f.planes].sort().join('|'), f.incluirCompartidas, f.conAsignacion].join('~')
+  return [
+    f.anio, f.periodo,
+    [...f.categorias].sort().join('|'),
+    [...f.planes].sort().join('|'),
+    f.incluirCompartidas, f.conAsignacion,
+  ].join('~')
 })
+
+function copiaFiltros() {
+  return {
+    ...filtros.value,
+    categorias: [...filtros.value.categorias],
+    planes: [...filtros.value.planes],
+  }
+}
 
 function programarConsulta() {
   clearTimeout(timer)
   if (!anioValido.value) return
-  timer = setTimeout(() => consultar({ ...filtros.value, planes: [...filtros.value.planes] }), 400)
+  timer = setTimeout(() => consultar(copiaFiltros()), 400)
 }
 
 watch(claveConsulta, programarConsulta)
@@ -554,7 +629,6 @@ const seccionesVisibles = computed(() => {
       const coincide = (f) =>
         norm(f.nombre_materia).includes(q) ||
         norm(f.docente_actual).includes(q) ||
-        norm(f.docente_anterior).includes(q) ||
         norm(f.cod_materia).includes(q)
 
       const filtrados = bloques.filter((b) => b.some(coincide))
@@ -565,7 +639,7 @@ const seccionesVisibles = computed(() => {
 
 // ─── Acciones ───
 async function descargar() {
-  const ok = await descargarExcel({ ...filtros.value, planes: [...filtros.value.planes] })
+  const ok = await descargarExcel(copiaFiltros())
   if (!ok && error.value) alert(error.value)
 }
 
@@ -653,6 +727,7 @@ function descargarPdfPrevia() {
 onMounted(async () => {
   usarPeriodoActual()
   cargarPlanes()
+  cargarCategorias()
   programarConsulta()
 })
 

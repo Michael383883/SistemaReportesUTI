@@ -17,12 +17,12 @@ const PLANES_RESPALDO = [
     { cod_plan: '059801', abrev: 'ECO', nombre: 'ECONOMÍA' },
 ]
 
-// Arma la query: planes[]=a&planes[]=b, booleanos como 1/0
+// Arma la query: categorias[]=a&planes[]=b, booleanos como 1/0
 function construirParams(f) {
     const p = new URLSearchParams()
     p.set('anio', String(f.anio))
     p.set('periodo', String(f.periodo))
-    if (f.categoria?.trim()) p.set('categoria', f.categoria.trim())
+        ; (f.categorias || []).forEach((c) => p.append('categorias[]', c))
         ; (f.planes || []).forEach((c) => p.append('planes[]', c))
     p.set('incluir_compartidas', f.incluirCompartidas ? '1' : '0')
     p.set('con_asignacion', f.conAsignacion ? '1' : '0')

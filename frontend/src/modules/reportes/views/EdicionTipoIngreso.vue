@@ -161,6 +161,54 @@
               </svg>
               Limpiar
             </button>
+
+            <!-- Reporte PDF: solo para el docente 100 / por designar -->
+            <div v-if="filtrarUltimoPeriodo && reporte && !loadingReporte" class="relative">
+              <button
+                type="button"
+                :disabled="!materiasFiltradas.length"
+                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold
+                       bg-slate-900 hover:bg-slate-800 text-white shadow-sm transition-all
+                       active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                title="Genera un PDF con las materias por designar según los filtros actuales"
+                @click="menuReporteAbierto = !menuReporteAbierto"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                  <polyline points="14 2 14 8 20 8"/>
+                  <line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
+                </svg>
+                Reporte por designar (PDF)
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                  <polyline points="6 9 12 15 18 9"/>
+                </svg>
+              </button>
+
+              <!-- Cierra el menú al hacer click fuera -->
+              <div v-if="menuReporteAbierto" class="fixed inset-0 z-40" @click="menuReporteAbierto = false"/>
+
+              <div
+                v-if="menuReporteAbierto"
+                class="absolute right-0 mt-1.5 w-64 z-50 rounded-xl border border-slate-200 bg-white shadow-lg overflow-hidden"
+              >
+                <button
+                  type="button"
+                  class="w-full text-left px-4 py-2.5 hover:bg-slate-50 transition-colors border-b border-slate-100"
+                  @click="generarReportePorDesignar(true)"
+                >
+                  <p class="text-xs font-semibold text-slate-800 m-0">Reporte completo</p>
+                  <p class="text-[11px] text-slate-500 m-0 mt-0.5">Indicadores, resumen por carrera y gestión, y el detalle.</p>
+                </button>
+                <button
+                  type="button"
+                  class="w-full text-left px-4 py-2.5 hover:bg-slate-50 transition-colors"
+                  @click="generarReportePorDesignar(false)"
+                >
+                  <p class="text-xs font-semibold text-slate-800 m-0">Solo materias</p>
+                  <p class="text-[11px] text-slate-500 m-0 mt-0.5">Directo a la tabla de materias, sin resúmenes.</p>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -250,6 +298,7 @@ import { useDocentes } from '../../docentes/composables/useDocentes'
 import { useReporte } from '../../reportes/composables/useReporte'
 import { useTipoIngreso } from '../composables/useTipoIngreso'
 import { useCategoriasKardex } from '../composables/useCategoriasKardex'
+import { generarPDFPorDesignar } from '../composables/useGenerarPDFPorDesignar'
 import TipoIngresoTabla from '../components/TipoIngresoTabla.vue'
 
 // ─── Catálogo de categorías para el <select> de Tipo de Ingreso ──────────
@@ -308,6 +357,29 @@ const filtrarUltimoPeriodo = computed(() => esDocentePorDesignar(selectedDocente
 // ─── Reporte de materias del docente seleccionado ────────────────
 const { reporte, loading: loadingReporte, error: errorReporte, generarReporte, limpiarReporte } = useReporte()
 
+// ─── Reporte PDF de materias por designar (docente 100) ─────────────
+const menuReporteAbierto = ref(false)
+
+function generarReportePorDesignar(incluirResumen = true, action = 'open') {
+  menuReporteAbierto.value = false
+  if (!reporte.value) return
+
+  const nombre = `${selectedDocente.value?.apellidos ?? selectedDocente.value?.APELLIDOS ?? ''} ${selectedDocente.value?.nombres ?? selectedDocente.value?.NOMBRES ?? ''}`.trim()
+
+  generarPDFPorDesignar(
+    {
+      docente: { codigo: docenteCodActual.value, nombre },
+      materias: materiasFiltradas.value, // respeta los filtros de año/gestión
+    },
+    {
+      action,
+      incluirResumen,
+      filtroAnio: filtroAnio.value,
+      filtroGestion: filtroGestion.value,
+    }
+  )
+}
+
 function onSeleccionarDocente(doc) {
   selectDocente(doc)
   // Resetea el estado de habilitación de periodo al cambiar de docente
@@ -318,6 +390,7 @@ function onSeleccionarDocente(doc) {
   // automático no debe quedarse pegado al siguiente docente.
   filtroAnio.value = ''
   filtroGestion.value = ''
+  menuReporteAbierto.value = false
 
   const codigo = doc.codigo ?? doc.CODIGO
   if (codigo) generarReporte(codigo)
@@ -331,6 +404,7 @@ function onLimpiarDocente() {
   periodoHabilitado.value = null
   filtroAnio.value = ''
   filtroGestion.value = ''
+  menuReporteAbierto.value = false
   limpiarCambios()
 }
 

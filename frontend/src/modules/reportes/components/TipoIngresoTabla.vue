@@ -7,7 +7,7 @@
           <tr class="border-b border-slate-200 bg-slate-900">
             <th class="text-left px-4 py-3 text-[0.68rem] font-semibold tracking-widest uppercase text-slate-100 w-10">Nº</th>
             <th class="text-left px-4 py-3 text-[0.68rem] font-semibold tracking-widest uppercase text-slate-100">Gestión</th>
-            <th class="text-left px-4 py-3 text-[0.68rem] font-semibold tracking-widest uppercase text-slate-100 w-16">Plan</th>
+            <th class="text-left px-4 py-3 text-[0.68rem] font-semibold tracking-widest uppercase text-slate-100 w-24">Plan</th>
             <th class="text-left px-4 py-3 text-[0.68rem] font-semibold tracking-widest uppercase text-slate-100">Materia</th>
             <th class="text-left px-4 py-3 text-[0.68rem] font-semibold tracking-widest uppercase text-slate-100 w-14">GRP</th>
             <th class="text-left px-4 py-3 text-[0.68rem] font-semibold tracking-widest uppercase text-slate-100">Resolución</th>
@@ -33,8 +33,25 @@
               </span>
             </td>
 
-            <!-- Plan -->
-            <td class="px-4 py-3 text-slate-800 font-mono text-xs">{{ m.plan }}</td>
+            <!-- Plan: badge con abreviatura + código -->
+            <td class="px-4 py-3">
+              <div
+                class="inline-flex flex-col items-start gap-0.5"
+                :title="`${infoPlan(m).nombre} · ${infoPlan(m).codigo}`"
+              >
+                <span
+                  class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md border
+                         text-[0.68rem] font-bold tracking-wide"
+                  :class="infoPlan(m).badge"
+                >
+                  <span class="w-1.5 h-1.5 rounded-full" :class="infoPlan(m).dot" />
+                  {{ infoPlan(m).abrev }}
+                </span>
+                <span v-if="infoPlan(m).codigo" class="font-mono text-xs font-medium text-slate-600 pl-0.5">
+                  {{ infoPlan(m).codigo }}
+                </span>
+              </div>
+            </td>
 
             <!-- Materia -->
             <td class="px-4 py-3 text-slate-800 font-medium">{{ m.materia }}</td>
@@ -111,6 +128,40 @@ const props = defineProps({
 
 const emit = defineEmits(['cambiar', 'agregar-categoria'])
 
+// ─── Planes: código -> abreviatura, nombre y colores ────────────────
+// Las clases van completas para que Tailwind las detecte.
+const PLANES = {
+  '089801': { abrev: 'CCP', nombre: 'Contaduría Pública',
+    badge: 'bg-orange-50 text-orange-700 border-orange-200', dot: 'bg-orange-500' },
+  '109401': { abrev: 'ADM', nombre: 'Administración de Empresas',
+    badge: 'bg-blue-50 text-blue-700 border-blue-200', dot: 'bg-blue-500' },
+  '059801': { abrev: 'ECO', nombre: 'Economía',
+    badge: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500' },
+  '125091': { abrev: 'COM', nombre: 'Ingeniería Comercial',
+    badge: 'bg-violet-50 text-violet-700 border-violet-200', dot: 'bg-violet-500' },
+  '126091': { abrev: 'FIN', nombre: 'Ingeniería Financiera',
+    badge: 'bg-rose-50 text-rose-700 border-rose-200', dot: 'bg-rose-500' },
+}
+
+const NEUTRO = {
+  badge: 'bg-slate-50 text-slate-600 border-slate-200',
+  dot: 'bg-slate-400',
+}
+
+// Si el código no está en el mapa, usa la abreviatura del backend.
+// 'CON' (que devuelve el SQL actual) se normaliza a 'CCP'.
+function infoPlan(m) {
+  const cod = String(m.plan ?? '').trim()
+  if (PLANES[cod]) return { codigo: cod, ...PLANES[cod] }
+
+  const abrev = m.plan_abrev === 'CON' ? 'CCP' : m.plan_abrev
+  const porAbrev = Object.values(PLANES).find(p => p.abrev === abrev)
+  if (porAbrev) return { codigo: cod, ...porAbrev }
+
+  return { codigo: cod, abrev: abrev || '—', nombre: cod || 'Sin plan', ...NEUTRO }
+}
+
+// ─── Cambios pendientes ─────────────────────────────────────────────
 function keyDe(m) {
   return `${props.docenteCod}__${m.plan}__${m.materia}__${m.grp}__${m.gestion}`
 }
