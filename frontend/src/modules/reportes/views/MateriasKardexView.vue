@@ -7,10 +7,10 @@
 
     <div class="rounded-xl border border-slate-700 bg-slate-800 px-5 pt-5 pb-8 flex flex-wrap items-end gap-3">
 
-      <!-- BUSCADOR DE MATERIA (código o nombre) -->
+      <!-- BUSCADOR ÚNICO: materia (código o nombre) + "-grupo" opcional -->
       <div ref="buscadorRef" class="flex flex-col gap-1.5 relative">
         <label class="text-[0.68rem] font-semibold tracking-widest uppercase text-slate-300">
-          Materia (código o nombre)
+          Materia y grupo
         </label>
 
         <div class="relative">
@@ -18,13 +18,13 @@
             ref="materiaRef"
             v-model="busqueda"
             type="text"
-            maxlength="60"
-            placeholder="Ej: 1301033 o Administración"
+            maxlength="70"
+            placeholder="Ej: 1301033-34 o Administración-34"
             autocomplete="off"
             role="combobox"
             :aria-expanded="abierto"
             aria-autocomplete="list"
-            class="w-80 bg-white border rounded-lg text-slate-800 text-sm pl-3 pr-8 py-2 outline-none focus:ring-2"
+            class="w-96 max-w-full bg-white border rounded-lg text-slate-800 text-sm pl-3 pr-8 py-2 outline-none focus:ring-2"
             :class="materia
               ? 'border-emerald-500 focus:border-emerald-500 focus:ring-emerald-500/20'
               : 'border-slate-300 focus:border-amber-500 focus:ring-amber-500/20'"
@@ -56,6 +56,12 @@
         >
           Seleccionada: {{ materia }} · {{ plan }} · Grupo {{ grupo }}
         </p>
+        <p
+          v-else-if="!abierto"
+          class="absolute top-full left-0 mt-1 text-[11px] text-slate-400 m-0 whitespace-nowrap"
+        >
+          Tip: escribe el grupo después de un guion, ej. 1301033-34
+        </p>
 
         <!-- DROPDOWN -->
         <ul
@@ -66,7 +72,7 @@
           <li v-if="cargando" class="px-3 py-2 text-xs text-slate-400">Buscando...</li>
           <li v-else-if="errorBusqueda" class="px-3 py-2 text-xs text-red-500">{{ errorBusqueda }}</li>
           <li v-else-if="!resultados.length" class="px-3 py-2 text-xs text-slate-400">
-            No hay materias con ese código o nombre
+            No hay materias con ese código, nombre o grupo
           </li>
 
           <li
@@ -97,20 +103,6 @@
         </ul>
       </div>
 
-      <!-- GRUPO (se completa solo al elegir una materia; se puede editar) -->
-      <div class="flex flex-col gap-1.5">
-        <label class="text-[0.68rem] font-semibold tracking-widest uppercase text-slate-300">Grupo</label>
-        <input
-          ref="grupoRef"
-          v-model="grupo"
-          type="text"
-          maxlength="10"
-          placeholder="Ej: 01"
-          class="w-28 bg-white border border-slate-300 rounded-lg text-slate-800 text-sm px-3 py-2 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
-          @keyup.enter="irAlReporte"
-        />
-      </div>
-
       <button
         ref="botonRef"
         class="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-[14px] font-semibold bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-slate-900 transition-all cursor-pointer border-none shadow-lg shadow-amber-500/20 disabled:opacity-60 disabled:cursor-not-allowed"
@@ -124,58 +116,94 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
 
 const API_BASE = import.meta.env.VITE_API_URL
 const router = useRouter()
 
-// true  => al hacer click en una opción se abre el historial de inmediato
-// false => se completa materia y grupo, y el usuario pulsa el botón
-const IR_DIRECTO_AL_CLICK = false
-
 // ── Estado ───────────────────────────────────────────────────────────────
-const materia = ref('')          // código elegido (es lo que usa el reporte)
-const plan = ref('')             // abreviatura del plan (ADM, COM...), informativo
-const grupo = ref('')
-const busqueda = ref('')
-const resultados = ref([])
+const materia = ref('')      // código elegido
+const plan = ref('')
+const grupo = ref('')        // grupo elegido
+const busqueda = ref('')     // texto del input: "1301033-34"
+const baseResultados = ref([])   // resultados del servidor (sin filtrar por grupo)
 const abierto = ref(false)
 const cargando = ref(false)
 const errorBusqueda = ref('')
 const indice = ref(-1)
 
 const materiaRef = ref(null)
-const grupoRef = ref(null)
 const botonRef = ref(null)
 const buscadorRef = ref(null)
 
 let timer = null
 let ultimaPeticion = 0
+let textoCargado = ''            // último texto de materia consultado al servidor
+const cache = new Map()          // texto -> lista
+
+// ── Separar "materia - grupo" ────────────────────────────────────────────
+// "1301033-34"        -> { texto: "1301033", grupoFiltro: "34" }
+// "Administración -3" -> { texto: "Administración", grupoFiltro: "3" }
+// "1301033-"          -> { texto: "1301033", grupoFiltro: "" }
+const parsear = (raw) => {
+  const m = raw.match(/^(.*?)\s*-\s*([A-Za-z0-9]{0,10})$/)
+  if (m) return { texto: m[1].trim(), grupoFiltro: m[2].trim() }
+  return { texto: raw.trim(), grupoFiltro: '' }
+}
+
+const parsed = computed(() => parsear(busqueda.value))
+
+const norm = (g) => String(g).trim().toLowerCase().replace(/^0+(?=.)/, '') // "01" -> "1"
+
+// Resultados visibles = resultados del servidor filtrados por grupo (en memoria)
+const resultados = computed(() => {
+  const f = parsed.value.grupoFiltro
+  if (!f) return baseResultados.value
+  const nf = norm(f)
+  const lista = baseResultados.value.filter(
+    (m) => norm(m.grupo).startsWith(nf) || String(m.grupo).trim().startsWith(f)
+  )
+  // los grupos exactos primero
+  return lista.sort((a, b) => Number(norm(b.grupo) === nf) - Number(norm(a.grupo) === nf))
+})
 
 // ── Búsqueda: GET /api/materias/buscar?q=... ─────────────────────────────
-// Cada fila = materia + plan + grupo: { codigo, nombre, plan, nombre_plan, cod_plan, grupo, anio_desde, anio_hasta }
 const buscarMaterias = async (texto) => {
+  if (cache.has(texto)) return cache.get(texto)
   const token = localStorage.getItem('token')
   const { data } = await axios.get(`${API_BASE}/api/materias/buscar`, {
     params: { q: texto },
     headers: { Authorization: `Bearer ${token}` },
   })
-  return Array.isArray(data) ? data : (data.data ?? [])
+  const lista = Array.isArray(data) ? data : (data.data ?? [])
+  cache.set(texto, lista)
+  return lista
 }
 
 const onInput = () => {
   materia.value = ''
   plan.value = ''
+  grupo.value = ''
   errorBusqueda.value = ''
   clearTimeout(timer)
 
-  const texto = busqueda.value.trim()
+  const { texto } = parsed.value
   if (texto.length < 2) {
     ultimaPeticion++
-    resultados.value = []
+    baseResultados.value = []
+    textoCargado = ''
     abierto.value = false
+    cargando.value = false
+    return
+  }
+
+  abierto.value = true
+  indice.value = 0
+
+  // Si solo cambió el grupo, NO se vuelve a llamar al servidor
+  if (texto === textoCargado) {
     cargando.value = false
     return
   }
@@ -183,41 +211,45 @@ const onInput = () => {
   timer = setTimeout(async () => {
     const id = ++ultimaPeticion
     cargando.value = true
-    abierto.value = true
     try {
       const lista = await buscarMaterias(texto)
       if (id !== ultimaPeticion) return
-      resultados.value = lista
-      indice.value = lista.length ? 0 : -1
+      baseResultados.value = lista
+      textoCargado = texto
+      indice.value = 0
     } catch (e) {
       if (id !== ultimaPeticion) return
       console.error('[buscarMaterias]', e.response?.data || e.message)
-      resultados.value = []
+      baseResultados.value = []
       errorBusqueda.value = 'No se pudo buscar. Intenta de nuevo.'
     } finally {
       if (id === ultimaPeticion) cargando.value = false
     }
-  }, 250)
+  }, 200)
 }
 
 const onFocus = () => {
-  if (!materia.value && busqueda.value.trim().length >= 2) abierto.value = true
+  if (!materia.value && parsed.value.texto.length >= 2) abierto.value = true
 }
 
-// ── Selección: completa materia, plan y GRUPO automáticamente ────────────
+// ── Selección ────────────────────────────────────────────────────────────
 const seleccionar = async (m) => {
+  const escribioGrupo = !!parsed.value.grupoFiltro
+
   materia.value = String(m.codigo).trim()
   plan.value = m.plan
   grupo.value = String(m.grupo).trim()
-  busqueda.value = `${m.codigo} ${m.nombre}`
+  busqueda.value = `${materia.value}-${grupo.value}`
+  textoCargado = ''          // fuerza nueva búsqueda si el usuario edita
   abierto.value = false
 
-  if (IR_DIRECTO_AL_CLICK) {
+  // Si el usuario ya escribió el grupo, va directo al reporte
+  if (escribioGrupo) {
     irAlReporte()
     return
   }
   await nextTick()
-  botonRef.value?.focus()   // Enter o Espacio generan el reporte
+  botonRef.value?.focus()
 }
 
 const limpiar = () => {
@@ -227,7 +259,8 @@ const limpiar = () => {
   materia.value = ''
   plan.value = ''
   grupo.value = ''
-  resultados.value = []
+  baseResultados.value = []
+  textoCargado = ''
   abierto.value = false
   materiaRef.value?.focus()
 }
@@ -242,7 +275,7 @@ const onEnter = () => {
   if (abierto.value && resultados.value[indice.value]) {
     seleccionar(resultados.value[indice.value])
   } else if (materia.value) {
-    grupoRef.value?.focus()
+    irAlReporte()
   }
 }
 

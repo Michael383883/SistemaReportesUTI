@@ -8,7 +8,12 @@ const ROSA = [253, 242, 248]
  * Devuelve { url, filename } (la url es un blob: hay que liberarla con URL.revokeObjectURL).
  */
 export function generarPDFKardexMateria(secciones, opts = {}) {
-    const { titulo = 'Kardex de materias', subtitulo = '', conAsignacion = true } = opts
+    const {
+        titulo = 'Kardex de materias',
+        subtitulo = '',
+        conAsignacion = true,
+        soloSinDocumento = false,
+    } = opts
 
     const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' })
     const ancho = doc.internal.pageSize.getWidth()
@@ -25,6 +30,11 @@ export function generarPDFKardexMateria(secciones, opts = {}) {
             const fill = f.es_hija ? { fillColor: ROSA } : {}
             const celda = (content, extra = {}) => ({ content, styles: { ...fill, ...extra } })
 
+            // Horario: una línea por bloque (en las compartidas va vacío)
+            const horario = Array.isArray(f.horario) && f.horario.length
+                ? f.horario.join('\n')
+                : '—'
+
             const fila = []
             if (f.nro !== null) {
                 fila.push({
@@ -40,6 +50,8 @@ export function generarPDFKardexMateria(secciones, opts = {}) {
                 celda(val(f.grupo), { halign: 'center' }),
                 celda(val(f.ch), { halign: 'center' }),
                 celda(conAsignacion ? val(f.docente_actual) : blanco),
+                celda(horario),
+                celda(String(f.inscritos ?? 0), { halign: 'center', fontStyle: 'bold' }),
                 celda(f.compartido || '', { fontStyle: 'bold', textColor: [190, 24, 93] }),
                 celda(conAsignacion ? val(f.resolucion) : blanco),
                 celda(conAsignacion ? val(f.designacion) : blanco),
@@ -51,7 +63,8 @@ export function generarPDFKardexMateria(secciones, opts = {}) {
         autoTable(doc, {
             head: [[
                 'Nº', 'Plan', 'SIS-Mat', 'Materia', 'Grupo', 'CH',
-                'Docente actual', 'Compartido', 'Resolución', 'Designación', 'Tipo',
+                'Docente actual', 'Día - Horario - Aula', 'Insc.',
+                'Compartido', 'Resolución', 'Designación', 'Tipo',
             ]],
             body,
             startY: 78,
@@ -61,11 +74,13 @@ export function generarPDFKardexMateria(secciones, opts = {}) {
             headStyles: { fillColor: [243, 244, 246], textColor: [75, 85, 99], fontStyle: 'bold', halign: 'center' },
             columnStyles: {
                 0: { cellWidth: 24 },   // Nº
-                1: { cellWidth: 42 },   // Plan
+                1: { cellWidth: 40 },   // Plan
                 2: { cellWidth: 44 },   // SIS-Mat
-                4: { cellWidth: 32 },   // Grupo
-                5: { cellWidth: 26 },   // CH
-                10: { cellWidth: 40 },  // Tipo
+                4: { cellWidth: 30 },   // Grupo
+                5: { cellWidth: 24 },   // CH
+                7: { cellWidth: 82 },   // Día - Horario - Aula
+                8: { cellWidth: 30 },   // Insc.
+                12: { cellWidth: 40 },  // Tipo
             },
             // Encabezado repetido en cada página de la carrera
             didDrawPage: () => {
@@ -97,7 +112,8 @@ export function generarPDFKardexMateria(secciones, opts = {}) {
         doc.text(`Página ${i} de ${total}`, ancho - margen, alto - 14, { align: 'right' })
     }
 
-    const filename = `kardex_materias_${opts.anio || ''}_${opts.periodo || ''}.pdf`
+    const sufijo = soloSinDocumento ? '_sin_documento' : ''
+    const filename = `kardex_materias_${opts.anio || ''}_${opts.periodo || ''}${sufijo}.pdf`
     const url = URL.createObjectURL(doc.output('blob'))
     return { url, filename }
 }

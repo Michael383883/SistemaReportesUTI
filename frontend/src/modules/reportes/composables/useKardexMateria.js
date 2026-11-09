@@ -26,6 +26,7 @@ function construirParams(f) {
         ; (f.planes || []).forEach((c) => p.append('planes[]', c))
     p.set('incluir_compartidas', f.incluirCompartidas ? '1' : '0')
     p.set('con_asignacion', f.conAsignacion ? '1' : '0')
+    p.set('solo_sin_documento', f.soloSinDocumento ? '1' : '0')
     return p
 }
 
@@ -96,7 +97,10 @@ export function useKardexMateria() {
 
             const disp = res.headers?.['content-disposition'] || ''
             const m = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(disp)
-            const nombre = m ? decodeURIComponent(m[1]) : `kardex_materias_${filtros.anio}_${filtros.periodo}.xlsx`
+            const sufijo = filtros.soloSinDocumento ? '_sin_documento' : ''
+            const nombre = m
+                ? decodeURIComponent(m[1])
+                : `kardex_materias_${filtros.anio}_${filtros.periodo}${sufijo}.xlsx`
 
             const url = URL.createObjectURL(res.data)
             const a = document.createElement('a')

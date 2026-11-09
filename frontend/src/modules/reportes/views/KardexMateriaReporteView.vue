@@ -204,10 +204,12 @@
                 :aria-checked="t.activo"
                 @click="t.accion()"
                 class="w-full flex items-start gap-3 px-3 py-2 rounded-lg border text-left transition-colors"
-                :class="t.activo ? 'bg-blue-50/60 border-blue-200' : 'bg-white border-gray-200 hover:bg-gray-50'"
+                :class="t.activo
+                  ? (t.id === 'sindoc' ? 'bg-amber-50/70 border-amber-300' : 'bg-blue-50/60 border-blue-200')
+                  : 'bg-white border-gray-200 hover:bg-gray-50'"
               >
                 <span class="mt-0.5 relative inline-flex h-5 w-9 flex-shrink-0 rounded-full transition-colors"
-                  :class="t.activo ? 'bg-blue-600' : 'bg-gray-300'">
+                  :class="t.activo ? (t.id === 'sindoc' ? 'bg-amber-500' : 'bg-blue-600') : 'bg-gray-300'">
                   <span class="absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform"
                     :class="t.activo ? 'translate-x-4' : ''"></span>
                 </span>
@@ -227,6 +229,10 @@
           <span class="px-2.5 py-1 rounded-full bg-slate-900 text-white font-semibold">
             {{ reporte.total_materias }} materias
           </span>
+          <span v-if="filtros.soloSinDocumento"
+            class="px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 font-medium">
+            Sin documento subido
+          </span>
           <span v-if="filtros.incluirCompartidas && reporte.total_filas !== reporte.total_materias"
             class="px-2.5 py-1 rounded-full bg-pink-50 text-pink-700 font-medium">
             {{ reporte.total_filas - reporte.total_materias }} compartida(s)
@@ -241,7 +247,7 @@
             <svg class="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z"/>
             </svg>
-            <input v-model="busqueda" type="text" placeholder="Buscar docente o materia…"
+            <input v-model="busqueda" type="text" placeholder="Buscar docente, materia o aula…"
               class="w-60 pl-8 pr-2.5 py-1.5 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
         </div>
@@ -303,7 +309,7 @@
             </h4>
 
             <div class="overflow-x-auto border border-gray-200 rounded-lg">
-              <table class="w-full text-xs border-collapse min-w-[900px]">
+              <table class="w-full text-xs border-collapse min-w-[1100px]">
                 <thead class="bg-gray-100 text-gray-600">
                   <tr>
                     <th class="px-2 py-2 text-center font-semibold w-10">Nº</th>
@@ -313,6 +319,8 @@
                     <th class="px-2 py-2 text-center font-semibold">Grupo</th>
                     <th class="px-2 py-2 text-center font-semibold">CH</th>
                     <th class="px-2 py-2 text-left font-semibold">Docente actual</th>
+                    <th class="px-2 py-2 text-left font-semibold">Día - Horario - Aula</th>
+                    <th class="px-2 py-2 text-center font-semibold">Insc.</th>
                     <th class="px-2 py-2 text-left font-semibold">Compartido</th>
                     <th class="px-2 py-2 text-left font-semibold">Resolución</th>
                     <th class="px-2 py-2 text-left font-semibold">Designación</th>
@@ -346,6 +354,18 @@
                       <template v-if="filtros.conAsignacion">{{ f.docente_actual || '—' }}</template>
                       <span v-else class="text-gray-300">en blanco</span>
                     </td>
+
+                    <!-- Horario -->
+                    <td class="px-2 py-1.5 text-gray-700 whitespace-nowrap tabular-nums">
+                      <template v-if="f.horario && f.horario.length">
+                        <div v-for="(h, k) in f.horario" :key="k">{{ h }}</div>
+                      </template>
+                      <span v-else class="text-gray-300">—</span>
+                    </td>
+
+                    <!-- Inscritos -->
+                    <td class="px-2 py-1.5 text-center tabular-nums font-semibold text-gray-800">{{ f.inscritos }}</td>
+
                     <td class="px-2 py-1.5 font-bold text-pink-700 whitespace-nowrap">{{ f.compartido }}</td>
                     <td class="px-2 py-1.5 text-gray-600">
                       <template v-if="filtros.conAsignacion">{{ f.resolucion || '—' }}</template>
@@ -371,6 +391,10 @@
                         </svg>
                         {{ abriendoPdfId === f.id_documento ? '...' : 'PDF' }}
                       </button>
+                      <span v-else-if="f.nro !== null && !f.tiene_documento"
+                        class="inline-block px-1.5 py-0.5 text-[10px] font-semibold rounded bg-amber-100 text-amber-800">
+                        Sin doc.
+                      </span>
                       <span v-else class="text-gray-300">—</span>
                     </td>
                   </tr>
@@ -386,6 +410,10 @@
             <div class="mt-2">
               <button @click="busqueda = ''" class="text-blue-500 hover:underline">Borrar búsqueda</button>
             </div>
+          </template>
+          <template v-else-if="filtros.soloSinDocumento">
+            No hay materias de tipo “{{ etiquetaCategorias }}” sin documento subido en {{ etiquetaPeriodo }}/{{ filtros.anio }}
+            para las carreras elegidas. Todas ya tienen su documento.
           </template>
           <template v-else>
             No hay materias de tipo “{{ etiquetaCategorias }}” en {{ etiquetaPeriodo }}/{{ filtros.anio }}
@@ -511,6 +539,7 @@ const filtros = ref({
   planes: [],
   incluirCompartidas: true,
   conAsignacion: true,
+  soloSinDocumento: false, // true = solo materias sin ningún PDF subido en la gestión
 })
 
 const panelOpciones = ref(true)
@@ -568,6 +597,13 @@ const interruptores = computed(() => [
     activo: filtros.value.conAsignacion,
     accion: () => { filtros.value.conAsignacion = !filtros.value.conAsignacion },
   },
+  {
+    id: 'sindoc',
+    titulo: 'Solo sin documento subido',
+    desc: 'Lista únicamente las materias de la categoría elegida que aún no tienen ningún PDF subido en la gestión.',
+    activo: filtros.value.soloSinDocumento,
+    accion: () => { filtros.value.soloSinDocumento = !filtros.value.soloSinDocumento },
+  },
 ])
 
 // ─── Consulta automática (con espera para no consultar por cada tecla) ───
@@ -579,7 +615,7 @@ const claveConsulta = computed(() => {
     f.anio, f.periodo,
     [...f.categorias].sort().join('|'),
     [...f.planes].sort().join('|'),
-    f.incluirCompartidas, f.conAsignacion,
+    f.incluirCompartidas, f.conAsignacion, f.soloSinDocumento,
   ].join('~')
 })
 
@@ -609,6 +645,9 @@ watch(reporte, (r) => {
 // ─── Búsqueda en cliente (por bloque: materia principal + sus compartidas) ───
 const norm = (s) => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
 
+// Con "Solo sin documento subido" activo, "POR DESIGNAR DOCENTE" se muestra como "-"
+const esPorDesignar = (v) => norm(v).includes('por designar')
+
 const hayDatos = computed(() => (reporte.value?.total_filas || 0) > 0)
 
 const seccionesVisibles = computed(() => {
@@ -629,10 +668,21 @@ const seccionesVisibles = computed(() => {
       const coincide = (f) =>
         norm(f.nombre_materia).includes(q) ||
         norm(f.docente_actual).includes(q) ||
-        norm(f.cod_materia).includes(q)
+        norm(f.cod_materia).includes(q) ||
+        norm((f.horario || []).join(' ')).includes(q)
 
       const filtrados = bloques.filter((b) => b.some(coincide))
       return { ...s, filas: filtrados.flat(), total_materias: filtrados.length }
+    })
+    // Con "solo sin documento": "POR DESIGNAR DOCENTE" → "-"
+    .map((s) => {
+      if (!filtros.value.soloSinDocumento) return s
+      return {
+        ...s,
+        filas: s.filas.map((f) =>
+          esPorDesignar(f.docente_actual) ? { ...f, docente_actual: '-' } : f
+        ),
+      }
     })
     .filter((s) => s.filas.length)
 })
@@ -691,6 +741,7 @@ async function previsualizarPdf() {
       titulo: 'Kardex de materias',
       subtitulo: reporte.value?.titulo || '',
       conAsignacion: filtros.value.conAsignacion,
+      soloSinDocumento: filtros.value.soloSinDocumento,
       anio: filtros.value.anio,
       periodo: filtros.value.periodo,
     })
