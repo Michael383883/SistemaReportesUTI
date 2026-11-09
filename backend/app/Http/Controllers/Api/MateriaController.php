@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -104,17 +105,7 @@ class MateriaController extends Controller
 
     /**
      * GET /api/materias/docente
-     * NUEVO: Busca materias, pero SOLO las que el docente indicado
-     * efectivamente dictó (según GRUPOS), no todas las materias del sistema.
-     *
-     * Parámetros:
-     *  - docente   (requerido) código del docente
-     *  - search    (opcional) filtra por nombre, código o sigla
-     *  - anio      (opcional) restringe a materias dictadas en ese año
-     *  - periodo   (opcional) restringe a materias dictadas en ese periodo
-     *
-     * Si no se manda anio/periodo, devuelve el listado histórico
-     * (distinct) de materias que ese docente dictó alguna vez.
+     * (SIN CAMBIOS)
      */
     public function porDocente(Request $request)
     {
@@ -153,11 +144,8 @@ class MateriaController extends Controller
                     'MATERIAS.ANIO as anio',
                     'MATERIAS.PLAN as cod_plan',
                     'PLANES.NOMBRE as nombre_plan',
-                    'GRUPOS.GRUPO as grupo'   // ← NUEVO: número de grupo
+                    'GRUPOS.GRUPO as grupo'
                 );
-            // Nota: se quita distinct() global porque ahora el GRUPO forma
-            // parte del resultado y puede repetir la materia con distinto
-            // grupo (lo cual es correcto, cada fila = materia+grupo real).
 
             if ($anio) {
                 $query->where('GRUPOS.ANIO', $anio);
@@ -197,67 +185,27 @@ class MateriaController extends Controller
         }
     }
 
-
     /**
-     * GET /api/materias/buscar?q=texto
+     * GET /api/materias/buscar?q=texto&grupo=34
      * Una fila por materia + plan + grupo, con la abreviatura del plan.
      */
     public function buscar(Request $request)
     {
         $request->validate([
             'q' => 'required|string|min:2|max:60',
+            'grupo' => 'nullable|string|max:10|alpha_num',
         ]);
 
         try {
-            $palabras = preg_split('/\s+/', trim($request->query('q')), -1, PREG_SPLIT_NO_EMPTY);
+            $q = trim($request->query('q'));
+            $grupo = trim((string) $request->query('grupo', ''));
 
-            $condiciones = '';
-            $bindings = [];
-            foreach ($palabras as $i => $p) {
-                $condiciones .= " AND (MATERIAS.NOMBRE LIKE :n{$i} OR GRUPOS.MATERIA LIKE :c{$i})";
-                $bindings["n{$i}"] = "%{$p}%";
-                $bindings["c{$i}"] = "%{$p}%";
-            }
-
-            $sql = <<<SQL
-        SELECT TOP 40
-            GRUPOS.MATERIA            AS codigo,
-            MAX(MATERIAS.NOMBRE)      AS nombre,
-            GRUPOS.[PLAN]             AS cod_plan,
-            MAX([PLANES].NOMBRE)      AS nombre_plan,
-            GRUPOS.GRUPO              AS grupo,
-            MIN(GRUPOS.ANIO)          AS anio_desde,
-            MAX(GRUPOS.ANIO)          AS anio_hasta
-        FROM GRUPOS
-        INNER JOIN MATERIAS
-            ON MATERIAS.CODIGO  = GRUPOS.MATERIA
-            AND MATERIAS.ANIO    = GRUPOS.ANIO
-            AND MATERIAS.PERIODO = GRUPOS.PERIODO
-            AND MATERIAS.[PLAN]  = GRUPOS.[PLAN]
-        LEFT JOIN [PLANES]
-            ON [PLANES].CODIGO = GRUPOS.[PLAN]
-            AND [PLANES].ANIO  = GRUPOS.ANIO
-        WHERE GRUPOS.PRIMARIO = 'Y'
-          AND GRUPOS.TIPO = 'N'
-          AND GRUPOS.PERIODO NOT IN ('3','4')
-          AND MATERIAS.NOMBRE IS NOT NULL
-          {$condiciones}
-        GROUP BY GRUPOS.MATERIA, GRUPOS.[PLAN], GRUPOS.GRUPO
-        ORDER BY MAX(MATERIAS.NOMBRE), GRUPOS.MATERIA, GRUPOS.[PLAN], GRUPOS.GRUPO
-        SQL;
-
-            $filas = DB::connection('sqlsrv')->select($sql, $bindings);
-
-            $resultado = array_map(fn($f) => [
-                'codigo' => trim((string) $f->codigo),
-                'nombre' => trim((string) $f->nombre),
-                'cod_plan' => trim((string) $f->cod_plan),
-                'nombre_plan' => trim((string) $f->nombre_plan),
-                'plan' => $this->abreviarPlan($f->nombre_plan),
-                'grupo' => trim((string) $f->grupo),
-                'anio_desde' => (int) $f->anio_desde,
-                'anio_hasta' => (int) $f->anio_hasta,
-            ], $filas);
+            // Caché 5 min: los datos históricos casi no cambian
+            $resultado = Cache::remember(
+                'materias_buscar:' . md5(mb_strtolower($q) . '|' . mb_strtolower($grupo)),
+                300,
+                fn() => $this->consultarMaterias($q, $grupo)
+            );
 
             return response()->json($resultado);
 
@@ -273,6 +221,83 @@ class MateriaController extends Controller
                 'message' => $e->getMessage(),
             ], 500);
         }
+    }
+
+    private function consultarMaterias(string $q, string $grupo): array
+    {
+        $palabras = preg_split('/\s+/', $q, -1, PREG_SPLIT_NO_EMPTY);
+
+        $condiciones = '';
+        $bindings = [];
+        foreach ($palabras as $i => $p) {
+            if (ctype_digit($p)) {
+                // Número: código por prefijo (usa índice) o parte del nombre
+                $condiciones .= " AND (MATERIAS.CODIGO LIKE :c{$i} OR MATERIAS.NOMBRE LIKE :n{$i})";
+                $bindings["c{$i}"] = "{$p}%";
+            } else {
+                $condiciones .= " AND MATERIAS.NOMBRE LIKE :n{$i}";
+            }
+            $bindings["n{$i}"] = "%{$p}%";
+        }
+
+        // Filtro de grupo en SQL: "3" -> 3, 30, 34...  y "1" también encuentra "01"
+        $filtroGrupo = '';
+        $orden = '';
+        if ($grupo !== '') {
+            $g = ltrim($grupo, '0');
+            if ($g === '')
+                $g = '0';
+
+            $filtroGrupo = " AND (GRUPOS.GRUPO LIKE :g1 OR GRUPOS.GRUPO LIKE :g2)";
+            $bindings['g1'] = "{$g}%";
+            $bindings['g2'] = "0{$g}%";
+
+            // Grupo exacto primero
+            $orden = "CASE WHEN LTRIM(RTRIM(GRUPOS.GRUPO)) IN (:e1, :e2) THEN 0 ELSE 1 END,";
+            $bindings['e1'] = $g;
+            $bindings['e2'] = "0{$g}";
+        }
+
+        $sql = <<<SQL
+        SELECT TOP 40
+            MATERIAS.CODIGO           AS codigo,
+            MAX(MATERIAS.NOMBRE)      AS nombre,
+            GRUPOS.[PLAN]             AS cod_plan,
+            MAX([PLANES].NOMBRE)      AS nombre_plan,
+            GRUPOS.GRUPO              AS grupo,
+            MIN(GRUPOS.ANIO)          AS anio_desde,
+            MAX(GRUPOS.ANIO)          AS anio_hasta
+        FROM MATERIAS
+        INNER JOIN GRUPOS
+            ON GRUPOS.MATERIA    = MATERIAS.CODIGO
+            AND GRUPOS.ANIO      = MATERIAS.ANIO
+            AND GRUPOS.PERIODO   = MATERIAS.PERIODO
+            AND GRUPOS.[PLAN]    = MATERIAS.[PLAN]
+        LEFT JOIN [PLANES]
+            ON [PLANES].CODIGO = GRUPOS.[PLAN]
+            AND [PLANES].ANIO  = GRUPOS.ANIO
+        WHERE GRUPOS.PRIMARIO = 'Y'
+          AND GRUPOS.TIPO = 'N'
+          AND MATERIAS.PERIODO NOT IN ('3','4')
+          AND MATERIAS.NOMBRE IS NOT NULL
+          {$condiciones}
+          {$filtroGrupo}
+        GROUP BY MATERIAS.CODIGO, GRUPOS.[PLAN], GRUPOS.GRUPO
+        ORDER BY {$orden} MAX(MATERIAS.NOMBRE), MATERIAS.CODIGO, GRUPOS.[PLAN], GRUPOS.GRUPO
+        SQL;
+
+        $filas = DB::connection('sqlsrv')->select($sql, $bindings);
+
+        return array_map(fn($f) => [
+            'codigo' => trim((string) $f->codigo),
+            'nombre' => trim((string) $f->nombre),
+            'cod_plan' => trim((string) $f->cod_plan),
+            'nombre_plan' => trim((string) $f->nombre_plan),
+            'plan' => $this->abreviarPlan($f->nombre_plan),
+            'grupo' => trim((string) $f->grupo),
+            'anio_desde' => (int) $f->anio_desde,
+            'anio_hasta' => (int) $f->anio_hasta,
+        ], $filas);
     }
 
     /**
@@ -292,5 +317,4 @@ class MateriaController extends Controller
             default => mb_substr($n, 0, 3),
         };
     }
-
 }
