@@ -513,7 +513,10 @@ async function verPdf(idDocumento) {
 }
 
 // ─── Normalizar: quita tildes, mayúsculas y espacios sobrantes ───
+// También unifica °, º, ˚ y ⁰ (grado / ordinal) en un solo carácter,
+// así "N°5" y "Nº5" se consideran iguales.
 const norm = (s) => String(s || '')
+  .replace(/[°º˚⁰]/g, '°')
   .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
   .toUpperCase().trim()
 

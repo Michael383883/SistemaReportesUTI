@@ -2,7 +2,10 @@
   <div class="bg-white rounded-xl border border-gray-200 p-4 relative">
     <div class="flex items-center justify-between mb-4">
       <h3 class="text-[12px] font-semibold text-gray-700">Buscador de Materias</h3>
-      <span class="text-[11px] text-gray-400">Selecciona materias para asignar</span>
+      <span v-if="materiasSeleccionadas.length" class="text-[11px] font-semibold text-green-600">
+        ✓ {{ materiasSeleccionadas.length }} agregadas
+      </span>
+      <span v-else class="text-[11px] text-gray-400">Selecciona materias para asignar</span>
     </div>
 
     <!-- Buscador -->
@@ -50,7 +53,6 @@
           (buscando materias...)
         </span>
 
-        <!-- Mensaje cuando la búsqueda no encuentra resultados -->
         <span v-else-if="cargaExitosa && materiasFiltradas.length === 0 && searchTerm !== ''" class="ml-2 text-gray-500">
           No hay materias que coincidan con "{{ searchTerm }}"
         </span>
@@ -60,7 +62,7 @@
       </span>
     </div>
 
-    <!-- Link para agregar materia manual (siempre visible mientras no esté ya en modo manual) -->
+    <!-- Link para agregar materia manual -->
     <button
       v-if="!modoManual"
       type="button"
@@ -118,7 +120,6 @@
      v-if="dropdownOpen && (materiasFiltradas.length || loading || !gestionActual || (usaFiltroDocente && !docenteActual) || error || (cargaExitosa && materiasFiltradas.length === 0))"
       class="absolute z-10 mt-1 w-full max-h-[min(24rem,60vh)] overflow-y-auto bg-white border border-gray-300 rounded-lg shadow-xl"
     >
-      <!-- Mensaje cuando no hay docente -->
       <div v-if="!docenteActual" class="px-3 py-4 text-center text-[12px] text-gray-500">
         <svg class="w-6 h-6 mx-auto text-gray-300 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
           <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
@@ -126,7 +127,6 @@
         Selecciona un docente primero
       </div>
 
-      <!-- Mensaje cuando no hay gestión -->
       <div v-else-if="!gestionActual" class="px-3 py-4 text-center text-[12px] text-gray-500">
         <svg class="w-6 h-6 mx-auto text-gray-300 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"/>
@@ -134,7 +134,6 @@
         Selecciona una gestión en los datos generales
       </div>
 
-      <!-- Cargando -->
       <div v-else-if="loading" class="px-3 py-3 text-[12px] text-gray-500 text-center">
         <svg class="w-4 h-4 animate-spin inline mr-2" fill="none" viewBox="0 0 24 24">
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
@@ -143,7 +142,6 @@
         Cargando materias...
       </div>
 
-      <!-- Error -->
       <div v-else-if="error" class="px-3 py-3 text-[12px] text-red-500 text-center">
         <svg class="w-6 h-6 mx-auto text-red-300 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
@@ -151,7 +149,6 @@
         {{ error }}
       </div>
 
-      <!-- Sin materias (solo cuando la carga fue exitosa y array vacío) -->
       <div v-else-if="cargaExitosa && materiasFiltradas.length === 0 && !searchTerm" class="px-3 py-4 text-center text-[12px] text-amber-600">
         <svg class="w-6 h-6 mx-auto text-amber-300 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M10.29 3.86l-8.18 14.18A2 2 0 004 21h16a2 2 0 001.89-2.96L13.71 3.86a2 2 0 00-3.42 0z"/>
@@ -159,7 +156,6 @@
         ⚠️ El docente no tiene materias asignadas en el periodo establecido
       </div>
 
-      <!-- Sin resultados de búsqueda -->
       <div
         v-else-if="cargaExitosa && materiasFiltradas.length === 0 && searchTerm"
         class="px-3 py-3 text-[12px] text-gray-500 text-center space-y-1.5"
@@ -176,20 +172,22 @@
 
       <!-- Lista de materias -->
       <div v-else-if="materiasFiltradas.length">
-        <div class="sticky top-0 bg-gray-50 px-3 py-1.5 text-[10px] text-gray-800 border-b border-gray-100">
-          {{ materiasFiltradas.length }} materias disponibles
+        <div class="sticky top-0 bg-gray-50 px-3 py-1.5 text-[10px] text-gray-800 border-b border-gray-100 flex items-center justify-between">
+          <span>{{ materiasFiltradas.length }} materias disponibles</span>
+          <span class="text-gray-400">↑↓ navegar · Enter agregar · Esc cerrar</span>
         </div>
         <button
           v-for="(m, idx) in materiasFiltradas"
           :key="`${m.codigo}-${m.grupo}-${m.cod_plan}`"
           type="button"
+          :data-hl="idx === highlightIndex ? '1' : null"
           class="w-full text-left px-3 py-2 text-[12px] border-b border-gray-100 last:border-b-0 flex items-center justify-between transition-colors"
           :class="[
             idx === highlightIndex
               ? 'bg-blue-100 border-l-4 border-l-blue-500 ring-1 ring-inset ring-blue-200'
               : 'hover:bg-gray-50',
             materiaRegistrada(m) ? 'bg-amber-50/60' : '',
-            materiaYaSeleccionada(m.codigo, m.grupo, m.cod_plan) ? 'opacity-60 cursor-not-allowed' : ''
+            materiaYaSeleccionada(m.codigo, m.grupo, m.cod_plan) ? 'bg-green-50/60 opacity-60 cursor-not-allowed' : ''
           ]"
           @mousedown.prevent="onSelectMateria(m)"
           @mouseenter="highlightIndex = idx"
@@ -202,17 +200,16 @@
             >{{ m.nombre }}</span>
             <span v-if="m.sigla" class="text-gray-500 ml-1">({{ m.sigla }})</span>
             <span v-if="materiaRegistrada(m)" class="ml-2 text-[10px] font-semibold text-amber-600">· Ya registrada</span>
+            <!-- Se quitó el Periodo de esta línea -->
             <div
               class="text-[11px] truncate mt-0.5"
               :class="idx === highlightIndex ? 'text-gray-700 font-medium' : 'text-gray-600'"
             >
               Código: <strong class="text-gray-800">{{ m.codigo }}</strong>
-              · Periodo: <strong class="text-gray-800">{{ m.periodo }}</strong>
               <span v-if="m.grupo"> · Grupo: <strong class="text-gray-800">{{ m.grupo }}</strong></span>
               <span v-if="m.nombre_plan"> · Plan: <strong class="text-gray-800">{{ m.nombre_plan }}</strong></span>
             </div>
           </div>
-          <!-- Ícono a la derecha: lápiz (ya registrada) / check (ya seleccionada en el form) / círculo (disponible) -->
           <span class="ml-3 flex-shrink-0">
             <svg
               v-if="materiaRegistrada(m)"
@@ -237,7 +234,6 @@
       </div>
     </div>
 
-    <!-- Mensaje cuando falta docente o gestión (fuera del dropdown) -->
     <div v-if="(!docenteActual || !gestionActual) && !dropdownOpen" class="text-center py-4 text-[12px] text-gray-500 border border-dashed border-gray-200 rounded-lg mt-2">
       <svg class="w-6 h-6 mx-auto text-gray-300 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
         <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"/>
@@ -252,8 +248,6 @@
 import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import { useMaterias } from '../composables/useMaterias'
 
-// ── Única destructuración del composable (antes estaba duplicada, eso
-//    rompía la compilación con "Identifier has already been declared") ──
 const {
   loading,
   error,
@@ -274,8 +268,6 @@ const props = defineProps({
   materiasSeleccionadas: { type: Array, default: () => [] }
 })
 
-// 'editar-materia' se dispara cuando el usuario hace click sobre una
-// materia que ya tiene una clasificación guardada en otro documento.
 const emit = defineEmits(['agregar-materia', 'editar-materia'])
 
 const searchTerm = ref('')
@@ -289,8 +281,6 @@ const docenteActual = computed(() => props.docente)
 const gestionActual = computed(() => props.gestion)
 const periodoActual = computed(() => props.periodo)
 
-// ── Determina si la gestión requiere filtrar por docente (>= 2001)
-//    o si debe usar el buscador general (< 2001) ──
 const usaFiltroDocente = computed(() => {
   const anio = parseInt(gestionActual.value, 10)
   return !isNaN(anio) && anio >= 2001
@@ -298,12 +288,7 @@ const usaFiltroDocente = computed(() => {
 
 const materiasFiltradas = computed(() => materias.value)
 
-// ⚠️ FIX Caso 3: antes comparaba solo `cod_materia` + `grupo`, así que dos
-// materias con el MISMO código y MISMO grupo pero de PLANES distintos
-// (ej. "ESTADISTICA II" MAT442 grupo 02 en Admin. de Empresas vs. la
-// misma materia/grupo en Ing. Comercial) se consideraban duplicadas y la
-// segunda quedaba bloqueada en el listado aunque fueran ofertas distintas.
-// Ahora se agrega `cod_plan` a la comparación para diferenciarlas.
+// Duplicado = mismo código + grupo + plan
 function materiaYaSeleccionada(codigo, grupo = null, codPlan = null) {
   return props.materiasSeleccionadas.some(
     m =>
@@ -313,8 +298,6 @@ function materiaYaSeleccionada(codigo, grupo = null, codPlan = null) {
   )
 }
 
-// Busca si una materia del listado ya tiene una CLASIFICACION_MATERIA
-// guardada (en cualquier documento) para este docente+gestión+periodo.
 function materiaRegistrada(m) {
   return registradas.value.find(r =>
     String(r.cod_materia) === String(m.codigo) &&
@@ -323,7 +306,6 @@ function materiaRegistrada(m) {
   )
 }
 
-// ─── Cargar materias registradas (ya clasificadas) para docente+gestión+periodo ───
 async function cargarRegistradas() {
   if (!docenteActual.value || !gestionActual.value) {
     registradas.value = []
@@ -338,16 +320,13 @@ async function cargarRegistradas() {
   }
 }
 
-// ─── Cargar materias al hacer focus ───
 async function onFocus() {
   dropdownOpen.value = true
   if (!gestionActual.value) return
-  // Si requiere docente (gestión >= 2001) y aún no hay docente, no cargamos
   if (usaFiltroDocente.value && !docenteActual.value) return
   await cargarMaterias()
 }
 
-// ─── Cargar materias: elige buscador general o por docente según la gestión ───
 async function cargarMaterias() {
   if (!gestionActual.value) {
     materias.value = []
@@ -355,7 +334,6 @@ async function cargarMaterias() {
     return
   }
 
-  // ── Gestión < 2001 → buscador GENERAL (sin filtro por docente) ──
   if (!usaFiltroDocente.value) {
     const params = { anio: gestionActual.value }
     if (periodoActual.value) params.periodo = periodoActual.value
@@ -370,7 +348,6 @@ async function cargarMaterias() {
     return
   }
 
-  // ── Gestión >= 2001 → buscador FILTRADO POR DOCENTE ──
   if (!docenteActual.value) {
     materias.value = []
     cargaExitosa.value = false
@@ -401,6 +378,10 @@ function moverSeleccion(delta) {
   const total = materiasFiltradas.value.length
   if (!total) return
   highlightIndex.value = (highlightIndex.value + delta + total) % total
+  // mantiene visible la fila resaltada al navegar con el teclado
+  nextTick(() => {
+    document.querySelector('[data-hl="1"]')?.scrollIntoView({ block: 'nearest' })
+  })
 }
 
 function confirmarSeleccion() {
@@ -420,9 +401,10 @@ function cerrarDropdown() {
 }
 
 // ─── Selección de materia ───
+// Al agregar, el buscador SIGUE ABIERTO y con el foco: se pueden marcar
+// varias materias seguidas sin volver a hacer clic ni bajar a la lista.
+// Las ya agregadas quedan con check verde.
 function onSelectMateria(materia) {
-  // Si ya tiene una clasificación guardada en otro documento, no se vuelve
-  // a agregar como nueva: se avisa al padre para que abra el modo edición.
   const registrada = materiaRegistrada(materia)
   if (registrada) {
     emit('editar-materia', { materia, registro: registrada })
@@ -436,7 +418,7 @@ function onSelectMateria(materia) {
     return
   }
 
-  const materiaData = {
+  emit('agregar-materia', {
     cod_materia: materia.codigo,
     nombre_materia: materia.nombre,
     cod_plan: materia.cod_plan || null,
@@ -444,23 +426,23 @@ function onSelectMateria(materia) {
     grupo: materia.grupo || null,
     nota: null,
     detalle: ''
-  }
+  })
 
-  emit('agregar-materia', materiaData)
-
+  // Si había texto de búsqueda, se limpia y se recarga la lista completa
+  const habiaBusqueda = !!searchTerm.value
   searchTerm.value = ''
-  dropdownOpen.value = false
-  materias.value = []
-  cargaExitosa.value = false
-  highlightIndex.value = -1
+  if (habiaBusqueda) cargarMaterias()
+
+  dropdownOpen.value = true
+  nextTick(() => inputRef.value?.focus())
 }
 
 // ─── Búsqueda con debounce ───
 let timeoutId = null
 function onSearchInput() {
   clearTimeout(timeoutId)
+  highlightIndex.value = -1
   timeoutId = setTimeout(() => {
-    // Con gestión < 2001 no exigimos docente; con >= 2001 sí
     if (gestionActual.value && (!usaFiltroDocente.value || docenteActual.value)) {
       cargarMaterias()
     }
@@ -468,9 +450,6 @@ function onSearchInput() {
 }
 
 // ─── Modo manual: materia que no está en el catálogo ───
-// Se agrega sin cod_materia, sin grupo y sin cod_plan. Esa ausencia de
-// código es la señal que usamos después para NO aplicarla en GRUPOS
-// (ver ClasificacionMateriasSection.vue → onAgregarMateria y el flag `manual`).
 const modoManual = ref(false)
 const nombreManual = ref('')
 const inputManualRef = ref(null)
@@ -486,7 +465,6 @@ function cancelarModoManual() {
   modoManual.value = false
   nombreManual.value = ''
 }
-
 
 function confirmarMateriaManual() {
   const nombre = nombreManual.value.trim()
@@ -528,8 +506,6 @@ watch(() => [props.docente, props.gestion, props.periodo], () => {
   highlightIndex.value = -1
   mensajeDuplicado.value = ''
   cargaExitosa.value = false
-  // No cerramos el modo manual automáticamente al cambiar gestión/periodo,
-  // pero sí si cambia el docente (ya no aplicaría el mismo contexto)
 })
 
 onMounted(async () => {

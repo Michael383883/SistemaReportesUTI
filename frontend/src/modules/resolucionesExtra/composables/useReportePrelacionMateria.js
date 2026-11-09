@@ -1,9 +1,8 @@
 import { ref, computed } from 'vue'
 import axios from 'axios'
 
-const API_BASE = import.meta.env.VITE_API_URL
+const API = `${import.meta.env.VITE_API_URL}/api/reportes/prelacion-materias`
 
-// Siglas de carrera que devuelve el backend (PLANES en ReportePrelacionMateriaController)
 export const CARRERAS = [
     { sigla: 'CP', nombre: 'Contaduría Pública' },
     { sigla: 'ECO', nombre: 'Economía' },
@@ -11,44 +10,42 @@ export const CARRERAS = [
     { sigla: 'IF', nombre: 'Ing. Financiera' },
     { sigla: 'IC', nombre: 'Ing. Comercial' },
 ]
-
 export const PERIODOS = [1, 2, 3, 4]
 
-function authHeaders(extra = {}) {
+const ROMANOS = { 1: 'I', 2: 'II', 3: 'III', 4: 'IV' }
+const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+
+const filtrosIniciales = () => ({
+    anio: new Date().getFullYear(),
+    periodo: 1,
+    materia: '',
+    carreras: [],               // vacío = todas
+    alcance: 'docente',         // 'docente' | 'materia'
+    incluirSinDocumento: true,
+    mostrarReferencias: false,
+    soloListado: true,
+})
+
+const headers = () => {
     const token = localStorage.getItem('token')
-    return {
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        ...extra,
-    }
+    return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
-// Cuando se pide un blob y el backend responde un error JSON, hay que leer el blob como texto.
+// Si se pidió un blob y el backend respondió JSON de error, hay que leerlo como texto.
 async function mensajeDeError(e, porDefecto) {
-    const data = e?.response?.data
+    const d = e?.response?.data
     try {
-        if (data instanceof Blob) {
-            const texto = await data.text()
-            const json = JSON.parse(texto)
-            return json.error || json.message || porDefecto
+        if (d instanceof Blob) {
+            const j = JSON.parse(await d.text())
+            return j.error || j.message || porDefecto
         }
-    } catch (_) { /* se ignora y se usa el mensaje por defecto */ }
-    return data?.error || data?.message || porDefecto
+    } catch (_) { /* usa el mensaje por defecto */ }
+    return d?.error || d?.message || porDefecto
 }
 
 export function useReportePrelacionMateria() {
-    // ── Filtros (se envían tal cual al backend) ──
-    const filtros = ref({
-        anio: new Date().getFullYear(),
-        periodo: 1,
-        materia: '',
-        carreras: [],              // ['CP', 'ECO', ...] (vacío = todas)
-        alcance: 'docente',        // 'docente' | 'materia'
-        incluirSinDocumento: true,
-        mostrarReferencias: false,
-        soloListado: true,
-    })
+    const filtros = ref(filtrosIniciales())
 
-    // ── Resultado ──
     const loading = ref(false)
     const descargando = ref(false)
     const error = ref(null)
@@ -59,96 +56,23 @@ export function useReportePrelacionMateria() {
     const materiasFueraDelListado = ref([])
     const consultado = ref({ anio: null, periodo: null })
 
-    let controladorActual = null // para cancelar consultas viejas si el usuario cambia filtros rápido
+    let controladorActual = null
 
-    function construirParams() {
+    // Params enviados al backend. Papel/orientación/ajuste: formato compacto para hoja oficio.
+    const construirParams = () => {
         const f = filtros.value
-        const materia = (f.materia || '').trim()
         return {
             anio: f.anio || undefined,
             periodo: f.periodo || undefined,
-            materia: materia || undefined,
+            materia: f.materia?.trim() || undefined,
             carrera: f.carreras.length ? f.carreras.join(',') : undefined,
             alcance: f.alcance,
-            incluir_sin_documento: f.incluirSinDocumento ? 1 : 0,
-            mostrar_referencias: f.mostrarReferencias ? 1 : 0,
-            solo_listado: f.soloListado ? 1 : 0,
-        }
-    }
-
-    // GET /api/reportes/prelacion-materias/preview
-    async function previsualizar() {
-        if (controladorActual) controladorActual.abort()
-        const controlador = new AbortController()
-        controladorActual = controlador
-
-        loading.value = true
-        error.value = null
-
-        try {
-            const { data: resp } = await axios.get(
-                `${API_BASE}/api/reportes/prelacion-materias/preview`,
-                {
-                    params: construirParams(),
-                    headers: authHeaders(),
-                    signal: controlador.signal,
-                }
-            )
-
-            if (!resp.ok) {
-                error.value = resp.error || 'No se pudo obtener la vista previa'
-                limpiarResultado()
-                return
-            }
-
-            data.value = resp.data || []
-            totalMaterias.value = resp.total_materias ?? 0
-            totalFilas.value = resp.total_filas ?? data.value.length
-            filasSinDocumento.value = resp.filas_sin_documento ?? 0
-            materiasFueraDelListado.value = resp.materias_fuera_del_listado || []
-            consultado.value = { anio: resp.anio, periodo: resp.periodo }
-        } catch (e) {
-            if (axios.isCancel(e) || e?.code === 'ERR_CANCELED') return // consulta reemplazada por otra
-            error.value = e?.response?.data?.error || e?.response?.data?.message || 'No se pudo obtener la vista previa'
-            limpiarResultado()
-        } finally {
-            if (controladorActual === controlador) {
-                loading.value = false
-                controladorActual = null
-            }
-        }
-    }
-
-    // GET /api/reportes/prelacion-materias/excel (con token, vía blob)
-    async function descargarExcel() {
-        descargando.value = true
-        try {
-            const response = await axios.get(
-                `${API_BASE}/api/reportes/prelacion-materias/excel`,
-                {
-                    params: construirParams(),
-                    headers: authHeaders(),
-                    responseType: 'blob',
-                }
-            )
-            const blob = new Blob([response.data], {
-                type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            })
-            const nombre = `ORDEN_PRELACION_${filtros.value.periodo}-${filtros.value.anio}.xlsx`
-            const url = window.URL.createObjectURL(blob)
-            const link = document.createElement('a')
-            link.href = url
-            link.download = nombre
-            document.body.appendChild(link)
-            link.click()
-            link.remove()
-            window.URL.revokeObjectURL(url)
-        } catch (e) {
-            const mensaje = await mensajeDeError(e, 'No se pudo descargar el Excel')
-            error.value = mensaje
-            throw new Error(mensaje)
-        } finally {
-            descargando.value = false
+            incluir_sin_documento: +f.incluirSinDocumento,
+            mostrar_referencias: +f.mostrarReferencias,
+            solo_listado: +f.soloListado,
+            papel: 'oficio',
+            orientacion: 'horizontal',
+            ajustar_ancho: 1,
         }
     }
 
@@ -160,66 +84,96 @@ export function useReportePrelacionMateria() {
         materiasFueraDelListado.value = []
     }
 
-    function alternarCarrera(sigla) {
-        const lista = filtros.value.carreras
-        filtros.value.carreras = lista.includes(sigla)
-            ? lista.filter(c => c !== sigla)
-            : [...lista, sigla]
-    }
+    async function previsualizar() {
+        controladorActual?.abort()
+        const controlador = (controladorActual = new AbortController())
+        loading.value = true
+        error.value = null
 
-    function restablecerFiltros() {
-        filtros.value = {
-            anio: new Date().getFullYear(),
-            periodo: 1,
-            materia: '',
-            carreras: [],
-            alcance: 'docente',
-            incluirSinDocumento: true,
-            mostrarReferencias: false,
-            soloListado: true,
+        try {
+            const { data: r } = await axios.get(`${API}/preview`, {
+                params: construirParams(),
+                headers: headers(),
+                signal: controlador.signal,
+            })
+
+            if (!r.ok) {
+                error.value = r.error || 'No se pudo obtener la vista previa'
+                return limpiarResultado()
+            }
+
+            data.value = r.data || []
+            totalMaterias.value = r.total_materias ?? 0
+            totalFilas.value = r.total_filas ?? data.value.length
+            filasSinDocumento.value = r.filas_sin_documento ?? 0
+            materiasFueraDelListado.value = r.materias_fuera_del_listado || []
+            consultado.value = { anio: r.anio, periodo: r.periodo }
+        } catch (e) {
+            if (axios.isCancel(e) || e?.code === 'ERR_CANCELED') return
+            error.value = await mensajeDeError(e, 'No se pudo obtener la vista previa')
+            limpiarResultado()
+        } finally {
+            if (controladorActual === controlador) {
+                loading.value = false
+                controladorActual = null
+            }
         }
     }
 
+    async function descargarExcel() {
+        descargando.value = true
+        try {
+            const { data: blobData } = await axios.get(`${API}/excel`, {
+                params: construirParams(),
+                headers: headers(),
+                responseType: 'blob',
+            })
+            const url = URL.createObjectURL(new Blob([blobData], { type: XLSX_MIME }))
+            const link = Object.assign(document.createElement('a'), {
+                href: url,
+                download: `ORDEN_PRELACION_${filtros.value.periodo}-${filtros.value.anio}.xlsx`,
+            })
+            document.body.appendChild(link)
+            link.click()
+            link.remove()
+            URL.revokeObjectURL(url)
+        } catch (e) {
+            const mensaje = await mensajeDeError(e, 'No se pudo descargar el Excel')
+            error.value = mensaje
+            throw new Error(mensaje)
+        } finally {
+            descargando.value = false
+        }
+    }
+
+    const alternarCarrera = (sigla) => {
+        const { carreras } = filtros.value
+        filtros.value.carreras = carreras.includes(sigla)
+            ? carreras.filter(c => c !== sigla)
+            : [...carreras, sigla]
+    }
+
+    const restablecerFiltros = () => { filtros.value = filtrosIniciales() }
+
     function reset() {
-        if (controladorActual) controladorActual.abort()
+        controladorActual?.abort()
         error.value = null
         loading.value = false
         limpiarResultado()
         restablecerFiltros()
     }
 
-    // ── Derivados para la franja de resumen ──
     const filasConDocumento = computed(() => totalFilas.value - filasSinDocumento.value)
-
     const hayDatos = computed(() => data.value.length > 0)
-
-    // Etiqueta tipo "I-2026" (igual que el título del Excel)
     const etiquetaPeriodo = computed(() => {
-        const romano = { 1: 'I', 2: 'II', 3: 'III', 4: 'IV' }[consultado.value.periodo]
-        return consultado.value.anio ? `${romano || consultado.value.periodo}-${consultado.value.anio}` : ''
+        const { anio, periodo } = consultado.value
+        return anio ? `${ROMANOS[periodo] || periodo}-${anio}` : ''
     })
 
     return {
-        // estado
-        filtros,
-        loading,
-        descargando,
-        error,
-        data,
-        totalMaterias,
-        totalFilas,
-        filasSinDocumento,
-        filasConDocumento,
-        materiasFueraDelListado,
-        consultado,
-        etiquetaPeriodo,
-        hayDatos,
-
-        // acciones
-        previsualizar,
-        descargarExcel,
-        alternarCarrera,
-        restablecerFiltros,
-        reset,
+        filtros, loading, descargando, error, data,
+        totalMaterias, totalFilas, filasSinDocumento, filasConDocumento,
+        materiasFueraDelListado, consultado, etiquetaPeriodo, hayDatos,
+        previsualizar, descargarExcel, alternarCarrera, restablecerFiltros, reset,
     }
 }

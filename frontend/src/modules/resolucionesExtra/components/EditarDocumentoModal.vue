@@ -1,7 +1,10 @@
 <template>
   <Teleport to="body">
     <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" @click.self="$emit('cerrar')">
-      <div class="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[92vh] flex flex-col">
+      <div
+        class="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[92vh] flex flex-col border-t-4 transition-colors"
+        :class="modo === 'copia' ? 'border-emerald-500' : 'border-blue-500'"
+      >
 
         <!-- Header -->
         <div class="flex items-start justify-between gap-3 px-6 py-4 border-b border-gray-100">
@@ -9,14 +12,24 @@
             <p class="text-xs font-semibold uppercase tracking-wide" :class="modo === 'copia' ? 'text-emerald-600' : 'text-blue-500'">
               {{ modo === 'copia' ? 'Registrar copia con el mismo PDF' : 'Editar documento completo' }}
             </p>
-            <h3 class="text-lg font-semibold text-gray-900 truncate">
-              {{ doc.TIPO_DOCUMENTO || 'Documento' }}
+            <h3 class="text-lg font-semibold text-gray-900 truncate flex items-center gap-2">
+              <span class="truncate">{{ doc.TIPO_DOCUMENTO || 'Documento' }}</span>
+              <span
+                v-if="modo === 'copia'"
+                class="flex-shrink-0 px-2 py-0.5 text-[10px] font-bold uppercase rounded-full bg-emerald-100 text-emerald-700"
+              >
+                Nuevo registro
+              </span>
             </h3>
-            <div class="flex flex-wrap gap-1.5 mt-1.5">
+            <div class="flex flex-wrap items-center gap-1.5 mt-1.5">
+              <span v-if="modo === 'copia' && doc.docentes?.length" class="text-[11px] text-gray-400">
+                Docentes del original:
+              </span>
               <span
                 v-for="d in doc.docentes"
                 :key="d.ID_CLASIFICACION_DOCENTE"
-                class="inline-flex items-center px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded-full text-xs font-medium"
+                class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
+                :class="modo === 'copia' ? 'bg-gray-100 text-gray-500' : 'bg-indigo-50 text-indigo-700'"
               >
                 {{ d.NOMBRE_DOCENTE }}
               </span>
@@ -62,7 +75,7 @@
             class="px-3 py-1.5 text-sm font-medium rounded-lg border transition-colors"
             :class="modo === 'copia' ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'"
           >
-            Registrar copia (mismo PDF) para otro docente / tipo
+            + Registrar copia (mismo PDF) para otro docente / tipo
           </button>
         </div>
 
@@ -75,6 +88,14 @@
           <span v-if="otrosTitulos.length">
             Los títulos de otros docentes del documento original no se copian.
           </span>
+          <div class="flex flex-wrap items-center gap-3 mt-2 pt-2 border-t border-emerald-200 text-[11px]">
+            <span class="inline-flex items-center gap-1">
+              <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> Nuevo
+            </span>
+            <span class="inline-flex items-center gap-1 text-gray-500">
+              <span class="w-2.5 h-2.5 rounded-full bg-gray-400"></span> Del documento original
+            </span>
+          </div>
         </div>
 
         <!-- Aviso: títulos de otros docentes (solo en edición) -->
@@ -91,7 +112,10 @@
         </div>
 
         <!-- Contenido -->
-        <div class="flex-1 overflow-y-auto px-6 py-4">
+        <div
+          class="flex-1 overflow-y-auto px-6 py-4 transition-colors"
+          :class="modo === 'copia' ? 'bg-emerald-50/30' : ''"
+        >
           <div v-if="cargando" class="text-center py-16 text-sm text-gray-400">
             <svg class="w-8 h-8 mx-auto animate-spin text-blue-500 mb-3" fill="none" viewBox="0 0 24 24">
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
@@ -136,6 +160,7 @@
             :error="''"
             :archivo-nombre="doc.NOMBRE_ARCHIVO"
             :reutilizando-archivo="modo === 'copia'"
+            :modo-copia="modo === 'copia'"
             :initial="modo === 'copia' ? initialCopia : initial"
             @guardar="onGuardar"
             @back="$emit('cerrar')"
