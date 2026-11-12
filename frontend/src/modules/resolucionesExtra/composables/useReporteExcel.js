@@ -401,7 +401,20 @@ export function useReporteExcel() {
 
     // Calcula qué materias se quitaron por categoría y el docente no conserva
     // en ninguna otra fila (para no re-agregarlas desde la carga horaria real).
+    //
+    // IMPORTANTE: solo cuentan las filas quitadas que corresponden al
+    // año/periodo de "Docentes activos". Una fila quitada de OTRA gestión
+    // (ej. un documento Acéfala viejo) no debe impedir que la misma materia,
+    // dictada ahora y sin esa categoría, aparezca desde la carga horaria real.
     function calcularMateriasQuitadas(filasRestantes, quitadas) {
+        const esDelPeriodoActual = (f) => {
+            // Si el backend no envía GESTION/PERIODO, se mantiene el
+            // comportamiento anterior (se considera del periodo actual).
+            if (f.GESTION === undefined || f.GESTION === null) return true
+            return String(f.GESTION).trim() === String(anioActivos.value) &&
+                String(f.PERIODO ?? '').trim() === String(periodoActivos.value)
+        }
+
         const restantesPorDocente = new Map()
         for (const f of filasRestantes) {
             const key = normalizarNombreMateria(f.NOMBRE_MATERIA)
@@ -413,6 +426,8 @@ export function useReporteExcel() {
 
         const mapa = new Map()
         for (const f of quitadas) {
+            if (!esDelPeriodoActual(f)) continue   // ← NUEVO
+
             const key = normalizarNombreMateria(f.NOMBRE_MATERIA)
             if (!key || key === '-' || key === PLACEHOLDER_SIN_MATERIA) continue
             const cod = String(f.COD_DOCENTE)
