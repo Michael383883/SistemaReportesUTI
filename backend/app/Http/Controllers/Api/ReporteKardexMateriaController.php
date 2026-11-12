@@ -27,15 +27,18 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
  *   GET /api/reporte-kardex-materia/excel     (descarga .xlsx)
  *
  * Parámetros (listado y excel):
- *   anio                 requerido  ej. 2026
- *   periodo              requerido  1 | 2 | 3 | 4
- *   categorias[]         opcional   varias; default "ACÉFALA" (compara sin tildes ni mayúsculas)
- *   planes[]             opcional   códigos de plan; vacío = todas las carreras
- *   incluir_compartidas  opcional   default 1: incluye las filas "(*) COMPARTIDO" bajo su materia
- *   con_asignacion       opcional   default 1: rellena Nombre Docente / Resolución / Designación
- *                                   (0 = deja esas columnas en blanco, como formulario a llenar)
- *   solo_sin_documento   opcional   default 0: 1 = solo materias que NO tienen ningún documento
- *                                   (PDF) subido en esa gestión/periodo
+ *   anio                     requerido  ej. 2026
+ *   periodo                  requerido  1 | 2 | 3 | 4
+ *   categorias[]             opcional   varias; default "ACÉFALA" (compara sin tildes ni mayúsculas)
+ *   planes[]                 opcional   códigos de plan; vacío = todas las carreras
+ *   incluir_compartidas      opcional   default 1: incluye las filas "(*) COMPARTIDO" bajo su materia
+ *   con_asignacion           opcional   default 1: rellena Nombre Docente / Resolución / Designación
+ *                                       (0 = deja esas columnas en blanco, como formulario a llenar)
+ *   solo_sin_documento       opcional   default 0: 1 = solo materias que NO tienen ningún documento
+ *                                       (PDF) subido en esa gestión/periodo
+ *   asignadas_sin_documento  opcional   default 0: 1 = solo materias con docente YA asignado
+ *                                       (no "POR DESIGNAR") y SIN documento subido. Si no se eligen
+ *                                       categorías, usa ACÉFALA + SUPLENCIA.
  *
  * Cada fila de /listado incluye además:
  *   - id_documento / nombre_archivo : documento que respalda la designación
@@ -48,6 +51,13 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 class ReporteKardexMateriaController extends Controller
 {
     private const CATEGORIA_DEFECTO = 'ACÉFALA';
+
+    /**
+     * Categorías que se usan por defecto con el modo "asignadas sin documento".
+     * Ajusta el texto si en tu tabla la categoría se escribe distinto (ej. 'SUPLENTE').
+     * La comparación ignora mayúsculas y tildes.
+     */
+    private const CATEGORIAS_ASIGNADAS = ['ACÉFALA', 'SUPLENCIA'];
 
     /**
      * Carreras (planes) y su orden de aparición en el Excel.
@@ -101,12 +111,15 @@ class ReporteKardexMateriaController extends Controller
         $reporte = $this->construirReporte($filtros);
 
         if ($reporte['total_filas'] === 0) {
-            return response()->json([
-                'success' => false,
-                'message' => $filtros['solo_sin_documento']
-                    ? 'No hay materias sin documento subido con esa categoría en la gestión y carreras indicadas.'
-                    : 'No hay materias con esa categoría en la gestión y carreras indicadas.',
-            ], 404);
+            if ($filtros['asignadas_sin_documento']) {
+                $mensaje = 'No hay materias con docente asignado y sin documento subido con esa categoría en la gestión y carreras indicadas.';
+            } elseif ($filtros['solo_sin_documento']) {
+                $mensaje = 'No hay materias sin documento subido con esa categoría en la gestión y carreras indicadas.';
+            } else {
+                $mensaje = 'No hay materias con esa categoría en la gestión y carreras indicadas.';
+            }
+
+            return response()->json(['success' => false, 'message' => $mensaje], 404);
         }
 
         $spreadsheet = new Spreadsheet();
@@ -114,18 +127,25 @@ class ReporteKardexMateriaController extends Controller
         $sheet->setTitle('Materias');
         $spreadsheet->getDefaultStyle()->getFont()->setName('Calibri')->setSize(9);
 
-        $this->escribirHoja($sheet, $reporte, $filtros['con_asignacion']);
+        $this->escribirHoja(
+            $sheet,
+            $reporte,
+            $filtros['con_asignacion'],
+            $filtros['asignadas_sin_documento']
+        );
 
         $sufijoPlanes = empty($filtros['planes'])
             ? ''
             : '_' . implode('-', array_map(fn($p) => self::CARRERAS[$p]['abrev'], $filtros['planes']));
 
-        $sufijoSinDoc = $filtros['solo_sin_documento'] ? '_sin_documento' : '';
+        $sufijoDoc = $filtros['asignadas_sin_documento']
+            ? '_asignadas_sin_documento'
+            : ($filtros['solo_sin_documento'] ? '_sin_documento' : '');
 
         $nombreArchivo = 'kardex_materias_'
             . Str::slug(Str::ascii(implode('-', $filtros['categorias'])), '_')
             . '_' . $filtros['anio'] . '_' . $filtros['periodo']
-            . $sufijoPlanes . $sufijoSinDoc . '.xlsx';
+            . $sufijoPlanes . $sufijoDoc . '.xlsx';
 
         $writer = new Xlsx($spreadsheet);
 
@@ -171,17 +191,26 @@ class ReporteKardexMateriaController extends Controller
             'incluir_compartidas' => 'nullable|boolean',
             'con_asignacion' => 'nullable|boolean',
             'solo_sin_documento' => 'nullable|boolean',
+            'asignadas_sin_documento' => 'nullable|boolean',
         ]);
+
+        $asignadasSinDoc = $request->boolean('asignadas_sin_documento', false);
+
+        // Sin selección: ACÉFALA, o ACÉFALA + SUPLENCIA en el modo "asignadas sin documento"
+        $categoriasPorDefecto = $asignadasSinDoc
+            ? self::CATEGORIAS_ASIGNADAS
+            : [self::CATEGORIA_DEFECTO];
 
         return [
             'anio' => (int) $request->input('anio'),
             'periodo' => (string) $request->input('periodo'),
-            // Sin selección = ACÉFALA
-            'categorias' => !empty($categorias) ? $categorias : [self::CATEGORIA_DEFECTO],
+            'categorias' => !empty($categorias) ? $categorias : $categoriasPorDefecto,
             'planes' => array_values(array_unique($request->input('planes', []))),
             'incluir_compartidas' => $request->boolean('incluir_compartidas', true),
             'con_asignacion' => $request->boolean('con_asignacion', true),
-            'solo_sin_documento' => $request->boolean('solo_sin_documento', false),
+            // "asignadas sin documento" ya implica "sin documento"; no se combinan
+            'solo_sin_documento' => $asignadasSinDoc ? false : $request->boolean('solo_sin_documento', false),
+            'asignadas_sin_documento' => $asignadasSinDoc,
         ];
     }
 
@@ -215,7 +244,8 @@ class ReporteKardexMateriaController extends Controller
             $filas,
             $f['planes'],
             $f['incluir_compartidas'],
-            $f['solo_sin_documento']
+            $f['solo_sin_documento'],
+            $f['asignadas_sin_documento']
         );
 
         $totalFilas = 0;
@@ -226,21 +256,33 @@ class ReporteKardexMateriaController extends Controller
         }
 
         return [
-            'titulo' => $this->titulo($f['categorias'], $f['anio'], $f['periodo'], $f['solo_sin_documento']),
+            'titulo' => $this->titulo(
+                $f['categorias'],
+                $f['anio'],
+                $f['periodo'],
+                $f['solo_sin_documento'],
+                $f['asignadas_sin_documento']
+            ),
             'anio' => $f['anio'],
             'periodo' => $f['periodo'],
             'categoria' => implode(', ', $f['categorias']),
             'categorias' => $f['categorias'],
             'planes_filtro' => $f['planes'],
             'solo_sin_documento' => $f['solo_sin_documento'],
+            'asignadas_sin_documento' => $f['asignadas_sin_documento'],
             'total_materias' => $totalMaterias,   // sin contar las filas compartidas
             'total_filas' => $totalFilas,
             'secciones' => $secciones,
         ];
     }
 
-    private function titulo(array $categorias, int $anio, string $periodo, bool $soloSinDocumento = false): string
-    {
+    private function titulo(
+        array $categorias,
+        int $anio,
+        string $periodo,
+        bool $soloSinDocumento = false,
+        bool $asignadasSinDocumento = false
+    ): string {
         $textos = array_map(function ($c) {
             $esAcefala = in_array(Str::upper(Str::ascii($c)), ['ACEFALA', 'ACEFALAS'], true);
             return $esAcefala ? 'ACÉFALAS' : mb_strtoupper($c);
@@ -253,7 +295,13 @@ class ReporteKardexMateriaController extends Controller
             default => $periodo,
         };
 
-        $sufijo = $soloSinDocumento ? ' - SIN DOCUMENTO SUBIDO' : '';
+        if ($asignadasSinDocumento) {
+            $sufijo = ' - ASIGNADAS SIN DOCUMENTO';
+        } elseif ($soloSinDocumento) {
+            $sufijo = ' - SIN DOCUMENTO SUBIDO';
+        } else {
+            $sufijo = '';
+        }
 
         return "LISTA DE MATERIAS {$texto}{$sufijo} - GESTIÓN {$periodoLabel}/{$anio}";
     }
@@ -271,8 +319,8 @@ class ReporteKardexMateriaController extends Controller
      *    (mismo plan, materia, grupo, docente, gestión, periodo y categoría).
      *    Solo se toman documentos que tengan archivo PDF subido (RUTA_ARCHIVO).
      *  - TIENE_DOC: 1 si existe CUALQUIER documento con PDF para ese plan/materia/grupo
-     *    en la gestión y periodo (sin exigir docente ni categoría). Se usa para el
-     *    filtro "solo sin documento subido".
+     *    en la gestión y periodo (sin exigir docente ni categoría). Se usa para los
+     *    filtros "solo sin documento subido" y "asignadas sin documento".
      */
     private function consultarGrupos(int $anio, string $periodo, array $categorias): array
     {
@@ -563,6 +611,19 @@ class ReporteKardexMateriaController extends Controller
     }
 
     /**
+     * ¿La fila ya tiene un docente asignado de verdad?
+     * (hay código de docente y el nombre no es "POR DESIGNAR DOCENTE").
+     */
+    private function tieneDocenteAsignado(array $fila): bool
+    {
+        if ($fila['cod_docente'] === '' || $fila['docente_actual'] === '') {
+            return false;
+        }
+
+        return !str_contains(Str::upper(Str::ascii($fila['docente_actual'])), 'POR DESIGNAR');
+    }
+
+    /**
      * Agrupa las filas en "bloques" (materia principal + sus compartidas),
      * los reparte por carrera según el plan de la PRINCIPAL y numera.
      *
@@ -572,12 +633,16 @@ class ReporteKardexMateriaController extends Controller
      *
      * Si $soloSinDocumento = true, se descartan los bloques cuya materia
      * PRINCIPAL ya tiene algún documento (PDF) subido en la gestión.
+     *
+     * Si $asignadasSinDocumento = true, además se exige que la PRINCIPAL
+     * tenga un docente ya asignado (no "POR DESIGNAR").
      */
     private function armarSecciones(
         array $filas,
         array $planesFiltro,
         bool $incluirCompartidas,
-        bool $soloSinDocumento = false
+        bool $soloSinDocumento = false,
+        bool $asignadasSinDocumento = false
     ): array {
         $bloques = [];
         $conjuntos = [];
@@ -611,7 +676,12 @@ class ReporteKardexMateriaController extends Controller
             }
 
             // Solo materias sin ningún documento subido (se evalúa la principal)
-            if ($soloSinDocumento && $miembros[0]['tiene_documento']) {
+            if (($soloSinDocumento || $asignadasSinDocumento) && $miembros[0]['tiene_documento']) {
+                continue;
+            }
+
+            // Solo materias con docente ya asignado (acéfalas/suplencias asignadas)
+            if ($asignadasSinDocumento && !$this->tieneDocenteAsignado($miembros[0])) {
                 continue;
             }
 
@@ -672,11 +742,16 @@ class ReporteKardexMateriaController extends Controller
     //            | H (sep) | I Docente | J DIA-HORARIO-AULA | K Inscritos
     //            | L Compartido | M Resolución | N (sep) | O Designación | P Tipo
     // ═════════════════════════════════════════════════════════════
-    private function escribirHoja(Worksheet $sheet, array $reporte, bool $conAsignacion): void
-    {
+    private function escribirHoja(
+        Worksheet $sheet,
+        array $reporte,
+        bool $conAsignacion,
+        bool $resaltarAsignadas = false
+    ): void {
         $NEGRO = 'FF000000';
         $GRIS_HEAD = 'FFD9D9D9';
         $GRIS_SEP = 'FFBFBFBF';
+        $VIOLETA_SUAVE = 'FFEDE9FE'; // resalte del modo "asignadas sin documento"
 
         $ultimaCol = 'P';
         $columnasSeparadoras = ['C', 'H', 'N'];
@@ -780,6 +855,12 @@ class ReporteKardexMateriaController extends Controller
 
             $ultima = $r - 1;
             $rangoDatos = "A{$primera}:{$ultimaCol}{$ultima}";
+
+            // Modo "asignadas sin documento": fondo violeta suave (las separadoras se repintan después)
+            if ($resaltarAsignadas) {
+                $sheet->getStyle($rangoDatos)->getFill()
+                    ->setFillType(Fill::FILL_SOLID)->getStartColor()->setARGB($VIOLETA_SUAVE);
+            }
 
             $sheet->getStyle($rangoDatos)->getAlignment()
                 ->setVertical(Alignment::VERTICAL_CENTER)

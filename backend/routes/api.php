@@ -72,6 +72,9 @@ use App\Http\Controllers\Api\KardexSecretariaController;
 use App\Http\Controllers\Api\ModulePermissionController;
 use App\Http\Middleware\CheckModulePermission;
 
+//Antiguedad de docentes por materia
+use App\Http\Controllers\Api\ReporteAntiguedadController;
+
 /*
 |--------------------------------------------------------------------------
 | API PÚBLICA (con token, y seguridad con throttle)
@@ -380,4 +383,12 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/crear', [DatabaseIndexController::class, 'crearIndices']);
         Route::get('/verificar', [DatabaseIndexController::class, 'verificarIndices']);
     });
+
+    /* ----------------------------------------------------------------
+     | REPORTE ANTIGÜEDAD DE DOCENTES POR MATERIA
+     | GET /api/reportes/antiguedad-docentes-materia?anio=2026&periodo=2
+     * ---------------------------------------------------------------- */
+    Route::get('/reportes/antiguedad-docentes-materia', [ReporteAntiguedadController::class, 'index']);
+
+
 });

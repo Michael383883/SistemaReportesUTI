@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\ClasificacionDocente;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
@@ -17,6 +18,7 @@ class ReporteExcelController extends Controller
 {
 
     private const SIN_TITULO = '__SIN_TITULO__';
+
     // GET /api/reportes/docentes-clasificados/preview
     public function previsualizar(Request $request)
     {
@@ -26,19 +28,36 @@ class ReporteExcelController extends Controller
             $periodo = $request->query('periodo');
             $version = $request->query('version', '5ta Versión');
 
-            // Ahora llegan como texto separado por comas: "Docentes Titulares,Acefala"
+            // Llegan como texto separado por comas: "Docentes Titulares,Acefala"
             $categorias = $this->parseListaCsv($request->query('categoria'));
             $tiposTitulo = $this->parseListaCsv($request->query('tipo_titulo'));
 
-            // Botón "Mostrar Referencias": si no está activo, el DETALLE no
-            // incluye el número de referencia del documento (CLASIFICACION_REFERENCIA).
+            // Categorías de documento que se quieren QUITAR del reporte
+            // (ej. "Acefala,Suplencia"): se quitan sus materias y su CH.
+            $excluirCategorias = $this->parseListaCsv($request->query('excluir_categoria'));
+
+            // Botón "Mostrar Referencias"
             $mostrarReferencias = filter_var($request->query('mostrar_referencias', false), FILTER_VALIDATE_BOOLEAN);
+
+            // Botones para ocultar parte del título en el DETALLE
+            $ocultarNombreTitulo = filter_var($request->query('ocultar_nombre_titulo', false), FILTER_VALIDATE_BOOLEAN);
+            $ocultarTipoTitulo = filter_var($request->query('ocultar_tipo_titulo', false), FILTER_VALIDATE_BOOLEAN);
 
             $etiquetaGestion = $gestionHasta
                 ? "{$gestionDesde} - {$gestionHasta}"
                 : "Desde {$gestionDesde}";
 
-            $data = $this->construirDatos($gestionDesde, $gestionHasta, $periodo, $categorias, $tiposTitulo, $mostrarReferencias);
+            $data = $this->construirDatos(
+                $gestionDesde,
+                $gestionHasta,
+                $periodo,
+                $categorias,
+                $tiposTitulo,
+                $mostrarReferencias,
+                $excluirCategorias,
+                $ocultarNombreTitulo,
+                $ocultarTipoTitulo
+            );
 
             return response()->json([
                 'ok' => true,
@@ -88,16 +107,29 @@ class ReporteExcelController extends Controller
 
             $categorias = $this->parseListaCsv($request->query('categoria'));
             $tiposTitulo = $this->parseListaCsv($request->query('tipo_titulo'));
+            $excluirCategorias = $this->parseListaCsv($request->query('excluir_categoria'));
 
-            // Mismo flag que en previsualizar(), para que la descarga directa
-            // (sin pasar por el preview) respete el botón "Mostrar Referencias".
+            // Mismos flags que en previsualizar(), para que la descarga directa
+            // (sin pasar por el preview) respete los botones.
             $mostrarReferencias = filter_var($request->query('mostrar_referencias', false), FILTER_VALIDATE_BOOLEAN);
+            $ocultarNombreTitulo = filter_var($request->query('ocultar_nombre_titulo', false), FILTER_VALIDATE_BOOLEAN);
+            $ocultarTipoTitulo = filter_var($request->query('ocultar_tipo_titulo', false), FILTER_VALIDATE_BOOLEAN);
 
             $etiquetaGestion = $gestionHasta
                 ? "{$gestionDesde} - {$gestionHasta}"
                 : "Desde {$gestionDesde}";
 
-            $data = $this->construirDatos($gestionDesde, $gestionHasta, $periodo, $categorias, $tiposTitulo, $mostrarReferencias);
+            $data = $this->construirDatos(
+                $gestionDesde,
+                $gestionHasta,
+                $periodo,
+                $categorias,
+                $tiposTitulo,
+                $mostrarReferencias,
+                $excluirCategorias,
+                $ocultarNombreTitulo,
+                $ocultarTipoTitulo
+            );
 
             if (empty($data)) {
                 return response()->json([
@@ -106,7 +138,9 @@ class ReporteExcelController extends Controller
                 ], 404);
             }
 
-            return $this->generarExcel($data, $etiquetaGestion, $version);
+            // La antigüedad solo se calcula en el frontend (requiere "Solo docentes
+            // activos"), por eso la descarga GET directa nunca lleva esa columna.
+            return $this->generarExcel($data, $etiquetaGestion, $version, false);
         } catch (\Exception $e) {
             return response()->json([
                 'ok' => false,
@@ -124,13 +158,15 @@ class ReporteExcelController extends Controller
      * OBS2, OBS3, NEGRITA, INICIO_GRUPO, FILAS_GRUPO, FIN_GRUPO, y opcionalmente
      * INICIO_MATERIA/FILAS_MATERIA cuando el usuario combinó materias en el preview).
      *
+     * Parámetros extra:
+     *   - mostrar_antiguedad (1/0/true/false): agrega la columna "ANTIGÜEDAD" justo
+     *     después de CH, tomando el valor de ANTIGUEDAD por fila (número como 2 o 2.5,
+     *     o null).
+     *
      * Se usa cuando en la vista previa del Excel se asignó automáticamente la
-     * Carga Horaria (botón "Asignar Carga Horaria") y/o se combinaron materias
-     * repetidas (botón "Combinar Materias"), y se quiere descargar el archivo
-     * EXACTAMENTE con esos valores, sin que el backend los recalcule desde cero
-     * (lo que perdería esos cambios hechos en el navegador). El estado del botón
-     * "Mostrar Referencias" también viaja implícito aquí: el DETALLE de cada fila
-     * ya trae o no trae la referencia, según lo que se veía en pantalla.
+     * Carga Horaria, se combinaron materias repetidas, se quitaron categorías
+     * (Acéfala/Suplencia...) o se ocultó parte del título, y se quiere descargar
+     * el archivo EXACTAMENTE con esos valores, sin que el backend los recalcule.
      */
     public function generarListadoDocentesDesdeDatos(Request $request)
     {
@@ -138,6 +174,10 @@ class ReporteExcelController extends Controller
             $data = $request->input('data', []);
             $gestion = $request->input('gestion', '');
             $version = $request->input('version', '5ta Versión');
+            $mostrarAntiguedad = filter_var(
+                $request->input('mostrar_antiguedad', false),
+                FILTER_VALIDATE_BOOLEAN
+            );
 
             if (empty($data) || !is_array($data)) {
                 return response()->json([
@@ -146,7 +186,7 @@ class ReporteExcelController extends Controller
                 ], 422);
             }
 
-            return $this->generarExcel($data, $gestion, $version);
+            return $this->generarExcel($data, $gestion, $version, $mostrarAntiguedad);
         } catch (\Exception $e) {
             return response()->json([
                 'ok' => false,
@@ -164,11 +204,15 @@ class ReporteExcelController extends Controller
      * (CLASIFICACION_TITULO) se traen aparte por lote, agrupados por
      * ID_CLASIFICACION_DOCENTE.
      *
-     * $categoria filtra por CLASIFICACION_DOCUMENTO.CATEGORIA.
-     * $tipoTitulo filtra por CLASIFICACION_TITULO.TIPO_TITULO (solo aparecen docentes
-     * que tengan al menos un título de esa categoría).
-     * $mostrarReferencias controla si el número de referencia (CLASIFICACION_REFERENCIA)
-     * se agrega al texto de DETALLE. Por defecto (false) no se incluye.
+     * $categoria filtra por CLASIFICACION_DOCUMENTO.CATEGORIA (solo esas).
+     * $excluirCategorias QUITA los documentos con esas CATEGORIA (y por tanto sus
+     *   materias y su carga horaria); un docente que se queda sin documentos
+     *   desaparece del reporte.
+     * $tipoTitulo filtra por CLASIFICACION_TITULO.TIPO_TITULO.
+     * $mostrarReferencias controla si el número de referencia se agrega al DETALLE.
+     * $ocultarNombreTitulo / $ocultarTipoTitulo controlan qué parte del título
+     *   (NOMBRE_TITULO / TIPO_TITULO) aparece en el DETALLE. Si se ocultan ambos,
+     *   el título no se muestra.
      */
 
     private function construirDatos(
@@ -177,14 +221,17 @@ class ReporteExcelController extends Controller
         ?int $periodo = null,
         array $categorias = [],
         array $tiposTitulo = [],
-        bool $mostrarReferencias = false
+        bool $mostrarReferencias = false,
+        array $excluirCategorias = [],
+        bool $ocultarNombreTitulo = false,
+        bool $ocultarTipoTitulo = false
     ): array {
         $query = ClasificacionDocente::with([
             'docente',
             'documento.referencias',
             'materias',
         ])
-            ->whereHas('documento', function ($q) use ($gestionDesde, $gestionHasta, $periodo, $categorias) {
+            ->whereHas('documento', function ($q) use ($gestionDesde, $gestionHasta, $periodo, $categorias, $excluirCategorias) {
                 $q->whereRaw('CAST(GESTION AS INT) >= ?', [(int) $gestionDesde]);
 
                 if ($gestionHasta !== null) {
@@ -197,6 +244,15 @@ class ReporteExcelController extends Controller
 
                 if (!empty($categorias)) {
                     $q->whereIn('CATEGORIA', $categorias);
+                }
+
+                // Quitar categorías (Acéfala, Suplencia, ...). Los documentos sin
+                // categoría (NULL) se conservan: NOT IN descartaría los NULL.
+                if (!empty($excluirCategorias)) {
+                    $q->where(function ($w) use ($excluirCategorias) {
+                        $w->whereNull('CATEGORIA')
+                            ->orWhereNotIn('CATEGORIA', $excluirCategorias);
+                    });
                 }
             });
 
@@ -279,9 +335,7 @@ class ReporteExcelController extends Controller
 
                 // Las columnas reales en CLASIFICACION_DOCUMENTO son OBSERVACION y
                 // OBSERVACION2 (no OBS2/OBS3 — esos son solo los nombres de columna
-                // del Excel/preview). No se derivan de las referencias, que solo
-                // alimentan el número de referencia usado en DETALLE (y solo cuando
-                // el botón "Mostrar Referencias" está activo).
+                // del Excel/preview).
                 $obs2 = $documento->OBSERVACION ?? '';
                 $obs3 = $documento->OBSERVACION2 ?? '';
 
@@ -289,8 +343,7 @@ class ReporteExcelController extends Controller
 
                 // ─── DETALLE general del documento: Tipo de documento - Descripción
                 //     general - Referencia(s) - Título(s). NO incluye las notas de
-                //     materia: esas se calculan por-materia dentro del loop de abajo,
-                //     para que cada fila muestre la nota que le corresponde. ───
+                //     materia: esas se calculan por-materia dentro del loop de abajo. ───
                 $partesDetalle = [];
 
                 $tipoDocumentoLabel = self::ETIQUETAS_TIPO_DOCUMENTO[$documento->TIPO_DOCUMENTO]
@@ -304,17 +357,22 @@ class ReporteExcelController extends Controller
                     $partesDetalle[] = $documento->DETALLE_GENERAL;
                 }
 
-                // Botón "Mostrar Referencias": si no está activo, se omite el
-                // número de referencia (CLASIFICACION_REFERENCIA) del DETALLE.
+                // Botón "Mostrar Referencias"
                 if ($mostrarReferencias && $referencias->isNotEmpty()) {
                     $partesDetalle[] = $referencias->implode(' - ');
                 }
 
-                if ($titulosDeEsteDocente->isNotEmpty()) {
-                    $textosTitulo = $titulosDeEsteDocente->map(function ($t) {
-                        $nombre = $t->NOMBRE_TITULO ?? '';
-                        $tipo = $t->TIPO_TITULO ?? '';
-                        return trim($nombre . ($tipo ? " ({$tipo})" : ''));
+                // Título: se puede ocultar el NOMBRE, la CATEGORÍA (tipo) o ambos.
+                if ($titulosDeEsteDocente->isNotEmpty() && !($ocultarNombreTitulo && $ocultarTipoTitulo)) {
+                    $textosTitulo = $titulosDeEsteDocente->map(function ($t) use ($ocultarNombreTitulo, $ocultarTipoTitulo) {
+                        $nombre = $ocultarNombreTitulo ? '' : trim((string) ($t->NOMBRE_TITULO ?? ''));
+                        $tipo = $ocultarTipoTitulo ? '' : trim((string) ($t->TIPO_TITULO ?? ''));
+
+                        if ($nombre !== '' && $tipo !== '') {
+                            return "{$nombre} ({$tipo})";
+                        }
+
+                        return $nombre !== '' ? $nombre : $tipo;
                     })->filter()->values();
 
                     if ($textosTitulo->isNotEmpty()) {
@@ -328,9 +386,7 @@ class ReporteExcelController extends Controller
                 $esGeneral = !empty($documento->DETALLE_GENERAL);
 
                 foreach ($materias as $materia) {
-                    // Nota propia de ESTA materia (una fila = una materia = su nota),
-                    // formato "Recuperatorio, Nota: 85". Si tiene nota pero no
-                    // observación, queda solo "Nota: 85".
+                    // Nota propia de ESTA materia, formato "Recuperatorio, Nota: 85".
                     $notaTexto = '';
                     $partesNota = [];
 
@@ -346,9 +402,8 @@ class ReporteExcelController extends Controller
                         $notaTexto = implode(', ', $partesNota);
                     }
 
-                    // El detalle general del documento (tipo, descripción, referencias,
-                    // título) se repite en TODAS las filas de materia, y cada una
-                    // agrega además su propia nota.
+                    // El detalle general se repite en TODAS las filas de materia,
+                    // y cada una agrega además su propia nota.
                     $detalleFila = $detalleGeneral;
                     if ($notaTexto !== '') {
                         $detalleFila = $detalleFila !== ''
@@ -378,7 +433,7 @@ class ReporteExcelController extends Controller
                         'OBS2' => $obs2,
                         'OBS3' => $obs3,
                         'NEGRITA' => $primeraFilaClasificacion && $esGeneral,
-                        // ── NUEVO: para el botón "PDF" de la vista previa ──
+                        // Para el botón "PDF" de la vista previa
                         'ID_DOCUMENTO' => $documento->ID_DOCUMENTO,
                         'NOMBRE_ARCHIVO' => $documento->NOMBRE_ARCHIVO,
                         'GESTION' => $documento->GESTION,
@@ -470,14 +525,37 @@ class ReporteExcelController extends Controller
     }
 
     /**
-     * Layout de columnas (sin la columna NIVEL):
-     * B Nº | C NOMBRE DOCENTE | D NOMBRE MATERIA | E CH | F DETALLE
-     * G CATEGORIA | H T. CH (total por docente) | I (separador vacío)
-     * J FOTOCOPIA TITULAR | K OBS2 | L OBS3
+     * Layout de columnas (sin la columna NIVEL).
+     *
+     * Sin antigüedad:
+     *   B Nº | C NOMBRE DOCENTE | D NOMBRE MATERIA | E CH | F DETALLE
+     *   G CATEGORIA | H T. CH | I (separador) | J FOTOCOPIA TITULAR | K OBS2 | L OBS3
+     *
+     * Con antigüedad ($mostrarAntiguedad = true), se inserta ANTIGÜEDAD después de CH
+     * y todo lo posterior se corre una columna:
+     *   B Nº | C DOCENTE | D MATERIA | E CH | F ANTIGÜEDAD | G DETALLE
+     *   H CATEGORIA | I T. CH | J (separador) | K FOTOCOPIA TITULAR | L OBS2 | M OBS3
+     *
+     * Las letras se calculan dinámicamente a partir del orden de las columnas.
      */
-    private function generarExcel(array $data, string $gestion, string $version)
+    private function generarExcel(array $data, string $gestion, string $version, bool $mostrarAntiguedad = false)
     {
         $data = $this->completarTotalesCh($data);
+
+        // ── Mapa dinámico de columnas ──
+        $orden = ['n', 'docente', 'materia', 'ch'];
+        if ($mostrarAntiguedad) {
+            $orden[] = 'antig';
+        }
+        array_push($orden, 'detalle', 'categoria', 'totch', 'sep', 'fotocopia', 'obs2', 'obs3');
+
+        $c = [];
+        foreach ($orden as $i => $clave) {
+            $c[$clave] = Coordinate::stringFromColumnIndex(2 + $i); // empieza en B
+        }
+
+        $rangoIzq = fn(int $f) => $c['n'] . $f . ':' . $c['totch'] . $f;
+        $rangoDer = fn(int $f) => $c['fotocopia'] . $f . ':' . $c['obs3'] . $f;
 
         $spreadsheet = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
@@ -489,33 +567,36 @@ class ReporteExcelController extends Controller
         $sheet->setCellValue('B2', 'Facultad de Ciencias Económicas');
 
         $sheet->setCellValue('B3', 'LISTA DE DOCENTES Y LAS MATERIAS QUE IMPARTEN - PRELACIÓN');
-        $sheet->mergeCells('B3:H3');
+        $sheet->mergeCells('B3:' . $c['totch'] . '3');
         $sheet->getStyle('B3')->getFont()->setBold(true)->setSize(14);
         $sheet->getStyle('B3')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
         $sheet->setCellValue('B4', 'Nota: Este es un documento preliminar aún no aprobado por la comisión revisora, el mismo puede ser modificado de acuerdo a la solicitud debidamente documentada con Resolución.');
-        $sheet->mergeCells('B4:H4');
+        $sheet->mergeCells('B4:' . $c['totch'] . '4');
         $sheet->getStyle('B4')->getAlignment()->setWrapText(true)->setVertical(Alignment::VERTICAL_CENTER);
         $sheet->getRowDimension(4)->setRowHeight(32);
 
         // === CABECERA DE TABLA (fila 5) ===
         $headers = [
-            'B' => 'Nº',
-            'C' => 'NOMBRE DOCENTE',
-            'D' => 'NOMBRE MATERIA',
-            'E' => 'CH',
-            'F' => 'DETALLE',
-            'G' => 'CATEGORIA',
-            'H' => 'T. CH',
-            'J' => 'FOTOCOPIA TITULAR',
-            'K' => 'OBS 2',
-            'L' => 'OBS3',
+            'n' => 'Nº',
+            'docente' => 'NOMBRE DOCENTE',
+            'materia' => 'NOMBRE MATERIA',
+            'ch' => 'CH',
+            'detalle' => 'DETALLE',
+            'categoria' => 'CATEGORIA',
+            'totch' => 'T. CH',
+            'fotocopia' => 'FOTOCOPIA TITULAR',
+            'obs2' => 'OBS1',
+            'obs3' => 'OBS2',
         ];
-
-        foreach ($headers as $col => $texto) {
-            $sheet->setCellValue($col . '5', $texto);
+        if ($mostrarAntiguedad) {
+            $headers['antig'] = 'ANTIGÜEDAD';
         }
-        foreach (['B5:H5', 'J5:L5'] as $rango) {
+
+        foreach ($headers as $clave => $texto) {
+            $sheet->setCellValue($c[$clave] . '5', $texto);
+        }
+        foreach ([$rangoIzq(5), $rangoDer(5)] as $rango) {
             $sheet->getStyle($rango)->getFont()->setBold(true);
             $sheet->getStyle($rango)->getAlignment()
                 ->setHorizontal(Alignment::HORIZONTAL_CENTER)
@@ -541,104 +622,133 @@ class ReporteExcelController extends Controller
                 }
             }
 
-            $sheet->setCellValue('B' . $fila, $item['N']);
-            $sheet->setCellValue('C' . $fila, $item['NOMBRE_DOCENTE']);
-            $sheet->setCellValue('D' . $fila, $item['NOMBRE_MATERIA']);
-            $sheet->setCellValue('E' . $fila, $item['CH']);
-            $sheet->setCellValue('F' . $fila, $item['DETALLE']);
-            $sheet->setCellValue('G' . $fila, $item['CATEGORIA']);
-            $sheet->setCellValue('H' . $fila, $totalCh);
-            $sheet->setCellValue('J' . $fila, $item['FOTOCOPIA_TITULAR']);
-            $sheet->setCellValue('K' . $fila, $item['OBS2']);
-            $sheet->setCellValue('L' . $fila, $item['OBS3']);
+            $sheet->setCellValue($c['n'] . $fila, $item['N'] ?? null);
+            $sheet->setCellValue($c['docente'] . $fila, $item['NOMBRE_DOCENTE'] ?? '');
+            $sheet->setCellValue($c['materia'] . $fila, $item['NOMBRE_MATERIA'] ?? '');
+            $sheet->setCellValue($c['ch'] . $fila, $item['CH'] ?? null);
 
-            $sheet->getStyle('B' . $fila . ':H' . $fila)->getAlignment()
+            if ($mostrarAntiguedad) {
+                // Solo en la primera fila de cada materia (si se combinaron materias);
+                // numérico (2 o 2.5) o vacío cuando es null.
+                $antig = $item['ANTIGUEDAD'] ?? null;
+                $sheet->setCellValue(
+                    $c['antig'] . $fila,
+                    is_numeric($antig) ? (float) $antig : null
+                );
+            }
+
+            $sheet->setCellValue($c['detalle'] . $fila, $item['DETALLE'] ?? '');
+            $sheet->setCellValue($c['categoria'] . $fila, $item['CATEGORIA'] ?? '');
+            $sheet->setCellValue($c['totch'] . $fila, $totalCh);
+            $sheet->setCellValue($c['fotocopia'] . $fila, $item['FOTOCOPIA_TITULAR'] ?? '');
+            $sheet->setCellValue($c['obs2'] . $fila, $item['OBS2'] ?? '');
+            $sheet->setCellValue($c['obs3'] . $fila, $item['OBS3'] ?? '');
+
+            $sheet->getStyle($rangoIzq($fila))->getAlignment()
                 ->setWrapText(true)
                 ->setVertical(Alignment::VERTICAL_CENTER);
-            $sheet->getStyle('J' . $fila . ':L' . $fila)->getAlignment()
+            $sheet->getStyle($rangoDer($fila))->getAlignment()
                 ->setWrapText(true)
                 ->setVertical(Alignment::VERTICAL_CENTER);
 
-            $sheet->getStyle('E' . $fila)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-            $sheet->getStyle('B' . $fila)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-            $sheet->getStyle('H' . $fila)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-            $sheet->getStyle('H' . $fila)->getFont()->setBold(true);
+            $sheet->getStyle($c['ch'] . $fila)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $sheet->getStyle($c['n'] . $fila)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $sheet->getStyle($c['totch'] . $fila)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $sheet->getStyle($c['totch'] . $fila)->getFont()->setBold(true);
+            if ($mostrarAntiguedad) {
+                $sheet->getStyle($c['antig'] . $fila)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            }
 
-            $sheet->getStyle('B' . $fila . ':H' . $fila)->getBorders()->getAllBorders()
+            $sheet->getStyle($rangoIzq($fila))->getBorders()->getAllBorders()
                 ->setBorderStyle(Border::BORDER_THIN);
-            $sheet->getStyle('J' . $fila . ':L' . $fila)->getBorders()->getAllBorders()
+            $sheet->getStyle($rangoDer($fila))->getBorders()->getAllBorders()
                 ->setBorderStyle(Border::BORDER_THIN);
 
             // Fusiona Nº, Docente y T. CH a lo largo de todas las filas del docente
-            if (!empty($item['INICIO_GRUPO']) && $item['FILAS_GRUPO'] > 1) {
+            if (!empty($item['INICIO_GRUPO']) && ($item['FILAS_GRUPO'] ?? 1) > 1) {
                 $filaInicio = $fila;
                 $filaFin = $fila + $item['FILAS_GRUPO'] - 1;
 
-                $sheet->mergeCells('B' . $filaInicio . ':B' . $filaFin);
-                $sheet->mergeCells('C' . $filaInicio . ':C' . $filaFin);
-                $sheet->mergeCells('H' . $filaInicio . ':H' . $filaFin);
+                foreach (['n', 'docente', 'totch'] as $clave) {
+                    $sheet->mergeCells($c[$clave] . $filaInicio . ':' . $c[$clave] . $filaFin);
+                }
 
-                $sheet->getStyle('B' . $filaInicio . ':B' . $filaFin)->getAlignment()
-                    ->setHorizontal(Alignment::HORIZONTAL_CENTER)
-                    ->setVertical(Alignment::VERTICAL_CENTER);
-                $sheet->getStyle('H' . $filaInicio . ':H' . $filaFin)->getAlignment()
-                    ->setHorizontal(Alignment::HORIZONTAL_CENTER)
-                    ->setVertical(Alignment::VERTICAL_CENTER);
-                $sheet->getStyle('C' . $filaInicio . ':C' . $filaFin)->getAlignment()
+                foreach (['n', 'totch'] as $clave) {
+                    $sheet->getStyle($c[$clave] . $filaInicio . ':' . $c[$clave] . $filaFin)->getAlignment()
+                        ->setHorizontal(Alignment::HORIZONTAL_CENTER)
+                        ->setVertical(Alignment::VERTICAL_CENTER);
+                }
+                $sheet->getStyle($c['docente'] . $filaInicio . ':' . $c['docente'] . $filaFin)->getAlignment()
                     ->setHorizontal(Alignment::HORIZONTAL_LEFT)
                     ->setVertical(Alignment::VERTICAL_CENTER)
                     ->setWrapText(true);
             }
 
-            // Combinar Materias: fusiona la columna D (NOMBRE_MATERIA) y la E (CH)
+            // Combinar Materias: fusiona NOMBRE_MATERIA, CH y (si aplica) ANTIGÜEDAD
             // cuando el frontend marcó un tramo de filas con la misma materia
             // (solo llega por POST /excel-personalizado).
             if (!empty($item['INICIO_MATERIA']) && ($item['FILAS_MATERIA'] ?? 1) > 1) {
                 $filaInicioMateria = $fila;
                 $filaFinMateria = $fila + $item['FILAS_MATERIA'] - 1;
 
-                $sheet->mergeCells('D' . $filaInicioMateria . ':D' . $filaFinMateria);
-                $sheet->mergeCells('E' . $filaInicioMateria . ':E' . $filaFinMateria);
+                $columnasMateria = ['materia', 'ch'];
+                if ($mostrarAntiguedad) {
+                    $columnasMateria[] = 'antig';
+                }
 
-                $sheet->getStyle('D' . $filaInicioMateria . ':D' . $filaFinMateria)->getAlignment()
+                foreach ($columnasMateria as $clave) {
+                    $sheet->mergeCells($c[$clave] . $filaInicioMateria . ':' . $c[$clave] . $filaFinMateria);
+                }
+
+                $sheet->getStyle($c['materia'] . $filaInicioMateria . ':' . $c['materia'] . $filaFinMateria)->getAlignment()
                     ->setHorizontal(Alignment::HORIZONTAL_LEFT)
                     ->setVertical(Alignment::VERTICAL_CENTER)
                     ->setWrapText(true);
 
-                $sheet->getStyle('E' . $filaInicioMateria . ':E' . $filaFinMateria)->getAlignment()
-                    ->setHorizontal(Alignment::HORIZONTAL_CENTER)
-                    ->setVertical(Alignment::VERTICAL_CENTER);
+                foreach (array_diff($columnasMateria, ['materia']) as $clave) {
+                    $sheet->getStyle($c[$clave] . $filaInicioMateria . ':' . $c[$clave] . $filaFinMateria)->getAlignment()
+                        ->setHorizontal(Alignment::HORIZONTAL_CENTER)
+                        ->setVertical(Alignment::VERTICAL_CENTER);
+                }
             }
 
             if (!empty($item['FIN_GRUPO'])) {
-                $sheet->getStyle('B' . $fila . ':H' . $fila)->getBorders()->getBottom()
+                $sheet->getStyle($rangoIzq($fila))->getBorders()->getBottom()
                     ->setBorderStyle(Border::BORDER_MEDIUM);
-                $sheet->getStyle('J' . $fila . ':L' . $fila)->getBorders()->getBottom()
+                $sheet->getStyle($rangoDer($fila))->getBorders()->getBottom()
                     ->setBorderStyle(Border::BORDER_MEDIUM);
             }
 
             $fila++;
         }
 
-        // === AUTOFILTRO (CATEGORIA y T. CH: G a H) ===
+        // === AUTOFILTRO (CATEGORIA y T. CH) ===
         $ultimaFila = $fila - 1;
         if ($ultimaFila >= 5) {
-            $sheet->setAutoFilter('G5:H' . $ultimaFila);
+            $sheet->setAutoFilter($c['categoria'] . '5:' . $c['totch'] . $ultimaFila);
         }
 
         // === ANCHOS DE COLUMNA ===
         $sheet->getColumnDimension('A')->setWidth(4);
-        $sheet->getColumnDimension('B')->setWidth(5);
-        $sheet->getColumnDimension('C')->setWidth(37.5);
-        $sheet->getColumnDimension('D')->setWidth(38.7);
-        $sheet->getColumnDimension('E')->setWidth(6);
-        $sheet->getColumnDimension('F')->setWidth(55);
-        $sheet->getColumnDimension('G')->setWidth(26);
-        $sheet->getColumnDimension('H')->setWidth(8);
-        $sheet->getColumnDimension('I')->setWidth(1.5);   // separador
-        $sheet->getColumnDimension('J')->setWidth(23.6);
-        $sheet->getColumnDimension('K')->setWidth(16);
-        $sheet->getColumnDimension('L')->setWidth(20);
+        $anchos = [
+            'n' => 5,
+            'docente' => 37.5,
+            'materia' => 38.7,
+            'ch' => 6,
+            'antig' => 12,
+            'detalle' => 55,
+            'categoria' => 26,
+            'totch' => 8,
+            'sep' => 1.5,        // separador
+            'fotocopia' => 23.6,
+            'obs2' => 16,
+            'obs3' => 20,
+        ];
+        foreach ($anchos as $clave => $ancho) {
+            if (isset($c[$clave])) {
+                $sheet->getColumnDimension($c[$clave])->setWidth($ancho);
+            }
+        }
 
         $sheet->freezePane('B6');
 
@@ -713,8 +823,6 @@ class ReporteExcelController extends Controller
      * Cada materia devuelve:
      *   - comp:       valor crudo de GRUPOS_COMPARTIDOS.COMP (0 si no hay registro)
      *   - compartida: 1 si el grupo es compartido (COMP > 0), 0 si no.
-     *                 El frontend usa este campo para decidir qué filas
-     *                 "acéfala compartida" oculta/muestra el botón "Compartido".
      *
      * GET /api/reportes/carga-horaria-docentes?anio=2026&periodo=1
      * GET /api/reportes/carga-horaria-docentes?anio=2026&periodo=1&docente=123
