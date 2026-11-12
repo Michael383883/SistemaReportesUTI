@@ -96,6 +96,67 @@ const esCodigoMateriaExcluido = (codMateria) =>
 // Marcas de agrupación que se recalculan cada vez que se arman los bloques
 const MARCAS_GRUPO = ['N', 'NOMBRE_DOCENTE', 'INICIO_GRUPO', 'FILAS_GRUPO', 'FIN_GRUPO', 'INICIO_MATERIA', 'FILAS_MATERIA']
 
+const textoPlano = (s) => String(s ?? '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+
+// Normaliza una categoría para compararla (sin tildes, mayúsculas, sin espacios extra)
+const normalizarCategoria = (s) => textoPlano(s).replace(/\s+/g, ' ').trim()
+
+// ─── Quitar filas conservando la estructura por docente ───
+// Quita las filas que cumplan `debeQuitar` y recalcula las marcas de grupo
+// (Nº, rowspan del docente, FIN_GRUPO...). Si un docente se queda sin filas,
+// desaparece. Devuelve { filas, quitadas }.
+function quitarFilas(filas, debeQuitar) {
+    const quitadas = filas.filter(debeQuitar)
+    if (!quitadas.length) return { filas, quitadas: [] }
+
+    // 1) separar en bloques por docente
+    const bloques = []
+    let i = 0
+    while (i < filas.length) {
+        const f = filas[i]
+        const n = f.INICIO_GRUPO ? (f.FILAS_GRUPO || 1) : 1
+        bloques.push(filas.slice(i, i + n))
+        i += n
+    }
+
+    // 2) reconstruir
+    const resultado = []
+    let numero = 0
+    for (const bloque of bloques) {
+        const restantes = bloque.filter(f => !debeQuitar(f))
+        if (!restantes.length) continue
+
+        const perdioFilas = restantes.length !== bloque.length
+        const copia = restantes.map(f => ({ ...f }))
+
+        if (bloque[0].INICIO_GRUPO) {
+            copia.forEach((f, k) => {
+                delete f.FIN_GRUPO
+                if (perdioFilas) {
+                    delete f.INICIO_MATERIA
+                    delete f.FILAS_MATERIA
+                }
+                if (k === 0) {
+                    f.N = ++numero
+                    f.NOMBRE_DOCENTE = bloque[0].NOMBRE_DOCENTE
+                    f.INICIO_GRUPO = true
+                    f.FILAS_GRUPO = copia.length
+                } else {
+                    f.N = null
+                    f.NOMBRE_DOCENTE = ''
+                    delete f.INICIO_GRUPO
+                    delete f.FILAS_GRUPO
+                }
+            })
+            copia[copia.length - 1].FIN_GRUPO = true
+        }
+        resultado.push(...copia)
+    }
+    return { filas: resultado, quitadas }
+}
+
 // ─── Acéfala + compartido ───
 // Una materia es "compartida" SOLO si en la carga horaria real la columna
 // COMP. es mayor a 0 (campo `compartida` o `comp` de cada materia que
@@ -109,10 +170,6 @@ const MARCAS_GRUPO = ['N', 'NOMBRE_DOCENTE', 'INICIO_GRUPO', 'FILAS_GRUPO', 'FIN
 //   - desactivado (por defecto): esas filas se excluyen del reporte.
 //   - activado: esas filas se muestran, con CH = '-'.
 // Las demás materias acéfalas (COMP = 0) se muestran SIEMPRE con normalidad.
-
-const textoPlano = (s) => String(s ?? '')
-    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-    .toUpperCase()
 
 const esMateriaCompartida = (mat) => Number(mat?.compartida ?? mat?.comp ?? 0) > 0
 
@@ -146,8 +203,7 @@ function esAcefalaCompartida(fila, mapaCompartidas) {
 }
 
 // Si mostrar === false: quita las filas ACEFALA + compartida y recalcula
-// las marcas de grupo (Nº, rowspan del docente, etc.). Si un docente se
-// queda sin filas, desaparece.
+// las marcas de grupo. Si un docente se queda sin filas, desaparece.
 // Si mostrar === true: las deja, con CH = '-' y la marca COMPARTIDA: true.
 function procesarCompartidas(filas, mostrar = false, mapaCompartidas = new Map()) {
     const esComp = (f) => esAcefalaCompartida(f, mapaCompartidas)
@@ -159,53 +215,8 @@ function procesarCompartidas(filas, mostrar = false, mapaCompartidas = new Map()
         return { filas: resultado, ocultas: 0 }
     }
 
-    const ocultas = filas.filter(esComp).length
-    if (!ocultas) return { filas, ocultas: 0 }
-
-    // 1) separar en bloques por docente
-    const bloques = []
-    let i = 0
-    while (i < filas.length) {
-        const f = filas[i]
-        const n = f.INICIO_GRUPO ? (f.FILAS_GRUPO || 1) : 1
-        bloques.push(filas.slice(i, i + n))
-        i += n
-    }
-
-    // 2) reconstruir
-    const resultado = []
-    let numero = 0
-    for (const bloque of bloques) {
-        const restantes = bloque.filter(f => !esComp(f))
-        if (!restantes.length) continue
-
-        const perdioFilas = restantes.length !== bloque.length
-        const copia = restantes.map(f => ({ ...f }))
-
-        if (bloque[0].INICIO_GRUPO) {
-            copia.forEach((f, k) => {
-                delete f.FIN_GRUPO
-                if (perdioFilas) {
-                    delete f.INICIO_MATERIA
-                    delete f.FILAS_MATERIA
-                }
-                if (k === 0) {
-                    f.N = ++numero
-                    f.NOMBRE_DOCENTE = bloque[0].NOMBRE_DOCENTE
-                    f.INICIO_GRUPO = true
-                    f.FILAS_GRUPO = copia.length
-                } else {
-                    f.N = null
-                    f.NOMBRE_DOCENTE = ''
-                    delete f.INICIO_GRUPO
-                    delete f.FILAS_GRUPO
-                }
-            })
-            copia[copia.length - 1].FIN_GRUPO = true
-        }
-        resultado.push(...copia)
-    }
-    return { filas: resultado, ocultas }
+    const { filas: resultado, quitadas } = quitarFilas(filas, esComp)
+    return { filas: resultado, ocultas: quitadas.length }
 }
 
 // Suma la CH de un bloque (docente). Si una misma materia aparece en varias
@@ -232,6 +243,41 @@ function totalMesDe(totalCh) {
     const n = Number(totalCh)
     if (!Number.isFinite(n) || n <= 0) return null
     return Math.round(n * 4 * 100) / 100
+}
+
+// ─── Antigüedad del docente en la materia ───
+// Cada periodo (1 o 2) en que dictó la materia vale 0,5 año.
+// Ej.: 4 periodos = 2 años, 5 periodos = 2,5 años, 2 periodos = 1 año.
+const ANIOS_POR_PERIODO = 0.5
+
+// data (backend) -> Map(codDocente -> Map(materiaNormalizada -> Set(periodos)))
+function construirMapaAntiguedad(data) {
+    const mapa = new Map()
+    for (const d of data || []) {
+        const m = new Map()
+        for (const mat of (d.materias || [])) {
+            const key = normalizarNombreMateria(mat.nom_materia)
+            if (!key) continue
+            const set = m.get(key) || new Set()
+                ; (mat.periodos || []).forEach(p => set.add(p))
+            m.set(key, set)
+        }
+        mapa.set(String(d.codigo), m)
+    }
+    return mapa
+}
+
+// Años de antigüedad de una fila (mismo criterio de coincidencia que la CH).
+// Devuelve null si no aplica o no hay datos.
+function antiguedadDeFila(fila, mapa) {
+    const nombre = normalizarNombreMateria(fila.NOMBRE_MATERIA)
+    if (!fila.COD_DOCENTE || !nombre || nombre === '-' || nombre === PLACEHOLDER_SIN_MATERIA) return null
+
+    const materiasDocente = mapa.get(String(fila.COD_DOCENTE))
+    const clave = buscarClaveMateria(nombre, materiasDocente)
+    if (!clave) return null
+
+    return materiasDocente.get(clave).size * ANIOS_POR_PERIODO
 }
 
 export function useReporteExcel() {
@@ -278,9 +324,74 @@ export function useReporteExcel() {
 
     // ── Mostrar Referencias (CLASIFICACION_REFERENCIA en DETALLE) ──
     // El DETALLE se arma en el backend, así que este flag solo se guarda
-    // como estado y se reenvía en cada previsualizar()/urlDescarga(); no hay
-    // nada que transformar en el cliente sobre datos ya cargados.
+    // como estado y se reenvía en cada previsualizar()/urlDescarga().
     const mostrarReferencias = ref(false)
+
+    // ── Antigüedad (columna al lado de CH, apagada por defecto) ──
+    // Años que el docente lleva dictando ESA materia (cada periodo 1 o 2 = 0,5).
+    const mostrarAntiguedad = ref(false)
+    const cargandoAntiguedad = ref(false)
+    const errorAntiguedad = ref(null)
+    const antiguedadMapa = ref(new Map())
+    let antiguedadClave = '' // "anio~periodo" de los datos cargados
+
+    // GET /api/reportes/antiguedad-docentes-materia
+    async function cargarAntiguedad({ anio, periodo, forzar = false } = {}) {
+        const a = anio ?? anioActivos.value
+        const p = periodo ?? periodoActivos.value
+        const clave = `${a}~${p}`
+        if (!forzar && clave === antiguedadClave && antiguedadMapa.value.size) return
+
+        cargandoAntiguedad.value = true
+        errorAntiguedad.value = null
+        try {
+            const { data } = await axios.get(
+                `${API_BASE}/api/reportes/antiguedad-docentes-materia`,
+                { params: { anio: a, periodo: p }, headers: authHeaders() }
+            )
+            antiguedadMapa.value = construirMapaAntiguedad(data.data)
+            antiguedadClave = clave
+        } catch (e) {
+            errorAntiguedad.value = e?.response?.data?.message || 'No se pudo obtener la antigüedad de los docentes'
+            antiguedadMapa.value = new Map()
+            antiguedadClave = ''
+            throw e
+        } finally {
+            cargandoAntiguedad.value = false
+        }
+    }
+
+    // Interruptor: al encender carga los datos; al apagar solo oculta la columna
+    async function alternarAntiguedad() {
+        if (mostrarAntiguedad.value) {
+            mostrarAntiguedad.value = false
+            return
+        }
+        try {
+            await cargarAntiguedad()
+            mostrarAntiguedad.value = true
+        } catch (e) {
+            mostrarAntiguedad.value = false
+        }
+    }
+
+    // ── Ocultar parte del TÍTULO en el DETALLE ──
+    // También se arma en el backend: al cambiar se vuelve a pedir el preview.
+    const ocultarNombreTitulo = ref(false) // oculta NOMBRE_TITULO
+    const ocultarTipoTitulo = ref(false)   // oculta TIPO_TITULO (categoría del título)
+
+    // ── Quitar materias por clasificación (Acéfala, Suplencia, ...) ──
+    // categoriasDisponibles: categorías distintas que vienen en el preview
+    //   (para pintar los botones/selector de forma dinámica).
+    // categoriasExcluidas: categorías (texto original) elegidas para quitar.
+    //   Se quita la fila de la materia y su CH. Con "Solo Activos", esa
+    //   materia tampoco vuelve a entrar desde la carga horaria real.
+    const categoriasDisponibles = ref([])
+    const categoriasExcluidas = ref([])
+    const filasQuitadasPorCategoria = ref(0)
+    // cod_docente -> Map(materiaNormalizada -> true) de las materias quitadas
+    // (y que el docente no conserva en otra fila válida)
+    let materiasQuitadasMap = new Map()
 
     // ── Botón "Compartido" (por defecto desactivado) ──
     // false: se ocultan las filas acéfalas compartidas (COMP. > 0).
@@ -288,10 +399,49 @@ export function useReporteExcel() {
     const mostrarCompartidas = ref(false)
     let datosCrudos = null // filas tal cual llegaron del backend
 
-    // Aplica el filtro de compartidas sobre los datos crudos
+    // Calcula qué materias se quitaron por categoría y el docente no conserva
+    // en ninguna otra fila (para no re-agregarlas desde la carga horaria real).
+    function calcularMateriasQuitadas(filasRestantes, quitadas) {
+        const restantesPorDocente = new Map()
+        for (const f of filasRestantes) {
+            const key = normalizarNombreMateria(f.NOMBRE_MATERIA)
+            if (!key || key === '-' || key === PLACEHOLDER_SIN_MATERIA) continue
+            const cod = String(f.COD_DOCENTE)
+            if (!restantesPorDocente.has(cod)) restantesPorDocente.set(cod, new Map())
+            restantesPorDocente.get(cod).set(key, true)
+        }
+
+        const mapa = new Map()
+        for (const f of quitadas) {
+            const key = normalizarNombreMateria(f.NOMBRE_MATERIA)
+            if (!key || key === '-' || key === PLACEHOLDER_SIN_MATERIA) continue
+            const cod = String(f.COD_DOCENTE)
+            if (buscarClaveMateria(key, restantesPorDocente.get(cod))) continue
+            if (!mapa.has(cod)) mapa.set(cod, new Map())
+            mapa.get(cod).set(key, true)
+        }
+        return mapa
+    }
+
+    // Aplica categorías excluidas + filtro de compartidas sobre los datos crudos
     function recalcularBase() {
         if (!datosCrudos) return
-        const { filas, ocultas } = procesarCompartidas(datosCrudos, mostrarCompartidas.value, compartidasMap)
+
+        // 1) Quitar categorías elegidas (materia + CH)
+        const excluidas = new Set(categoriasExcluidas.value.map(normalizarCategoria))
+        let base = datosCrudos
+        if (excluidas.size) {
+            const r = quitarFilas(datosCrudos, f => excluidas.has(normalizarCategoria(f.CATEGORIA)))
+            base = r.filas
+            filasQuitadasPorCategoria.value = r.quitadas.length
+            materiasQuitadasMap = calcularMateriasQuitadas(base, r.quitadas)
+        } else {
+            filasQuitadasPorCategoria.value = 0
+            materiasQuitadasMap = new Map()
+        }
+
+        // 2) Acéfalas compartidas
+        const { filas, ocultas } = procesarCompartidas(base, mostrarCompartidas.value, compartidasMap)
         preview.value = filas
         previewSinCompletar = filas
         filasOcultasCompartidas.value = ocultas
@@ -315,6 +465,49 @@ export function useReporteExcel() {
         procesarCrudos()
     }
 
+    // ── Botones "Quitar categoría" ──
+    // Quita/restaura UNA categoría exacta (ej. 'Suplencia'). Sin ir al backend.
+    function alternarCategoriaExcluida(categoria) {
+        const clave = normalizarCategoria(categoria)
+        const existe = categoriasExcluidas.value.some(c => normalizarCategoria(c) === clave)
+        categoriasExcluidas.value = existe
+            ? categoriasExcluidas.value.filter(c => normalizarCategoria(c) !== clave)
+            : [...categoriasExcluidas.value, categoria]
+        procesarCrudos()
+    }
+
+    // Quita/restaura TODAS las categorías disponibles que contengan el texto
+    // (ej. alternarGrupoCategorias('acefala') cubre "Acefala", "Acefala compartida"...).
+    // Si ninguna de las coincidentes está excluida, las excluye todas; si no, las restaura.
+    function alternarGrupoCategorias(texto) {
+        const buscado = normalizarCategoria(texto)
+        const coincidentes = categoriasDisponibles.value.filter(c => normalizarCategoria(c).includes(buscado))
+        if (!coincidentes.length) return
+
+        const clavesCoinc = new Set(coincidentes.map(normalizarCategoria))
+        const algunaExcluida = categoriasExcluidas.value.some(c => clavesCoinc.has(normalizarCategoria(c)))
+
+        categoriasExcluidas.value = algunaExcluida
+            ? categoriasExcluidas.value.filter(c => !clavesCoinc.has(normalizarCategoria(c)))
+            : [...categoriasExcluidas.value, ...coincidentes]
+        procesarCrudos()
+    }
+
+    // Reemplaza toda la selección de una vez (útil para un selector múltiple)
+    function establecerCategoriasExcluidas(lista = []) {
+        categoriasExcluidas.value = [...lista]
+        procesarCrudos()
+    }
+
+    function limpiarCategoriasExcluidas() {
+        establecerCategoriasExcluidas([])
+    }
+
+    function estaCategoriaExcluida(categoria) {
+        const clave = normalizarCategoria(categoria)
+        return categoriasExcluidas.value.some(c => normalizarCategoria(c) === clave)
+    }
+
     function authHeaders(extra = {}) {
         const token = localStorage.getItem('token')
         return {
@@ -327,7 +520,10 @@ export function useReporteExcel() {
     // categoria y tipo_titulo pueden venir como array (multi-selección) o string
     // OJO: cada fila debe traer COD_MATERIA (código de la materia) para poder
     // excluir las materias que empiezan con 18 en Prelación.
-    async function previsualizar({ gestion_desde, gestion_hasta, periodo, version, categoria, tipo_titulo, mostrar_referencias } = {}) {
+    async function previsualizar({
+        gestion_desde, gestion_hasta, periodo, version, categoria, tipo_titulo,
+        mostrar_referencias, ocultar_nombre_titulo, ocultar_tipo_titulo,
+    } = {}) {
         loading.value = true
         error.value = null
         cargaHorariaAsignada.value = false // un preview nuevo descarta cualquier CH asignada previamente
@@ -339,6 +535,12 @@ export function useReporteExcel() {
         const referenciasActivas = mostrar_referencias !== undefined
             ? mostrar_referencias
             : mostrarReferencias.value
+        const ocultarNombre = ocultar_nombre_titulo !== undefined
+            ? ocultar_nombre_titulo
+            : ocultarNombreTitulo.value
+        const ocultarTipo = ocultar_tipo_titulo !== undefined
+            ? ocultar_tipo_titulo
+            : ocultarTipoTitulo.value
 
         try {
             const { data } = await axios.get(
@@ -352,6 +554,8 @@ export function useReporteExcel() {
                         categoria: serializarLista(categoria),
                         tipo_titulo: serializarLista(tipo_titulo),
                         mostrar_referencias: referenciasActivas ? 1 : undefined,
+                        ocultar_nombre_titulo: ocultarNombre ? 1 : undefined,
+                        ocultar_tipo_titulo: ocultarTipo ? 1 : undefined,
                     },
                     headers: authHeaders(),
                 }
@@ -363,6 +567,8 @@ export function useReporteExcel() {
                 previewSinCompletar = null
                 datosCrudos = null
                 filasOcultasCompartidas.value = 0
+                filasQuitadasPorCategoria.value = 0
+                categoriasDisponibles.value = []
                 return
             }
 
@@ -370,9 +576,23 @@ export function useReporteExcel() {
             versionEtiqueta.value = data.version
             totalFilas.value = data.total_filas
             mostrarReferencias.value = referenciasActivas
+            ocultarNombreTitulo.value = ocultarNombre
+            ocultarTipoTitulo.value = ocultarTipo
 
-            // Guarda los datos crudos y aplica el filtro de compartidas
-            // según el estado actual del botón "Compartido"
+            // Categorías distintas presentes en los datos (botones dinámicos).
+            // Se mantienen también las ya excluidas para poder restaurarlas.
+            const distintas = new Map()
+            for (const f of data.data || []) {
+                const c = (f.CATEGORIA ?? '').toString().trim()
+                if (c && c !== '-') distintas.set(normalizarCategoria(c), c)
+            }
+            for (const c of categoriasExcluidas.value) {
+                distintas.set(normalizarCategoria(c), c)
+            }
+            categoriasDisponibles.value = [...distintas.values()].sort((a, b) => a.localeCompare(b, 'es'))
+
+            // Guarda los datos crudos y aplica categorías excluidas + filtro
+            // de compartidas según el estado actual de los botones
             datosCrudos = data.data
             procesarCrudos()
         } catch (e) {
@@ -381,6 +601,7 @@ export function useReporteExcel() {
             previewSinCompletar = null
             datosCrudos = null
             filasOcultasCompartidas.value = 0
+            filasQuitadasPorCategoria.value = 0
             throw e
         } finally {
             loading.value = false
@@ -456,8 +677,9 @@ export function useReporteExcel() {
     // - Las materias compartidas (COMP. > 0) que no están en ningún documento
     //   solo se agregan si "Compartido" está activo (con CH '-').
     // - Con excluirPrelacion: se omiten los docentes excluidos y las materias
-    //   con código que empieza con 18 (si el docente se queda sin materias
-    //   por eso, no se muestra).
+    //   con código que empieza con 18.
+    // - Materias QUITADAS por categoría (Acéfala, Suplencia...): no se
+    //   re-agregan desde la carga real, así que ni la materia ni su CH vuelven.
     function completarConActivos(filasBase) {
         const excluir = excluirPrelacion.value
 
@@ -480,6 +702,7 @@ export function useReporteExcel() {
         const docentesCon18EnCarga = new Set() // docentes que dictan alguna materia 18
         for (const d of cargaActivos.value) {
             const m = new Map()
+            const quitadasDoc = materiasQuitadasMap.get(String(d.codigo))
             for (const mat of (d.materias || [])) {
                 // Materia 18: se ignora (no suma CH ni se agrega como faltante)
                 if (excluir && esCodigoMateriaExcluido(mat.cod_materia)) {
@@ -488,6 +711,10 @@ export function useReporteExcel() {
                 }
                 const key = normalizarNombreMateria(mat.nom_materia)
                 if (!key) continue
+
+                // Materia quitada por categoría: no vuelve ni suma su CH
+                if (quitadasDoc && buscarClaveMateria(key, quitadasDoc)) continue
+
                 const prev = m.get(key)
                 m.set(key, {
                     nombre: mat.nom_materia,
@@ -501,8 +728,8 @@ export function useReporteExcel() {
         }
 
         // Fila de un docente activo que no tiene documento: la categoría
-        // se muestra directamente como "-" (ya no dice "SIN DOCUMENTO").
-        // La marca interna SIN_DOCUMENTO se mantiene para los totales.
+        // se muestra directamente como "-". La marca interna SIN_DOCUMENTO
+        // se mantiene para los totales.
         const filaSinDocumento = (cod, nombreMateria, ch) => ({
             COD_DOCENTE: cod,
             NOMBRE_MATERIA: nombreMateria,
@@ -589,6 +816,10 @@ export function useReporteExcel() {
 
             // Solo tenía materias 18: el docente no se muestra
             if (tuvoMateria18 && !filas.length) continue
+
+            // Se quitaron materias por categoría y no queda nada para este
+            // docente (ni documento ni materia real): no se muestra.
+            if (!filas.length && materiasQuitadasMap.has(cod)) continue
 
             // activo sin documentos ni materias
             if (!filas.length) filas.push(filaSinDocumento(cod, '-', null))
@@ -705,7 +936,9 @@ export function useReporteExcel() {
     // Además, en la primera fila de cada docente se agrega:
     //   - TOTAL_CH:     suma de la columna CH del docente (cada materia una vez).
     //   - TOTAL_CH_MES: TOTAL_CH x 4 (equivalente mensual), o null si no aplica.
-    // Estos dos campos viajan al backend en descargarExcelPersonalizado().
+    // Y, si "Mostrar antigüedad" está activo, en cada fila:
+    //   - ANTIGUEDAD:   años dictando esa materia (null en filas combinadas).
+    // Estos campos viajan al backend en descargarExcelPersonalizado().
     const previewMostrado = computed(() => {
         const base = soloActivos.value
             ? preview.value.filter(item => codigosActivos.value.has(String(item.COD_DOCENTE)))
@@ -726,6 +959,12 @@ export function useReporteExcel() {
                     copia.TOTAL_CH = total
                     copia.TOTAL_CH_MES = totalMesDe(total)
                     if (soloActivos.value && copia.INICIO_GRUPO) copia.N = ++n
+                }
+                // Antigüedad: misma celda combinada que la CH
+                if (mostrarAntiguedad.value) {
+                    copia.ANTIGUEDAD = fila.INICIO_MATERIA === false
+                        ? null
+                        : antiguedadDeFila(fila, antiguedadMapa.value)
                 }
                 resultado.push(copia)
             })
@@ -764,8 +1003,7 @@ export function useReporteExcel() {
     // (mismos números y ≥ 75% de palabras en común). Si hay coincidencia asigna
     // la CH; si no, deja la fila como está. No toca filas sin materia real
     // (placeholder "NO REGENTA...") ni las filas compartidas (CH = '-').
-    // Con excluirPrelacion, las materias con código 18 no entran al mapa (así
-    // su CH no se mezcla con otra materia del mismo nombre).
+    // Con excluirPrelacion, las materias con código 18 no entran al mapa.
     async function asignarCargaHoraria({ anio, periodo } = {}) {
         const cargaDocentes = await obtenerCargaHorariaDocentes({ anio, periodo })
 
@@ -972,12 +1210,8 @@ export function useReporteExcel() {
     }
 
     // ── Botón "Mostrar Referencias" (toggle) ──
-    // El texto de DETALLE (incluida la referencia, CLASIFICACION_REFERENCIA)
-    // se arma en el backend, así que no hay nada que transformar sobre los
-    // datos ya cargados en el cliente: hay que volver a pedir la vista previa
-    // con el flag correspondiente. Se expone como función async para que el
-    // componente pueda esperar a que termine antes de, por ejemplo, cerrar un
-    // loader.
+    // El texto de DETALLE (incluida la referencia) se arma en el backend, así
+    // que hay que volver a pedir la vista previa con el flag correspondiente.
     async function alternarMostrarReferencias(params = {}) {
         mostrarReferencias.value = !mostrarReferencias.value
         await previsualizar({
@@ -986,10 +1220,57 @@ export function useReporteExcel() {
         })
     }
 
-    // Construye la URL de descarga real del Excel (mismo endpoint que ya existe,
-    // vía GET). OJO: este endpoint NO incluye "Mes" (T. CH x 4); para eso usa
-    // descargarExcelPersonalizado().
-    function urlDescarga({ gestion_desde, gestion_hasta, periodo, version, categoria, tipo_titulo, mostrar_referencias } = {}) {
+    // ── Botones "Ocultar título" ──
+    // `params` = los filtros actuales (gestion_desde, gestion_hasta, periodo,
+    // version, categoria, tipo_titulo), igual que en alternarMostrarReferencias.
+
+    // Oculta/muestra el NOMBRE del título
+    async function alternarOcultarNombreTitulo(params = {}) {
+        await previsualizar({
+            ...params,
+            ocultar_nombre_titulo: !ocultarNombreTitulo.value,
+            ocultar_tipo_titulo: ocultarTipoTitulo.value,
+        })
+    }
+
+    // Oculta/muestra la CATEGORÍA (tipo) del título
+    async function alternarOcultarTipoTitulo(params = {}) {
+        await previsualizar({
+            ...params,
+            ocultar_nombre_titulo: ocultarNombreTitulo.value,
+            ocultar_tipo_titulo: !ocultarTipoTitulo.value,
+        })
+    }
+
+    // UN SOLO botón que cicla:
+    //   todo visible → sin nombre → sin categoría → sin ambos → todo visible
+    async function ciclarOcultarTitulo(params = {}) {
+        const n = ocultarNombreTitulo.value
+        const t = ocultarTipoTitulo.value
+
+        let siguiente
+        if (!n && !t) siguiente = { nombre: true, tipo: false }
+        else if (n && !t) siguiente = { nombre: false, tipo: true }
+        else if (!n && t) siguiente = { nombre: true, tipo: true }
+        else siguiente = { nombre: false, tipo: false }
+
+        await previsualizar({
+            ...params,
+            ocultar_nombre_titulo: siguiente.nombre,
+            ocultar_tipo_titulo: siguiente.tipo,
+        })
+    }
+
+    // Texto para el botón único de ciclo
+    const etiquetaOcultarTitulo = computed(() => {
+        if (ocultarNombreTitulo.value && ocultarTipoTitulo.value) return 'Título: oculto'
+        if (ocultarNombreTitulo.value) return 'Título: sin nombre'
+        if (ocultarTipoTitulo.value) return 'Título: sin categoría'
+        return 'Título: completo'
+    })
+
+    // Arma los params de query comunes para las descargas por GET
+    function armarParamsDescarga({ gestion_desde, gestion_hasta, periodo, version, categoria, tipo_titulo, mostrar_referencias } = {}) {
         const params = new URLSearchParams()
         if (gestion_desde) params.set('gestion_desde', gestion_desde)
         if (gestion_hasta) params.set('gestion_hasta', gestion_hasta)
@@ -1008,36 +1289,32 @@ export function useReporteExcel() {
             : mostrarReferencias.value
         if (referenciasActivas) params.set('mostrar_referencias', '1')
 
+        if (ocultarNombreTitulo.value) params.set('ocultar_nombre_titulo', '1')
+        if (ocultarTipoTitulo.value) params.set('ocultar_tipo_titulo', '1')
+
+        const excluirCsv = serializarLista(categoriasExcluidas.value)
+        if (excluirCsv) params.set('excluir_categoria', excluirCsv)
+
         if (soloActivos.value) {
             params.set('solo_activos', '1')
             params.set('anio_activos', anioActivos.value)
             params.set('periodo_activos', periodoActivos.value)
         }
+        return params
+    }
 
+    // Construye la URL de descarga real del Excel (mismo endpoint que ya existe,
+    // vía GET). OJO: este endpoint NO incluye "Mes" (T. CH x 4) ni Antigüedad;
+    // para eso usa descargarExcelPersonalizado().
+    function urlDescarga(opciones = {}) {
+        const params = armarParamsDescarga(opciones)
         return `${API_BASE}/api/reportes/docentes-clasificados/excel?${params.toString()}`
     }
 
     // GET /api/reportes/docentes-clasificados/excel — con token, vía blob
     // (versión sin "Mes"; se conserva por compatibilidad).
-    async function descargarExcel({ gestion_desde, gestion_hasta, periodo, version, categoria, tipo_titulo, mostrar_referencias } = {}) {
-        const params = new URLSearchParams()
-        if (gestion_desde) params.set('gestion_desde', gestion_desde)
-        if (gestion_hasta) params.set('gestion_hasta', gestion_hasta)
-        if (periodo) params.set('periodo', periodo)
-        if (version) params.set('version', version)
-        const categoriaCsv = serializarLista(categoria)
-        if (categoriaCsv) params.set('categoria', categoriaCsv)
-        const tipoTituloCsv = serializarLista(tipo_titulo)
-        if (tipoTituloCsv) params.set('tipo_titulo', tipoTituloCsv)
-        const referenciasActivas = mostrar_referencias !== undefined
-            ? mostrar_referencias
-            : mostrarReferencias.value
-        if (referenciasActivas) params.set('mostrar_referencias', '1')
-        if (soloActivos.value) {
-            params.set('solo_activos', '1')
-            params.set('anio_activos', anioActivos.value)
-            params.set('periodo_activos', periodoActivos.value)
-        }
+    async function descargarExcel(opciones = {}) {
+        const params = armarParamsDescarga(opciones)
         try {
             const response = await axios.get(
                 `${API_BASE}/api/reportes/docentes-clasificados/excel?${params.toString()}`,
@@ -1067,10 +1344,11 @@ export function useReporteExcel() {
 
     // POST /api/reportes/docentes-clasificados/excel-personalizado
     // Manda las filas tal cual se ven en pantalla (previewMostrado), que
-    // incluye TOTAL_CH y TOTAL_CH_MES en la primera fila de cada docente,
-    // para que el backend genere el Excel exactamente con esos datos.
-    // El estado de "Mostrar Referencias" ya viene implícito en el texto de
-    // DETALLE de cada fila.
+    // incluye TOTAL_CH y TOTAL_CH_MES en la primera fila de cada docente
+    // (y ANTIGUEDAD en cada fila si el interruptor está activo), para que
+    // el backend genere el Excel exactamente con esos datos.
+    // El estado de "Mostrar Referencias", "Ocultar título" y las categorías
+    // quitadas ya viene implícito en las filas que se ven en pantalla.
     async function descargarExcelPersonalizado({ gestion, version } = {}) {
         try {
             const response = await axios.post(
@@ -1079,6 +1357,7 @@ export function useReporteExcel() {
                     data: previewMostrado.value,
                     gestion: gestion || gestionEtiqueta.value,
                     version: version || versionEtiqueta.value,
+                    mostrar_antiguedad: mostrarAntiguedad.value ? 1 : 0,
                 },
                 {
                     headers: authHeaders(),
@@ -1119,6 +1398,16 @@ export function useReporteExcel() {
         materiasCombinadas.value = false
         previewSinCombinar = null
         mostrarReferencias.value = false
+        mostrarAntiguedad.value = false
+        antiguedadMapa.value = new Map()
+        antiguedadClave = ''
+        errorAntiguedad.value = null
+        ocultarNombreTitulo.value = false
+        ocultarTipoTitulo.value = false
+        categoriasDisponibles.value = []
+        categoriasExcluidas.value = []
+        filasQuitadasPorCategoria.value = 0
+        materiasQuitadasMap = new Map()
         mostrarCompartidas.value = false
         excluirPrelacion.value = false
         datosCrudos = null
@@ -1180,5 +1469,30 @@ export function useReporteExcel() {
         // Mostrar Referencias
         mostrarReferencias,
         alternarMostrarReferencias,
+
+        // Antigüedad
+        mostrarAntiguedad,
+        cargandoAntiguedad,
+        errorAntiguedad,
+        cargarAntiguedad,
+        alternarAntiguedad,
+
+        // Ocultar nombre / categoría del título
+        ocultarNombreTitulo,
+        ocultarTipoTitulo,
+        etiquetaOcultarTitulo,
+        alternarOcultarNombreTitulo,
+        alternarOcultarTipoTitulo,
+        ciclarOcultarTitulo,
+
+        // Quitar materias por clasificación (Acéfala, Suplencia, ...)
+        categoriasDisponibles,
+        categoriasExcluidas,
+        filasQuitadasPorCategoria,
+        alternarCategoriaExcluida,
+        alternarGrupoCategorias,
+        establecerCategoriasExcluidas,
+        limpiarCategoriasExcluidas,
+        estaCategoriaExcluida,
     }
 }

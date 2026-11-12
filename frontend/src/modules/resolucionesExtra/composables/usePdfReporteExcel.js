@@ -10,18 +10,22 @@ const GRIS_ENCABEZADO = [217, 217, 217] // D9D9D9, igual que el Excel
 const NEGRO = [0, 0, 0]
 const BLANCO = [255, 255, 255]
 
-// Columna separadora vacía (equivale a la columna J del Excel)
-const COL_SEPARADOR = 7
+// Antigüedad: número (2 o 2.5) o null → texto con coma decimal
+const fmtAntiguedad = (v) =>
+    v === null || v === undefined || v === ''
+        ? ''
+        : Number(v).toLocaleString('es', { maximumFractionDigits: 1 })
 
 /**
  * @param {Array}  filas  reporteExcel.previewMostrado.value
- * @param {Object} opts   { titulo, version, ... }
+ * @param {Object} opts   { titulo, version, mostrarAntiguedad, ... }
  * @returns {{ url: string, filename: string }}
  */
 export function generarPDFReporteExcel(filas, opts = {}) {
     const {
         titulo = 'Reporte Excel',
         version = '',
+        mostrarAntiguedad = false,
     } = opts
 
     const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
@@ -30,9 +34,16 @@ export function generarPDFReporteExcel(filas, opts = {}) {
 
     const margenX = 10
 
-    // Ancho de las columnas de la tabla principal (Nº ... T. CH), sin las de la derecha
-    const anchos = [6, 44, 45, 7, 64, 30, 9, 2, 27, 19, 23]
-    const anchoTablaPrincipal = anchos.slice(0, 7).reduce((a, b) => a + b, 0)
+    // Nº, Docente, Materia, CH, [Antig.], Detalle, Categoría, T. CH, separador, Fotocopia, Obs2, Obs3
+    const anchos = mostrarAntiguedad
+        ? [6, 44, 45, 7, 12, 52, 30, 9, 2, 27, 19, 23]
+        : [6, 44, 45, 7, 64, 30, 9, 2, 27, 19, 23]
+
+    // Columna separadora vacía (equivale a la columna J del Excel)
+    const COL_SEPARADOR = mostrarAntiguedad ? 8 : 7
+
+    // Ancho de la tabla principal (Nº ... T. CH), sin las columnas de la derecha
+    const anchoTablaPrincipal = anchos.slice(0, COL_SEPARADOR).reduce((a, b) => a + b, 0)
 
     // ── Encabezado (igual que el Excel) ──
     doc.setTextColor(0)
@@ -95,6 +106,15 @@ export function generarPDFReporteExcel(filas, opts = {}) {
             })
         }
 
+        // Antigüedad (justo después de CH)
+        if (mostrarAntiguedad && item.INICIO_MATERIA !== false) {
+            row.push({
+                content: fmtAntiguedad(item.ANTIGUEDAD),
+                rowSpan: item.FILAS_MATERIA || 1,
+                styles: { halign: 'center', valign: 'middle' },
+            })
+        }
+
         row.push({ content: item.DETALLE || '' })
         row.push({ content: item.CATEGORIA || '' })
 
@@ -124,13 +144,14 @@ export function generarPDFReporteExcel(filas, opts = {}) {
             { content: 'NOMBRE DOCENTE', styles: estiloCabecera },
             { content: 'NOMBRE MATERIA', styles: estiloCabecera },
             { content: 'CH', styles: estiloCabecera },
+            ...(mostrarAntiguedad ? [{ content: 'ANTIG.', styles: estiloCabecera }] : []),
             { content: 'DETALLE', styles: estiloCabecera },
             { content: 'CATEGORIA', styles: estiloCabecera },
             { content: 'T. CH', styles: estiloCabecera },
             { content: '', styles: { fillColor: BLANCO, lineWidth: 0 } },
             { content: 'FOTOCOPIA TITULAR', styles: estiloCabecera },
-            { content: 'OBS 2', styles: estiloCabecera },
-            { content: 'OBS3', styles: estiloCabecera },
+            { content: 'OBS1', styles: estiloCabecera },
+            { content: 'OBS2', styles: estiloCabecera },
         ]],
         body,
         theme: 'grid',

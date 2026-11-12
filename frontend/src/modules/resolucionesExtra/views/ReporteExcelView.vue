@@ -76,7 +76,7 @@
       </div>
 
       <!-- ── Panel de opciones (3 bloques numerados) ── -->
-      <div v-show="panelOpciones" class="relative px-6 py-4 bg-slate-50 border-b border-gray-100">
+      <div v-show="panelOpciones" class="relative px-6 py-4 bg-slate-50 border-b border-gray-100 max-h-[55vh] overflow-y-auto">
 
         <!-- Overlay para cerrar dropdowns -->
         <div v-if="dropdownAbierto" class="fixed inset-0 z-20" @click="dropdownAbierto = null"></div>
@@ -207,6 +207,43 @@
                 </span>
               </button>
             </div>
+
+            <!-- Quitar materias por clasificación -->
+            <div class="mt-3 pt-3 border-t border-gray-100">
+              <p class="text-[11px] font-medium text-gray-500 mb-1.5">Quitar materias por clasificación</p>
+
+              <!-- Atajos -->
+              <div class="flex gap-1.5 mb-2">
+                <button type="button" :disabled="estaActualizando" @click="quitarGrupo('acefala')"
+                  class="px-2.5 py-1 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg disabled:opacity-50">
+                  Quitar Acéfala
+                </button>
+                <button type="button" :disabled="estaActualizando" @click="quitarGrupo('suplencia')"
+                  class="px-2.5 py-1 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg disabled:opacity-50">
+                  Quitar Suplencia
+                </button>
+              </div>
+
+              <!-- Dinámico: todas las categorías disponibles -->
+              <div class="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
+                <button
+                  v-for="cat in reporteExcel.categoriasDisponibles.value" :key="cat"
+                  type="button"
+                  :disabled="estaActualizando"
+                  @click="quitarCategoria(cat)"
+                  class="px-2 py-0.5 text-[11px] font-medium rounded-full border transition-colors disabled:opacity-50"
+                  :class="reporteExcel.estaCategoriaExcluida(cat)
+                    ? 'bg-red-50 border-red-200 text-red-700'
+                    : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'"
+                >
+                  {{ reporteExcel.estaCategoriaExcluida(cat) ? '✓ Quitada: ' : 'Quitar: ' }}{{ cat }}
+                </button>
+              </div>
+
+              <p v-if="reporteExcel.filasQuitadasPorCategoria.value" class="text-xs text-red-600 mt-2">
+                {{ reporteExcel.filasQuitadasPorCategoria.value }} materias quitadas
+              </p>
+            </div>
           </section>
 
           <!-- 3 · Docentes activos -->
@@ -276,6 +313,7 @@
             </div>
 
             <p v-if="reporteExcel.errorActivos.value" class="text-xs text-red-500 mt-2">{{ reporteExcel.errorActivos.value }}</p>
+            <p v-if="reporteExcel.errorAntiguedad.value" class="text-xs text-red-500 mt-2">{{ reporteExcel.errorAntiguedad.value }}</p>
             <p v-if="resultadoCargaHoraria?.error" class="text-xs text-red-500 mt-2">{{ resultadoCargaHoraria.error }}</p>
             <p v-else-if="resultadoCargaHoraria?.asignadas !== undefined" class="text-xs text-emerald-600 mt-2">
               ✓ {{ resultadoCargaHoraria.asignadas }} materia(s) con CH asignada
@@ -309,6 +347,9 @@
           </span>
           <span v-if="reporteExcel.filasOcultasCompartidas.value" class="px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 font-medium">
             {{ reporteExcel.filasOcultasCompartidas.value }} acéfala(s) compartida(s) oculta(s)
+          </span>
+          <span v-if="reporteExcel.filasQuitadasPorCategoria.value" class="px-2.5 py-1 rounded-full bg-red-50 text-red-700 font-medium">
+            {{ reporteExcel.filasQuitadasPorCategoria.value }} materia(s) quitada(s)
           </span>
           <span v-if="reporteExcel.soloActivos.value" class="text-gray-400 ml-auto">
             Activos en {{ reporteExcel.anioActivos.value }} / periodo {{ reporteExcel.periodoActivos.value }}
@@ -351,12 +392,15 @@
               <th class="text-left font-semibold text-gray-500 px-2 py-2.5 uppercase tracking-wider">Docente</th>
               <th class="text-left font-semibold text-gray-500 px-2 py-2.5 uppercase tracking-wider">Materia</th>
               <th class="text-center font-semibold text-gray-500 px-2 py-2.5 uppercase tracking-wider">CH</th>
+              <th v-if="reporteExcel.mostrarAntiguedad.value"
+                  class="text-center font-semibold text-gray-500 px-2 py-2.5 uppercase tracking-wider"
+                  title="Años dictando esa materia (cada periodo 1 o 2 = 0,5 año)">Antig.</th>
               <th class="text-left font-semibold text-gray-500 px-2 py-2.5 uppercase tracking-wider">Detalle</th>
               <th class="text-left font-semibold text-gray-500 px-2 py-2.5 uppercase tracking-wider">Categoría</th>
               <th class="text-center font-semibold text-gray-500 px-2 py-2.5 uppercase tracking-wider" title="Total de carga horaria del docente (y su equivalente mensual: x 4)">T. CH</th>
               <th class="text-left font-semibold text-gray-500 px-2 py-2.5 uppercase tracking-wider">Fotocopia</th>
+              <th class="text-left font-semibold text-gray-500 px-2 py-2.5 uppercase tracking-wider">Obs 1</th>
               <th class="text-left font-semibold text-gray-500 px-2 py-2.5 uppercase tracking-wider">Obs 2</th>
-              <th class="text-left font-semibold text-gray-500 px-2 py-2.5 uppercase tracking-wider">Obs 3</th>
               <th class="text-center font-semibold text-gray-500 px-2 py-2.5 uppercase tracking-wider">PDF</th>
             </tr>
           </thead>
@@ -386,6 +430,11 @@
                 <td v-if="item.INICIO_MATERIA !== false" :rowspan="item.FILAS_MATERIA || 1"
                   class="px-2 py-2 text-center text-gray-600 align-middle">
                   {{ item.CH || '—' }}
+                </td>
+                <td v-if="reporteExcel.mostrarAntiguedad.value && item.INICIO_MATERIA !== false"
+                    :rowspan="item.FILAS_MATERIA || 1"
+                    class="px-2 py-2 text-center text-indigo-600 font-medium align-middle tabular-nums">
+                  {{ fmtAntiguedad(item.ANTIGUEDAD) }}
                 </td>
                 <td class="px-2 py-2 text-gray-600">{{ item.DETALLE || '—' }}</td>
                 <td class="px-2 py-2 text-gray-600">{{ item.CATEGORIA || '—' }}</td>
@@ -603,6 +652,12 @@ const norm = (s) => String(s || '')
   .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
   .toUpperCase().trim()
 
+// ─── Formatear antigüedad (años, p. ej. 2 o 2,5) ───
+const fmtAntiguedad = (v) =>
+  v === null || v === undefined
+    ? '—'
+    : Number(v).toLocaleString('es', { maximumFractionDigits: 1 })
+
 // ─── Ver PDF (protegido con auth:sanctum) ───
 const abriendoPdfId = ref(null)
 
@@ -638,6 +693,16 @@ const excelParams = ref({
   categorias: [],
   tiposTitulo: [],   // puede incluir el sentinel '__SIN_TITULO__'
 })
+
+// Filtros actuales en el formato que espera useReporteExcel
+const filtrosActuales = computed(() => ({
+  gestion_desde: excelParams.value.gestion_desde,
+  gestion_hasta: excelParams.value.gestion_hasta,
+  periodo: excelParams.value.periodo,
+  version: excelParams.value.version,
+  categoria: excelParams.value.categorias,
+  tipo_titulo: excelParams.value.tiposTitulo,
+}))
 
 const resultadoCargaHoraria = ref(null) // { asignadas, sinCoincidencia } | { error }
 
@@ -715,6 +780,32 @@ const interruptores = computed(() => [
     deshabilitado: estaActualizando.value || !reporteExcel.soloActivos.value,
     accion: alternarMostrarCompartidas,
   },
+  {
+    id: 'antig',
+    titulo: 'Mostrar antigüedad',
+    desc: reporteExcel.soloActivos.value
+      ? 'Agrega la columna Antigüedad (años dictando esa materia) junto a CH. Cada periodo 1 o 2 cuenta 0,5 año.'
+      : 'Requiere activar “Solo docentes activos” (paso 3).',
+    activo: reporteExcel.mostrarAntiguedad.value,
+    deshabilitado: estaActualizando.value || !reporteExcel.soloActivos.value,
+    accion: reporteExcel.alternarAntiguedad,
+  },
+  {
+    id: 'ocNombreTitulo',
+    titulo: 'Ocultar nombre del título',
+    desc: 'Quita el nombre del título del reporte.',
+    activo: reporteExcel.ocultarNombreTitulo.value,
+    deshabilitado: estaActualizando.value,
+    accion: alternarOcultarNombreTitulo,
+  },
+  {
+    id: 'ocTipoTitulo',
+    titulo: 'Ocultar categoría del título',
+    desc: 'Quita la categoría del título (Licenciatura, Maestría, etc.).',
+    activo: reporteExcel.ocultarTipoTitulo.value,
+    deshabilitado: estaActualizando.value,
+    accion: alternarOcultarTipoTitulo,
+  },
 ])
 
 // ─── Aplicación automática de filtros ───
@@ -774,6 +865,16 @@ async function conservandoVista(accion) {
   }
 }
 
+// Apaga "Ocultar título", "Antigüedad" y "Quitar por clasificación" (al cambiar de modo)
+function restablecerOcultos() {
+  reporteExcel.ocultarNombreTitulo.value = false
+  reporteExcel.ocultarTipoTitulo.value = false
+  reporteExcel.mostrarAntiguedad.value = false
+  const ex = reporteExcel.categoriasExcluidas.value
+  if (ex instanceof Set) ex.clear()
+  else reporteExcel.categoriasExcluidas.value = []
+}
+
 // ─── Configuración normal (sin Prelación) ───
 async function aplicarConfiguracionNormal() {
   bloqueandoAuto = true
@@ -785,6 +886,7 @@ async function aplicarConfiguracionNormal() {
     reporteExcel.mostrarReferencias.value = false
     reporteExcel.mostrarCompartidas.value = false
     reporteExcel.excluirPrelacion.value = false   // quita docente 100 y materias 18
+    restablecerOcultos()
     dropdownAbierto.value = null
     resultadoCargaHoraria.value = null
     sincronizarPeriodoActual()
@@ -830,8 +932,9 @@ async function abrirPrelacion() {
     sincronizarPeriodoActual()
 
     reporteExcel.soloActivos.value = false
-    reporteExcel.mostrarReferencias.value = true
+    reporteExcel.mostrarReferencias.value = false
     reporteExcel.mostrarCompartidas.value = false
+    restablecerOcultos()
 
     // Excluye al docente 100 y las materias cuyo código empieza con 18.
     // Debe ir ANTES de alternarSoloActivos (ahí se aplica el filtro).
@@ -904,20 +1007,38 @@ function volver() {
 async function alternarMostrarReferencias() {
   resultadoCargaHoraria.value = null
   await conservandoVista(() =>
-    reporteExcel.alternarMostrarReferencias({
-      gestion_desde: excelParams.value.gestion_desde,
-      gestion_hasta: excelParams.value.gestion_hasta,
-      periodo: excelParams.value.periodo,
-      version: excelParams.value.version,
-      categoria: excelParams.value.categorias,
-      tipo_titulo: excelParams.value.tiposTitulo,
-    })
+    reporteExcel.alternarMostrarReferencias(filtrosActuales.value)
   )
 }
 
 async function alternarMostrarCompartidas() {
   resultadoCargaHoraria.value = null
   await conservandoVista(async () => reporteExcel.alternarMostrarCompartidas())
+}
+
+// ─── Ocultar título ───
+async function alternarOcultarNombreTitulo() {
+  resultadoCargaHoraria.value = null
+  await conservandoVista(() =>
+    reporteExcel.alternarOcultarNombreTitulo(filtrosActuales.value)
+  )
+}
+
+async function alternarOcultarTipoTitulo() {
+  resultadoCargaHoraria.value = null
+  await conservandoVista(() =>
+    reporteExcel.alternarOcultarTipoTitulo(filtrosActuales.value)
+  )
+}
+
+// ─── Quitar materias por clasificación ───
+// (si las funciones del composable son async, se esperan igual)
+async function quitarGrupo(grupo) {
+  await conservandoVista(async () => reporteExcel.alternarGrupoCategorias(grupo))
+}
+
+async function quitarCategoria(cat) {
+  await conservandoVista(async () => reporteExcel.alternarCategoriaExcluida(cat))
 }
 
 async function alternarSoloActivos() {
@@ -932,7 +1053,12 @@ async function alternarSoloActivos() {
 
 async function recargarActivos() {
   resultadoCargaHoraria.value = null
-  await conservandoVista(() => reporteExcel.actualizarActivos())
+  await conservandoVista(async () => {
+    await reporteExcel.actualizarActivos()
+    if (reporteExcel.mostrarAntiguedad.value) {
+      await reporteExcel.cargarAntiguedad({ forzar: true })
+    }
+  })
 }
 
 // ─── Reasignar Carga Horaria (experimental) ───
@@ -993,6 +1119,7 @@ async function previsualizarPdf() {
         periodo: reporteExcel.periodoActivos.value,
         soloActivos: reporteExcel.soloActivos.value,
         totalDocentes: reporteExcel.totalDocentes.value,
+        mostrarAntiguedad: reporteExcel.mostrarAntiguedad.value,
       }
     )
     urlPdf.value = url
