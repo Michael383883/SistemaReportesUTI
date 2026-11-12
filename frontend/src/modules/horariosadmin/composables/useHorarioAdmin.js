@@ -226,7 +226,8 @@ export function useHorarioAdmin() {
                     plan: h.PLAN,
                     nivel: h.NIVEL,
                     compartido: h.COMPARTIDO,
-                    comp: h.COMP,   // ← restaurado: lo usan filasOrdenadas, chMostrada y la columna Comp.
+                    comp: h.COMP,
+                    orden: h.ORDEN,          // ← NUEVO
                     tipoIngreso: String(h.TIPO_INGRESO ?? '').trim(),
                     sesiones: [],
                     inscritos: h.TOTAL_NORMAL ?? 0,

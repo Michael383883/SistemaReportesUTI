@@ -990,6 +990,8 @@ class HorarioAdminController extends Controller
             'total_docentes' => count($data),
         ]);
     }
+
+    
     /**
      * Lista inscritos de un docente específico.
      */

@@ -9,23 +9,12 @@ const C_WHITE = [255, 255, 255]
 const C_HEAD_BG = [240, 240, 240]
 const C_GRAY_LINE = [140, 140, 140]
 const C_DAY_SEPARATOR = [180, 180, 180]
-const C_ARROW = [0, 0, 0] // índigo, igual que la flecha de la vista
+const C_ARROW = [0, 0, 0]
 
-// ── Función para determinar si una materia es compartida y su tipo ──
-function getTipoCompartido(mat) {
-    const compTexto = mat.compartido ?? ''
-    const comp = mat.comp ?? ''
-
-    if (compTexto !== '' && String(comp) === '1') return 'derivada'
-    if (compTexto !== '' && String(comp) === '0') return 'origen'
-    return 'normal'
-}
-
-// ── Función para determinar la CH a mostrar ──
-function chMostrada(mat) {
-    const tipo = getTipoCompartido(mat)
-    if (tipo === 'derivada') return 0
-    return Number(mat.carga) || 0
+// ── CH a mostrar: solo las hijas anidadas ponen 0.
+// Una derivada sin padre conserva su CH (igual que la vista).
+function chMostrada(mat, anidado) {
+    return anidado ? 0 : (Number(mat.carga) || 0)
 }
 
 // ── Columna TIPO (tipo de ingreso, viene de GRUPOS.TIPO_INGRESO) ──
@@ -152,7 +141,7 @@ export function generarPDFResumenDos(docentes = [], { anio, periodo } = {}) {
         let totalInscritos = 0
         const gruposVistosInsc = new Set()
 
-        // Mismo orden que la vista: padre (COMP 0) y debajo sus hijos (COMP 1)
+        // Mismo emparejamiento que la vista: padre y debajo sus hijas
         const filasOrdenadas = ordenarFilasCompartidas(materiasAgrupadas, docente.horarios)
 
         for (const { mat, anidado } of filasOrdenadas) {
@@ -169,16 +158,12 @@ export function generarPDFResumenDos(docentes = [], { anio, periodo } = {}) {
                 fila.push(texto)
             }
 
-            const chValue = chMostrada(mat)
+            const chValue = chMostrada(mat, anidado)
             fila.push(String(chValue))
             fila.push(String(mat.inscritos ?? ''))
 
-            const tipo = getTipoCompartido(mat)
-            let compDisplay
-            if (tipo === 'origen') compDisplay = '0'
-            else if (tipo === 'derivada') compDisplay = '1'
-            else compDisplay = '0'
-            fila.push(compDisplay)
+            // Columna C: igual que "Comp." de la vista (valor real de COMP)
+            fila.push(String(mat.comp ?? '').trim() === '1' ? '1' : '0')
 
             if (anidado) anidadoRowIndices.add(body.length)
 

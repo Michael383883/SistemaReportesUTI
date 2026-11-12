@@ -85,10 +85,11 @@
 
           <!-- 1 · Qué datos incluir -->
           <section class="bg-white rounded-xl border border-gray-200 p-4">
-            <header class="flex items-center gap-2 mb-3">
+            <header class="flex items-center gap-2 mb-1">
               <span class="w-5 h-5 rounded-full bg-blue-600 text-white text-[11px] font-bold flex items-center justify-center">1</span>
               <h4 class="text-sm font-semibold text-gray-800">¿Qué datos incluir?</h4>
             </header>
+            <p class="text-[11px] text-gray-400 mb-3">Deja vacío para incluir todo.</p>
 
             <div class="grid grid-cols-3 gap-2 mb-2">
               <div>
@@ -111,7 +112,7 @@
             <!-- Dropdowns multi-selección (se aplican al marcar) -->
             <div class="grid grid-cols-2 gap-2">
               <div v-for="f in filtrosMulti" :key="f.id" class="relative" :class="{ 'z-30': dropdownAbierto === f.id }">
-                <label class="block text-[11px] font-medium text-gray-500 mb-0.5">{{ f.label }}</label>
+                <label class="block text-[11px] font-medium text-blue-700 mb-0.5">{{ f.label }}</label>
                 <button
                   type="button"
                   @click="dropdownAbierto = dropdownAbierto === f.id ? null : f.id"
@@ -208,40 +209,86 @@
               </button>
             </div>
 
-            <!-- Quitar materias por clasificación -->
+            <!-- Excluir materias por clasificación -->
             <div class="mt-3 pt-3 border-t border-gray-100">
-              <p class="text-[11px] font-medium text-gray-500 mb-1.5">Quitar materias por clasificación</p>
+              <p class="text-[11px] font-medium text-red-600 mb-1.5">
+                Excluir materias por clasificación
+              </p>
 
               <!-- Atajos -->
               <div class="flex gap-1.5 mb-2">
                 <button type="button" :disabled="estaActualizando" @click="quitarGrupo('acefala')"
-                  class="px-2.5 py-1 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg disabled:opacity-50">
-                  Quitar Acéfala
+                  class="px-2.5 py-1 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded-lg disabled:opacity-50">
+                  Excluir Acéfala
                 </button>
                 <button type="button" :disabled="estaActualizando" @click="quitarGrupo('suplencia')"
-                  class="px-2.5 py-1 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg disabled:opacity-50">
-                  Quitar Suplencia
+                  class="px-2.5 py-1 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded-lg disabled:opacity-50">
+                  Excluir Suplencia
                 </button>
               </div>
 
-              <!-- Dinámico: todas las categorías disponibles -->
-              <div class="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
+              <!-- Desplegable compacto -->
+              <div class="relative" :class="{ 'z-30': dropdownAbierto === 'excl' }">
                 <button
-                  v-for="cat in reporteExcel.categoriasDisponibles.value" :key="cat"
                   type="button"
                   :disabled="estaActualizando"
-                  @click="quitarCategoria(cat)"
-                  class="px-2 py-0.5 text-[11px] font-medium rounded-full border transition-colors disabled:opacity-50"
-                  :class="reporteExcel.estaCategoriaExcluida(cat)
-                    ? 'bg-red-50 border-red-200 text-red-700'
-                    : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'"
+                  @click="dropdownAbierto = dropdownAbierto === 'excl' ? null : 'excl'"
+                  class="w-full flex items-center justify-between gap-2 px-2.5 py-1.5 text-sm border rounded-lg bg-white text-left disabled:opacity-50"
+                  :class="categoriasExcluidasLista.length ? 'border-red-300 ring-1 ring-red-100' : 'border-gray-300'"
                 >
-                  {{ reporteExcel.estaCategoriaExcluida(cat) ? '✓ Quitada: ' : 'Quitar: ' }}{{ cat }}
+                  <span class="truncate" :class="categoriasExcluidasLista.length ? 'text-red-700 font-medium' : 'text-gray-400'">
+                    {{ categoriasExcluidasLista.length ? `${categoriasExcluidasLista.length} excluida(s)` : 'Ninguna excluida' }}
+                  </span>
+                  <svg class="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+                  </svg>
                 </button>
+
+                <div
+                  v-if="dropdownAbierto === 'excl'"
+                  class="absolute left-0 top-full mt-1 w-72 bg-white border border-gray-200 rounded-lg shadow-xl max-h-64 overflow-y-auto"
+                >
+                  <label
+                    v-for="cat in reporteExcel.categoriasDisponibles.value" :key="cat"
+                    class="flex items-center gap-2 px-3 py-2 text-[13px] text-slate-700 hover:bg-red-50 cursor-pointer"
+                  >
+                    <input type="checkbox" class="accent-red-600"
+                      :checked="reporteExcel.estaCategoriaExcluida(cat)"
+                      @change="quitarCategoria(cat)" />
+                    {{ cat }}
+                  </label>
+                  <div v-if="!reporteExcel.categoriasDisponibles.value.length" class="px-3 py-2 text-[12px] text-gray-400 italic">
+                    Sin opciones
+                  </div>
+                  <div class="sticky bottom-0 flex items-center justify-between px-3 py-2 border-t border-gray-100 bg-gray-50">
+                    <button type="button" class="text-[11px] text-gray-500 hover:text-red-500"
+                      @mousedown.prevent="quitarTodasExcluidas">
+                      Restablecer
+                    </button>
+                    <button type="button" class="text-[11px] font-medium text-blue-600 hover:text-blue-700"
+                      @mousedown.prevent="dropdownAbierto = null">
+                      Listo
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Chips de lo excluido -->
+              <div v-if="categoriasExcluidasLista.length" class="flex flex-wrap gap-1.5 mt-2">
+                <span v-for="cat in categoriasExcluidasLista" :key="cat"
+                  class="inline-flex items-center gap-1 pl-2 pr-1 py-0.5 text-[11px] font-medium rounded-full bg-red-50 text-red-700">
+                  Sin: {{ cat }}
+                  <button type="button" @click="quitarCategoria(cat)" title="Volver a incluir"
+                    class="w-4 h-4 rounded-full hover:bg-red-100 flex items-center justify-center">
+                    <svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                  </button>
+                </span>
               </div>
 
               <p v-if="reporteExcel.filasQuitadasPorCategoria.value" class="text-xs text-red-600 mt-2">
-                {{ reporteExcel.filasQuitadasPorCategoria.value }} materias quitadas
+                {{ reporteExcel.filasQuitadasPorCategoria.value }} materias ocultas
               </p>
             </div>
           </section>
@@ -349,7 +396,7 @@
             {{ reporteExcel.filasOcultasCompartidas.value }} acéfala(s) compartida(s) oculta(s)
           </span>
           <span v-if="reporteExcel.filasQuitadasPorCategoria.value" class="px-2.5 py-1 rounded-full bg-red-50 text-red-700 font-medium">
-            {{ reporteExcel.filasQuitadasPorCategoria.value }} materia(s) quitada(s)
+            {{ reporteExcel.filasQuitadasPorCategoria.value }} materia(s) excluida(s)
           </span>
           <span v-if="reporteExcel.soloActivos.value" class="text-gray-400 ml-auto">
             Activos en {{ reporteExcel.anioActivos.value }} / periodo {{ reporteExcel.periodoActivos.value }}
@@ -481,7 +528,7 @@
             </div>
           </template>
           <template v-else>
-            No hay registros con los filtros actuales. Prueba quitando alguna categoría o ampliando la gestión.
+            No hay registros con los filtros actuales. Prueba quitando alguna exclusión o ampliando la gestión.
           </template>
         </div>
       </div>
@@ -681,7 +728,7 @@ async function verPdf(idDocumento) {
 // ═══════════════════════════════════════════════════════════════
 const modoPrelacion = ref(false)
 const panelOpciones = ref(true)
-const dropdownAbierto = ref(null) // 'cat' | 'titulo' | null
+const dropdownAbierto = ref(null) // 'cat' | 'titulo' | 'excl' | null
 const iniciando = ref(true)       // true mientras se aplica Prelación al abrir la vista
 const recargando = ref(false)
 
@@ -710,14 +757,14 @@ const resultadoCargaHoraria = ref(null) // { asignadas, sinCoincidencia } | { er
 const filtrosMulti = computed(() => [
   {
     id: 'cat',
-    label: 'Categoría de documento',
+    label: 'Solo incluir categoría de documento',
     modelo: 'categorias',
     opciones: categorias.value,
     especial: null,
   },
   {
     id: 'titulo',
-    label: 'Categoría de título',
+    label: 'Solo incluir categoría de título',
     modelo: 'tiposTitulo',
     opciones: tiposTitulo.value,
     especial: { valor: '__SIN_TITULO__', texto: 'Sin título registrado' },
@@ -865,7 +912,7 @@ async function conservandoVista(accion) {
   }
 }
 
-// Apaga "Ocultar título", "Antigüedad" y "Quitar por clasificación" (al cambiar de modo)
+// Apaga "Ocultar título", "Antigüedad" y "Excluir por clasificación" (al cambiar de modo)
 function restablecerOcultos() {
   reporteExcel.ocultarNombreTitulo.value = false
   reporteExcel.ocultarTipoTitulo.value = false
@@ -1031,7 +1078,7 @@ async function alternarOcultarTipoTitulo() {
   )
 }
 
-// ─── Quitar materias por clasificación ───
+// ─── Excluir materias por clasificación ───
 // (si las funciones del composable son async, se esperan igual)
 async function quitarGrupo(grupo) {
   await conservandoVista(async () => reporteExcel.alternarGrupoCategorias(grupo))
@@ -1039,6 +1086,22 @@ async function quitarGrupo(grupo) {
 
 async function quitarCategoria(cat) {
   await conservandoVista(async () => reporteExcel.alternarCategoriaExcluida(cat))
+}
+
+// Lista de categorías actualmente excluidas (para el contador y los chips)
+const categoriasExcluidasLista = computed(() =>
+  (reporteExcel.categoriasDisponibles.value || []).filter(c =>
+    reporteExcel.estaCategoriaExcluida(c)
+  )
+)
+
+// Vuelve a incluir todas las categorías excluidas
+async function quitarTodasExcluidas() {
+  await conservandoVista(async () => {
+    for (const cat of categoriasExcluidasLista.value) {
+      await reporteExcel.alternarCategoriaExcluida(cat)
+    }
+  })
 }
 
 async function alternarSoloActivos() {

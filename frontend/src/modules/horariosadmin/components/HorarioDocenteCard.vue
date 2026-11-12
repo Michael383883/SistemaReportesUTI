@@ -199,7 +199,7 @@
               <span
                 class="inline-block px-2 py-1 rounded-md bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700 font-bold"
               >
-                {{ chMostrada(mat) }}
+                {{ chMostrada({ mat, anidado }) }}
               </span>
             </td>
 
@@ -271,7 +271,6 @@
     </div>
   </div>
 </template>
-
 <script setup>
 import { computed } from 'vue'
 import { useHorarioAdmin } from '../composables/useHorarioAdmin'
@@ -289,108 +288,92 @@ function norm(v) {
   return String(v).trim()
 }
 
-const materiasVisibles = computed(() =>
-  materiasAgrupadas.value.filter(mat => norm(mat.comp) !== '1')
-)
-
 // ─── Padres e hijos de grupos compartidos ──────────────────────────────────
-// Mismo criterio que el reporte resumen:
-//   1) Mismo ORDEN (M1, M2...) dentro del docente: COMP 0 = padre/origen,
-//      COMP 1 = hijos/derivadas (un padre puede tener varios hijos).
-//   2) Sin ORDEN pero con COMPARTIDO: se empareja por misma carga horaria y
-//      distinta carrera (uno COMP 0 y el otro COMP 1).
-// El ORDEN se toma de la materia agrupada si viene ahí (mat.orden); si no, se
-// busca en las filas crudas de horarios (campo ORDEN) por carrera+materia+grupo.
-const ordenPorClave = computed(() => {
-  const mapa = new Map()
-  ;(props.docente.horarios ?? []).forEach(h => {
-    const orden = norm(h.ORDEN)
-    if (!orden) return
-    const k = `${norm(h.CARRERA)}|${norm(h.MATERIA)}|${norm(h.GRUPO)}`
-    if (!mapa.has(k)) mapa.set(k, orden)
-  })
-  return mapa
-})
+// Una derivada (COMP 1) se une a su origen (COMP 0) así:
+//   1) Mismo horario exacto (mismos día + hora + aula) y distinto plan.
+//      Si hay varios candidatos, gana el que tenga el mismo ORDEN.
+//   2) Si ninguno coincide en horario: mismo ORDEN y un único origen en ese ORDEN.
+//   3) Si no hay pareja, queda como fila normal (conserva su CH).
 
-function ordenDe(mat) {
-  return (
-    norm(mat.orden ?? mat.ORDEN) ||
-    ordenPorClave.value.get(`${norm(mat.carrera)}|${norm(mat.materia)}|${norm(mat.grupo)}`) ||
-    ''
-  )
+function firmaHorario(mat) {
+  return mat.sesiones
+    .map(s => `${s.dia}|${s.horario}|${s.ambiente}`)
+    .sort()
+    .join(';')
 }
 
-// Lista plana en el orden de pantalla: padre arriba, hijos justo debajo (anidado = true)
+// Orden estable: ORDEN → MATERIA → GRUPO → PLAN
+const matsBackend = computed(() =>
+  [...materiasAgrupadas.value].sort((a, b) =>
+    norm(a.orden).localeCompare(norm(b.orden), 'es', { numeric: true }) ||
+    norm(a.materia).localeCompare(norm(b.materia), 'es', { numeric: true }) ||
+    norm(a.grupo).localeCompare(norm(b.grupo), 'es', { numeric: true }) ||
+    norm(a.plan).localeCompare(norm(b.plan), 'es', { numeric: true })
+  )
+)
+
+// Lista plana: padre (anidado:false) seguido de sus hijas (anidado:true)
 const filasOrdenadas = computed(() => {
-  const mats = materiasAgrupadas.value
-  const hijoDe = new Map()  // índice del hijo  -> índice del padre
-  const hijosDe = new Map() // índice del padre -> [índices de hijos]
+  const mats = matsBackend.value
+  const firmas = mats.map(firmaHorario)
 
-  function vincular(padre, hijo) {
-    if (padre === hijo || hijoDe.has(hijo) || hijoDe.has(padre) || hijosDe.has(hijo)) return
-    hijoDe.set(hijo, padre)
-    if (!hijosDe.has(padre)) hijosDe.set(padre, [])
-    hijosDe.get(padre).push(hijo)
-  }
-
-  // 1) Por ORDEN
-  const porOrden = new Map()
-  mats.forEach((m, idx) => {
-    const orden = ordenDe(m)
-    if (!orden) return
-    if (!porOrden.has(orden)) porOrden.set(orden, [])
-    porOrden.get(orden).push(idx)
+  const origenes = []
+  const derivadas = []
+  mats.forEach((m, i) => {
+    const c = norm(m.comp)
+    if (c === '0') origenes.push(i)
+    else if (c === '1') derivadas.push(i)
   })
 
-  for (const [, indices] of porOrden) {
-    if (indices.length < 2) continue
-    const origenes = indices.filter(i => norm(mats[i].comp) === '0')
-    const derivadas = indices.filter(i => norm(mats[i].comp) === '1')
-    if (!origenes.length || !derivadas.length) continue
+  const hijosDe = new Map() // índice origen -> [índices derivadas]
+  const esHija = new Set()
 
-    derivadas.forEach((d, n) => {
-      const origen = origenes.length === 1 ? origenes[0] : origenes[n]
-      if (origen !== undefined) vincular(origen, d)
-    })
+  function vincular(o, d) {
+    if (!hijosDe.has(o)) hijosDe.set(o, [])
+    hijosDe.get(o).push(d)
+    esHija.add(d)
   }
 
-  // 2) Lo que quedó suelto pero tiene COMPARTIDO: misma CH y distinta carrera
-  const sueltas = mats
-    .map((m, idx) => idx)
-    .filter(idx => !hijoDe.has(idx) && !hijosDe.has(idx) && norm(mats[idx].compartido) !== '')
+  for (const d of derivadas) {
+    const md = mats[d]
+    const ordenD = norm(md.orden)
 
-  const usadas = new Set()
-  for (let a = 0; a < sueltas.length; a++) {
-    if (usadas.has(a)) continue
-    const ma = mats[sueltas[a]]
-    for (let b = a + 1; b < sueltas.length; b++) {
-      if (usadas.has(b)) continue
-      const mb = mats[sueltas[b]]
-      const mismaChYDistintaCarrera =
-        norm(ma.carga) === norm(mb.carga) && norm(ma.carrera) !== norm(mb.carrera)
-      if (!mismaChYDistintaCarrera) continue
+    // Candidatos: otro plan distinto
+    const candidatos = origenes.filter(o => norm(mats[o].plan) !== norm(md.plan))
 
-      const compA = norm(ma.comp)
-      const compB = norm(mb.comp)
-      if (compA === '0' && compB === '1') vincular(sueltas[a], sueltas[b])
-      else if (compA === '1' && compB === '0') vincular(sueltas[b], sueltas[a])
-      else continue
+    // 1) Mismo horario exacto (y no vacío)
+    let porHorario = firmas[d]
+      ? candidatos.filter(o => firmas[o] === firmas[d])
+      : []
 
-      usadas.add(a)
-      usadas.add(b)
-      break
+    let elegido = null
+    if (porHorario.length === 1) {
+      elegido = porHorario[0]
+    } else if (porHorario.length > 1) {
+      elegido =
+        porHorario.find(o => ordenD && norm(mats[o].orden) === ordenD) ??
+        porHorario[0]
+    } else if (ordenD) {
+      // 2) Sin coincidencia de horario: mismo ORDEN y un único origen
+      const mismoOrden = candidatos.filter(o => norm(mats[o].orden) === ordenD)
+      if (mismoOrden.length === 1) elegido = mismoOrden[0]
     }
+
+    if (elegido !== null) vincular(elegido, d)
   }
 
-  // Lista final
+  // 3) Lista final: cada fila que no es hija, seguida de sus hijas
   const salida = []
   mats.forEach((mat, idx) => {
-    if (hijoDe.has(idx)) return
+    if (esHija.has(idx)) return
     salida.push({ mat, anidado: false })
     ;(hijosDe.get(idx) ?? []).forEach(h => salida.push({ mat: mats[h], anidado: true }))
   })
   return salida
 })
+
+// Contador "N materias" = filas principales
+const materiasVisibles = computed(() => filasOrdenadas.value.filter(f => !f.anidado))
 
 function tieneSesionesEnDia(dia) {
   return materiasAgrupadas.value.some(mat =>
@@ -402,25 +385,10 @@ const diasConSesiones = computed(() => DIAS_ORDEN.filter(d => tieneSesionesEnDia
 
 const COLOR_COMPARTIDO = '#eab308'
 
-// Paleta de colores para distinguir MATERIAS dentro de una misma carrera/plan.
-// Se eligieron tonos con buen contraste entre sí y que no se confundan
-// fácilmente con el amarillo reservado para bloques compartidos (#eab308).
 const PALETTE_MATERIA = [
-  '#ef4444', // rojo
-  '#3b82f6', // azul
-  '#8b5cf6', // violeta
-  '#ec4899', // rosa
-  '#14b8a6', // teal
-  '#f97316', // naranja
-  '#22c55e', // verde
-  '#06b6d4', // cian
-  '#a855f7', // púrpura
-  '#f43f5e', // rosa fuerte
-  '#0ea5e9', // celeste
-  '#84cc16', // lima
-  '#d946ef', // fucsia
-  '#6366f1', // índigo
-  '#10b981', // esmeralda
+  '#ef4444', '#3b82f6', '#8b5cf6', '#ec4899', '#14b8a6',
+  '#f97316', '#22c55e', '#06b6d4', '#a855f7', '#f43f5e',
+  '#0ea5e9', '#84cc16', '#d946ef', '#6366f1', '#10b981',
 ]
 
 const clavesCompartidas = computed(() => {
@@ -441,9 +409,6 @@ const clavesCompartidas = computed(() => {
   return claves
 })
 
-// Genera un color determinístico (hash) por materia+grupo, para que la
-// misma materia siempre tenga el mismo color en toda la tabla/reporte,
-// y así se distingan entre sí aunque compartan la misma carrera.
 function colorMateria(mat) {
   const key = `${mat.carrera}-${mat.nivel}-${mat.materia}-${mat.grupo}`
   let hash = 0
@@ -463,7 +428,6 @@ function colorBloqueHorario(mat, s) {
 }
 
 // ─── Tipo de ingreso (GRUPOS.TIPO_INGRESO) ─────────────────────────────────
-// Abreviaturas para que la columna sea corta. Completa con tus categorías reales.
 const ABREV_INGRESO = {
   // 'TITULAR': 'TIT',
   // 'INVITADO': 'INV',
@@ -478,9 +442,9 @@ function abreviarIngreso(texto) {
   return t.length > 10 ? t.slice(0, 9) + '…' : t
 }
 
-function chMostrada(mat) {
-  if (norm(mat.comp) === '1') return 0
-  return mat.carga
+// Solo las hijas anidadas ponen CH = 0; una derivada sin padre conserva su CH
+function chMostrada({ mat, anidado }) {
+  return anidado ? 0 : mat.carga
 }
 
 function filaClase(i) {
@@ -490,14 +454,14 @@ function filaClase(i) {
   return `${base} hover:bg-blue-50 dark:hover:bg-slate-700/60`
 }
 
-const totalChReal = computed(() => {
-  return materiasAgrupadas.value.reduce(
-    (acc, mat) => acc + (Number(chMostrada(mat)) || 0),
+const totalChReal = computed(() =>
+  filasOrdenadas.value.reduce(
+    (acc, f) => acc + (Number(chMostrada(f)) || 0),
     0
   )
-})
+)
 
-const totalInscritos = computed(() => {
-  return materiasAgrupadas.value.reduce((acc, mat) => acc + (Number(mat.inscritos) || 0), 0)
-})
+const totalInscritos = computed(() =>
+  materiasAgrupadas.value.reduce((acc, mat) => acc + (Number(mat.inscritos) || 0), 0)
+)
 </script>
