@@ -31,6 +31,54 @@ function abreviarIngreso(texto) {
     return t.length > 10 ? t.slice(0, 9) + '.' : t
 }
 
+// ── Orden de días: Lunes = 1 ... Sábado = 6, Domingo = 7 ─────────────────────
+// Funciona con "LU", "Lun", "LUNES", "Miércoles", "MIE", etc. (usa las 2 primeras letras)
+const ORDEN_DIAS = { LU: 1, MA: 2, MI: 3, JU: 4, VI: 5, SA: 6, DO: 7 }
+
+function rangoDia(dia) {
+    const k = String(dia ?? '')
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .toUpperCase().trim().slice(0, 2)
+    return ORDEN_DIAS[k] ?? 99   // días desconocidos al final
+}
+
+// Hora de inicio en minutos ("08:15-09:45" → 495) para desempatar el mismo día
+function minutosInicio(horario) {
+    const m = String(horario ?? '').match(/(\d{1,2})[:.](\d{2})/)
+    return m ? Number(m[1]) * 60 + Number(m[2]) : 9999
+}
+
+// Clave de grupo: plan + materia + grupo + nivel
+function claveGrupo(h) {
+    return `${h.PLAN ?? ''}|${h.MATERIA ?? ''}|${h.GRUPO ?? ''}|${h.NIVEL ?? ''}`
+}
+
+// Mantiene los grupos en su orden original (por primera aparición) y, dentro de
+// cada grupo, ordena las filas por día (Lunes primero) y luego por hora.
+function ordenarHorarios(horarios = []) {
+    const primeraPos = new Map()
+    horarios.forEach((h, i) => {
+        const k = claveGrupo(h)
+        if (!primeraPos.has(k)) primeraPos.set(k, i)
+    })
+
+    return horarios
+        .map((h, i) => ({ h, i }))
+        .sort((a, b) => {
+            const ga = primeraPos.get(claveGrupo(a.h))
+            const gb = primeraPos.get(claveGrupo(b.h))
+            if (ga !== gb) return ga - gb
+            const da = rangoDia(a.h.DIA)
+            const db = rangoDia(b.h.DIA)
+            if (da !== db) return da - db
+            const ha = minutosInicio(a.h.HORARIO)
+            const hb = minutosInicio(b.h.HORARIO)
+            if (ha !== hb) return ha - hb
+            return a.i - b.i
+        })
+        .map(x => x.h)
+}
+
 // ── Determina el valor de C según la lógica del componente Vue ──
 function getValorC(h) {
     const compTexto = h.COMPARTIDO ?? h.comp ?? ''
@@ -122,7 +170,8 @@ export function generarPDFCargaHoraria(docentes = [], { anio, periodo } = {}) {
 
     for (let di = 0; di < docentes.length; di++) {
         const docente = docentes[di]
-        const horarios = docente.horarios ?? []
+        // Dentro de cada grupo: Lunes primero, luego por hora
+        const horarios = ordenarHorarios(docente.horarios ?? [])
 
         body.push([{
             content: `${docente.docente}  ${(docente.apellidos ?? '').toUpperCase()} ${(docente.nombres ?? '').toUpperCase()}`,

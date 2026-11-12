@@ -95,7 +95,7 @@
                 :class="filtros.categorias.length ? 'border-blue-300 ring-1 ring-blue-100' : 'border-gray-300'"
               >
                 <span class="truncate" :class="filtros.categorias.length ? 'text-gray-800 font-medium' : 'text-gray-400'">
-                  {{ filtros.categorias.length ? `${filtros.categorias.length} seleccionada(s)` : 'ACÉFALA (por defecto)' }}
+                  {{ filtros.categorias.length ? `${filtros.categorias.length} seleccionada(s)` : `${etiquetaCategoriasDefecto} (por defecto)` }}
                 </span>
                 <svg class="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
@@ -142,7 +142,7 @@
                   </button>
                 </span>
               </div>
-              <p v-else class="text-[11px] text-gray-400 mt-1">Sin selección = ACÉFALA.</p>
+              <p v-else class="text-[11px] text-gray-400 mt-1">Sin selección = {{ etiquetaCategoriasDefecto }}.</p>
             </div>
           </section>
 
@@ -204,12 +204,10 @@
                 :aria-checked="t.activo"
                 @click="t.accion()"
                 class="w-full flex items-start gap-3 px-3 py-2 rounded-lg border text-left transition-colors"
-                :class="t.activo
-                  ? (t.id === 'sindoc' ? 'bg-amber-50/70 border-amber-300' : 'bg-blue-50/60 border-blue-200')
-                  : 'bg-white border-gray-200 hover:bg-gray-50'"
+                :class="t.activo ? estilosInterruptor[t.color].fondo : 'bg-white border-gray-200 hover:bg-gray-50'"
               >
                 <span class="mt-0.5 relative inline-flex h-5 w-9 flex-shrink-0 rounded-full transition-colors"
-                  :class="t.activo ? (t.id === 'sindoc' ? 'bg-amber-500' : 'bg-blue-600') : 'bg-gray-300'">
+                  :class="t.activo ? estilosInterruptor[t.color].switch : 'bg-gray-300'">
                   <span class="absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform"
                     :class="t.activo ? 'translate-x-4' : ''"></span>
                 </span>
@@ -232,6 +230,10 @@
           <span v-if="filtros.soloSinDocumento"
             class="px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 font-medium">
             Sin documento subido
+          </span>
+          <span v-if="filtros.asignadasSinDocumento"
+            class="px-2.5 py-1 rounded-full bg-violet-100 text-violet-800 font-medium">
+            Asignadas sin documento
           </span>
           <span v-if="filtros.incluirCompartidas && reporte.total_filas !== reporte.total_materias"
             class="px-2.5 py-1 rounded-full bg-pink-50 text-pink-700 font-medium">
@@ -334,7 +336,7 @@
                     :key="s.cod_plan + '-' + i"
                     class="border-t border-gray-100"
                     :class="[
-                      f.es_hija ? 'bg-pink-50/50' : '',
+                      f.es_hija ? 'bg-pink-50/50' : (filtros.asignadasSinDocumento ? 'bg-violet-50/50' : ''),
                       f.nro !== null && i > 0 ? 'border-t-2 border-t-gray-200' : ''
                     ]"
                   >
@@ -392,7 +394,8 @@
                         {{ abriendoPdfId === f.id_documento ? '...' : 'PDF' }}
                       </button>
                       <span v-else-if="f.nro !== null && !f.tiene_documento"
-                        class="inline-block px-1.5 py-0.5 text-[10px] font-semibold rounded bg-amber-100 text-amber-800">
+                        class="inline-block px-1.5 py-0.5 text-[10px] font-semibold rounded"
+                        :class="filtros.asignadasSinDocumento ? 'bg-violet-100 text-violet-800' : 'bg-amber-100 text-amber-800'">
                         Sin doc.
                       </span>
                       <span v-else class="text-gray-300">—</span>
@@ -410,6 +413,10 @@
             <div class="mt-2">
               <button @click="busqueda = ''" class="text-blue-500 hover:underline">Borrar búsqueda</button>
             </div>
+          </template>
+          <template v-else-if="filtros.asignadasSinDocumento">
+            No hay materias de tipo “{{ etiquetaCategorias }}” con docente asignado y sin documento subido en {{ etiquetaPeriodo }}/{{ filtros.anio }}
+            para las carreras elegidas.
           </template>
           <template v-else-if="filtros.soloSinDocumento">
             No hay materias de tipo “{{ etiquetaCategorias }}” sin documento subido en {{ etiquetaPeriodo }}/{{ filtros.anio }}
@@ -535,11 +542,12 @@ const periodos = [
 const filtros = ref({
   anio: Number(anioActual.value) || new Date().getFullYear(),
   periodo: String(periodoActual.value || '1'),
-  categorias: [],          // vacío = ACÉFALA (lo resuelve el backend)
+  categorias: [],          // vacío = ACÉFALA (o ACÉFALA + SUPLENCIA con el modo "asignadas")
   planes: [],
   incluirCompartidas: true,
   conAsignacion: true,
-  soloSinDocumento: false, // true = solo materias sin ningún PDF subido en la gestión
+  soloSinDocumento: false,       // true = solo materias sin ningún PDF subido en la gestión
+  asignadasSinDocumento: false,  // true = ACÉFALAS/SUPLENCIAS con docente ya asignado y sin PDF
 })
 
 const panelOpciones = ref(true)
@@ -568,8 +576,15 @@ const anioValido = computed(() => {
 
 const etiquetaPeriodo = computed(() => ({ '3': 'Verano', '4': 'Invierno' }[String(filtros.value.periodo)] || filtros.value.periodo))
 
+// Categorías que se usan cuando no hay selección
+const etiquetaCategoriasDefecto = computed(() =>
+  filtros.value.asignadasSinDocumento ? 'ACÉFALA + SUPLENCIA' : 'ACÉFALA'
+)
+
 const etiquetaCategorias = computed(() =>
-  filtros.value.categorias.length ? filtros.value.categorias.join(', ') : 'ACÉFALA'
+  filtros.value.categorias.length
+    ? filtros.value.categorias.join(', ')
+    : etiquetaCategoriasDefecto.value.replace(' + ', ', ')
 )
 
 function quitarCategoria(c) {
@@ -582,9 +597,17 @@ function alternarPlan(cod) {
   else filtros.value.planes.push(cod)
 }
 
+// Colores de cada interruptor (clases completas para que Tailwind las detecte)
+const estilosInterruptor = {
+  blue:   { fondo: 'bg-blue-50/60 border-blue-200',     switch: 'bg-blue-600' },
+  amber:  { fondo: 'bg-amber-50/70 border-amber-300',   switch: 'bg-amber-500' },
+  violet: { fondo: 'bg-violet-50/70 border-violet-300', switch: 'bg-violet-600' },
+}
+
 const interruptores = computed(() => [
   {
     id: 'comp',
+    color: 'blue',
     titulo: 'Incluir materias compartidas',
     desc: 'Muestra bajo cada materia las filas “(*) COMPARTIDO” de otras carreras, con CH 0.',
     activo: filtros.value.incluirCompartidas,
@@ -592,6 +615,7 @@ const interruptores = computed(() => [
   },
   {
     id: 'asig',
+    color: 'blue',
     titulo: 'Mostrar docente y resolución',
     desc: 'Rellena Nombre Docente, Resolución y Designación. Apagado: salen en blanco para llenar a mano.',
     activo: filtros.value.conAsignacion,
@@ -599,10 +623,25 @@ const interruptores = computed(() => [
   },
   {
     id: 'sindoc',
+    color: 'amber',
     titulo: 'Solo sin documento subido',
     desc: 'Lista únicamente las materias de la categoría elegida que aún no tienen ningún PDF subido en la gestión.',
     activo: filtros.value.soloSinDocumento,
-    accion: () => { filtros.value.soloSinDocumento = !filtros.value.soloSinDocumento },
+    accion: () => {
+      filtros.value.soloSinDocumento = !filtros.value.soloSinDocumento
+      if (filtros.value.soloSinDocumento) filtros.value.asignadasSinDocumento = false
+    },
+  },
+  {
+    id: 'asigsindoc',
+    color: 'violet',
+    titulo: 'Acéfalas y suplencias asignadas, sin documento',
+    desc: 'Muestra las materias ACÉFALA / SUPLENCIA que ya tienen docente asignado pero todavía no tienen PDF subido. Sin categorías elegidas usa ACÉFALA + SUPLENCIA.',
+    activo: filtros.value.asignadasSinDocumento,
+    accion: () => {
+      filtros.value.asignadasSinDocumento = !filtros.value.asignadasSinDocumento
+      if (filtros.value.asignadasSinDocumento) filtros.value.soloSinDocumento = false
+    },
   },
 ])
 
@@ -615,7 +654,7 @@ const claveConsulta = computed(() => {
     f.anio, f.periodo,
     [...f.categorias].sort().join('|'),
     [...f.planes].sort().join('|'),
-    f.incluirCompartidas, f.conAsignacion, f.soloSinDocumento,
+    f.incluirCompartidas, f.conAsignacion, f.soloSinDocumento, f.asignadasSinDocumento,
   ].join('~')
 })
 
@@ -742,6 +781,7 @@ async function previsualizarPdf() {
       subtitulo: reporte.value?.titulo || '',
       conAsignacion: filtros.value.conAsignacion,
       soloSinDocumento: filtros.value.soloSinDocumento,
+      asignadasSinDocumento: filtros.value.asignadasSinDocumento,
       anio: filtros.value.anio,
       periodo: filtros.value.periodo,
     })
