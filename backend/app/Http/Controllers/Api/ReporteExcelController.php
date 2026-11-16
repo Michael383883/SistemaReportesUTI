@@ -953,4 +953,50 @@ class ReporteExcelController extends Controller
             'data' => $data,
         ]);
     }
+
+    // GET /api/reportes/materias-con-asignacion?anio=2026&periodo=2
+    public function obtenerMateriasConAsignacion(Request $request)
+    {
+        $anio = (int) $request->query('anio', date('Y'));
+        $periodo = (int) $request->query('periodo', 1);
+
+        if (!in_array($periodo, [1, 2, 3, 4], true)) {
+            return response()->json(['message' => 'El parámetro periodo debe ser 1, 2, 3 o 4.'], 422);
+        }
+
+        $filas = DB::select("
+        SELECT DISTINCT
+            GRUPOS.DOCENTE      AS cod_docente,
+            DOCENTES.APELLIDOS  AS apellidos,
+            DOCENTES.NOMBRES    AS nombres,
+            GRUPOS.[PLAN]       AS cod_plan,
+            GRUPOS.MATERIA      AS cod_materia,
+            MATERIAS.NOMBRE     AS nom_materia,
+            GRUPOS.GRUPO        AS grupo,
+            GRUPOS.TIPO_INGRESO AS tipo_ingreso
+        FROM GRUPOS
+        INNER JOIN DOCENTES
+            ON DOCENTES.CODIGO = GRUPOS.DOCENTE
+        INNER JOIN MATERIAS
+            ON  MATERIAS.ANIO    = GRUPOS.ANIO
+            AND MATERIAS.PERIODO = GRUPOS.PERIODO
+            AND MATERIAS.[PLAN]  = GRUPOS.[PLAN]
+            AND MATERIAS.CODIGO  = GRUPOS.MATERIA
+        WHERE GRUPOS.ANIO     = :anio
+          AND GRUPOS.PERIODO  = :periodo
+          AND GRUPOS.[PLAN]   IN ('109401','125091','089801','126091','059801')
+          AND GRUPOS.PRIMARIO = 'Y'
+          AND GRUPOS.TIPO     = 'N'
+          AND GRUPOS.TIPO_INGRESO IS NOT NULL
+          AND LTRIM(RTRIM(GRUPOS.TIPO_INGRESO)) <> ''
+        ORDER BY DOCENTES.APELLIDOS, DOCENTES.NOMBRES, MATERIAS.NOMBRE
+    ", ['anio' => $anio, 'periodo' => $periodo]);
+
+        return response()->json([
+            'anio' => $anio,
+            'periodo' => $periodo,
+            'total' => count($filas),
+            'data' => $filas,
+        ]);
+    }
 }

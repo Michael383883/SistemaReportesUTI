@@ -181,9 +181,25 @@ class ClasificacionDocenteController extends Controller
             ->orderBy('FECHA_TITULO')
             ->get();
 
-        $cabecera->referencias = DB::table('CLASIFICACION_REFERENCIA')
-            ->where('ID_DOCUMENTO', $cabecera->ID_DOCUMENTO)
-            ->get();
+        // ── Referencias: siempre con el nombre ACTUAL de la resolución ──
+        // CLASIFICACION_REFERENCIA.NRO_REFERENCIA es una copia del texto que
+        // se tomó al guardar. Si luego se corrigió el número en
+        // RESOLUCIONES_PDF, esa copia puede estar desactualizada. Con el
+        // LEFT JOIN por ID_RESOLUCION se devuelve el número vigente; las
+        // referencias sin ID_RESOLUCION (manuales) conservan su texto guardado.
+        $cabecera->referencias = DB::table('CLASIFICACION_REFERENCIA as cr')
+            ->leftJoin('RESOLUCIONES_PDF as rp', 'rp.ID_RESOLUCION', '=', 'cr.ID_RESOLUCION')
+            ->where('cr.ID_DOCUMENTO', $cabecera->ID_DOCUMENTO)
+            ->select('cr.*', 'rp.NRO_RESOLUCION as NRO_ACTUAL')
+            ->get()
+            ->map(function ($r) {
+                if (!empty($r->NRO_ACTUAL)) {
+                    $r->NRO_REFERENCIA = $r->NRO_ACTUAL;
+                }
+                unset($r->NRO_ACTUAL);
+                return $r;
+            })
+            ->values();
 
         $cabecera->otros_docentes = DB::table('CLASIFICACION_DOCENTE as ccd2')
             ->join('DOCENTES as d2', 'd2.CODIGO', '=', 'ccd2.COD_DOCENTE')
@@ -850,14 +866,36 @@ class ClasificacionDocenteController extends Controller
                 $marcar('Actualizar referencias (CLASIFICACION_REFERENCIA)');
                 $referencias = json_decode($request->referencias, true) ?: [];
 
+                // ── Red de seguridad: el nombre SIEMPRE se toma de la resolución ──
+                // Si la referencia está enlazada (id_resolucion), se ignora el
+                // texto que mandó el formulario y se guarda el NRO_RESOLUCION
+                // vigente. Así, aunque el front enviara un nombre viejo, nunca
+                // se vuelve a escribir uno desactualizado.
+                $idsResolucion = collect($referencias)
+                    ->pluck('id_resolucion')
+                    ->filter()
+                    ->unique()
+                    ->values();
+
+                $nombresVigentes = $idsResolucion->isEmpty()
+                    ? collect()
+                    : DB::table('RESOLUCIONES_PDF')
+                        ->whereIn('ID_RESOLUCION', $idsResolucion->all())
+                        ->pluck('NRO_RESOLUCION', 'ID_RESOLUCION');
+
                 if (!$desvincular) {
                     DB::table('CLASIFICACION_REFERENCIA')->where('ID_DOCUMENTO', $idDocumento)->delete();
                 }
                 foreach ($referencias as $r) {
+                    $idRes = $r['id_resolucion'] ?? null;
+                    $nombre = ($idRes && $nombresVigentes->has($idRes))
+                        ? $nombresVigentes->get($idRes)
+                        : $r['nro_referencia'];
+
                     DB::table('CLASIFICACION_REFERENCIA')->insert([
                         'ID_DOCUMENTO' => $idDocumento,
-                        'NRO_REFERENCIA' => $r['nro_referencia'],
-                        'ID_RESOLUCION' => $r['id_resolucion'] ?? null,
+                        'NRO_REFERENCIA' => $nombre,
+                        'ID_RESOLUCION' => $idRes,
                     ]);
                     $referenciasActualizadas++;
                 }
