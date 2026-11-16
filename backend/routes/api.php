@@ -344,7 +344,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/reportes/docentes-activos', [ReporteExcelController::class, 'obtenerDocentesActivos']);
     Route::get('/reportes/carga-horaria-docentes', [ReporteExcelController::class, 'obtenerCargaHorariaDocentes']);
     Route::post('/reportes/docentes-clasificados/excel-personalizado', [ReporteExcelController::class, 'generarListadoDocentesDesdeDatos']);
-
+    Route::get('/reportes/materias-con-asignacion', [ReporteExcelController::class, 'obtenerMateriasConAsignacion']);
     /* ----------------------------------------------------------------
      | REPORTE PRELACIÓN POR MATERIA
      | GET /api/reportes/prelacion-materias/preview

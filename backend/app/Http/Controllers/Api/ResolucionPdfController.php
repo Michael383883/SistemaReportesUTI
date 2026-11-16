@@ -91,8 +91,8 @@ class ResolucionPdfController extends Controller
             }
 
             // ===============================
-// GUARDAR PDF EN STORAGE
-// ===============================
+            // GUARDAR PDF EN STORAGE
+            // ===============================
             $carpeta = 'resoluciones/' . $request->anio;
 
             // Nombre limpio: RR-001-2026.pdf  (sin espacios ni caracteres raros)
@@ -102,8 +102,8 @@ class ResolucionPdfController extends Controller
             // $rutaArchivo queda como: "resoluciones/2026/RR-001-2026.pdf"
 
             // ===============================
-// INSERT NORMAL (sin binario)
-// ===============================
+            // INSERT NORMAL (sin binario)
+            // ===============================
             DB::table('RESOLUCIONES_PDF')->insert([
                 'NRO_RESOLUCION' => $request->nro_resolucion,
                 'DESCRIPCION' => $request->descripcion,
@@ -209,8 +209,6 @@ class ResolucionPdfController extends Controller
 
     // GET /resoluciones/{id}/pdf            -> abre el PDF en el navegador (ver)
     // GET /resoluciones/{id}/pdf?modo=descargar -> fuerza la descarga del archivo
-    // GET /resoluciones/{id}/pdf            -> abre el PDF en el navegador
-    // GET /resoluciones/{id}/pdf?modo=descargar -> fuerza la descarga
     public function descargar(Request $request, $id)
     {
         $pdf = ResolucionPdf::select(
@@ -239,16 +237,16 @@ class ResolucionPdfController extends Controller
     }
 
     // DELETE /resoluciones/{id}
-//
-// Borra la resolución completa:
-//   1) Limpia en GRUPOS lo que aplicarEnGrupos() había escrito.
-//   2) Borra los docentes/materias asignados en RESOLUCION_DETALLE.
-//   3) Borra el registro en RESOLUCIONES_PDF.
-//   4) Borra el archivo PDF físico.
-//
-// Si la resolución tiene documentos de clasificación docente enlazados
-// (CLASIFICACION_REFERENCIA), el borrado se bloquea con un mensaje claro
-// en vez de dejar pasar el error crudo de SQL Server.
+    //
+    // Borra la resolución completa:
+    //   1) Limpia en GRUPOS lo que aplicarEnGrupos() había escrito.
+    //   2) Borra los docentes/materias asignados en RESOLUCION_DETALLE.
+    //   3) Borra el registro en RESOLUCIONES_PDF.
+    //   4) Borra el archivo PDF físico.
+    //
+    // Si la resolución tiene documentos de clasificación docente enlazados
+    // (CLASIFICACION_REFERENCIA), el borrado se bloquea con un mensaje claro
+    // en vez de dejar pasar el error crudo de SQL Server.
     public function destroy($id)
     {
         DB::beginTransaction();
@@ -486,7 +484,6 @@ class ResolucionPdfController extends Controller
     }
 
     // PUT/POST /resoluciones/{id}   (multipart, por eso se recibe como POST con _method=PUT)
-    // PUT/POST /resoluciones/{id}   (multipart, por eso se recibe como POST con _method=PUT)
     public function update(Request $request, $id)
     {
         DB::beginTransaction();
@@ -557,7 +554,7 @@ class ResolucionPdfController extends Controller
                 ->where('ID_RESOLUCION', $id)
                 ->update($datosActualizar);
 
-            // ── NUEVO: sincronizar GRUPOS que ya tienen esta resolución aplicada ──
+            // ── Sincronizar GRUPOS que ya tienen esta resolución aplicada ──
             // Buscamos por el NRO_RESOLUCION anterior (no por ID_RESOLUCION,
             // porque GRUPOS no guarda ese ID, solo el texto que copió
             // aplicarEnGrupos). Si el número o la descripción cambiaron,
@@ -582,6 +579,22 @@ class ResolucionPdfController extends Controller
                 ]);
             }
 
+            // ── NUEVO: sincronizar CLASIFICACION_REFERENCIA ──────────────────
+            // CLASIFICACION_REFERENCIA guarda una COPIA del número
+            // (NRO_REFERENCIA) tomada cuando el documento de clasificación se
+            // guardó. Si solo se actualiza RESOLUCIONES_PDF, los documentos
+            // enlazados seguirían mostrando el nombre viejo (y al re-guardarse
+            // desde el formulario lo volverían a escribir).
+            // Aquí se busca por ID_RESOLUCION (el enlace real), no por texto,
+            // y va dentro de la misma transacción: si algo falla, se revierte todo.
+            $referenciasSincronizadas = 0;
+
+            if ($cambioNumero) {
+                $referenciasSincronizadas = DB::table('CLASIFICACION_REFERENCIA')
+                    ->where('ID_RESOLUCION', $id)
+                    ->update(['NRO_REFERENCIA' => $request->nro_resolucion]);
+            }
+
             DB::commit();
             DashboardAdminController::limpiarCacheDashboard();
 
@@ -601,7 +614,8 @@ class ResolucionPdfController extends Controller
             return response()->json([
                 'ok' => true,
                 'mensaje' => 'Resolución actualizada correctamente',
-                'grupos_sincronizados' => $gruposSincronizados, // ← útil para mostrar feedback en el front
+                'grupos_sincronizados' => $gruposSincronizados,
+                'referencias_sincronizadas' => $referenciasSincronizadas, // ← NUEVO
             ]);
 
         } catch (\Illuminate\Validation\ValidationException $e) {
@@ -636,58 +650,58 @@ class ResolucionPdfController extends Controller
     }
 
     // POST /clasificaciones/{idDocumento}/generar-resolucion
-//
-// Puente para el flujo de "Asignar a otros docentes": crea (o reutiliza)
-// una fila en RESOLUCIONES_PDF tomando SOLO 4 datos de
-// CLASIFICACION_DOCUMENTO (TIPO_DOCUMENTO, DETALLE_GENERAL, GESTION,
-// PERIODO) y copiando RUTA_ARCHIVO/NOMBRE_ARCHIVO — no se vuelve a subir
-// el PDF. A partir de acá, todo lo que se asigne (docente+materia+
-// tipo_ingreso) se guarda en RESOLUCION_DETALLE, igual que el flujo
-// original de "Resolución", para que el TIPO_INGRESO sea el que elige
-// el usuario por cada materia y no el de CLASIFICACION_DOCUMENTO.CATEGORIA.
-public function storeDesdeClasificacion(Request $request, $idDocumento)
-{
-    $documento = DB::table('CLASIFICACION_DOCUMENTO')
-        ->where('ID_DOCUMENTO', $idDocumento)
-        ->first();
+    //
+    // Puente para el flujo de "Asignar a otros docentes": crea (o reutiliza)
+    // una fila en RESOLUCIONES_PDF tomando SOLO 4 datos de
+    // CLASIFICACION_DOCUMENTO (TIPO_DOCUMENTO, DETALLE_GENERAL, GESTION,
+    // PERIODO) y copiando RUTA_ARCHIVO/NOMBRE_ARCHIVO — no se vuelve a subir
+    // el PDF. A partir de acá, todo lo que se asigne (docente+materia+
+    // tipo_ingreso) se guarda en RESOLUCION_DETALLE, igual que el flujo
+    // original de "Resolución", para que el TIPO_INGRESO sea el que elige
+    // el usuario por cada materia y no el de CLASIFICACION_DOCUMENTO.CATEGORIA.
+    public function storeDesdeClasificacion(Request $request, $idDocumento)
+    {
+        $documento = DB::table('CLASIFICACION_DOCUMENTO')
+            ->where('ID_DOCUMENTO', $idDocumento)
+            ->first();
 
-    if (!$documento) {
-        return response()->json(['ok' => false, 'error' => 'Documento no encontrado'], 404);
-    }
+        if (!$documento) {
+            return response()->json(['ok' => false, 'error' => 'Documento no encontrado'], 404);
+        }
 
-    // Reutiliza si ya se generó antes para este mismo documento (evita
-    // duplicar filas en RESOLUCIONES_PDF cada vez que se asigna a un
-    // docente más sobre el mismo documento).
-    $existente = DB::table('RESOLUCIONES_PDF')
-        ->where('NRO_RESOLUCION', $documento->TIPO_DOCUMENTO)
-        ->where('ANIO', (int) $documento->GESTION)
-        ->where('PERIODO', $documento->PERIODO)
-        ->first();
+        // Reutiliza si ya se generó antes para este mismo documento (evita
+        // duplicar filas en RESOLUCIONES_PDF cada vez que se asigna a un
+        // docente más sobre el mismo documento).
+        $existente = DB::table('RESOLUCIONES_PDF')
+            ->where('NRO_RESOLUCION', $documento->TIPO_DOCUMENTO)
+            ->where('ANIO', (int) $documento->GESTION)
+            ->where('PERIODO', $documento->PERIODO)
+            ->first();
 
-    if ($existente) {
+        if ($existente) {
+            return response()->json([
+                'ok' => true,
+                'id_resolucion' => $existente->ID_RESOLUCION,
+                'reutilizada' => true,
+            ]);
+        }
+
+        $idResolucion = DB::table('RESOLUCIONES_PDF')->insertGetId([
+            'NRO_RESOLUCION' => $documento->TIPO_DOCUMENTO,
+            'DESCRIPCION' => $documento->DETALLE_GENERAL,
+            'ANIO' => (int) $documento->GESTION,
+            'PERIODO' => $documento->PERIODO,
+            'RUTA_ARCHIVO' => $documento->RUTA_ARCHIVO,
+            'NOMBRE_ARCHIVO' => $documento->NOMBRE_ARCHIVO,
+            'TAMANIO_KB' => null,
+            'SUBIDO_POR' => $request->input('subido_por'),
+            'FECHA_SUBIDA' => now(),
+        ], 'ID_RESOLUCION');
+
         return response()->json([
             'ok' => true,
-            'id_resolucion' => $existente->ID_RESOLUCION,
-            'reutilizada' => true,
-        ]);
+            'id_resolucion' => $idResolucion,
+            'reutilizada' => false,
+        ], 201);
     }
-
-    $idResolucion = DB::table('RESOLUCIONES_PDF')->insertGetId([
-        'NRO_RESOLUCION' => $documento->TIPO_DOCUMENTO,
-        'DESCRIPCION'    => $documento->DETALLE_GENERAL,
-        'ANIO'           => (int) $documento->GESTION,
-        'PERIODO'        => $documento->PERIODO,
-        'RUTA_ARCHIVO'   => $documento->RUTA_ARCHIVO,
-        'NOMBRE_ARCHIVO' => $documento->NOMBRE_ARCHIVO,
-        'TAMANIO_KB'     => null,
-        'SUBIDO_POR'     => $request->input('subido_por'),
-        'FECHA_SUBIDA'   => now(),
-    ], 'ID_RESOLUCION');
-
-    return response()->json([
-        'ok' => true,
-        'id_resolucion' => $idResolucion,
-        'reutilizada' => false,
-    ], 201);
-}
 }
