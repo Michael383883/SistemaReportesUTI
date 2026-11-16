@@ -195,27 +195,26 @@
               <h4 class="text-sm font-semibold text-gray-800">¿Cómo mostrarlo?</h4>
             </header>
 
-            <div class="space-y-1.5">
-              <button
-                v-for="t in interruptores"
-                :key="t.id"
-                type="button"
-                role="switch"
-                :aria-checked="t.activo"
-                @click="t.accion()"
-                class="w-full flex items-start gap-3 px-3 py-2 rounded-lg border text-left transition-colors"
-                :class="t.activo ? estilosInterruptor[t.color].fondo : 'bg-white border-gray-200 hover:bg-gray-50'"
-              >
-                <span class="mt-0.5 relative inline-flex h-5 w-9 flex-shrink-0 rounded-full transition-colors"
-                  :class="t.activo ? estilosInterruptor[t.color].switch : 'bg-gray-300'">
-                  <span class="absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform"
-                    :class="t.activo ? 'translate-x-4' : ''"></span>
-                </span>
-                <span class="min-w-0">
-                  <span class="block text-sm font-medium text-gray-800">{{ t.titulo }}</span>
-                  <span class="block text-xs text-gray-500 leading-snug">{{ t.desc }}</span>
-                </span>
-              </button>
+            <!-- Descripción visible al pasar el mouse (title en el contenedor) -->
+            <div class="space-y-1">
+              <div v-for="t in interruptores" :key="t.id" :title="t.desc">
+                <button
+                  type="button"
+                  role="switch"
+                  :aria-checked="t.activo"
+                  :aria-label="t.titulo + '. ' + t.desc"
+                  @click="t.accion()"
+                  class="w-full flex items-center gap-3 px-3 py-1.5 rounded-lg border text-left transition-colors"
+                  :class="t.activo ? estilosInterruptor[t.color].fondo : 'bg-white border-gray-200 hover:bg-gray-50'"
+                >
+                  <span class="relative inline-flex h-5 w-9 flex-shrink-0 rounded-full transition-colors"
+                    :class="t.activo ? estilosInterruptor[t.color].switch : 'bg-gray-300'">
+                    <span class="absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform"
+                      :class="t.activo ? 'translate-x-4' : ''"></span>
+                  </span>
+                  <span class="min-w-0 text-sm font-medium text-gray-800 leading-tight">{{ t.titulo }}</span>
+                </button>
+              </div>
             </div>
           </section>
         </div>

@@ -1,3 +1,4 @@
+
 <template>
   <div class="bg-gray-50 pb-4">
     <div class="bg-white rounded-2xl border border-gray-200 shadow-sm w-full h-[calc(100vh-6rem)] min-h-[620px] flex flex-col">
@@ -185,28 +186,27 @@
               <h4 class="text-sm font-semibold text-gray-800">¿Cómo mostrarlos?</h4>
             </header>
 
-            <div class="space-y-1.5">
-              <button
-                v-for="t in interruptores"
-                :key="t.id"
-                type="button"
-                role="switch"
-                :aria-checked="t.activo"
-                :disabled="t.deshabilitado"
-                @click="t.accion()"
-                class="w-full flex items-start gap-3 px-3 py-2 rounded-lg border text-left transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                :class="t.activo ? 'bg-blue-50/60 border-blue-200' : 'bg-white border-gray-200 hover:bg-gray-50'"
-              >
-                <span class="mt-0.5 relative inline-flex h-5 w-9 flex-shrink-0 rounded-full transition-colors"
-                  :class="t.activo ? 'bg-blue-600' : 'bg-gray-300'">
-                  <span class="absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform"
-                    :class="t.activo ? 'translate-x-4' : ''"></span>
-                </span>
-                <span class="min-w-0">
-                  <span class="block text-sm font-medium text-gray-800">{{ t.titulo }}</span>
-                  <span class="block text-xs text-gray-500 leading-snug">{{ t.desc }}</span>
-                </span>
-              </button>
+            <!-- Descripción visible al pasar el mouse (title en el contenedor) -->
+            <div class="space-y-1">
+              <div v-for="t in interruptores" :key="t.id" :title="t.desc">
+                <button
+                  type="button"
+                  role="switch"
+                  :aria-checked="t.activo"
+                  :aria-label="t.titulo + '. ' + t.desc"
+                  :disabled="t.deshabilitado"
+                  @click="t.accion()"
+                  class="w-full flex items-center gap-3 px-3 py-1.5 rounded-lg border text-left transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  :class="t.activo ? 'bg-blue-50/60 border-blue-200' : 'bg-white border-gray-200 hover:bg-gray-50'"
+                >
+                  <span class="relative inline-flex h-5 w-9 flex-shrink-0 rounded-full transition-colors"
+                    :class="t.activo ? 'bg-blue-600' : 'bg-gray-300'">
+                    <span class="absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform"
+                      :class="t.activo ? 'translate-x-4' : ''"></span>
+                  </span>
+                  <span class="min-w-0 text-sm font-medium text-gray-800 leading-tight">{{ t.titulo }}</span>
+                </button>
+              </div>
             </div>
 
             <!-- Excluir materias por clasificación -->
@@ -361,6 +361,7 @@
 
             <p v-if="reporteExcel.errorActivos.value" class="text-xs text-red-500 mt-2">{{ reporteExcel.errorActivos.value }}</p>
             <p v-if="reporteExcel.errorAntiguedad.value" class="text-xs text-red-500 mt-2">{{ reporteExcel.errorAntiguedad.value }}</p>
+            <p v-if="reporteExcel.errorAsignaciones.value" class="text-xs text-red-500 mt-2">{{ reporteExcel.errorAsignaciones.value }}</p>
             <p v-if="resultadoCargaHoraria?.error" class="text-xs text-red-500 mt-2">{{ resultadoCargaHoraria.error }}</p>
             <p v-else-if="resultadoCargaHoraria?.asignadas !== undefined" class="text-xs text-emerald-600 mt-2">
               ✓ {{ resultadoCargaHoraria.asignadas }} materia(s) con CH asignada
@@ -838,6 +839,16 @@ const interruptores = computed(() => [
     accion: reporteExcel.alternarAntiguedad,
   },
   {
+    id: 'sinDocAsig',
+    titulo: 'Incluir materias sin documento (con asignación)',
+    desc: reporteExcel.soloActivos.value
+      ? 'Muestra las materias que no tienen documento pero sí un modo de ingreso asignado. La asignación aparece en Categoría.'
+      : 'Requiere activar “Solo docentes activos” (paso 3).',
+    activo: reporteExcel.mostrarMateriasConAsignacion.value,
+    deshabilitado: estaActualizando.value || !reporteExcel.soloActivos.value,
+    accion: () => conservandoVista(() => reporteExcel.alternarMateriasConAsignacion()),
+  },
+  {
     id: 'ocNombreTitulo',
     titulo: 'Ocultar nombre del título',
     desc: 'Quita el nombre del título del reporte.',
@@ -1013,9 +1024,19 @@ async function abrirPrelacion() {
     })
 
     // 4. Combinar materias
-    if (!reporteExcel.materiasCombinadas.value) {
+     if (!reporteExcel.materiasCombinadas.value) {
       reporteExcel.alternarCombinarMaterias()
     }
+
+    // 5. Dejar activas "Ocultar nombre del título" y "Ocultar categoría del título"
+    await conservandoVista(async () => {
+      if (!reporteExcel.ocultarNombreTitulo.value) {
+        await reporteExcel.alternarOcultarNombreTitulo(filtrosActuales.value)
+      }
+      if (!reporteExcel.ocultarTipoTitulo.value) {
+        await reporteExcel.alternarOcultarTipoTitulo(filtrosActuales.value)
+      }
+    })
   } catch (e) {
     console.error('Error preparando el reporte de prelación:', e)
     resultadoCargaHoraria.value = {

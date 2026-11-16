@@ -335,6 +335,63 @@ export function useReporteExcel() {
     const antiguedadMapa = ref(new Map())
     let antiguedadClave = '' // "anio~periodo" de los datos cargados
 
+    // ── Materias SIN documento pero CON asignación (GRUPOS.TIPO_INGRESO) ──
+    // La asignación es la que se edita en "Edición de Modo de Ingreso".
+    // Solo se consulta el año/periodo de "Docentes activos". Si está activo,
+    // esas materias se muestran con el modo de ingreso en Categoría y sin
+    // documento (sin botón PDF).
+    const mostrarMateriasConAsignacion = ref(false)
+    const cargandoAsignaciones = ref(false)
+    const errorAsignaciones = ref(null)
+    const asignacionesActivos = ref([]) // [{ cod_docente, cod_materia, nom_materia, tipo_ingreso, ... }]
+
+    // GET /api/reportes/materias-con-asignacion
+    async function cargarAsignaciones({ anio, periodo } = {}) {
+        cargandoAsignaciones.value = true
+        errorAsignaciones.value = null
+        try {
+            const { data } = await axios.get(
+                `${API_BASE}/api/reportes/materias-con-asignacion`,
+                {
+                    params: {
+                        anio: anio ?? anioActivos.value,
+                        periodo: periodo ?? periodoActivos.value,
+                    },
+                    headers: authHeaders(),
+                }
+            )
+            asignacionesActivos.value = data.data || []
+        } catch (e) {
+            errorAsignaciones.value = e?.response?.data?.message || 'No se pudieron obtener las asignaciones'
+            asignacionesActivos.value = []
+            throw e
+        } finally {
+            cargandoAsignaciones.value = false
+        }
+    }
+
+    // Vuelve a armar el preview completado con los activos (si aplica)
+    function rehacerCompletado() {
+        if (soloActivos.value && cargaActivos.value.length) aplicarCompletado()
+    }
+
+    // Interruptor: al encender consulta las asignaciones; al apagar solo las quita
+    async function alternarMateriasConAsignacion() {
+        if (mostrarMateriasConAsignacion.value) {
+            mostrarMateriasConAsignacion.value = false
+            rehacerCompletado()
+            return
+        }
+        try {
+            await cargarAsignaciones()
+            mostrarMateriasConAsignacion.value = true
+        } catch (e) {
+            mostrarMateriasConAsignacion.value = false
+            return
+        }
+        rehacerCompletado()
+    }
+
     // GET /api/reportes/antiguedad-docentes-materia
     async function cargarAntiguedad({ anio, periodo, forzar = false } = {}) {
         const a = anio ?? anioActivos.value
@@ -381,14 +438,32 @@ export function useReporteExcel() {
     const ocultarTipoTitulo = ref(false)   // oculta TIPO_TITULO (categoría del título)
 
     // ── Quitar materias por clasificación (Acéfala, Suplencia, ...) ──
-    // categoriasDisponibles: categorías distintas que vienen en el preview
-    //   (para pintar los botones/selector de forma dinámica).
+    // categoriasDocs: categorías distintas que vienen en los DOCUMENTOS del preview.
+    // categoriasDisponibles (computed): las de los documentos + los modos de
+    //   ingreso (GRUPOS.TIPO_INGRESO) de las asignaciones cuando "materias sin
+    //   documento con asignación" está activo + las ya excluidas (para poder
+    //   restaurarlas). Así "Suplencia" aparece aunque ningún documento la tenga.
     // categoriasExcluidas: categorías (texto original) elegidas para quitar.
     //   Se quita la fila de la materia y su CH. Con "Solo Activos", esa
     //   materia tampoco vuelve a entrar desde la carga horaria real.
-    const categoriasDisponibles = ref([])
+    const categoriasDocs = ref([])
     const categoriasExcluidas = ref([])
     const filasQuitadasPorCategoria = ref(0)
+
+    const categoriasDisponibles = computed(() => {
+        const m = new Map()
+        categoriasDocs.value.forEach(c => m.set(normalizarCategoria(c), c))
+        if (mostrarMateriasConAsignacion.value) {
+            for (const a of asignacionesActivos.value) {
+                const t = String(a.tipo_ingreso ?? '').trim()
+                if (t && t !== '-') m.set(normalizarCategoria(t), t)
+            }
+        }
+        // mantener las excluidas para poder restaurarlas
+        categoriasExcluidas.value.forEach(c => m.set(normalizarCategoria(c), c))
+        return [...m.values()].sort((a, b) => a.localeCompare(b, 'es'))
+    })
+
     // cod_docente -> Map(materiaNormalizada -> true) de las materias quitadas
     // (y que el docente no conserva en otra fila válida)
     let materiasQuitadasMap = new Map()
@@ -426,7 +501,7 @@ export function useReporteExcel() {
 
         const mapa = new Map()
         for (const f of quitadas) {
-            if (!esDelPeriodoActual(f)) continue   // ← NUEVO
+            if (!esDelPeriodoActual(f)) continue
 
             const key = normalizarNombreMateria(f.NOMBRE_MATERIA)
             if (!key || key === '-' || key === PLACEHOLDER_SIN_MATERIA) continue
@@ -583,7 +658,7 @@ export function useReporteExcel() {
                 datosCrudos = null
                 filasOcultasCompartidas.value = 0
                 filasQuitadasPorCategoria.value = 0
-                categoriasDisponibles.value = []
+                categoriasDocs.value = []
                 return
             }
 
@@ -594,17 +669,15 @@ export function useReporteExcel() {
             ocultarNombreTitulo.value = ocultarNombre
             ocultarTipoTitulo.value = ocultarTipo
 
-            // Categorías distintas presentes en los datos (botones dinámicos).
-            // Se mantienen también las ya excluidas para poder restaurarlas.
+            // Categorías distintas presentes en los documentos (botones dinámicos).
+            // Las ya excluidas y las de asignaciones las agrega el computed
+            // categoriasDisponibles.
             const distintas = new Map()
             for (const f of data.data || []) {
                 const c = (f.CATEGORIA ?? '').toString().trim()
                 if (c && c !== '-') distintas.set(normalizarCategoria(c), c)
             }
-            for (const c of categoriasExcluidas.value) {
-                distintas.set(normalizarCategoria(c), c)
-            }
-            categoriasDisponibles.value = [...distintas.values()].sort((a, b) => a.localeCompare(b, 'es'))
+            categoriasDocs.value = [...distintas.values()].sort((a, b) => a.localeCompare(b, 'es'))
 
             // Guarda los datos crudos y aplica categorías excluidas + filtro
             // de compartidas según el estado actual de los botones
@@ -617,6 +690,7 @@ export function useReporteExcel() {
             datosCrudos = null
             filasOcultasCompartidas.value = 0
             filasQuitadasPorCategoria.value = 0
+            categoriasDocs.value = []
             throw e
         } finally {
             loading.value = false
@@ -695,8 +769,38 @@ export function useReporteExcel() {
     //   con código que empieza con 18.
     // - Materias QUITADAS por categoría (Acéfala, Suplencia...): no se
     //   re-agregan desde la carga real, así que ni la materia ni su CH vuelven.
+    // - Con "materias sin documento con asignación": las materias sin documento
+    //   del año/periodo seleccionado que tengan GRUPOS.TIPO_INGRESO muestran esa
+    //   asignación en Categoría (en vez de "-"); si no tienen carga horaria se
+    //   agregan igualmente con CH vacía. Siguen sin documento (sin PDF).
+    //   Si la categoría de esa asignación está EXCLUIDA (ej. Suplencia), la
+    //   materia no se muestra ni vuelve desde la carga horaria real con "-".
     function completarConActivos(filasBase) {
         const excluir = excluirPrelacion.value
+
+        // 0) Asignaciones (GRUPOS.TIPO_INGRESO) por docente:
+        //    cod -> Map(materiaNormalizada -> { nombre, tipo })
+        //    Se separan las que tienen categoría excluida (asignExcluidasPorDocente)
+        //    para que no reaparezcan como "-" desde la carga horaria real.
+        const asignPorDocente = new Map()
+        const asignExcluidasPorDocente = new Map()
+        if (mostrarMateriasConAsignacion.value) {
+            const excl = new Set(categoriasExcluidas.value.map(normalizarCategoria))
+            for (const a of asignacionesActivos.value) {
+                if (excluir && esCodigoMateriaExcluido(a.cod_materia)) continue
+                const tipo = String(a.tipo_ingreso ?? '').trim()
+                if (!tipo) continue
+                const key = normalizarNombreMateria(a.nom_materia)
+                if (!key) continue
+                const cod = String(a.cod_docente)
+                const destino = excl.has(normalizarCategoria(tipo))
+                    ? asignExcluidasPorDocente
+                    : asignPorDocente
+                if (!destino.has(cod)) destino.set(cod, new Map())
+                const m = destino.get(cod)
+                if (!m.has(key)) m.set(key, { nombre: a.nom_materia, tipo })
+            }
+        }
 
         // 1) Agrupar el preview actual por docente (bloques)
         const bloquesPorDocente = new Map()
@@ -815,26 +919,61 @@ export function useReporteExcel() {
                 }
             })
 
+            // Materias que ya tienen documento DEL PERIODO SELECCIONADO
+            // (para no duplicarlas con la asignación). Un documento de otro
+            // año/periodo no cuenta: la materia dictada ahora sigue siendo
+            // "sin documento" para este periodo.
+            const nombresConDocumento = new Map()
+            filas.forEach(f => {
+                if (f.GESTION !== undefined && f.GESTION !== null && !esDelPeriodo(f)) return
+                const k = normalizarNombreMateria(f.NOMBRE_MATERIA)
+                if (k && k !== '-' && k !== PLACEHOLDER_SIN_MATERIA) nombresConDocumento.set(k, true)
+            })
+
+            const asign = asignPorDocente.get(cod)
+            const asignExcl = asignExcluidasPorDocente.get(cod)
+            const asignUsadas = new Set()
+
             // materias que dicta pero no están en ningún documento
             for (const [key, mat] of carga) {
                 if (cubiertas.has(key)) continue
 
+                // Materia cuya asignación fue excluida (ej. Suplencia):
+                // no vuelve como "-" desde la carga horaria real
+                if (asignExcl && buscarClaveMateria(key, asignExcl) &&
+                    !(asign && buscarClaveMateria(key, asign))) continue
+
+                // Si tiene asignación, la categoría es esa; si no, "-"
+                const claveAsig = asign ? buscarClaveMateria(key, asign) : null
+                if (claveAsig) asignUsadas.add(claveAsig)
+                const categoria = claveAsig ? asign.get(claveAsig).tipo : '-'
+
                 if (mat.compartida) {
                     // Compartida (COMP. > 0): solo se muestra si el botón está activo
                     if (!mostrarCompartidas.value) continue
-                    filas.push({ ...filaSinDocumento(cod, mat.nombre, '-'), COMPARTIDA: true })
+                    filas.push({ ...filaSinDocumento(cod, mat.nombre, '-'), CATEGORIA: categoria, COMPARTIDA: true })
                     continue
                 }
 
-                filas.push(filaSinDocumento(cod, mat.nombre, mat.ch))
+                filas.push({ ...filaSinDocumento(cod, mat.nombre, mat.ch), CATEGORIA: categoria })
+            }
+
+            // Materias con asignación que no tienen documento ni aparecen en la carga horaria
+            if (asign) {
+                for (const [key, mat] of asign) {
+                    if (asignUsadas.has(key)) continue
+                    if (buscarClaveMateria(key, nombresConDocumento)) continue
+                    if (buscarClaveMateria(key, carga)) continue
+                    filas.push({ ...filaSinDocumento(cod, mat.nombre, null), CATEGORIA: mat.tipo })
+                }
             }
 
             // Solo tenía materias 18: el docente no se muestra
             if (tuvoMateria18 && !filas.length) continue
 
-            // Se quitaron materias por categoría y no queda nada para este
-            // docente (ni documento ni materia real): no se muestra.
-            if (!filas.length && materiasQuitadasMap.has(cod)) continue
+            // Se quitaron materias por categoría (o por asignación excluida) y
+            // no queda nada para este docente: no se muestra.
+            if (!filas.length && (materiasQuitadasMap.has(cod) || asignExcl)) continue
 
             // activo sin documentos ni materias
             if (!filas.length) filas.push(filaSinDocumento(cod, '-', null))
@@ -896,6 +1035,18 @@ export function useReporteExcel() {
                 anio: anioActivos.value,
                 periodo: periodoActivos.value,
             })
+
+            // Asignaciones (GRUPOS.TIPO_INGRESO) del mismo año/periodo
+            if (mostrarMateriasConAsignacion.value) {
+                try {
+                    await cargarAsignaciones({
+                        anio: anioActivos.value,
+                        periodo: periodoActivos.value,
+                    })
+                } catch (e) {
+                    // el error queda en errorAsignaciones
+                }
+            }
 
             // Ahora que se conoce la columna COMP. real, se guardan las
             // materias compartidas y se recalcula la base (oculta/marca
@@ -1417,9 +1568,12 @@ export function useReporteExcel() {
         antiguedadMapa.value = new Map()
         antiguedadClave = ''
         errorAntiguedad.value = null
+        mostrarMateriasConAsignacion.value = false
+        asignacionesActivos.value = []
+        errorAsignaciones.value = null
         ocultarNombreTitulo.value = false
         ocultarTipoTitulo.value = false
-        categoriasDisponibles.value = []
+        categoriasDocs.value = []
         categoriasExcluidas.value = []
         filasQuitadasPorCategoria.value = 0
         materiasQuitadasMap = new Map()
@@ -1491,6 +1645,13 @@ export function useReporteExcel() {
         errorAntiguedad,
         cargarAntiguedad,
         alternarAntiguedad,
+
+        // Materias sin documento con asignación (GRUPOS.TIPO_INGRESO)
+        mostrarMateriasConAsignacion,
+        cargandoAsignaciones,
+        errorAsignaciones,
+        cargarAsignaciones,
+        alternarMateriasConAsignacion,
 
         // Ocultar nombre / categoría del título
         ocultarNombreTitulo,
