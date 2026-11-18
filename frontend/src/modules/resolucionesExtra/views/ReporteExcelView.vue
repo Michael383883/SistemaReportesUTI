@@ -447,8 +447,8 @@
               <th class="text-left font-semibold text-gray-500 px-2 py-2.5 uppercase tracking-wider">Categoría</th>
               <th class="text-center font-semibold text-gray-500 px-2 py-2.5 uppercase tracking-wider" title="Total de carga horaria del docente (y su equivalente mensual: x 4)">T. CH</th>
               <th class="text-left font-semibold text-gray-500 px-2 py-2.5 uppercase tracking-wider">Fotocopia</th>
-              <th class="text-left font-semibold text-gray-500 px-2 py-2.5 uppercase tracking-wider">Obs 1</th>
-              <th class="text-left font-semibold text-gray-500 px-2 py-2.5 uppercase tracking-wider">Obs 2</th>
+              <th class="text-left font-semibold text-gray-500 px-2 py-2.5 uppercase tracking-wider">Facultad</th>
+              <th class="text-left font-semibold text-gray-500 px-2 py-2.5 uppercase tracking-wider">cat-dip</th>
               <th class="text-center font-semibold text-gray-500 px-2 py-2.5 uppercase tracking-wider">PDF</th>
             </tr>
           </thead>

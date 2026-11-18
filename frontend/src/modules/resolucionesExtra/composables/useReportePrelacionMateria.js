@@ -15,6 +15,71 @@ export const PERIODOS = [1, 2, 3, 4]
 const ROMANOS = { 1: 'I', 2: 'II', 3: 'III', 4: 'IV' }
 const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 
+// ═══════════════════════════════════════════════════════════════
+// ANTIGÜEDAD
+// Cada periodo dictado vale 0,5 año:
+//   2 periodos en un año -> 1 año
+//   3 periodos en un año -> 1,5 años
+// ═══════════════════════════════════════════════════════════════
+export const ANTIGUEDAD_POR_PERIODO = 0.5
+
+// Cantidad de periodos -> años (siempre múltiplos de 0,5)
+export const periodosAAnios = (periodos) => periodos * ANTIGUEDAD_POR_PERIODO
+
+// 1.5 -> "1,5"   |   26 -> "26"   |   0.5 -> "0,5"
+export function formatearAnios(valor) {
+    const n = parseFloat(String(valor).replace(',', '.'))
+    if (!Number.isFinite(n)) return String(valor).trim()
+    return String(Math.round(n * 2) / 2).replace('.', ',')
+}
+
+// Convierte a número solo si el valor viene realmente informado (evita que '' o null den 0)
+function aNumero(valor) {
+    if (valor === null || valor === undefined || valor === '') return null
+    const n = Number(String(valor).replace(',', '.'))
+    return Number.isFinite(n) ? n : null
+}
+
+/**
+ * Antigüedad de una fila, por orden de prioridad:
+ *  1) PERIODOS_ANTIGUEDAD (nº de periodos que el backend contó) -> periodos × 0,5
+ *  2) ANTIGUEDAD (años ya calculados por el backend)
+ *  3) respaldo: el texto que se leyó de Observaciones (fallbackTexto)
+ *
+ * Devuelve { texto, detalle }:
+ *   texto   -> lo que se muestra en la celda ('' si no hay dato)
+ *   detalle -> explicación para el tooltip
+ */
+export function calcularAntiguedad(item, fallbackTexto = '') {
+    const periodos = aNumero(
+        item?.PERIODOS_ANTIGUEDAD ?? item?.periodos_antiguedad ?? item?.PERIODOS_ANT
+    )
+    if (periodos !== null) {
+        const anios = periodosAAnios(periodos)
+        return {
+            texto: formatearAnios(anios),
+            detalle: `${periodos} periodo(s) × ${formatearAnios(ANTIGUEDAD_POR_PERIODO)} = ${formatearAnios(anios)} año(s)`,
+        }
+    }
+
+    const anios = aNumero(item?.ANTIGUEDAD ?? item?.antiguedad)
+    if (anios !== null) {
+        return {
+            texto: formatearAnios(anios),
+            detalle: `${formatearAnios(anios)} año(s) (cada periodo suma ${formatearAnios(ANTIGUEDAD_POR_PERIODO)})`,
+        }
+    }
+
+    if (fallbackTexto) {
+        return {
+            texto: fallbackTexto,
+            detalle: 'Tomado del texto de Observaciones',
+        }
+    }
+
+    return { texto: '', detalle: '' }
+}
+
 const filtrosIniciales = () => ({
     anio: new Date().getFullYear(),
     periodo: 1,

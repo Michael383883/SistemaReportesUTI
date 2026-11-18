@@ -126,23 +126,27 @@
 
             <!-- Alcance -->
             <label class="block text-[11px] font-medium text-gray-500 mb-1">Docentes a considerar</label>
-            <div class="grid grid-cols-2 gap-1 p-0.5 mb-2 bg-gray-100 rounded-lg" role="radiogroup">
+            <div class="grid grid-cols-2 gap-1 p-0.5 mb-3 bg-gray-100 rounded-lg" role="radiogroup">
               <button
                 v-for="a in alcances"
                 :key="a.valor"
                 type="button"
                 role="radio"
                 :aria-checked="filtros.alcance === a.valor"
+                :aria-label="a.titulo + '. ' + a.desc"
                 @click="filtros.alcance = a.valor"
-                class="px-2 py-1.5 text-xs font-medium rounded-md transition-colors"
+                class="group relative px-2 py-1.5 text-xs font-medium rounded-md transition-colors"
                 :class="filtros.alcance === a.valor ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'"
               >
                 {{ a.titulo }}
+                <span
+                  role="tooltip"
+                  class="pointer-events-none absolute left-0 top-full z-30 mt-1.5 hidden w-56 rounded-lg bg-gray-900 px-3 py-2 text-left text-xs font-normal leading-snug text-white shadow-lg group-hover:block group-focus-visible:block"
+                >
+                  {{ a.desc }}
+                </span>
               </button>
             </div>
-            <p class="text-xs text-gray-500 leading-snug mb-3">
-              {{ alcances.find(a => a.valor === filtros.alcance)?.desc }}
-            </p>
 
             <div class="space-y-1.5">
               <button
@@ -151,18 +155,23 @@
                 type="button"
                 role="switch"
                 :aria-checked="t.activo"
+                :aria-label="t.titulo + '. ' + t.desc"
                 @click="t.accion()"
-                class="w-full flex items-start gap-3 px-3 py-2 rounded-lg border text-left transition-colors"
+                class="group relative w-full flex items-center gap-3 px-3 py-2 rounded-lg border text-left transition-colors"
                 :class="t.activo ? 'bg-blue-50/60 border-blue-200' : 'bg-white border-gray-200 hover:bg-gray-50'"
               >
-                <span class="mt-0.5 relative inline-flex h-5 w-9 flex-shrink-0 rounded-full transition-colors"
+                <span class="relative inline-flex h-5 w-9 flex-shrink-0 rounded-full transition-colors"
                   :class="t.activo ? 'bg-blue-600' : 'bg-gray-300'">
                   <span class="absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform"
                     :class="t.activo ? 'translate-x-4' : ''"></span>
                 </span>
-                <span class="min-w-0">
-                  <span class="block text-sm font-medium text-gray-800">{{ t.titulo }}</span>
-                  <span class="block text-xs text-gray-500 leading-snug">{{ t.desc }}</span>
+                <span class="min-w-0 text-sm font-medium text-gray-800">{{ t.titulo }}</span>
+
+                <span
+                  role="tooltip"
+                  class="pointer-events-none absolute left-3 right-3 top-full z-30 mt-1 hidden rounded-lg bg-gray-900 px-3 py-2 text-xs font-normal leading-snug text-white shadow-lg group-hover:block group-focus-visible:block"
+                >
+                  {{ t.desc }}
                 </span>
               </button>
             </div>
@@ -256,6 +265,8 @@
               <th class="text-center font-semibold text-gray-500 px-2 py-2.5 uppercase tracking-wider">Carrera</th>
               <th class="text-center font-semibold text-gray-500 px-2 py-2.5 uppercase tracking-wider w-12" title="Posición dentro de la materia">Orden</th>
               <th class="text-left font-semibold text-gray-500 px-2 py-2.5 uppercase tracking-wider">Docente</th>
+              <th class="text-center font-semibold text-gray-500 px-2 py-2.5 uppercase tracking-wider w-16"
+                title="Antigüedad en años que imparte la asignatura. Cada periodo suma 0,5: 2 periodos = 1 año, 3 periodos = 1,5 años.">Antig.</th>
               <th class="text-left font-semibold text-gray-500 px-2 py-2.5 uppercase tracking-wider">Categoría</th>
               <th class="text-left font-semibold text-gray-500 px-2 py-2.5 uppercase tracking-wider">Observaciones</th>
               <th class="text-center font-semibold text-gray-500 px-2 py-2.5 uppercase tracking-wider">PDF</th>
@@ -263,7 +274,7 @@
           </thead>
           <tbody>
             <tr
-              v-for="(item, i) in data"
+              v-for="(item, i) in filasVista"
               :key="i"
               class="border-b border-gray-50"
               :class="[
@@ -302,9 +313,15 @@
                 </div>
               </td>
 
+              <td class="px-2 py-2 text-center tabular-nums whitespace-nowrap"
+                :class="item.ANTIGUEDAD_TXT ? 'text-indigo-600 font-medium' : 'text-gray-400'"
+                :title="item.ANTIGUEDAD_DETALLE || undefined">
+                {{ item.ANTIGUEDAD_TXT || '—' }}
+              </td>
+
               <td class="px-2 py-2 text-gray-600">{{ item.CATEGORIA || '—' }}</td>
               <td class="px-2 py-2 text-gray-600 max-w-md" :class="item.SIN_DOCUMENTO ? 'text-gray-500' : ''">
-                {{ item.OBSERVACIONES || '—' }}
+                {{ item.OBSERVACIONES_TXT || '—' }}
               </td>
 
               <td class="px-2 py-2 text-center">
@@ -334,7 +351,7 @@
       <!-- ── Pie ── -->
       <div class="flex flex-wrap items-center justify-between gap-3 px-6 py-3.5 border-t border-gray-100">
         <p class="text-xs text-gray-400">
-          El Excel se genera con los mismos filtros que ves en pantalla.
+          El Excel se genera con los mismos filtros que ves en pantalla. Antigüedad: cada periodo suma 0,5 año.
         </p>
         <div class="flex items-center gap-3">
           <button
@@ -368,6 +385,8 @@ import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   useReportePrelacionMateria,
+  calcularAntiguedad,
+  formatearAnios,
   CARRERAS,
   PERIODOS,
 } from '../composables/useReportePrelacionMateria'
@@ -450,7 +469,7 @@ const interruptores = computed(() => [
   {
     id: 'sinDoc',
     titulo: 'Incluir docentes sin documento',
-    desc: 'Agrega a quienes dictan la materia pero no tienen documento válido, al final y marcados “SIN PRELACIÓN”.',
+    desc: 'Agrega a quienes dictan la materia pero no tienen documento válido, al final de cada materia.',
     activo: filtros.value.incluirSinDocumento,
     accion: () => { filtros.value.incluirSinDocumento = !filtros.value.incluirSinDocumento },
   },
@@ -469,6 +488,66 @@ const interruptores = computed(() => [
     accion: () => { filtros.value.soloListado = !filtros.value.soloListado },
   },
 ])
+
+// ═══════════════════════════════════════════════════════════════
+// OBSERVACIONES → quitar el texto de antigüedad y "SIN PRELACIÓN"
+//
+// La antigüedad que se muestra sale, en este orden, de:
+//   1) PERIODOS_ANTIGUEDAD del backend  (periodos × 0,5)
+//   2) ANTIGUEDAD del backend           (años ya calculados)
+//   3) respaldo: el texto "Imparte la asignatura N años consecutivos"
+//      de Observaciones (solo si el backend no manda ninguno de los dos)
+//
+// Aunque la antigüedad venga del backend, el texto "Imparte la asignatura…"
+// se quita igual de Observaciones para que no salga duplicado/contradictorio.
+// ═══════════════════════════════════════════════════════════════
+const RE_ANTIGUEDAD = /imparte\s+la\s+asignatura\s+(?:desde\s+hace\s+)?(\d+(?:[.,]\d+)?)\s+años?(?:\s+consecutivos?)?/i
+const RE_ANTIGUEDAD_ETIQUETA = /antig[üu]edad\s*[:\-–]\s*([^|;\n]+)/i
+
+function separarObservaciones(texto) {
+  let resto = String(texto ?? '')
+  let antiguedad = ''
+
+  // 1) "Imparte la asignatura 26 años consecutivos" -> "26"
+  const m = resto.match(RE_ANTIGUEDAD)
+  if (m) {
+    antiguedad = formatearAnios(m[1])
+    resto = resto.replace(m[0], ' ')
+  } else {
+    // 2) Respaldo: "Antigüedad: 12 años" -> "12"
+    const e = resto.match(RE_ANTIGUEDAD_ETIQUETA)
+    if (e) {
+      const num = e[1].match(/\d+(?:[.,]\d+)?/)
+      antiguedad = num ? formatearAnios(num[0]) : e[1].trim()
+      resto = resto.replace(e[0], ' ')
+    }
+  }
+
+  // 3) Quita "SIN PRELACIÓN" (con o sin paréntesis/comillas)
+  resto = resto.replace(/[“"(]?\s*SIN\s+PRELACI[OÓ]N\s*[”")]?/gi, ' ')
+
+  // 4) Limpia fragmentos vacíos o con signos sueltos
+  const observaciones = resto
+    .split(/[|;\n]+/)
+    .map(p => p.replace(/\s{2,}/g, ' ').replace(/^[\s,.\-–·]+|[\s,.\-–·]+$/g, ''))
+    .filter(Boolean)
+    .join(' · ')
+
+  return { antiguedad, observaciones }
+}
+
+const filasVista = computed(() =>
+  (data.value || []).map(item => {
+    const { antiguedad: antiguedadTexto, observaciones } = separarObservaciones(item.OBSERVACIONES)
+    const { texto, detalle } = calcularAntiguedad(item, antiguedadTexto)
+    return {
+      ...item,
+      ANTIGUEDAD_TXT: texto,
+      ANTIGUEDAD_DETALLE: detalle,
+      OBSERVACIONES_TXT: observaciones,
+    }
+  })
+)
 
 // ═══════════════════════════════════════════════════════════════
 // CONSULTA AUTOMÁTICA (con espera para no consultar en cada tecla)
