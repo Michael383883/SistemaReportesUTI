@@ -586,8 +586,8 @@ class ReporteExcelController extends Controller
             'categoria' => 'CATEGORIA',
             'totch' => 'T. CH',
             'fotocopia' => 'FOTOCOPIA TITULAR',
-            'obs2' => 'OBS1',
-            'obs3' => 'OBS2',
+            'obs2' => 'FACULTAD',
+            'obs3' => 'CAT-DIP',
         ];
         if ($mostrarAntiguedad) {
             $headers['antig'] = 'ANTIGÜEDAD';

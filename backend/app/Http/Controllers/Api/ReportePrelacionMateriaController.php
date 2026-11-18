@@ -41,6 +41,12 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
  *     para ver qué materias del periodo quedaron descartadas y ajustar el listado.
  *
  * Compatible con bases SQL Server con nivel de compatibilidad 90 (sin TRY_CAST).
+ *
+ * NOTA SOBRE TIPOS: las columnas ANIO y PERIODO de GRUPOS pueden ser varchar y traer
+ * valores no numéricos (ej. 'NC'). Por eso:
+ *   - PERIODO se compara SIEMPRE contra strings ('1', '2'), nunca con enteros ni con <=.
+ *   - ANIO se compara por igualdad contra string, y para '<' se usa un CASE que solo
+ *     castea a INT cuando el valor es puramente numérico (ver sqlAnioNumerico()).
  */
 class ReportePrelacionMateriaController extends Controller
 {
@@ -65,6 +71,9 @@ class ReportePrelacionMateriaController extends Controller
     ];
     private const TIER_DOC_DESCONOCIDO = 4;
     private const TIER_SIN_DOCUMENTO = 9;
+    // Solo los periodos 1 y 2 (semestres) cuentan para la antigüedad. Cada uno vale 0,5 año.
+    private const PERIODOS_CUENTAN = [1, 2];
+
 
     private const ETIQUETAS_TIPO = [
         'TITULARIDAD_HISTORICA' => 'Titularidad Histórica',
@@ -497,12 +506,7 @@ class ReportePrelacionMateriaController extends Controller
         $filasDoc = DB::table('CLASIFICACION_MATERIA as cm')
             ->join('CLASIFICACION_DOCENTE as ccd', 'ccd.ID_CLASIFICACION_DOCENTE', '=', 'cm.ID_CLASIFICACION_DOCENTE')
             ->join('CLASIFICACION_DOCUMENTO as cdoc', 'cdoc.ID_DOCUMENTO', '=', 'ccd.ID_DOCUMENTO')
-            ->whereRaw(
-                "(CASE WHEN LTRIM(RTRIM(CAST(cdoc.GESTION AS VARCHAR(20)))) NOT LIKE '%[^0-9]%' "
-                . "AND LEN(LTRIM(RTRIM(CAST(cdoc.GESTION AS VARCHAR(20))))) BETWEEN 1 AND 4 "
-                . "THEN CAST(LTRIM(RTRIM(CAST(cdoc.GESTION AS VARCHAR(20)))) AS INT) ELSE NULL END) <= ?",
-                [$anio]
-            )
+            ->whereRaw($this->sqlAnioNumerico('cdoc.GESTION') . ' <= ?', [$anio])
             ->whereIn(
                 'ccd.COD_DOCENTE',
                 $this->gruposActivos('ga', $anio, $periodo)->select('ga.DOCENTE')
@@ -583,8 +587,25 @@ class ReportePrelacionMateriaController extends Controller
             }
         }
 
-        // ── 4) Historial en GRUPOS -> años consecutivos regentando la materia ──
-        $aniosPor = []; // key => cod => [anio => true]
+        // ── 4) Historial en GRUPOS ──
+        // Cuenta hasta (anio, periodo) consultado, inclusive, y solo periodos 1 y 2.
+        //  - $aniosPor    -> años distintos (solo para el desempate de orden: 'consecutivos')
+        //  - $periodosPor -> periodos distintos "2024-1", "2024-2"... (antigüedad: × 0,5)
+        //
+        // IMPORTANTE: ANIO y PERIODO pueden ser varchar con valores como 'NC'. Para evitar
+        // "Error de conversión ... 'NC' al tipo int":
+        //   - PERIODO se compara solo contra strings ('1', '2').
+        //   - ANIO < $anio se evalúa con un CASE que castea únicamente valores 100% numéricos.
+        //   - ANIO = $anio se compara como string.
+        $aniosPor = [];     // key => cod => [anio => true]
+        $periodosPor = [];  // key => cod => ["anio-periodo" => true]
+
+        $periodosCuentan = array_map('strval', self::PERIODOS_CUENTAN);                 // ['1','2']
+        $periodosHasta = array_values(array_map('strval', array_filter(
+            self::PERIODOS_CUENTAN,
+            fn($p) => $p <= $periodo
+        )));                                                                            // periodo=1 → ['1']; periodo>=2 → ['1','2']
+
         $hist = DB::table('GRUPOS as g')
             ->join('MATERIAS as m', function ($j) {
                 $j->on('m.ANIO', '=', 'g.ANIO')
@@ -595,15 +616,24 @@ class ReportePrelacionMateriaController extends Controller
             ->whereIn('g.PLAN', $this->planesValidos())
             ->where('g.TIPO', 'N')
             ->where('g.PRIMARIO', 'Y')
-            ->where('g.ANIO', '<=', $anio)
+            ->whereIn('g.PERIODO', $periodosCuentan)
+            ->where(function ($q) use ($anio, $periodosHasta) {
+                $q->whereRaw($this->sqlAnioNumerico('g.ANIO') . ' < ?', [$anio])
+                    ->orWhere(function ($q2) use ($anio, $periodosHasta) {
+                        $q2->where('g.ANIO', (string) $anio)
+                            ->whereIn('g.PERIODO', !empty($periodosHasta) ? $periodosHasta : ['__ninguno__']);
+                    });
+            })
             ->whereIn('g.DOCENTE', $this->gruposActivos('gb', $anio, $periodo)->select('gb.DOCENTE'))
             ->distinct()
-            ->get(['g.ANIO as anio', 'g.DOCENTE as docente', 'm.NOMBRE as nombre']);
+            ->get(['g.ANIO as anio', 'g.PERIODO as periodo', 'g.DOCENTE as docente', 'm.NOMBRE as nombre']);
 
         foreach ($hist as $h) {
             $k = $this->clave($h->nombre);
             if (isset($materias[$k])) {
-                $aniosPor[$k][(string) $h->docente][(int) $h->anio] = true;
+                $codH = (string) $h->docente;
+                $aniosPor[$k][$codH][(int) $h->anio] = true;
+                $periodosPor[$k][$codH][((int) $h->anio) . '-' . ((int) $h->periodo)] = true;
             }
         }
 
@@ -619,6 +649,7 @@ class ReportePrelacionMateriaController extends Controller
 
             foreach ($lista as $cod => &$c) {
                 [$c['consecutivos'], $c['ultimo_anio']] = $this->consecutivos($aniosPor[$key][$cod] ?? []);
+                $c['periodos_ant'] = count($periodosPor[$key][$cod] ?? []);
                 $c['tiene_documento'] = true;
                 $c['otros_documentos'] = max(0, ($totalDocs["$key|$cod"] ?? 1) - 1);
             }
@@ -638,8 +669,9 @@ class ReportePrelacionMateriaController extends Controller
                     if ($g['designacion'] !== '') {
                         $partes[] = $g['designacion'];
                     }
+                    // La antigüedad ya no va en el texto: sale en su columna (PERIODOS_ANTIGUEDAD).
                     $partes[] = $cons > 0
-                        ? "Imparte la asignatura {$cons} " . ($cons === 1 ? 'año' : 'años') . ' consecutivos, SIN PRELACIÓN'
+                        ? 'SIN PRELACIÓN'
                         : 'Sin documento de clasificación, SIN PRELACIÓN';
 
                     $lista[$cod] = [
@@ -654,6 +686,7 @@ class ReportePrelacionMateriaController extends Controller
                         'nombre_archivo' => null,
                         'consecutivos' => $cons,
                         'ultimo_anio' => $ultimo,
+                        'periodos_ant' => count($periodosPor[$key][$cod] ?? []),
                         'tiene_documento' => false,
                         'otros_documentos' => 0,
                     ];
@@ -699,6 +732,8 @@ class ReportePrelacionMateriaController extends Controller
                     'OBSERVACIONES' => $c['observaciones'],
                     'ANIOS_CONSECUTIVOS' => $c['consecutivos'],
                     'ULTIMO_ANIO_REGENTADO' => $c['ultimo_anio'],
+                    // Nº de periodos (1 y 2) en que dictó la materia. El front hace × 0,5.
+                    'PERIODOS_ANTIGUEDAD' => ($c['periodos_ant'] ?? 0) ?: null,
                     'DOCENTE_DICTA_ESTA_MATERIA' => isset($mat['actuales'][$c['cod']]),
                     'SIN_DOCUMENTO' => !$c['tiene_documento'],
                     'OTROS_DOCUMENTOS' => $c['otros_documentos'],
@@ -737,6 +772,19 @@ class ReportePrelacionMateriaController extends Controller
         return array_map('strval', array_keys(self::PLANES));
     }
 
+    /**
+     * Expresión SQL que convierte una columna a INT solo si contiene únicamente dígitos
+     * (1 a 4 caracteres); en cualquier otro caso devuelve NULL (y NULL < x es falso).
+     * Compatible con nivel de compatibilidad 90 (sin TRY_CAST) y segura frente a valores como 'NC'.
+     */
+    private function sqlAnioNumerico(string $columna): string
+    {
+        $v = "LTRIM(RTRIM(CAST({$columna} AS VARCHAR(20))))";
+
+        return "(CASE WHEN {$v} NOT LIKE '%[^0-9]%' AND LEN({$v}) BETWEEN 1 AND 4 "
+            . "THEN CAST({$v} AS INT) ELSE NULL END)";
+    }
+
     // Normalización para comparar contra MATERIAS_PERMITIDAS: clave() + abreviaturas + romanos mal OCR ("ll" -> "II").
     private function claveFiltro(?string $texto): string
     {
@@ -767,11 +815,12 @@ class ReportePrelacionMateriaController extends Controller
     }
 
     // Grupos activos del periodo (misma regla que obtenerDocentesActivos()).
+    // ANIO y PERIODO se comparan como string: las columnas pueden ser varchar con valores como 'NC'.
     private function gruposActivos(string $alias, int $anio, int $periodo)
     {
         return DB::table("GRUPOS as {$alias}")
-            ->where("{$alias}.ANIO", $anio)
-            ->where("{$alias}.PERIODO", $periodo)
+            ->where("{$alias}.ANIO", (string) $anio)
+            ->where("{$alias}.PERIODO", (string) $periodo)
             ->whereIn("{$alias}.PLAN", $this->planesValidos())
             ->where("{$alias}.TIPO", 'N')
             ->where("{$alias}.PRIMARIO", 'Y');
@@ -949,4 +998,3 @@ class ReportePrelacionMateriaController extends Controller
         ])->deleteFileAfterSend(true);
     }
 }
-
